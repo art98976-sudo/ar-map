@@ -141,6 +141,11 @@ function startGps(){
 }
 function updateGpsPill(){
   if(S.mode!=='live') return;
+  const requestBtn=$('gpsPermissionBtn');
+  requestBtn.style.display=S.gotFix?'none':'block';
+  requestBtn.textContent=S.gpsErr===1?'📍 Retry GPS':'📍 Enable GPS';
+  requestBtn.title=S.gpsErr===1?'Location is blocked. Allow location for this site in browser settings, then tap to retry.':'Tap to request location permission and start GPS.';
+  requestBtn.setAttribute('aria-label',requestBtn.title);
   const pill=$('modePill'), a=S.accuracy, raw=S.rawAcc;
   pill.classList.remove('gps-good','gps-ok','gps-poor','gps-none');
   if(S.gpsErr===1){ $('modeTxt').textContent='LIVE · location blocked'; pill.classList.add('gps-none'); return; }
@@ -298,7 +303,13 @@ $('gpsBtn').onclick=()=>{
   if(S.mode==='demo'){ goLive(); return; }
   S.follow=true;
   if(S.gotFix && MAPV) MAPV.setView(S.view,17.5);
-  else toast('Waiting for your GPS position. Go outside for a clearer signal.',4500);
+  else { startGps(); toast('Allow location in the browser prompt to start GPS.',4500); }
+};
+$('gpsPermissionBtn').onclick=()=>{
+  if(S.gpsErr===1) toast('Location is blocked. Enable Location for this site in browser settings, then tap Retry GPS.',7000);
+  S.gpsErr=null; S.firstTry=0; lastWeakFix=null;
+  if(weakGpsTimer!=null){ clearTimeout(weakGpsTimer); weakGpsTimer=null; }
+  startGps(); updateGpsPill();
 };
 $('arChooseBtn').onclick=()=>{
   switchTab('mapView');

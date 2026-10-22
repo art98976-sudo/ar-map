@@ -4,7 +4,7 @@ A working concept prototype of an augmented-reality campus map for the Universit
 It is a plain static website, so there is nothing to install and it runs on any modern phone or laptop.
 
 **Mobile live AR link:** <https://art98976-sudo.github.io/ar-map/?live&tab=ar&nav=library>
-Open the link on your phone, allow location and camera access, and the route to the Library starts when GPS fixes your position.
+Open the link on your phone and allow camera access. Live AR requests GPS automatically; if the location prompt does not appear, tap **Enable GPS** on the AR screen. If location was previously blocked, enable it for this site in your browser settings, then tap **Retry GPS**. The Library route starts after GPS gets a position fix.
 
 > Student concept prototype. Not an official University of Stirling product.
 > Campus map, indoor floors and official routes come from the University's MazeMap campus map (campus 2058).
