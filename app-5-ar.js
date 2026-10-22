@@ -55,7 +55,7 @@ function renderAR(now){
     + (S.mode!=='live' ? ' · demo' : (S.gotFix ? ` · GPS ±${Math.round(S.accuracy||0)} m` : ' · finding GPS…')
        + (S.headingSrc==='compass' ? ' · compass ✓' : S.headingSrc==='gps' ? ' · heading from GPS' : ' · no compass'));
   $('liveBtn').style.display = S.mode==='demo' && !S.route ? 'block' : 'none';
-  $('arChooseBtn').style.display = S.route ? 'none' : 'block';
+  $('arChooseBtn').style.display = (S.route || S.pendingNav) ? 'none' : 'block';
   drawRadar(here, items);
   drawGround(c,now);
   // direction arrow: points at the path about 10 m ahead, so it shows where to walk right now
