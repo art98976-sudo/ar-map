@@ -82,6 +82,7 @@ function onStep(){
 
 /* ---------- GPS ---------- */
 let gpsWatch=null;
+let weakGpsTimer=null, lastWeakFix=null;
 function onFix(p){
   const c=p.coords, now=performance.now();
   S.gpsErr=null; S.rawAcc=c.accuracy;
@@ -91,10 +92,20 @@ function onFix(p){
   if(!S.gotFix){
     S.firstTry=S.firstTry||now;
     if(c.accuracy>60 && now-S.firstTry<20000){
+      lastWeakFix=p;
+      if(weakGpsTimer==null){
+        weakGpsTimer=setTimeout(()=>{
+          weakGpsTimer=null;
+          const fallback=lastWeakFix; lastWeakFix=null;
+          if(!S.gotFix && fallback) onFix(fallback);
+        },Math.max(0,20000-(now-S.firstTry)));
+      }
       S.rawAcc=c.accuracy; S.pos={lat:c.latitude,lng:c.longitude}; S.accuracy=c.accuracy;
       if(MAPV){ MAPV.setMe(S.pos); MAPV.setAccuracy(S.pos,Math.min(c.accuracy,500)); }
       updateGpsPill(); return;
     }
+    if(weakGpsTimer!=null){ clearTimeout(weakGpsTimer); weakGpsTimer=null; }
+    lastWeakFix=null;
     TRACK.reset();
   }
   const still = S.hasMotion && now-S.lastStep>3000;
@@ -112,6 +123,8 @@ function onFix(p){
 function onGpsError(e){
   S.gpsErr=e.code;
   if(e.code===1){
+    if(weakGpsTimer!=null){ clearTimeout(weakGpsTimer); weakGpsTimer=null; }
+    lastWeakFix=null;
     toast('Location is blocked. Allow location for this site in your browser settings, then reload.',8000);
     if(S.pendingNav){ $('navName').textContent='Allow location access'; $('navInfo').textContent='Enable location for this site in your browser, then reload to start the route to '+S.pendingNav.name+'.'; }
   } else if(!S.gotFix){
