@@ -128,7 +128,10 @@ function updateProgress(fromSim){
   // show you on the path when you are within GPS error of it (like car sat-navs), so the map and AR stay steady
   // Let the marker and AR lane meet when the measured GPS error covers the route,
   // while keeping the correction small enough to avoid snapping to a nearby path.
-  const snapR = S.mode==='live' ? Math.max(10, Math.min(30, gpsAcc*0.75)) : Infinity;
+  // A weak fix can be tens of metres from MazeMap's route start even while it is
+  // inside the reported GPS uncertainty. Snap within that uncertainty so the AR
+  // ground chevrons begin at the viewer instead of being projected off-screen.
+  const snapR = S.mode==='live' ? Math.max(10, Math.min(60, gpsAcc*0.75)) : Infinity;
   S.view = (fromSim || S.off<=snapR) ? r.pointAt(S.along) : S.pos;
   MAPV.drawRoute(routeParts(r,S.along));
   const fl = r.floorAt ? r.floorAt(S.along+0.5) : null;
