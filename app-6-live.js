@@ -123,10 +123,14 @@ function onFix(p){
 function onGpsError(e){
   S.gpsErr=e.code;
   if(e.code===1){
+    // A revoked permission invalidates the previous fix too. Keep the last map position,
+    // but expose the retry control and mark the GPS dot as stale until a new fix arrives.
+    S.gotFix=false; S.rawAcc=null; S.accuracy=null; S.firstTry=0; TRACK.reset(); $('app').classList.add('nofix');
+    if(MAPV) MAPV.setAccuracy(S.pos,0);
     if(weakGpsTimer!=null){ clearTimeout(weakGpsTimer); weakGpsTimer=null; }
     lastWeakFix=null;
-    toast('Location is blocked. Allow location for this site in your browser settings, then reload.',8000);
-    if(S.pendingNav){ $('navName').textContent='Allow location access'; $('navInfo').textContent='Enable location for this site in your browser, then reload to start the route to '+S.pendingNav.name+'.'; }
+    toast('Location permission is blocked. Allow it for this site in your browser settings, then tap Retry GPS.',8000);
+    if(S.pendingNav){ $('navName').textContent='Allow location access'; $('navInfo').textContent='Enable Location for this site in your browser settings, then tap Retry GPS to start the route to '+S.pendingNav.name+'.'; }
   } else if(!S.gotFix){
     toast(e.code===3 ? 'Still looking for GPS… go outside and keep the phone still for a moment.' : 'GPS is unavailable right now. Trying again…',5000);
   }
