@@ -196,7 +196,7 @@ function updateGpsPill(){
   requestBtn.setAttribute('aria-label',requestBtn.title);
   const pill=$('modePill'), a=S.accuracy, raw=S.rawAcc;
   pill.classList.remove('gps-good','gps-ok','gps-poor','gps-none');
-  if(S.gpsErr===1){ $('modeTxt').textContent=blocked?'LIVE · location blocked':'LIVE · location off'; pill.classList.add('gps-none'); return; }
+  if(S.gpsErr===1){ $('modeTxt').textContent=blocked?'GPS blocked':'GPS off'; pill.classList.add('gps-none'); return; }
   if(!S.gotFix){ $('modeTxt').textContent = raw ? `LIVE · weak GPS ±${Math.round(raw)} m` : 'LIVE · finding GPS…'; pill.classList.add('gps-none'); return; }
   const shown=Math.round(Math.max(a||0, Math.min(raw||a, a*2)));
   $('modeTxt').textContent=`LIVE · ±${shown} m`;
@@ -362,6 +362,40 @@ $('gpsPermissionBtn').onclick=()=>{
   startGps(); updateGpsPill();
   toast('Requesting GPS. Allow location if your browser asks.',4500);
 };
+// Start screen: ask for location on its own, so the user can sort out the permission before starting AR
+function locationHelp(){
+  const ua=navigator.userAgent;
+  if(/iPhone|iPad|iPod/.test(ua)) return 'On iPhone: Settings → Privacy & Security → Location Services → turn it on, then Safari Websites → While Using. In Safari, tap aA → Website Settings → Location → Allow. Then tap the button again.';
+  if(/Android/.test(ua)) return 'On Android: turn on Location in the quick settings, then Settings → Apps → Chrome → Permissions → Location → Allow. In Chrome, tap the icon left of the address → Permissions → Location → Allow. Then tap the button again.';
+  return 'Allow Location for this site in your browser settings (the icon left of the address bar), then tap the button again.';
+}
+function setSplashGps(state,msg){
+  const b=$('splashGpsBtn'); if(!b) return;
+  b.classList.toggle('ok',state==='ok'); b.classList.toggle('bad',state==='bad');
+  b.textContent = state==='ok' ? '✅ Location allowed' : state==='bad' ? '📍 Location blocked · tap to try again' : state==='busy' ? '⏳ Asking for location…' : '📍 Allow location access';
+  $('splashGpsMsg').textContent=msg||'';
+}
+$('splashGpsBtn').onclick=()=>{
+  if(!('geolocation' in navigator)){ setSplashGps('bad','This browser has no location support.'); return; }
+  if(!isSecureContext){ setSplashGps('bad','Location needs the secure https link. Open the GitHub Pages address.'); return; }
+  setSplashGps('busy','Choose “Allow” when your browser asks.');
+  navigator.geolocation.getCurrentPosition(
+    p=>setSplashGps('ok',`Your position was found (±${Math.round(p.coords.accuracy)} m). Now tap Start AR.`),
+    async e=>{
+      if(e.code===1){
+        let st=null; try{ st=(await navigator.permissions.query({name:'geolocation'})).state; }catch(_){}
+        if(st==='prompt') setSplashGps('','The prompt was closed. Tap the button again and choose Allow.');
+        else setSplashGps('bad','Location is blocked. '+locationHelp());
+      } else setSplashGps('ok','Location is allowed, but there is no GPS signal yet. Go outside and tap Start AR.');
+    },
+    {enableHighAccuracy:true,maximumAge:0,timeout:15000});
+};
+// show the current permission straight away when the browser can tell
+try{ navigator.permissions && navigator.permissions.query({name:'geolocation'}).then(st=>{
+  const show=()=>{ if(st.state==='granted') setSplashGps('ok','Location is allowed. Tap Start AR.');
+    else if(st.state==='denied') setSplashGps('bad','Location is blocked. '+locationHelp()); else setSplashGps('',''); };
+  show(); st.addEventListener('change',show);
+}).catch(()=>{}); }catch(e){}
 $('arChooseBtn').onclick=()=>{
   switchTab('mapView');
   $('q').focus();

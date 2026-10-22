@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="app.css?v=2">
 </head>
 <body>
 
@@ -21,6 +21,8 @@
     <button class="btn btn-primary" id="startLive">📷 Start AR to Library (camera + GPS)</button>
     <button class="btn btn-ghost" id="startDemo">▶ Presentation demo (no GPS)</button>
   </div>
+  <button class="btn btn-ghost" id="splashGpsBtn" type="button">📍 Allow location access</button>
+  <div id="splashGpsMsg" role="status" aria-live="polite"></div>
   <div class="feat">
     <span>📍 Live campus map</span><span>📷 Camera AR labels</span><span>🧭 AR wayfinding arrow</span><span>🔎 Search every room</span><span>♿ Built for new students and visitors</span>
   </div>
@@ -89,7 +91,6 @@
       </div>
       <div id="rotateMsg">📱 Hold your phone upright (portrait) for AR</div>
       <div id="arHelp">Drag or use ← → keys to look around.</div>
-      <button id="gpsPermissionBtn" type="button" style="display:none" aria-label="Enable or retry GPS location">📍 Enable GPS</button>
       <button id="arChooseBtn" type="button">Choose a destination to show the ground route</button>
       <div id="navHud">
         <svg id="navArrow" viewBox="0 0 100 100"><path d="M50 6 L86 82 L50 64 L14 82 Z" fill="#f5b301" stroke="#fff" stroke-width="4" stroke-linejoin="round"/></svg>
@@ -102,6 +103,7 @@
       <div id="placeList"></div>
     </section>
   </main>
+  <button id="gpsPermissionBtn" type="button" style="display:none" aria-label="Enable or retry GPS location">📍 Enable GPS</button>
 
   <div id="sheet">
     <div class="grab"></div>
@@ -134,6 +136,6 @@
 <script src="app-3-map.js"></script>
 <script src="app-4-nav.js?v=2"></script>
 <script src="app-5-ar.js?v=5"></script>
-<script src="app-6-live.js?v=8"></script>
+<script src="app-6-live.js?v=9"></script>
 </body>
 </html>

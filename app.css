@@ -22,6 +22,10 @@
   .btn-ghost{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.25)}
   .btn-row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;width:100%;max-width:520px}
   .btn-row .btn{flex:1 1 220px}
+  #splashGpsBtn{margin-top:12px;width:100%;max-width:520px;font-size:15px}
+  #splashGpsBtn.ok{background:rgba(31,138,87,.35);border-color:var(--green-300)}
+  #splashGpsBtn.bad{background:rgba(220,38,38,.25);border-color:#f87171}
+  #splashGpsMsg{max-width:520px;margin-top:8px;font-size:13px;line-height:1.45;color:#cfe9db;min-height:1em}
   #splash .feat{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:28px 0 0;max-width:620px}
   #splash .feat span{font-size:13px;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.08);color:#d7efe2}
   #splash .disc{position:absolute;bottom:calc(14px + var(--safe-b));font-size:12px;color:#8fb8a3;padding:0 16px}
@@ -108,7 +112,7 @@
   #arChooseBtn{position:absolute;left:50%;bottom:calc(112px + var(--safe-b));transform:translateX(-50%);z-index:6;
     max-width:calc(100% - 32px);padding:12px 18px;border-radius:14px;background:var(--accent);color:#111;
     box-shadow:0 6px 20px rgba(0,0,0,.4);font-size:14px;font-weight:800;white-space:nowrap}
-  #gpsPermissionBtn{position:absolute;left:50%;bottom:calc(166px + var(--safe-b));transform:translateX(-50%);z-index:7;
+  #gpsPermissionBtn{position:absolute;left:50%;bottom:calc(166px + var(--safe-b));transform:translateX(-50%);z-index:16;
     max-width:calc(100% - 32px);padding:12px 18px;border:0;border-radius:14px;background:var(--accent);color:#111;
     box-shadow:0 6px 20px rgba(0,0,0,.4);font-size:14px;font-weight:800;white-space:nowrap;touch-action:manipulation}
   #arHelp{position:absolute;left:16px;bottom:calc(96px + var(--safe-b));z-index:5;color:#fff;font-size:12px;background:rgba(0,0,0,.45);padding:8px 10px;border-radius:10px;max-width:220px}
