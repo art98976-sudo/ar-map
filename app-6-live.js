@@ -310,10 +310,12 @@ $('gpsBtn').onclick=()=>{
   else { startGps(); toast('Allow location in the browser prompt to start GPS.',4500); }
 };
 $('gpsPermissionBtn').onclick=()=>{
-  if(S.gpsErr===1) toast('Location is blocked. Enable Location for this site in browser settings, then tap Retry GPS.',7000);
+  const retryingBlocked=S.gpsErr===1;
   S.gpsErr=null; S.firstTry=0; lastWeakFix=null;
   if(weakGpsTimer!=null){ clearTimeout(weakGpsTimer); weakGpsTimer=null; }
+  if(retryingBlocked && S.pendingNav){ $('navName').textContent='Waiting for your GPS position…'; $('navInfo').textContent='Requesting a fresh location fix for the route to '+S.pendingNav.name+'.'; }
   startGps(); updateGpsPill();
+  toast('Requesting GPS. Allow location if your browser asks.',4500);
 };
 $('arChooseBtn').onclick=()=>{
   switchTab('mapView');
