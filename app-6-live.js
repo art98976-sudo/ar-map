@@ -103,7 +103,7 @@ function onFix(p){
   if(!S.gotFix){
     S.gotFix=true; $('app').classList.remove('nofix');
     if(dist(S.pos,{lat:CAMPUS_CENTER[0],lng:CAMPUS_CENTER[1]})>3000) toast('You seem to be off campus. Routes and distances will be long.',4500);
-    MAPV.setView(S.pos,17.5);
+    if(MAPV) MAPV.setView(S.pos,17.5);
     if(S.pendingNav){ const p2=S.pendingNav; S.pendingNav=null; onPosChange(); updateGpsPill(); startNav(p2); return; }
     if(S.dest) planRoute();
   }
@@ -113,6 +113,7 @@ function onGpsError(e){
   S.gpsErr=e.code;
   if(e.code===1){
     toast('Location is blocked. Allow location for this site in your browser settings, then reload.',8000);
+    if(S.pendingNav){ $('navName').textContent='Allow location access'; $('navInfo').textContent='Enable location for this site in your browser, then reload to start the route to '+S.pendingNav.name+'.'; }
   } else if(!S.gotFix){
     toast(e.code===3 ? 'Still looking for GPS… go outside and keep the phone still for a moment.' : 'GPS is unavailable right now. Trying again…',5000);
   }
@@ -120,6 +121,7 @@ function onGpsError(e){
 }
 function startGps(){
   if(!('geolocation' in navigator)){ toast('This device has no location support.'); return; }
+  if(!isSecureContext){ S.gpsErr=2; toast('GPS needs the secure https link. Open the GitHub Pages address again.',7000); updateGpsPill(); return; }
   if(gpsWatch!=null) navigator.geolocation.clearWatch(gpsWatch);
   gpsWatch=navigator.geolocation.watchPosition(onFix,e=>{ onGpsError(e); if(e.code!==1) setTimeout(startGps,4000); },
     {enableHighAccuracy:true,maximumAge:0,timeout:20000});
@@ -240,18 +242,25 @@ function setLiveUI(){
 // from the demo straight into real AR: camera, GPS, compass. A route in progress is re-planned from your real position.
 async function goLive(){
   if(S.mode==='live') return;
-  const motionOk=askMotion();
+  askMotion();
   setLiveUI(); setVoice(true);
   S.gotFix=false; S.firstTry=0; TRACK.reset();
   if(S.tab==='ar') startCamera();
-  const dest=S.dest;
+  const dest=S.dest||POIS.find(p=>p.id==='library');
   if(dest){ MAPV.clearRoute(); S.route=null; }
-  await motionOk;
   startSensors();
   if(dest) startNav(dest);
   toast('Real AR is on. Hold the phone upright and follow the arrows on the ground.',4500);
 }
 $('liveBtn').onclick=goLive;
+async function startLiveToLibrary(){
+  const library=POIS.find(p=>p.id==='library');
+  // Start the camera during this tap so mobile browsers can show their permission prompt.
+  const startup=launch('live');
+  switchTab('ar');
+  await startup;
+  if(library) startNav(library);
+}
 async function launch(mode){
   S.mode=mode;
   $('splash').style.display='none';
@@ -259,23 +268,19 @@ async function launch(mode){
   $('modePill').classList.toggle('live',mode==='live');
   $('arHelp').textContent = mode==='live' ? 'Hold your phone upright and turn slowly.' : 'Drag or use ← → keys to look around.';
   setVoice(mode==='live');
-  let motionOk=Promise.resolve();
-  if(mode==='live'){ motionOk=askMotion(); setLiveUI(); }
+  if(mode==='live'){ askMotion(); setLiveUI(); startSensors(); }
   buildLabels();
   const slow=setTimeout(()=>toast('Loading the University campus map…',6000),500);
   await initMap(); clearTimeout(slow); $('toast').classList.remove('show');
   onPosChange();
-  if(mode==='live'){
-    await motionOk;
-    startSensors();
-  } else {
+  if(mode!=='live'){
     $('hint').style.display='block'; setTimeout(()=>$('hint').style.display='none',7000);
     S.spin=true; $('spinToggle').classList.add('on');
   }
   requestAnimationFrame(loop);
 }
 $('startDemo').onclick=()=>launch('demo');
-$('startLive').onclick=()=>launch('live');
+$('startLive').onclick=startLiveToLibrary;
 $('gpsBtn').onclick=()=>{
   if(S.mode==='demo'){ goLive(); return; }
   S.follow=true;
@@ -292,8 +297,16 @@ $('recenter').onclick=()=>{ S.follow=true; MAPV && MAPV.setView(S.view,17.5); };
 // Presenter shortcuts, e.g. index.html?demo&tab=ar&nav=library
 (async function(){
   const u=new URLSearchParams(location.search);
-  if(!u.has('demo')) return;
-  await launch('demo');
-  if(u.get('tab')) switchTab(u.get('tab'));
-  const nav=POIS.find(p=>p.id===u.get('nav')); if(nav) startNav(nav);
+  if(u.has('demo')){
+    await launch('demo');
+    if(u.get('tab')) switchTab(u.get('tab'));
+    const nav=POIS.find(p=>p.id===u.get('nav')); if(nav) startNav(nav);
+    return;
+  }
+  if(u.has('live')){
+    await launch('live');
+    switchTab(u.get('tab')||'ar');
+    const nav=POIS.find(p=>p.id===u.get('nav'))||POIS.find(p=>p.id==='library');
+    if(nav) startNav(nav);
+  }
 })();

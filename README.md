@@ -3,7 +3,8 @@
 A working concept prototype of an augmented-reality campus map for the University of Stirling.
 It is a plain static website, so there is nothing to install and it runs on any modern phone or laptop.
 
-**Live link:** GitHub Pages (the permanent URL will be added after the first deployment).
+**Mobile live AR link:** <https://art98976-sudo.github.io/ar-map/?live&tab=ar&nav=library>
+Open the link on your phone, allow location and camera access, and the route to the Library starts when GPS fixes your position.
 
 > Student concept prototype. Not an official University of Stirling product.
 > Campus map, indoor floors and official routes come from the University's MazeMap campus map (campus 2058).
@@ -66,9 +67,9 @@ Place ids for `nav=`: cottrell, logie, amb, library, atriumfood, union, pathfoot
 
 ## Running live AR on a phone (on campus)
 
-Phones only allow camera, GPS and compass on **HTTPS** pages. After the first GitHub Pages deployment, open its HTTPS URL on your phone.
+Phones only allow camera, GPS and compass on **HTTPS** pages. Open the mobile live AR link above on your phone.
 
-Open the link on your phone, tap **Live AR (on campus)**, allow camera, location and motion access, and hold the phone upright.
+Allow camera and location when prompted, and hold the phone upright. The page starts a Library route automatically; the ground arrows appear after the first usable GPS fix. If the browser blocks location, enable it for this site in browser settings and reload.
 iPhone users must use Safari for the compass permission prompt.
 
 Tips for the best accuracy:

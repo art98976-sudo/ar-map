@@ -89,7 +89,9 @@ function drawGround(c,now){
   const shape=[[0,1.05],[0.75,0.05],[0.38,0.05],[0,-0.55],[-0.38,0.05],[-0.75,0.05]];
   for(let d=S.along+4;d<end;d+=gap){
     const fr=frame(d),pts=shape.map(([side,ahead])=>ground(fr,side*width,ahead*width));
-    if(pts.some(p=>!p) || pts.some(p=>p[1]<c.H*0.52 || p[1]>c.H*0.9)) continue;
+    // Project each chevron onto the actual ground plane. Keep it whenever it is on
+    // screen; the old lower-screen band hid every arrow when the phone tilted down.
+    if(pts.some(p=>!p) || pts.some(p=>p[0]<-24 || p[0]>c.W+24 || p[1]<-24 || p[1]>c.H+24)) continue;
     const alpha=Math.max(0.4,1-(d-S.along)/28);
     g.beginPath(); pts.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1])); g.closePath();
     g.save(); g.shadowColor='rgba(0,0,0,.55)'; g.shadowBlur=3; g.shadowOffsetY=2;
