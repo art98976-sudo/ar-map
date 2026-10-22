@@ -83,7 +83,17 @@ function onStep(){
 /* ---------- GPS ---------- */
 let gpsWatch=null;
 let weakGpsTimer=null, lastWeakFix=null;
+// Phones can only show one permission prompt at a time. When camera and location are asked for
+// together, some browsers silently dismiss one of them, which then looks like "location blocked".
+// So the camera waits until the location question has been answered (or 15 s have passed).
+let gpsAnswerWaiters=[];
+function gpsAnswered(){ gpsAnswerWaiters.splice(0).forEach(f=>f()); }
+function waitForGpsAnswer(ms=15000){
+  if(S.mode!=='live' || S.gotFix || S.gpsErr!=null || gpsPerm==='granted' || gpsPerm==='denied') return Promise.resolve();
+  return new Promise(r=>{ gpsAnswerWaiters.push(r); setTimeout(r,ms); });
+}
 function onFix(p){
+  gpsAnswered();
   const c=p.coords, now=performance.now();
   S.gpsErr=null; S.rawAcc=c.accuracy;
   if(c.speed!=null && c.speed>0.8 && c.heading!=null && !isNaN(c.heading) && c.accuracy<30){ S.gpsCourse=c.heading; S.gpsCourseT=now; }
@@ -121,6 +131,7 @@ function onFix(p){
   onPosChange(); updateGpsPill();
 }
 function onGpsError(e){
+  gpsAnswered();
   S.gpsErr=e.code;
   if(e.code===1){
     // A revoked permission invalidates the previous fix too. Keep the last map position,
@@ -129,30 +140,63 @@ function onGpsError(e){
     if(MAPV) MAPV.setAccuracy(S.pos,0);
     if(weakGpsTimer!=null){ clearTimeout(weakGpsTimer); weakGpsTimer=null; }
     lastWeakFix=null;
-    toast('Location permission is blocked. Allow it for this site in your browser settings, then tap Retry GPS.',8000);
-    if(S.pendingNav){ $('navName').textContent='Allow location access'; $('navInfo').textContent='Enable Location for this site in your browser settings, then tap Retry GPS to start the route to '+S.pendingNav.name+'.'; }
+    // A dismissed prompt also reports "denied", but the browser will ask again. Only a real block needs settings.
+    S.gpsBlocked = gpsPerm!=='prompt';
+    if(S.gpsBlocked){
+      toast('Location is blocked. Check that phone Location is on and your browser may use it, allow Location for this site, then tap Retry GPS.',9000);
+      if(S.pendingNav){ $('navName').textContent='Allow location access'; $('navInfo').textContent='Enable Location for this site in your browser settings, then tap Retry GPS to start the route to '+S.pendingNav.name+'.'; }
+    } else {
+      toast('Location was not allowed. Tap Enable GPS and choose Allow.',6000);
+      if(S.pendingNav){ $('navName').textContent='Allow location access'; $('navInfo').textContent='Tap Enable GPS and choose Allow to start the route to '+S.pendingNav.name+'.'; }
+    }
   } else if(!S.gotFix){
     toast(e.code===3 ? 'Still looking for GPS… go outside and keep the phone still for a moment.' : 'GPS is unavailable right now. Trying again…',5000);
   }
   updateGpsPill();
 }
+let gpsRetryTimer=null, gpsPerm=null, gpsPermWatched=false;
 function startGps(){
   if(!('geolocation' in navigator)){ toast('This device has no location support.'); return; }
   if(!isSecureContext){ S.gpsErr=2; toast('GPS needs the secure https link. Open the GitHub Pages address again.',7000); updateGpsPill(); return; }
+  if(gpsRetryTimer!=null){ clearTimeout(gpsRetryTimer); gpsRetryTimer=null; }
   if(gpsWatch!=null) navigator.geolocation.clearWatch(gpsWatch);
-  gpsWatch=navigator.geolocation.watchPosition(onFix,e=>{ onGpsError(e); if(e.code!==1) setTimeout(startGps,4000); },
+  gpsWatch=navigator.geolocation.watchPosition(onFix,e=>{
+      onGpsError(e);
+      // one pending retry at a time; a blocked permission waits for the user (or the permission change below)
+      if(e.code!==1 && gpsRetryTimer==null) gpsRetryTimer=setTimeout(()=>{ gpsRetryTimer=null; startGps(); },4000);
+    },
     {enableHighAccuracy:true,maximumAge:0,timeout:20000});
+}
+// Follow the location permission itself. When the user allows location in the browser or system
+// settings, GPS restarts on its own, without having to find the Retry button.
+function watchGpsPermission(){
+  if(gpsPermWatched || !navigator.permissions || !navigator.permissions.query) return;
+  gpsPermWatched=true;
+  navigator.permissions.query({name:'geolocation'}).then(st=>{
+    gpsPerm=st.state; if(st.state!=='prompt') gpsAnswered();
+    st.onchange=()=>{
+      gpsPerm=st.state; if(st.state!=='prompt') gpsAnswered();
+      if(S.mode!=='live') return;
+      if(st.state==='granted' && !S.gotFix){
+        S.gpsErr=null; S.gpsBlocked=false; S.firstTry=0; startGps();
+        if(S.pendingNav){ $('navName').textContent='Waiting for your GPS position…'; $('navInfo').textContent='Route to '+S.pendingNav.name+' starts when GPS is found.'; }
+        toast('Location allowed. Finding your position…',4000);
+      } else if(st.state==='denied' && S.gpsErr!==1) onGpsError({code:1});
+      updateGpsPill();
+    };
+  }).catch(()=>{ gpsPermWatched=false; });
 }
 function updateGpsPill(){
   if(S.mode!=='live') return;
   const requestBtn=$('gpsPermissionBtn');
   requestBtn.style.display=S.gotFix?'none':'block';
-  requestBtn.textContent=S.gpsErr===1?'📍 Retry GPS':'📍 Enable GPS';
-  requestBtn.title=S.gpsErr===1?'Location is blocked. Allow location for this site in browser settings, then tap to retry.':'Tap to request location permission and start GPS.';
+  const blocked=S.gpsErr===1 && S.gpsBlocked!==false;
+  requestBtn.textContent=blocked?'📍 Retry GPS':'📍 Enable GPS';
+  requestBtn.title=blocked?'Location is blocked. Allow location for this site in browser settings, then tap to retry.':'Tap to request location permission and start GPS.';
   requestBtn.setAttribute('aria-label',requestBtn.title);
   const pill=$('modePill'), a=S.accuracy, raw=S.rawAcc;
   pill.classList.remove('gps-good','gps-ok','gps-poor','gps-none');
-  if(S.gpsErr===1){ $('modeTxt').textContent='LIVE · location blocked'; pill.classList.add('gps-none'); return; }
+  if(S.gpsErr===1){ $('modeTxt').textContent=blocked?'LIVE · location blocked':'LIVE · location off'; pill.classList.add('gps-none'); return; }
   if(!S.gotFix){ $('modeTxt').textContent = raw ? `LIVE · weak GPS ±${Math.round(raw)} m` : 'LIVE · finding GPS…'; pill.classList.add('gps-none'); return; }
   const shown=Math.round(Math.max(a||0, Math.min(raw||a, a*2)));
   $('modeTxt').textContent=`LIVE · ±${shown} m`;
@@ -197,6 +241,7 @@ document.addEventListener('visibilitychange',()=>{ if(S.mode==='live' && documen
 
 function startSensors(){
   $('app').classList.add('nofix'); updateGpsPill();
+  watchGpsPermission();
   startGps();
   if('ondeviceorientationabsolute' in window) window.addEventListener('deviceorientationabsolute',onOrientation,true);
   window.addEventListener('deviceorientation',e=>{ if(typeof e.webkitCompassHeading==='number' || e.absolute===true || !('ondeviceorientationabsolute' in window)) onOrientation(e); },true);
@@ -311,7 +356,7 @@ $('gpsBtn').onclick=()=>{
 };
 $('gpsPermissionBtn').onclick=()=>{
   const retryingBlocked=S.gpsErr===1;
-  S.gpsErr=null; S.firstTry=0; lastWeakFix=null;
+  S.gpsErr=null; S.gpsBlocked=false; S.firstTry=0; lastWeakFix=null;
   if(weakGpsTimer!=null){ clearTimeout(weakGpsTimer); weakGpsTimer=null; }
   if(retryingBlocked && S.pendingNav){ $('navName').textContent='Waiting for your GPS position…'; $('navInfo').textContent='Requesting a fresh location fix for the route to '+S.pendingNav.name+'.'; }
   startGps(); updateGpsPill();

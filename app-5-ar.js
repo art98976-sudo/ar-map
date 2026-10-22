@@ -84,19 +84,36 @@ function drawGround(c,now){
   const frame=d=>{ const a=r.pointXY(d),b=r.pointXY(d-0.6),e=r.pointXY(d+0.6); let tx=e[0]-b[0],ty=e[1]-b[1]; const L=Math.hypot(tx,ty)||1; return {x:a[0],y:a[1],tx:tx/L,ty:ty/L}; };
   const ground=(fr,side,ahead)=>{ const x=fr.x+fr.tx*ahead+fr.ty*side,y=fr.y+fr.ty*ahead-fr.tx*side,q=local(x,y); return project(c,q[0],q[1],0); };
   // Keep cues near the walker so they remain visibly attached to the ground in the camera view.
+  // Start just ahead of the feet: when the phone tilts down, the screen only shows the first few metres.
   const end=Math.min(r.total,S.along+22), width=S.camOn?0.72:0.9;
   const gap=2.5;
   const shape=[[0,1.05],[0.75,0.05],[0.38,0.05],[0,-0.55],[-0.38,0.05],[-0.75,0.05]];
-  for(let d=S.along+4;d<end;d+=gap){
-    const fr=frame(d),pts=shape.map(([side,ahead])=>ground(fr,side*width,ahead*width));
-    // Project each chevron onto the actual ground plane. Keep it whenever it is on
-    // screen; the old lower-screen band hid every arrow when the phone tilted down.
-    if(pts.some(p=>!p) || pts.some(p=>p[0]<-24 || p[0]>c.W+24 || p[1]<-24 || p[1]>c.H+24)) continue;
-    const alpha=Math.max(0.4,1-(d-S.along)/28);
+  const onScreen=p=>p[0]>=-24 && p[0]<=c.W+24 && p[1]>=-24 && p[1]<=c.H+24;
+  const paint=(pts,alpha)=>{
     g.beginPath(); pts.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1])); g.closePath();
     g.save(); g.shadowColor='rgba(0,0,0,.55)'; g.shadowBlur=3; g.shadowOffsetY=2;
     g.fillStyle=`rgba(255,190,0,${alpha})`; g.fill(); g.restore();
     g.lineWidth=2; g.strokeStyle=`rgba(255,255,255,${alpha})`; g.stroke();
+  };
+  let drawn=0;
+  for(let d=S.along+1.2;d<end;d+=gap){
+    const fr=frame(d),pts=shape.map(([side,ahead])=>ground(fr,side*width,ahead*width));
+    // Project each chevron onto the ground plane. Draw it when any part is on screen
+    // (the canvas clips the rest), so arrows do not pop out at the screen edges.
+    if(pts.some(p=>!p) || !pts.some(onScreen)) continue;
+    paint(pts,Math.max(0.4,1-(d-S.along)/28)); drawn++;
+  }
+  // The route is behind, beside or far from you (weak GPS): put one chevron on the ground
+  // where the camera is looking, turned toward the route, so there is always a cue to follow.
+  if(!drawn && !S.arrived){
+    const remain=r.total-S.along, tgt=r.pointXY(remain<12 ? r.total : S.along+Math.min(10,remain));
+    const fwd=Math.max(1.6,Math.min(4,c.sp>0.05 ? CAM_H*c.cp/c.sp : 4));
+    const ox=U[0]+sh*fwd, oy=U[1]+ch*fwd;
+    let tx=tgt[0]-ox, ty=tgt[1]-oy; const L=Math.hypot(tx,ty);
+    if(L>0.5){ tx/=L; ty/=L;
+      const pts=shape.map(([side,ahead])=>ground({x:ox,y:oy,tx,ty},side*0.85,ahead*0.85));
+      if(pts.every(p=>p) && pts.some(onScreen)) paint(pts,0.95);
+    }
   }
 }
 
@@ -165,9 +182,14 @@ $('offRange').oninput=e=>{ S.headingOffset=+e.target.value; saveCalib(); showCal
 $('lensRange').oninput=e=>{ S.lensFov=+e.target.value; saveCalib(); showCalib(); };
 
 let stream=null;
+let cameraStarting=false;
 async function startCamera(){
-  if(S.camOn) return;
+  if(S.camOn || cameraStarting) return;
+  cameraStarting=true;
   try{
+    // ask for location first; the camera prompt follows once that is answered
+    if(typeof waitForGpsAnswer==='function') await waitForGpsAnswer();
+    if(S.camOn) return;
     if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw Object.assign(new Error('no camera API'),{name:'NotSupported'});
     stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});
     const v=$('arVideo'); v.srcObject=stream; v.setAttribute('playsinline',''); v.muted=true;
@@ -178,7 +200,7 @@ async function startCamera(){
     const n=err&&err.name;
     toast(n==='NotAllowedError' ? 'Camera is blocked. Allow camera access for this site in your browser settings.' :
           !isSecureContext ? 'The camera needs a secure (https) link.' : 'Camera unavailable. Showing the simulated campus view.', 5000);
-  }
+  }finally{ cameraStarting=false; }
 }
 function stopCamera(){
   stream?.getTracks().forEach(t=>t.stop()); stream=null;
