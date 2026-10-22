@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b2e1f">
+<title>Stirling Campus AR</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<!-- ================= SPLASH ================= -->
+<section id="splash">
+  <div class="logo">🧭</div>
+  <h1>Stirling Campus AR</h1>
+  <p class="tag">Point your phone at campus and see every building, café, lecture hall and landmark labelled in real time, with turn-by-turn AR directions to get there.</p>
+  <div class="btn-row">
+    <button class="btn btn-primary" id="startLive">📷 Start AR navigation (camera + GPS)</button>
+    <button class="btn btn-ghost" id="startDemo">▶ Presentation demo (no GPS)</button>
+  </div>
+  <div class="feat">
+    <span>📍 Live campus map</span><span>📷 Camera AR labels</span><span>🧭 AR wayfinding arrow</span><span>🔎 Search every room</span><span>♿ Built for new students and visitors</span>
+  </div>
+  <div class="disc">Student concept prototype. Not an official University of Stirling product. Campus map and routes: the University's MazeMap. Fallback map data © OpenStreetMap contributors.</div>
+</section>
+
+<!-- ================= APP ================= -->
+<div id="app">
+  <header>
+    <label class="search">🔎<input id="q" placeholder="Search campus: library, café, Pathfoot…" autocomplete="off"></label>
+    <div class="mode-pill" id="modePill"><span class="dot"></span><span id="modeTxt">DEMO</span></div>
+  </header>
+  <div id="searchResults"></div>
+  <div id="navBanner">
+    <div class="nb-ic"><span id="nbIcon">↑</span><small id="nbDist"></small></div>
+    <div class="t"><b id="navName">—</b><span id="navInfo">—</span></div>
+    <div class="nb-btns">
+      <button id="stepsBtn" title="All directions">☰ Steps</button>
+      <button id="voiceBtn" title="Spoken directions">🔇 Voice</button>
+      <button class="walk" id="simWalk">▶ Simulate walk</button>
+      <button id="navStop" title="End route">✕</button>
+    </div>
+  </div>
+  <div id="stepsPanel">
+    <div class="sp-hd"><b>Directions<small id="stepsSum"></small></b><button id="stepsClose">✕</button></div>
+    <ol id="stepsList"></ol>
+  </div>
+
+  <main>
+    <section class="view active" id="mapView">
+      <div id="map"></div>
+      <button class="map-fab" id="gpsBtn" style="bottom:calc(152px + var(--safe-b))" title="Use my live GPS location" aria-label="Use my live GPS location">⌖</button>
+      <button class="map-fab" id="recenter" style="bottom:calc(96px + var(--safe-b))" title="Recentre">◎</button>
+      <div id="hint">Demo tip: tap anywhere on the map to move "you" there.</div>
+      <div id="mapSrc"></div>
+    </section>
+
+    <section class="view" id="ar">
+      <video id="arVideo" playsinline muted autoplay></video>
+      <div id="arScene">
+        <div class="sky"></div>
+        <svg id="hills" viewBox="0 0 3000 600" preserveAspectRatio="none">
+          <path d="M0 420 C 150 300, 300 250, 450 320 S 750 180, 900 260 S 1150 330, 1300 240 S 1500 140, 1650 230 S 1900 330, 2050 260 S 2300 170, 2450 250 S 2750 330, 3000 420 L3000 600 L0 600Z" fill="#6c8aa6" opacity=".55"/>
+          <path d="M0 470 C 200 400, 380 380, 520 430 S 820 360, 1000 410 S 1300 470, 1500 420 S 1800 360, 2000 420 S 2300 470, 2500 420 S 2800 380, 3000 470 L3000 600 L0 600Z" fill="#4f7a55" opacity=".85"/>
+        </svg>
+        <div class="ground"></div>
+      </div>
+      <canvas id="arGround"></canvas>
+      <div id="arLabels"></div>
+      <div id="compass"><div id="compassTape"></div></div>
+      <div id="headingTxt">0° N</div>
+      <div id="radar"><canvas id="radarCv" width="220" height="220"></canvas></div>
+      <button id="liveBtn">📍 Turn on real AR<small>camera + GPS on your phone</small></button>
+      <div class="ar-tools">
+        <button id="camToggle">📷 Camera</button>
+        <button id="spinToggle">🔄 Auto-pan</button>
+        <button id="alignBtn" style="display:none" title="Point the phone along the path you are on, then tap">🧭 Align</button>
+        <button id="calibBtn" title="Compass and camera calibration">⚙ Calibrate</button>
+      </div>
+      <div id="calibPanel">
+        <b>Calibration</b>
+        <p>If the arrows do not line up with the real path, point your phone straight along the path you are standing on and press <b>Align to path</b>.</p>
+        <label>Compass correction <span id="offVal"></span><input type="range" id="offRange" min="-60" max="60" step="1"></label>
+        <label>Camera lens angle <span id="lensVal"></span><input type="range" id="lensRange" min="45" max="85" step="1"></label>
+        <div class="cp-btns"><button id="alignBtn2">🧭 Align to path</button><button id="calibReset">Reset</button><button id="calibClose">Done</button></div>
+      </div>
+      <div id="rotateMsg">📱 Hold your phone upright (portrait) for AR</div>
+      <div id="arHelp">Drag or use ← → keys to look around.</div>
+      <button id="arChooseBtn" type="button">Choose a destination to show the ground route</button>
+      <div id="navHud">
+        <svg id="navArrow" viewBox="0 0 100 100"><path d="M50 6 L86 82 L50 64 L14 82 Z" fill="#f5b301" stroke="#fff" stroke-width="4" stroke-linejoin="round"/></svg>
+        <div id="navTxt">—</div>
+      </div>
+    </section>
+
+    <section class="view" id="places">
+      <div class="chips" id="chips"></div>
+      <div id="placeList"></div>
+    </section>
+  </main>
+
+  <div id="sheet">
+    <div class="grab"></div>
+    <button id="sheetClose">✕</button>
+    <div class="hd"><div class="ic" id="sIc"></div><div><h2 id="sName"></h2><div class="meta" id="sMeta"></div></div></div>
+    <p id="sDesc"></p>
+    <div class="tags" id="sTags"></div>
+    <div class="actions">
+      <button class="btn btn-green" id="sNav">🧭 Take me there</button>
+      <button class="btn btn-light" id="sAr">📷 View in AR</button>
+    </div>
+  </div>
+
+  <nav class="tabs">
+    <button class="on" data-tab="mapView"><span class="i">🗺️</span>Map</button>
+    <button data-tab="ar"><span class="i">📷</span>AR View</button>
+    <button data-tab="places"><span class="i">📋</span>Places</button>
+  </nav>
+</div>
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="osm-1.js"></script>
+<script src="osm-2.js"></script>
+<script src="osm-3.js"></script>
+<script src="osm-4.js"></script>
+<script src="osm-5.js"></script>
+<script src="app-1-places.js"></script>
+<script src="app-2-router.js"></script>
+<script src="app-3-map.js"></script>
+<script src="app-4-nav.js"></script>
+<script src="app-5-ar.js"></script>
+<script src="app-6-live.js"></script>
+</body>
+</html>

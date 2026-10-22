@@ -1,0 +1,299 @@
+/* =====================================================================
+   LIVE SENSORS (GPS + compass + tilt)
+   ===================================================================== */
+// heading of the back camera from the full phone orientation (works when the phone is held upright)
+function cameraHeading(a,b,gm){
+  const x=rad(b), y=rad(gm), z=rad(a), cX=Math.cos(x), cY=Math.cos(y), cZ=Math.cos(z), sX=Math.sin(x), sY=Math.sin(y), sZ=Math.sin(z);
+  const Vx=-cZ*sY-sZ*sX*cY, Vy=-sZ*sY+cZ*sX*cY;
+  return (deg(Math.atan2(Vx,Vy))+360)%360;
+}
+/* ---------- Position filter ----------
+   A small Kalman filter in metres. Each GPS fix is weighed by its reported accuracy, so a poor
+   fix moves you a little and a good fix moves you a lot. Fixes that jump further than you could
+   have walked are ignored (up to 3 in a row). Between fixes, detected footsteps move you forward. */
+// It tracks position AND walking velocity (a "constant velocity" model), so it does not lag behind
+// someone walking at a steady pace.
+const TRACK = {
+  x:null, y:null, vx:0, vy:0, P:null, t:0, rejects:0, stepLen:0.72, SA:0.8,   // SA: how quickly walking speed can change (m/s²)
+  reset(){ this.x=null; this.y=null; this.vx=0; this.vy=0; this.P=null; this.rejects=0; },
+  // P = [[pp, pv],[pv, vv]], shared by both axes
+  predict(dt, still){
+    if(this.x==null || dt<=0) return;
+    if(still){ this.vx=0; this.vy=0; }                  // the pedometer says you are standing: no drifting
+    this.x+=this.vx*dt; this.y+=this.vy*dt;
+    const [pp,pv,vv]=this.P, q=this.SA*this.SA;
+    this.P=[pp+2*dt*pv+dt*dt*vv + q*dt*dt*dt*dt/4, pv+dt*vv + q*dt*dt*dt/2, (still?Math.min(vv,0.05):vv) + q*dt*dt];
+  },
+  fix(lat,lng,acc,t,still){
+    const [zx,zy]=NAV.toXY(lat,lng), R=Math.pow(Math.max(3,acc||30),2);
+    if(this.x==null){ this.x=zx; this.y=zy; this.vx=0; this.vy=0; this.P=[R,0,1]; this.t=t; return true; }
+    const dt=Math.min(10,Math.max(0.05,(t-this.t)/1000));
+    // reject jumps further than you could have walked (up to 3 in a row, then trust GPS again)
+    const px=this.x+this.vx*dt, py=this.y+this.vy*dt, d=Math.hypot(zx-px, zy-py);
+    const gate=3*Math.sqrt(this.P[0]+R)+3*dt+5;
+    if(d>gate && this.rejects<3){ this.rejects++; return false; }
+    if(this.rejects>=3){ this.x=zx; this.y=zy; this.vx=0; this.vy=0; this.P=[R,0,1]; this.rejects=0; this.t=t; return true; }
+    this.rejects=0;
+    this.predict(dt, still); this.t=t;
+    const [pp,pv,vv]=this.P, Sx=pp+R, Kp=pp/Sx, Kv=pv/Sx;
+    const ex=zx-this.x, ey=zy-this.y;
+    this.x+=Kp*ex; this.y+=Kp*ey; this.vx+=Kv*ex; this.vy+=Kv*ey;
+    const sp=Math.hypot(this.vx,this.vy); if(sp>3){ this.vx*=3/sp; this.vy*=3/sp; }   // nobody walks faster than 3 m/s
+    this.P=[(1-Kp)*pp, (1-Kp)*pv, vv-Kv*pv];
+    return true;
+  },
+  moveBy(dx,dy){ if(this.x==null) return; this.x+=dx; this.y+=dy; this.P[0]+=0.12; },
+  pullTo(x,y,k){ if(this.x==null) return; this.x+=(x-this.x)*k; this.y+=(y-this.y)*k; },
+  pos(){ return NAV.toLL(this.x,this.y); },
+  acc(){ return this.P ? Math.sqrt(this.P[0]) : 50; },
+  speed(){ return Math.hypot(this.vx,this.vy); }
+};
+
+/* ---------- Footsteps (pedometer) ----------
+   The phone's accelerometer bounces once per step. Each bounce moves you one step forward:
+   along the route when you are on it and facing its way, otherwise in the direction you face. */
+const PED = { avg:9.81, up:false, last:0,
+  onMotion(e){
+    const a=e.accelerationIncludingGravity; if(!a || a.x==null) return;
+    S.hasMotion=true;
+    const m=Math.hypot(a.x,a.y,a.z), t=performance.now(); this.avg+=(m-this.avg)*0.04; const v=m-this.avg;
+    if(!this.up && v>1.3 && t-this.last>280){ this.up=true; this.last=t; onStep(); }
+    else if(this.up && v<0.3) this.up=false;
+  }
+};
+function onStep(){
+  const now=performance.now();
+  S.lastStep=now; S.stepCount++;
+  if(S.mode!=='live' || TRACK.x==null) return;
+  // with fresh, good GPS the filter already knows your speed; footsteps take over when GPS is stale or weak (indoors)
+  if(now-(S.lastFixT||0)<2500 && (S.rawAcc||99)<=25) return;
+  const L=TRACK.stepLen;
+  if(S.route && !S.arrived && S.off<12){
+    const rh=S.route.headingAt(S.along+1);
+    if(Math.abs(norm180(S.heading-rh))<75){
+      const q=S.route.pointXY(Math.min(S.route.total,S.along+L));
+      TRACK.pullTo(q[0],q[1],1); TRACK.P[0]+=0.08;
+      S.pos=TRACK.pos(); onPosChange(); return;
+    }
+  }
+  TRACK.moveBy(L*Math.sin(rad(S.heading)), L*Math.cos(rad(S.heading)));
+  S.pos=TRACK.pos(); onPosChange();
+}
+
+/* ---------- GPS ---------- */
+let gpsWatch=null;
+function onFix(p){
+  const c=p.coords, now=performance.now();
+  S.gpsErr=null; S.rawAcc=c.accuracy;
+  if(c.speed!=null && c.speed>0.8 && c.heading!=null && !isNaN(c.heading) && c.accuracy<30){ S.gpsCourse=c.heading; S.gpsCourseT=now; }
+  // the first answers are often rough Wi-Fi or mast positions (hundreds of metres off): wait for real GPS,
+  // but after 20 s take what there is
+  if(!S.gotFix){
+    S.firstTry=S.firstTry||now;
+    if(c.accuracy>60 && now-S.firstTry<20000){
+      S.rawAcc=c.accuracy; S.pos={lat:c.latitude,lng:c.longitude}; S.accuracy=c.accuracy;
+      if(MAPV){ MAPV.setMe(S.pos); MAPV.setAccuracy(S.pos,Math.min(c.accuracy,500)); }
+      updateGpsPill(); return;
+    }
+    TRACK.reset();
+  }
+  const still = S.hasMotion && now-S.lastStep>3000;
+  if(!TRACK.fix(c.latitude,c.longitude,c.accuracy,now,still)){ updateGpsPill(); return; }
+  S.pos=TRACK.pos(); S.accuracy=TRACK.acc(); S.lastFixT=now;
+  if(!S.gotFix){
+    S.gotFix=true; $('app').classList.remove('nofix');
+    if(dist(S.pos,{lat:CAMPUS_CENTER[0],lng:CAMPUS_CENTER[1]})>3000) toast('You seem to be off campus. Routes and distances will be long.',4500);
+    MAPV.setView(S.pos,17.5);
+    if(S.pendingNav){ const p2=S.pendingNav; S.pendingNav=null; onPosChange(); updateGpsPill(); startNav(p2); return; }
+    if(S.dest) planRoute();
+  }
+  onPosChange(); updateGpsPill();
+}
+function onGpsError(e){
+  S.gpsErr=e.code;
+  if(e.code===1){
+    toast('Location is blocked. Allow location for this site in your browser settings, then reload.',8000);
+  } else if(!S.gotFix){
+    toast(e.code===3 ? 'Still looking for GPS… go outside and keep the phone still for a moment.' : 'GPS is unavailable right now. Trying again…',5000);
+  }
+  updateGpsPill();
+}
+function startGps(){
+  if(!('geolocation' in navigator)){ toast('This device has no location support.'); return; }
+  if(gpsWatch!=null) navigator.geolocation.clearWatch(gpsWatch);
+  gpsWatch=navigator.geolocation.watchPosition(onFix,e=>{ onGpsError(e); if(e.code!==1) setTimeout(startGps,4000); },
+    {enableHighAccuracy:true,maximumAge:0,timeout:20000});
+}
+function updateGpsPill(){
+  if(S.mode!=='live') return;
+  const pill=$('modePill'), a=S.accuracy, raw=S.rawAcc;
+  pill.classList.remove('gps-good','gps-ok','gps-poor','gps-none');
+  if(S.gpsErr===1){ $('modeTxt').textContent='LIVE · location blocked'; pill.classList.add('gps-none'); return; }
+  if(!S.gotFix){ $('modeTxt').textContent = raw ? `LIVE · weak GPS ±${Math.round(raw)} m` : 'LIVE · finding GPS…'; pill.classList.add('gps-none'); return; }
+  const shown=Math.round(Math.max(a||0, Math.min(raw||a, a*2)));
+  $('modeTxt').textContent=`LIVE · ±${shown} m`;
+  pill.classList.add(shown<=10?'gps-good':shown<=25?'gps-ok':'gps-poor');
+}
+
+/* ---------- Compass and tilt ---------- */
+let lastCalibTip=0;
+function onOrientation(e){
+  if(e.beta==null || e.gamma==null) return;
+  // world "up" seen from the phone: gives tilt (pitch) and sideways lean (roll), even in the upright pose
+  const b=rad(e.beta), g=rad(e.gamma), ux=-Math.cos(b)*Math.sin(g), uy=Math.sin(b), uz=Math.cos(b)*Math.cos(g);
+  S.targetPitch=Math.max(-30,Math.min(75,deg(Math.asin(Math.max(-1,Math.min(1,uz))))));
+  S.targetRoll = Math.abs(S.targetPitch)<70 ? Math.atan2(ux,uy) : 0;
+  let h=null;
+  if(typeof e.webkitCompassHeading==='number' && e.webkitCompassHeading>=0){             // iPhone
+    const so=(screen.orientation&&screen.orientation.angle)||window.orientation||0;
+    h=e.webkitCompassHeading+so;
+    S.compassAcc=typeof e.webkitCompassAccuracy==='number'?e.webkitCompassAccuracy:null;
+  } else if((e.absolute===true || e.type==='deviceorientationabsolute') && e.alpha!=null){ // Android
+    h = Math.abs(S.targetPitch)<65 ? cameraHeading(e.alpha,e.beta,e.gamma) : 360-e.alpha;
+  }
+  if(h==null) return;
+  S.rawHeading=((h%360)+360)%360; S.lastCompass=performance.now(); S.headingSrc='compass';
+  S.targetHeading=S.heading+norm180(S.rawHeading+S.headingOffset-S.heading);
+  const now=performance.now();
+  if(S.compassAcc!=null && (S.compassAcc<0 || S.compassAcc>30) && now-lastCalibTip>45000 && S.tab==='ar'){
+    lastCalibTip=now; toast('The compass is unsure. Move your phone in a figure-8 a few times to calibrate it.',5000);
+  }
+}
+// with no compass, face the way you are walking (GPS), or the way the route goes
+function headingFallback(now){
+  if(S.mode!=='live' || now-S.lastCompass<3000) return;
+  if(S.gpsCourse!=null && now-S.gpsCourseT<6000){ S.headingSrc='gps'; S.targetHeading=S.heading+norm180(S.gpsCourse-S.heading); }
+  else if(S.route && !S.arrived){ S.headingSrc='route'; S.targetHeading=S.heading+norm180(S.route.headingAt(S.along+3)-S.heading); }
+  else S.headingSrc='none';
+}
+let wakeLock=null;
+async function keepAwake(){ try{ if('wakeLock' in navigator && document.visibilityState==='visible' && !wakeLock){
+  wakeLock=await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release',()=>{ wakeLock=null; }); } }catch(e){} }
+document.addEventListener('visibilitychange',()=>{ if(S.mode==='live' && document.visibilityState==='visible'){ keepAwake(); startGps(); } });
+
+function startSensors(){
+  $('app').classList.add('nofix'); updateGpsPill();
+  startGps();
+  if('ondeviceorientationabsolute' in window) window.addEventListener('deviceorientationabsolute',onOrientation,true);
+  window.addEventListener('deviceorientation',e=>{ if(typeof e.webkitCompassHeading==='number' || e.absolute===true || !('ondeviceorientationabsolute' in window)) onOrientation(e); },true);
+  window.addEventListener('devicemotion',e=>PED.onMotion(e),true);
+  keepAwake();
+}
+
+/* =====================================================================
+   MAIN LOOP
+   ===================================================================== */
+let last=performance.now();
+function loop(now){
+  const dt=Math.min(0.1,(now-last)/1000); last=now;
+  if(S.spin) S.targetHeading+=12*dt;
+  // simulated walk along the real route: brisk in AR so the arrows are easy to follow, faster on the map
+  if(S.walking && S.route){
+    S.along=Math.min(S.route.total, S.along+(S.tab==='ar'?4:14)*dt);
+    S.pos=S.route.pointAt(S.along);
+    S.targetHeading=S.heading+norm180(S.route.headingAt(S.along+2)-S.heading);
+    MAPV.setMe(S.pos);
+    updateProgress(true);
+    if(S.route && S.along>=S.route.total){ S.walking=false; updateWalkBtn(); }
+  }
+  // live: glide the position forward at your walking speed between GPS fixes (about 5 times a second)
+  if(S.mode==='live' && S.gotFix && TRACK.x!=null && now-(S.lastGlide||0)>200){
+    S.lastGlide=now;
+    const age=Math.min(2,(now-TRACK.t)/1000), still=S.hasMotion && now-S.lastStep>3000;
+    if(!still && TRACK.speed()>0.3 && age>0.1){ const q=NAV.toLL(TRACK.x+TRACK.vx*age, TRACK.y+TRACK.vy*age); S.pos=q; onPosChange(); }
+  }
+  // smooth heading and tilt
+  headingFallback(now);
+  S.heading+=norm180(S.targetHeading-S.heading)*Math.min(1,dt*(S.mode==='live'?5:8));
+  if(S.heading>=360||S.heading<0){ const w=Math.floor(S.heading/360)*360; S.heading-=w; S.targetHeading-=w; }
+  if(S.mode==='demo'){ const c=camera(); S.pitch=deg(Math.atan((0.5-HORIZON)*c.H/c.f)); }
+  else {
+    S.pitch+=(S.targetPitch-S.pitch)*Math.min(1,dt*5);
+    S.roll+=(S.targetRoll-S.roll)*Math.min(1,dt*6);
+    // AR is built for an upright (portrait) phone
+    $('rotateMsg').style.display = (S.tab==='ar' && innerWidth>innerHeight*1.15 && 'ontouchstart' in window) ? 'flex' : 'none';
+  }
+  const cone=document.getElementById('meCone'); if(cone) cone.style.transform=`rotate(${S.heading}deg)`;
+  if(S.tab==='ar') renderAR(now);
+  requestAnimationFrame(loop);
+}
+
+/* =====================================================================
+   START
+   ===================================================================== */
+// iPhone only shows the compass / motion prompt when asked straight from a tap, so this runs first in tap handlers
+function askMotion(){
+  const asks=[];
+  try{ if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function') asks.push(DeviceOrientationEvent.requestPermission().catch(()=>'denied')); }catch(e){}
+  try{ if(typeof DeviceMotionEvent!=='undefined' && typeof DeviceMotionEvent.requestPermission==='function') asks.push(DeviceMotionEvent.requestPermission().catch(()=>'denied')); }catch(e){}
+  // (desktop browsers without motion sensors also answer "denied", so only phones get the message)
+  return Promise.all(asks).then(r=>{ if(r.includes('denied') && 'ontouchstart' in window) toast('Motion access was refused, so the compass will follow your walking direction instead.',5000); });
+}
+function setLiveUI(){
+  S.mode='live'; $('modeTxt').textContent='LIVE'; $('modePill').classList.add('live');
+  $('gpsBtn').classList.add('on'); $('gpsBtn').title='Recenter on my GPS location'; $('gpsBtn').setAttribute('aria-label','Recenter on my GPS location');
+  $('arHelp').textContent='Pick a place (search or Places) and tap “View in AR”: arrows appear on the ground. Hold the phone upright.';
+  $('alignBtn').style.display=''; $('spinToggle').style.display='none'; $('liveBtn').style.display='none'; $('simWalk').style.display='none';
+  S.spin=false; S.walking=false; $('spinToggle').classList.remove('on'); updateWalkBtn();
+  if(!isSecureContext) toast('Live AR needs a secure (https) link for GPS, compass and camera.',6000);
+}
+// from the demo straight into real AR: camera, GPS, compass. A route in progress is re-planned from your real position.
+async function goLive(){
+  if(S.mode==='live') return;
+  const motionOk=askMotion();
+  setLiveUI(); setVoice(true);
+  S.gotFix=false; S.firstTry=0; TRACK.reset();
+  if(S.tab==='ar') startCamera();
+  const dest=S.dest;
+  if(dest){ MAPV.clearRoute(); S.route=null; }
+  await motionOk;
+  startSensors();
+  if(dest) startNav(dest);
+  toast('Real AR is on. Hold the phone upright and follow the arrows on the ground.',4500);
+}
+$('liveBtn').onclick=goLive;
+async function launch(mode){
+  S.mode=mode;
+  $('splash').style.display='none';
+  $('modeTxt').textContent= mode==='live'?'LIVE':'DEMO';
+  $('modePill').classList.toggle('live',mode==='live');
+  $('arHelp').textContent = mode==='live' ? 'Hold your phone upright and turn slowly.' : 'Drag or use ← → keys to look around.';
+  setVoice(mode==='live');
+  let motionOk=Promise.resolve();
+  if(mode==='live'){ motionOk=askMotion(); setLiveUI(); }
+  buildLabels();
+  const slow=setTimeout(()=>toast('Loading the University campus map…',6000),500);
+  await initMap(); clearTimeout(slow); $('toast').classList.remove('show');
+  onPosChange();
+  if(mode==='live'){
+    await motionOk;
+    startSensors();
+  } else {
+    $('hint').style.display='block'; setTimeout(()=>$('hint').style.display='none',7000);
+    S.spin=true; $('spinToggle').classList.add('on');
+  }
+  requestAnimationFrame(loop);
+}
+$('startDemo').onclick=()=>launch('demo');
+$('startLive').onclick=()=>launch('live');
+$('gpsBtn').onclick=()=>{
+  if(S.mode==='demo'){ goLive(); return; }
+  S.follow=true;
+  if(S.gotFix && MAPV) MAPV.setView(S.view,17.5);
+  else toast('Waiting for your GPS position. Go outside for a clearer signal.',4500);
+};
+$('arChooseBtn').onclick=()=>{
+  switchTab('mapView');
+  $('q').focus();
+  toast('Search for a place, then tap “View in AR” to load its route arrows.',4500);
+};
+$('recenter').onclick=()=>{ S.follow=true; MAPV && MAPV.setView(S.view,17.5); };
+
+// Presenter shortcuts, e.g. index.html?demo&tab=ar&nav=library
+(async function(){
+  const u=new URLSearchParams(location.search);
+  if(!u.has('demo')) return;
+  await launch('demo');
+  if(u.get('tab')) switchTab(u.get('tab'));
+  const nav=POIS.find(p=>p.id===u.get('nav')); if(nav) startNav(nav);
+})();
