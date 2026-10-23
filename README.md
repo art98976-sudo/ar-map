@@ -10,7 +10,7 @@ Open the link on your phone and allow camera access. Live AR requests GPS automa
 > Campus map, indoor floors and official routes come from the University's MazeMap campus map (campus 2058).
 > Fallback map data © OpenStreetMap contributors.
 
-**New: Stirling Campus Map (web).** The Next.js web map for Phase 1 of Stirling Campus XR lives in [`web/`](web/README.md). It runs on approximate sample data and does not affect this prototype or its GitHub Pages deployment.
+**New: Stirling Campus Map (web).** The Next.js web map for Phase 1 of Stirling Campus XR lives in [`web/`](web/README.md). Live preview: <https://stirling-campus-map.vercel.app>. It runs on approximate sample data and does not affect this prototype or its GitHub Pages deployment.
 
 ## What it does
 

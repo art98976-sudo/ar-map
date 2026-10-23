@@ -35,7 +35,7 @@ export function createMapProvider(config: ProviderConfig = {}): ProviderChoice {
     if (MazeMapProvider.isConfigured(mazemap)) return { provider: new MazeMapProvider(mazemap) };
     return {
       provider: local(),
-      warning: 'MAP_PROVIDER is "mazemap" but MAZEMAP_CAMPUS_ID is not set. Using local sample data.',
+      warning: 'MAP_PROVIDER is "mazemap" but MAZEMAP_CAMPUS_ID is not set to a number. Using local sample data.',
     };
   }
   if (requested !== 'local') {
@@ -50,7 +50,11 @@ let shared: ProviderChoice | undefined;
 export function getMapProvider(): ProviderChoice {
   shared ??= createMapProvider({
     provider: process.env.NEXT_PUBLIC_MAP_PROVIDER,
-    mazemap: { campusId: process.env.NEXT_PUBLIC_MAZEMAP_CAMPUS_ID },
+    mazemap: {
+      campusId: process.env.NEXT_PUBLIC_MAZEMAP_CAMPUS_ID,
+      viewToken: process.env.NEXT_PUBLIC_MAZEMAP_VIEW_TOKEN || undefined,
+      authToken: process.env.NEXT_PUBLIC_MAZEMAP_AUTH_TOKEN || undefined,
+    },
   });
   return shared;
 }

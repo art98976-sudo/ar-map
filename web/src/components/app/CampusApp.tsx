@@ -40,6 +40,7 @@ export default function CampusApp() {
   const [overlay, setOverlay] = useState<MapOverlay | null>(null);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [dataLoaded, setDataLoaded] = useState(false);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let cancelled = false;
@@ -49,6 +50,7 @@ export default function CampusApp() {
         setOverlay(o);
         setBuildings(b);
         setLoadError(null);
+        setDataLoaded(true);
       })
       .catch((e) => !cancelled && setLoadError(e instanceof Error ? e.message : String(e)));
     return () => {
@@ -521,7 +523,7 @@ export default function CampusApp() {
             </Notice>
           </div>
         )}
-        {!overlay && !loadError && !mapError && (
+        {!dataLoaded && !loadError && !mapError && (
           <p role="status" className="absolute top-1/2 left-1/2 z-10 -translate-x-1/2 rounded-full bg-surface px-4 py-2 text-sm text-muted shadow">
             Loading campus map…
           </p>
