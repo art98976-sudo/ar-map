@@ -20,7 +20,8 @@ import type {
   RouteOptions,
   SearchFilters,
 } from '../../types';
-import { NotImplementedError } from '../errors';
+import { buildWalkGraph } from '../../routing/graph';
+import { LocalRouter } from '../../routing/router';
 import type { MapOverlay, MapProvider } from '../MapProvider';
 import { searchDestinationList } from './search';
 
@@ -39,11 +40,17 @@ interface Index {
   buildings: Building[];
   destinations: Destination[];
   destinationById: Map<string, Destination>;
+  router: LocalRouter;
+}
+
+export interface LocalProviderOptions {
+  /** Clock used for route timestamps (tests pass a fixed one). */
+  now?: () => Date;
 }
 
 /**
- * Reads the approximate sample dataset in public/data.
- * Routing (A* over the path graph) arrives in Step 2.
+ * Reads the approximate sample dataset in public/data and routes with A*
+ * over its outdoor paths and the indoor corridors, stairs and lifts.
  */
 export class LocalProvider implements MapProvider {
   readonly id = 'local' as const;
@@ -51,12 +58,15 @@ export class LocalProvider implements MapProvider {
 
   private index?: Promise<Index>;
 
-  constructor(private readonly source: DataSource) {}
+  constructor(
+    private readonly source: DataSource,
+    private readonly options: LocalProviderOptions = {},
+  ) {}
 
   /** Loads and indexes the dataset once; later calls reuse it. */
   private load(): Promise<Index> {
     if (!this.index) {
-      this.index = loadDataset(this.source).then(buildIndex);
+      this.index = loadDataset(this.source).then((data) => buildIndex(data, this.options));
       // Let a failed load be retried (e.g. after a network blip).
       this.index.catch(() => (this.index = undefined));
     }
@@ -86,8 +96,7 @@ export class LocalProvider implements MapProvider {
   }
 
   async getRoute(from: RouteEndpoint, to: RouteEndpoint, options: RouteOptions): Promise<Route> {
-    void from; void to; void options;
-    throw new NotImplementedError('Routing (Step 2)');
+    return (await this.load()).router.route(from, to, options);
   }
 
   async getMapOverlay(): Promise<MapOverlay> {
@@ -110,7 +119,7 @@ async function loadDataset(source: DataSource): Promise<LocalDataset> {
   return { buildings, paths, entrances, places, areas, indoor };
 }
 
-function buildIndex(data: LocalDataset): Index {
+function buildIndex(data: LocalDataset, options: LocalProviderOptions): Index {
   const entrancesByBuilding = new Map<string, Entrance[]>();
   for (const f of data.entrances.features) {
     const p = f.properties;
@@ -173,10 +182,15 @@ function buildIndex(data: LocalDataset): Index {
     }
   }
 
-  return {
-    data,
+  const destinationById = new Map(destinations.map((d) => [d.id, d]));
+  const router = new LocalRouter({
+    built: buildWalkGraph(data.paths, data.indoor.values()),
     buildings,
-    destinations,
-    destinationById: new Map(destinations.map((d) => [d.id, d])),
-  };
+    getDestination: (id) => destinationById.get(id),
+    provider: 'local',
+    isSampleData: true,
+    now: options.now,
+  });
+
+  return { data, buildings, destinations, destinationById, router };
 }

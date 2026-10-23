@@ -6,93 +6,284 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "schemaVersion", "id", "provider", "isSampleData", "generatedAt", "accessible",
-    "from", "to", "distanceMetres", "durationSeconds", "steps"
+    "schemaVersion",
+    "id",
+    "provider",
+    "isSampleData",
+    "generatedAt",
+    "accessible",
+    "from",
+    "to",
+    "distanceMetres",
+    "durationSeconds",
+    "steps"
   ],
   "properties": {
-    "schemaVersion": { "const": "1.0" },
-    "id": { "type": "string", "minLength": 1 },
-    "provider": { "enum": ["local", "mazemap"] },
-    "isSampleData": { "type": "boolean" },
-    "generatedAt": { "type": "string", "format": "date-time" },
-    "accessible": { "type": "boolean", "description": "True when the route avoids stairs and steps." },
-    "from": { "$ref": "#/$defs/routeEnd" },
-    "to": { "$ref": "#/$defs/routeEnd" },
-    "distanceMetres": { "$ref": "#/$defs/nonNegative" },
-    "durationSeconds": { "$ref": "#/$defs/nonNegative" },
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider": {
+      "enum": [
+        "local",
+        "mazemap"
+      ]
+    },
+    "isSampleData": {
+      "type": "boolean"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "accessible": {
+      "type": "boolean",
+      "description": "True when the route avoids stairs and steps."
+    },
+    "from": {
+      "$ref": "#/$defs/routeEnd"
+    },
+    "to": {
+      "$ref": "#/$defs/routeEnd"
+    },
+    "distanceMetres": {
+      "$ref": "#/$defs/nonNegative"
+    },
+    "durationSeconds": {
+      "$ref": "#/$defs/nonNegative"
+    },
     "steps": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/step" }
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     }
   },
   "$defs": {
-    "nonNegative": { "type": "number", "minimum": 0 },
+    "nonNegative": {
+      "type": "number",
+      "minimum": 0
+    },
     "point": {
       "type": "object",
       "description": "Outdoor points have lat/lng only. Indoor points add buildingId and level (z-level, 0 = ground).",
       "additionalProperties": false,
-      "required": ["lat", "lng"],
+      "required": [
+        "lat",
+        "lng"
+      ],
       "properties": {
-        "lat": { "type": "number", "minimum": -90, "maximum": 90 },
-        "lng": { "type": "number", "minimum": -180, "maximum": 180 },
-        "buildingId": { "type": "string", "minLength": 1 },
-        "floorId": { "type": "string", "minLength": 1 },
-        "level": { "type": "integer" }
+        "lat": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "lng": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        },
+        "buildingId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "floorId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "level": {
+          "type": "integer"
+        }
       },
       "dependentRequired": {
-        "buildingId": ["level"],
-        "level": ["buildingId"],
-        "floorId": ["buildingId", "level"]
+        "buildingId": [
+          "level"
+        ],
+        "level": [
+          "buildingId"
+        ],
+        "floorId": [
+          "buildingId",
+          "level"
+        ]
       }
     },
     "routeEnd": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "point"],
+      "required": [
+        "name",
+        "point"
+      ],
       "properties": {
-        "name": { "type": "string", "minLength": 1 },
-        "point": { "$ref": "#/$defs/point" },
-        "destinationId": { "type": "string", "minLength": 1 }
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "point": {
+          "$ref": "#/$defs/point"
+        },
+        "destinationId": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "floorChange": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["via", "fromLevel", "toLevel"],
+      "required": [
+        "via",
+        "fromLevel",
+        "toLevel"
+      ],
       "properties": {
-        "via": { "enum": ["stairs", "lift"] },
-        "fromLevel": { "type": "integer" },
-        "toLevel": { "type": "integer" },
-        "fromFloorId": { "type": "string" },
-        "toFloorId": { "type": "string" },
-        "toFloorName": { "type": "string" }
+        "via": {
+          "enum": [
+            "stairs",
+            "lift"
+          ]
+        },
+        "fromLevel": {
+          "type": "integer"
+        },
+        "toLevel": {
+          "type": "integer"
+        },
+        "fromFloorId": {
+          "type": "string"
+        },
+        "toFloorId": {
+          "type": "string"
+        },
+        "toFloorName": {
+          "type": "string"
+        }
       }
     },
     "step": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["index", "type", "instruction", "location", "path", "distanceMetres", "durationSeconds"],
+      "required": [
+        "index",
+        "type",
+        "instruction",
+        "location",
+        "path",
+        "distanceMetres",
+        "durationSeconds"
+      ],
       "properties": {
-        "index": { "type": "integer", "minimum": 0 },
-        "type": { "enum": ["walk", "turn", "enter-building", "exit-building", "change-floor", "arrive"] },
-        "instruction": { "type": "string", "minLength": 1 },
-        "location": { "$ref": "#/$defs/point" },
-        "path": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/point" } },
-        "distanceMetres": { "$ref": "#/$defs/nonNegative" },
-        "durationSeconds": { "$ref": "#/$defs/nonNegative" },
-        "turn": {
-          "enum": ["straight", "slight-left", "left", "sharp-left", "slight-right", "right", "sharp-right", "u-turn"]
+        "index": {
+          "type": "integer",
+          "minimum": 0
         },
-        "floorChange": { "$ref": "#/$defs/floorChange" },
-        "buildingId": { "type": "string", "minLength": 1 }
+        "type": {
+          "enum": [
+            "walk",
+            "turn",
+            "enter-building",
+            "exit-building",
+            "change-floor",
+            "arrive"
+          ]
+        },
+        "instruction": {
+          "type": "string",
+          "minLength": 1
+        },
+        "location": {
+          "$ref": "#/$defs/point"
+        },
+        "path": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/point"
+          }
+        },
+        "distanceMetres": {
+          "$ref": "#/$defs/nonNegative"
+        },
+        "durationSeconds": {
+          "$ref": "#/$defs/nonNegative"
+        },
+        "turn": {
+          "enum": [
+            "straight",
+            "slight-left",
+            "left",
+            "sharp-left",
+            "slight-right",
+            "right",
+            "sharp-right",
+            "u-turn"
+          ]
+        },
+        "floorChange": {
+          "$ref": "#/$defs/floorChange"
+        },
+        "buildingId": {
+          "type": "string",
+          "minLength": 1
+        }
       },
       "allOf": [
-        { "if": { "properties": { "type": { "const": "turn" } } }, "then": { "required": ["turn"] } },
-        { "if": { "properties": { "type": { "const": "change-floor" } } }, "then": { "required": ["floorChange"] } },
         {
-          "if": { "properties": { "type": { "enum": ["enter-building", "exit-building"] } } },
-          "then": { "required": ["buildingId"] }
+          "if": {
+            "properties": {
+              "type": {
+                "const": "turn"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "turn"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "change-floor"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "floorChange"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "enter-building",
+                  "exit-building"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "buildingId"
+            ]
+          }
         }
       ]
     }

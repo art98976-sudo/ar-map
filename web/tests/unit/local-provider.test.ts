@@ -3,7 +3,6 @@ import {
   createMapProvider,
   LocalProvider,
   MazeMapProvider,
-  NotImplementedError,
   ProviderNotConfiguredError,
 } from '@/lib/providers';
 import { normaliseText } from '@/lib/providers/local/search';
@@ -74,14 +73,14 @@ describe('LocalProvider', () => {
     expect(await provider.getFloors('library')).toEqual([]);
   });
 
-  it('does not route yet (Step 2)', async () => {
-    await expect(
-      provider.getRoute(
-        { type: 'destination', destinationId: 'building:library' },
-        { type: 'destination', destinationId: 'room:cottrell-1-101' },
-        { accessible: false },
-      ),
-    ).rejects.toBeInstanceOf(NotImplementedError);
+  it('routes between destinations', async () => {
+    const r = await provider.getRoute(
+      { type: 'destination', destinationId: 'building:library' },
+      { type: 'destination', destinationId: 'room:cottrell-1-101' },
+      { accessible: false },
+    );
+    expect(r.provider).toBe('local');
+    expect(r.isSampleData).toBe(true);
   });
 
   it('provides overlay layers for the plain map', async () => {

@@ -94,6 +94,8 @@ export interface Route {
   durationSeconds: number;
   /** Ordered steps. The last step is always "arrive". */
   steps: RouteStep[];
+  /** Things the walker should know, e.g. "This entrance has steps". */
+  warnings?: string[];
 }
 
 /** Where a route starts or ends: a known destination, or a raw position such as "My location". */

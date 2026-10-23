@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0",
-  "id": "example-library-to-cottrell-1-101",
+  "id": "route-id3cvw",
   "provider": "local",
   "isSampleData": true,
-  "generatedAt": "2026-10-23T12:00:00Z",
-  "accessible": false,
+  "generatedAt": "2026-10-23T12:00:00.000Z",
+  "accessible": true,
   "from": {
     "name": "Library",
     "point": {
@@ -24,13 +24,13 @@
     },
     "destinationId": "room:cottrell-1-101"
   },
-  "distanceMetres": 220.2,
-  "durationSeconds": 185,
+  "distanceMetres": 255,
+  "durationSeconds": 276,
   "steps": [
     {
       "index": 0,
       "type": "walk",
-      "instruction": "Head south from the Library entrance to the main walkway",
+      "instruction": "Head south",
       "location": {
         "lat": 56.14582,
         "lng": -3.92068
@@ -46,12 +46,13 @@
         }
       ],
       "distanceMetres": 24.5,
-      "durationSeconds": 18
+      "durationSeconds": 22
     },
     {
       "index": 1,
-      "type": "walk",
-      "instruction": "Go down the Library steps towards the Cottrell Building",
+      "type": "turn",
+      "turn": "left",
+      "instruction": "Turn left onto Main walkway",
       "location": {
         "lat": 56.1456,
         "lng": -3.92068
@@ -62,62 +63,46 @@
           "lng": -3.92068
         },
         {
-          "lat": 56.14508,
-          "lng": -3.92048
-        },
-        {
-          "lat": 56.14491,
-          "lng": -3.92048
+          "lat": 56.1456,
+          "lng": -3.9197
         }
       ],
-      "distanceMetres": 78,
-      "durationSeconds": 59
+      "distanceMetres": 60.7,
+      "durationSeconds": 55
     },
     {
       "index": 2,
-      "type": "enter-building",
-      "instruction": "Enter the Cottrell Building by the north entrance",
+      "type": "walk",
+      "instruction": "Take the Cottrell ramp (step-free)",
       "location": {
-        "lat": 56.14491,
-        "lng": -3.92048,
-        "buildingId": "cottrell",
-        "floorId": "cottrell-0",
-        "level": 0
+        "lat": 56.1456,
+        "lng": -3.9197
       },
       "path": [
         {
-          "lat": 56.14491,
-          "lng": -3.92048,
-          "buildingId": "cottrell",
-          "floorId": "cottrell-0",
-          "level": 0
+          "lat": 56.1456,
+          "lng": -3.9197
         },
         {
-          "lat": 56.14486,
-          "lng": -3.92048,
-          "buildingId": "cottrell",
-          "floorId": "cottrell-0",
-          "level": 0
+          "lat": 56.14515,
+          "lng": -3.91975
         },
         {
           "lat": 56.14465,
-          "lng": -3.92048,
-          "buildingId": "cottrell",
-          "floorId": "cottrell-0",
-          "level": 0
+          "lng": -3.91989
         }
       ],
-      "distanceMetres": 28.9,
-      "durationSeconds": 22,
-      "buildingId": "cottrell"
+      "distanceMetres": 106.4,
+      "durationSeconds": 97
     },
     {
       "index": 3,
-      "type": "turn",
-      "instruction": "Turn right along the corridor to the main stairs",
+      "type": "enter-building",
+      "buildingId": "cottrell",
+      "instruction": "Enter Cottrell Building by the east entrance",
       "location": {
         "lat": 56.14465,
-        "lng": -3.92048,
+        "lng": -3.91989,
         "buildingId": "cottrell",
         "floorId": "cottrell-0",
         "level": 0
@@ -125,44 +110,74 @@
       "path": [
         {
           "lat": 56.14465,
-          "lng": -3.92048,
+          "lng": -3.91989,
           "buildingId": "cottrell",
           "floorId": "cottrell-0",
           "level": 0
         },
         {
           "lat": 56.14465,
-          "lng": -3.92064,
+          "lng": -3.91995,
           "buildingId": "cottrell",
           "floorId": "cottrell-0",
           "level": 0
         },
         {
           "lat": 56.14465,
-          "lng": -3.9208,
+          "lng": -3.92008,
           "buildingId": "cottrell",
           "floorId": "cottrell-0",
           "level": 0
         },
         {
-          "lat": 56.14474,
-          "lng": -3.9208,
+          "lat": 56.14465,
+          "lng": -3.9203,
           "buildingId": "cottrell",
           "floorId": "cottrell-0",
           "level": 0
         }
       ],
-      "distanceMetres": 29.8,
-      "durationSeconds": 22,
-      "turn": "right"
+      "distanceMetres": 25.4,
+      "durationSeconds": 23
     },
     {
       "index": 4,
+      "type": "turn",
+      "turn": "right",
+      "instruction": "Turn right to the lift",
+      "location": {
+        "lat": 56.14465,
+        "lng": -3.9203,
+        "buildingId": "cottrell",
+        "floorId": "cottrell-0",
+        "level": 0
+      },
+      "path": [
+        {
+          "lat": 56.14465,
+          "lng": -3.9203,
+          "buildingId": "cottrell",
+          "floorId": "cottrell-0",
+          "level": 0
+        },
+        {
+          "lat": 56.14474,
+          "lng": -3.9203,
+          "buildingId": "cottrell",
+          "floorId": "cottrell-0",
+          "level": 0
+        }
+      ],
+      "distanceMetres": 10,
+      "durationSeconds": 9
+    },
+    {
+      "index": 5,
       "type": "change-floor",
-      "instruction": "Take the stairs up to Floor 2",
+      "instruction": "Take the lift to Floor 2",
       "location": {
         "lat": 56.14474,
-        "lng": -3.9208,
+        "lng": -3.9203,
         "buildingId": "cottrell",
         "floorId": "cottrell-0",
         "level": 0
@@ -170,37 +185,37 @@
       "path": [
         {
           "lat": 56.14474,
-          "lng": -3.9208,
+          "lng": -3.9203,
           "buildingId": "cottrell",
           "floorId": "cottrell-0",
           "level": 0
         },
         {
           "lat": 56.14474,
-          "lng": -3.9208,
+          "lng": -3.9203,
           "buildingId": "cottrell",
           "floorId": "cottrell-1",
           "level": 1
         }
       ],
-      "distanceMetres": 0,
-      "durationSeconds": 20,
       "floorChange": {
-        "via": "stairs",
+        "via": "lift",
         "fromLevel": 0,
         "toLevel": 1,
         "fromFloorId": "cottrell-0",
         "toFloorId": "cottrell-1",
         "toFloorName": "Floor 2"
-      }
+      },
+      "distanceMetres": 0,
+      "durationSeconds": 45
     },
     {
-      "index": 5,
+      "index": 6,
       "type": "walk",
-      "instruction": "Walk east along the corridor",
+      "instruction": "Walk along the corridor",
       "location": {
         "lat": 56.14474,
-        "lng": -3.9208,
+        "lng": -3.9203,
         "buildingId": "cottrell",
         "floorId": "cottrell-1",
         "level": 1
@@ -208,32 +223,35 @@
       "path": [
         {
           "lat": 56.14474,
-          "lng": -3.9208,
+          "lng": -3.9203,
           "buildingId": "cottrell",
           "floorId": "cottrell-1",
           "level": 1
         },
         {
           "lat": 56.14465,
-          "lng": -3.9208,
+          "lng": -3.9203,
           "buildingId": "cottrell",
           "floorId": "cottrell-1",
           "level": 1
-        },
-        {
-          "lat": 56.14465,
-          "lng": -3.92064,
-          "buildingId": "cottrell",
-          "floorId": "cottrell-1",
-          "level": 1
-        },
-        {
-          "lat": 56.14465,
-          "lng": -3.92048,
-          "buildingId": "cottrell",
-          "floorId": "cottrell-1",
-          "level": 1
-        },
+        }
+      ],
+      "distanceMetres": 10,
+      "durationSeconds": 9
+    },
+    {
+      "index": 7,
+      "type": "turn",
+      "turn": "left",
+      "instruction": "Turn left",
+      "location": {
+        "lat": 56.14465,
+        "lng": -3.9203,
+        "buildingId": "cottrell",
+        "floorId": "cottrell-1",
+        "level": 1
+      },
+      "path": [
         {
           "lat": 56.14465,
           "lng": -3.9203,
@@ -249,13 +267,14 @@
           "level": 1
         }
       ],
-      "distanceMetres": 54.6,
-      "durationSeconds": 41
+      "distanceMetres": 13.6,
+      "durationSeconds": 12
     },
     {
-      "index": 6,
+      "index": 8,
       "type": "turn",
-      "instruction": "Turn left into Seminar room 1.01 (sample)",
+      "turn": "left",
+      "instruction": "Turn left through the door",
       "location": {
         "lat": 56.14465,
         "lng": -3.92008,
@@ -280,11 +299,10 @@
         }
       ],
       "distanceMetres": 4.4,
-      "durationSeconds": 3,
-      "turn": "left"
+      "durationSeconds": 4
     },
     {
-      "index": 7,
+      "index": 9,
       "type": "arrive",
       "instruction": "You have arrived at Seminar room 1.01 (sample), Floor 2",
       "location": {

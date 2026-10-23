@@ -7,6 +7,7 @@ const schema = readJson<{ $defs: { step: { properties: { type: { enum: string[] 
   'schemas/route.schema.json',
 );
 const example = () => readJson<Route>('examples/route.example.json');
+const byType = (r: Route, type: string) => r.steps.find((s) => s.type === type)!;
 
 describe('route schema', () => {
   it('accepts the example route (Library to a room in Cottrell)', () => {
@@ -27,9 +28,9 @@ describe('route schema', () => {
   });
 
   it.each<[string, (r: Route) => void, RegExp]>([
-    ['a turn without a direction', (r) => delete r.steps[3].turn, /turn/],
-    ['a floor change without details', (r) => delete r.steps[4].floorChange, /floorChange/],
-    ['an indoor point without a level', (r) => delete r.steps[2].location.level, /level/],
+    ['a turn without a direction', (r) => delete byType(r, 'turn').turn, /turn/],
+    ['a floor change without details', (r) => delete byType(r, 'change-floor').floorChange, /floorChange/],
+    ['an indoor point without a level', (r) => delete byType(r, 'change-floor').location.level, /level/],
     ['a level without a building', (r) => (r.steps[0].location.level = 0), /buildingId/],
     ['an unknown step type', (r) => ((r.steps[0] as { type: string }).type = 'fly'), /allowed values/],
     ['an empty path', (r) => (r.steps[0].path = []), /fewer than 1/],
@@ -65,7 +66,7 @@ describe('route schema', () => {
 
   it('rejects a floor change that stays on the same level', () => {
     const r = example();
-    r.steps[4].floorChange!.toLevel = 0;
+    byType(r, 'change-floor').floorChange!.toLevel = 0;
     expect(validateRoute(r).errors.join()).toMatch(/must change level/);
   });
 });
