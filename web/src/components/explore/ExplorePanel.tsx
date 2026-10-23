@@ -39,7 +39,7 @@ export function ExplorePanel({ provider, onPick }: { provider: MapProvider | nul
           <h2 className="text-lg font-semibold">{open.label}</h2>
         </div>
         {items.length === 0 ? (
-          <p className="px-4 py-6 text-sm text-muted">Nothing here yet in the sample data.</p>
+          <p className="px-4 py-6 text-sm text-muted">Nothing found in this category yet.</p>
         ) : (
           <ul>
             {items.map((d) => {

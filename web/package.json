@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "data:generate": "node scripts/generate-sample-data.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:live": "vitest run --config vitest.live.config.mts"
   },
   "dependencies": {
     "@turf/turf": "^7.4.0",

@@ -1,38 +1,25 @@
 /**
- * Loads MazeMap's official JS API from api.mazemap.com (no copy is kept in this repo)
- * and applies the campus tokens. Docs: https://api.mazemap.com/js/latest/docs/
- *
- * Only the small part of the API this app uses is typed here.
+ * Loads MazeMap's official JS map from api.mazemap.com (no copy is kept in this repo).
+ * Version 2.2.1 is the version the earlier Stirling prototype uses successfully with campus 2058.
+ * Docs: https://api.mazemap.com/js/latest/docs/
  */
 
-export const MAZEMAP_SDK_VERSION = '3.0.9';
+export const MAZEMAP_SDK_VERSION = '2.2.1';
 
-export interface MazemapInstructionStep {
-  instruction: string;
-  geometry?: GeoJSON.LineString | null;
-  zLevel?: number | null;
-  buildingName?: string | null;
-}
-
-export interface MazemapTrip {
-  getInstructionsSteps(): MazemapInstructionStep[];
-}
-
-export interface MazemapSearchController {
-  search(query: string): Promise<{ results: GeoJSON.FeatureCollection }>;
+/** The parts of MazeMap's map (a Mapbox GL v1 map with floor support) this app uses. */
+export interface MazemapMapInstance {
+  on(event: string, cb: (e?: unknown) => void): void;
+  on(event: string, layer: string, cb: (e?: unknown) => void): void;
+  getZLevel(): number;
+  setZLevel(z: number): void;
 }
 
 export interface MazemapGlobal {
+  Map: new (options: Record<string, unknown>) => MazemapMapInstance;
+  mapboxgl: { NavigationControl: new (options?: Record<string, unknown>) => unknown };
   Config: {
-    setMazemapViewToken(token: string): void;
-    setMazemapAuthToken(token: string): void;
-  };
-  Search: { SearchController: new (options: Record<string, unknown>) => MazemapSearchController };
-  Data: {
-    getPoi(id: number): Promise<GeoJSON.Feature>;
-    getBuildingsByCampusId(campusId: number): Promise<unknown[]>;
-    getFloorsByCampusId(campusId: number): Promise<unknown[]>;
-    getAtoBTrip(params: Record<string, unknown>): Promise<MazemapTrip>;
+    setMazemapViewToken?(token: string): void;
+    setMazemapAuthToken?(token: string): void;
   };
 }
 
@@ -55,16 +42,22 @@ export function loadMazemapSdk(opts: { viewToken?: string; authToken?: string; v
     const script = document.createElement('script');
     script.src = `https://api.mazemap.com/js/v${v}/mazemap.min.js`;
     script.async = true;
+    const fail = (msg: string) => {
+      loading = undefined;
+      reject(new Error(msg));
+    };
+    const timer = setTimeout(() => fail('The University campus map (MazeMap) took too long to load.'), 20_000);
     script.onload = () => {
+      clearTimeout(timer);
       const mm = window.Mazemap;
-      if (!mm) return reject(new Error('MazeMap JS API did not load.'));
-      if (opts.viewToken) mm.Config.setMazemapViewToken(opts.viewToken);
-      if (opts.authToken) mm.Config.setMazemapAuthToken(opts.authToken);
+      if (!mm?.Map) return fail('The University campus map (MazeMap) did not load.');
+      if (opts.viewToken) mm.Config?.setMazemapViewToken?.(opts.viewToken);
+      if (opts.authToken) mm.Config?.setMazemapAuthToken?.(opts.authToken);
       resolve(mm);
     };
     script.onerror = () => {
-      loading = undefined;
-      reject(new Error('Could not reach api.mazemap.com.'));
+      clearTimeout(timer);
+      fail("Couldn't reach the University campus map (api.mazemap.com).");
     };
     document.head.appendChild(script);
   });

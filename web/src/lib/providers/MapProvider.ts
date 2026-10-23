@@ -3,6 +3,7 @@ import type {
   Destination,
   Floor,
   IndoorMap,
+  LatLng,
   Route,
   RouteEndpoint,
   RouteOptions,
@@ -10,6 +11,14 @@ import type {
 } from '../types';
 
 export type ProviderId = 'local' | 'mazemap';
+
+export interface MazeMapBaseMap {
+  kind: 'mazemap';
+  campusId: number;
+  sdkVersion: string;
+  viewToken?: string;
+  authToken?: string;
+}
 
 /** Extra GeoJSON a provider can hand to the map for drawing (LocalProvider only). */
 export interface MapOverlay {
@@ -39,6 +48,15 @@ export interface MapProvider {
 
   /** Indoor floor plan for the indoor view. Resolves to null when the building has no indoor data. */
   getIndoorMap?(buildingId: string): Promise<IndoorMap | null>;
+
+  /**
+   * Optional: draw the provider's own map (MazeMap's campus map with indoor floors)
+   * instead of the plain base map plus overlay.
+   */
+  readonly baseMap?: MazeMapBaseMap;
+
+  /** Optional: the room or place at a tapped point on a floor (used with baseMap). */
+  getDestinationAt?(point: LatLng, level: number): Promise<Destination | null>;
 
   /** Optional: features to draw on a plain base map. MazeMap draws its own map instead. */
   getMapOverlay?(): Promise<MapOverlay>;

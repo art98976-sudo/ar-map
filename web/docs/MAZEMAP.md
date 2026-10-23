@@ -1,62 +1,58 @@
-# Connecting to MazeMap
+# The University campus map (MazeMap)
 
-The app can switch from its sample data to the University's real MazeMap data by setting
-`MAP_PROVIDER=mazemap`. The code for this is ready, in `src/lib/providers/mazemap/`, but it stays
-switched off until the University gives permission and the values below.
+The live site uses the University of Stirling's own campus map from MazeMap (campus **2058**). It
+has every building, room and floor, MazeMap's indoor floor plans, and MazeMap's official indoor and
+outdoor walking routes. The earlier Stirling AR prototype used the same campus.
 
-Checked against MazeMap's JS API documentation, version 3.0.9 (October 2026):
-<https://api.mazemap.com/js/latest/docs/>
+The app's sample data is still available for development and tests (`MAP_PROVIDER=local`).
 
-## What to ask the University for
+## What the app uses
 
-Send this to the University's MazeMap contact. That is usually Estates or Digital Services, who hold
-the MazeMap contract and have a MazeMap Customer Success Manager.
+| Feature | MazeMap service |
+|---|---|
+| Map with buildings and indoor floor plans | MazeMap JS API 2.2.1 (`api.mazemap.com/js/v2.2.1`), loaded in the browser |
+| Search rooms, cafés, buildings, car parks | `search.mazemap.com/search/equery/` (campus 2058) |
+| Place details, the room tapped on the map | `api.mazemap.com/api/pois/…` |
+| Buildings and their floors | `api.mazemap.com/api/buildings/?campusid=2058` |
+| Walking routes and written directions | `routing.mazemap.com/routing/path/` and `/directions/` (`hc=true` for step-free) |
 
-1. **Written permission** to use the University of Stirling MazeMap campus in a student-built web app
-   (and later an AR app) through MazeMap's official JS API, including search, place data and routing.
-2. **The MazeMap campus id** for the Stirling campus (a number).
-3. **A campus view token** or **campus access token**, if the campus or any of its floors are private.
-   MazeMap's API has `setMazemapViewToken` and `setMazemapAuthToken` for this.
-4. **Confirmation that routing and indoor directions are enabled** for the campus. MazeMap notes that
-   text directions only work "inside campus boundaries where feature is enabled".
-5. **Whether accessible routing is set up** (step-free paths and lifts marked), so the app's
-   step-free option works.
-6. **Whether a staging setup exists** for testing (MazeMap supports `staging-api.mazemap.com`).
-7. **Any branding or attribution rules** for showing MazeMap data in the app.
-8. If the AR app will need bulk or offline data, ask about **MazeMap's Customer API**. The JS API
-   must not be used to download data in bulk.
+These are the same services MazeMap's own JS API calls. MazeMap's routes and wording are
+converted into the app's route format, so the AR app can read them too. Every MazeMap route is
+checked against the route schema in tests.
 
 ## MazeMap's usage rules that the app follows
 
 | Rule from MazeMap's guidelines | How the app follows it |
 |---|---|
-| No scraping or bulk downloading of data | Only searches when someone types, and looks up single places on demand. Nothing is stored in the repo. |
-| Route requests are slow (1 to 5 s); request sparingly | The same trip is requested at most once every 30 seconds. |
-| Search: avoid automatic repeated calls | Uses MazeMap's own `SearchController`, which waits at least 250 ms between calls. |
+| No scraping or bulk downloading of data | Requests happen only on user actions: typing, tapping a room, or asking for a route. Nothing is stored in the repo. |
+| Route requests are slow (1 to 5 s); request sparingly | While only "My location" moves, the same trip is requested at most once every 30 seconds. |
+| Search: no automatic repeated calls | Search runs as the user types, after a short pause. |
 
-## Switching it on
+## Settings
 
 ```bash
-# web/.env.local
-MAP_PROVIDER=mazemap
-MAZEMAP_CAMPUS_ID=<number from the University>
-MAZEMAP_VIEW_TOKEN=<only if given>
-MAZEMAP_AUTH_TOKEN=<only if given>
+# web/.env.local, or Vercel → Project → Settings → Environment Variables
+MAP_PROVIDER=mazemap      # or "local" for the sample data
+MAZEMAP_CAMPUS_ID=2058
+MAZEMAP_VIEW_TOKEN=       # only if the University makes the campus or floors private
+MAZEMAP_AUTH_TOKEN=
 ```
 
-Then rebuild (`npm run build`). On Vercel, add the same variables in Project Settings, then redeploy.
-If `MAP_PROVIDER=mazemap` is set without a valid campus id, the app falls back to sample data and
-shows a warning.
+Values are read at build time, so redeploy after changing them.
 
-## What is done and what is left
+## Checks
 
-- **Done.** Search, place lookup, buildings, floors and routing go through MazeMap's official
-  JS API. Results are converted into the app's own types and route format, so the UI does not change.
-- **Tested.** Unit tests use a fake MazeMap SDK with made-up data shaped like MazeMap's documented
-  responses.
-- **Still to check with real access:**
-  - The exact field names in MazeMap's responses.
-  - The z-level numbering of Stirling's floors.
-  - The route request's start and end format for raw positions.
-  - How instruction texts map to step types.
-- **Later.** Draw MazeMap's own indoor floor-plan tiles in the map, instead of the base map plus routes.
+- `npm test` checks the MazeMap conversions with made-up data in MazeMap's response shapes.
+- `npm run test:live` runs a few real requests against campus 2058: search, buildings, floors and a
+  step-free route, which must pass the route schema.
+- `E2E_PROVIDER=mazemap npx playwright test` runs the real campus map on a phone-sized screen.
+
+## Permission
+
+The campus map is public on MazeMap and the prototype has used it before. Before any official or
+wider launch, confirm with the University (Estates or Digital Services, who hold the MazeMap
+contract) that a student-built app may use it. Also ask:
+
+- Whether MazeMap's Customer API is needed for the AR app (for example, offline route data).
+- Whether there are branding or attribution rules.
+- Whether any private floors need a view token.

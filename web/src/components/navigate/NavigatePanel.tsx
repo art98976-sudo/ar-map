@@ -203,7 +203,7 @@ export function RouteSheet({
           </p>
           <p className="text-xs text-muted">
             <Clock aria-hidden className="mr-1 inline size-3" />
-            Walking{floors.size > 1 ? ` · ${floors.size} floors` : ''} · approximate sample route
+            Walking{floors.size > 1 ? ` · ${floors.size} floors` : ''} · {r.isSampleData ? 'approximate sample route' : 'University campus map route'}
           </p>
         </div>
         <IconButton label="Share route" onClick={onShare}>

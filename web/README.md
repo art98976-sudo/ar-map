@@ -7,9 +7,12 @@ which reads the same route format.
 
 **Live preview:** <https://stirling-campus-map.vercel.app>
 
-> **Sample data only.** Everything in `public/data/` is approximate and hand-placed for
-> development. It is not official University of Stirling or MazeMap data and must not be used
-> for real navigation. Student project, not an official University service.
+The live site uses the **University's real campus map from MazeMap** (campus 2058): every
+building, room and floor, indoor floor plans and official routes. See [docs/MAZEMAP.md](docs/MAZEMAP.md).
+A built-in sample dataset is kept for development and tests (`MAP_PROVIDER=local`).
+
+> Student project, not an official University service. The sample data in `public/data/` is
+> approximate and hand-placed for development only; it is not official University or MazeMap data.
 
 ## Features
 
@@ -20,7 +23,8 @@ which reads the same route format.
 | Destination card with Directions, Save and Floors | Map tab |
 | Walking route with highlighted path, steps, time and distance | Navigate tab |
 | Step-free route (avoids stairs and steps, uses ramps and lifts) | Navigate tab |
-| Indoor view: floor selector, rooms, corridors, stairs, lift, entrances, "Take the lift to Floor 2" | Map and Navigate |
+| Indoor view: MazeMap's floor plans with a floor selector; route parts on other floors fade; floor-change prompts | Map and Navigate |
+| Tap a room on the map to open it | Map tab |
 | Your location (asked for only when needed), with clear messages when it fails | Map and Navigate |
 | Saved places (kept in this browser) | Saved tab |
 | Share a route as a link | Navigate tab |
@@ -45,13 +49,16 @@ IP address. Location only works over https (or on localhost), so test location o
 
 ```bash
 npm test               # unit tests (Vitest): routing, schema, data, providers, share links
-npm run test:e2e       # end-to-end test (Playwright) on a 360 px phone screen
+npm run test:e2e       # end-to-end tests (Playwright) on a 360 px phone screen, sample data
+npm run test:live      # a few real requests to MazeMap (campus 2058)
+E2E_PROVIDER=mazemap npx playwright test   # end-to-end test on the real campus map
 npm run typecheck
 npm run lint
 ```
 
-The first `test:e2e` run needs `npx playwright install chromium`. To test the live site instead:
-`E2E_BASE_URL=https://stirling-campus-map.vercel.app npx playwright test`.
+The first `test:e2e` run needs `npx playwright install chromium`. To test the live site (which
+uses MazeMap) instead:
+`E2E_PROVIDER=mazemap E2E_BASE_URL=https://stirling-campus-map.vercel.app npx playwright test`.
 
 ## Deploy (Vercel)
 
@@ -62,7 +69,7 @@ To set it up from scratch:
 
 1. In Vercel, choose **Add New → Project**, import `art98976-sudo/ar-map`.
 2. Set **Root Directory** to `web`. Leave build settings on the Next.js defaults.
-3. Optionally add environment variables (see below). Deploy.
+3. Add the environment variables `MAP_PROVIDER=mazemap` and `MAZEMAP_CAMPUS_ID=2058`. Deploy.
 
 The GitHub Pages workflow in the repo root only publishes the older AR prototype and is not
 affected by `web/`.
@@ -73,12 +80,12 @@ Copy `.env.example` to `.env.local`. Values are read at build time.
 
 | Variable | Meaning |
 |---|---|
-| `MAP_PROVIDER` | `local` (default, sample data) or `mazemap`. If MazeMap is not configured, the app falls back to `local` and shows a warning. |
-| `MAZEMAP_CAMPUS_ID` | MazeMap campus id (a number) from the University. Placeholder: `TODO`. |
+| `MAP_PROVIDER` | `mazemap` (the real campus map, used on the live site) or `local` (sample data, the default when unset). If MazeMap is chosen without a campus id, the app falls back to `local` and shows a warning. |
+| `MAZEMAP_CAMPUS_ID` | MazeMap campus id. University of Stirling: `2058`. |
 | `MAZEMAP_VIEW_TOKEN`, `MAZEMAP_AUTH_TOKEN` | Only if the University's campus needs them. |
 | `NEXT_PUBLIC_BASEMAP_STYLE_URL`, `NEXT_PUBLIC_BASEMAP_STYLE_URL_DARK` | Optional MapLibre styles. Empty uses OpenFreeMap (free, no key). |
 
-See [docs/MAZEMAP.md](docs/MAZEMAP.md) for exactly what to request from the University.
+See [docs/MAZEMAP.md](docs/MAZEMAP.md) for how the MazeMap connection works and what to confirm with the University.
 
 ## How it fits together
 
@@ -109,8 +116,9 @@ web/
 
 **Provider layer.** The UI only talks to the `MapProvider` interface:
 `searchDestinations`, `getDestination`, `getBuildings`, `getFloors` and `getRoute`, plus optional
-`getIndoorMap` and `getMapOverlay`. `LocalProvider` reads the sample data. `MazeMapProvider` uses
-MazeMap's official JS API. `MAP_PROVIDER` picks one, and the UI stays the same.
+`getIndoorMap`, `getMapOverlay`, `getDestinationAt` and `baseMap`. `LocalProvider` reads the sample
+data and draws it on an OpenFreeMap base map. `MazeMapProvider` uses MazeMap's services and has the
+map show MazeMap's own campus map with indoor floors. `MAP_PROVIDER` picks one; the UI is the same.
 
 **Routing.** Outdoor paths and the Cottrell corridors, stairs and lift form one walking graph. A*
 finds the shortest path. Stairs and lifts carry a time cost, and step-free mode skips steps and
@@ -135,5 +143,6 @@ network is connected, that entrances sit on it, and that Cottrell works with and
 
 ## Credits
 
-Base map © OpenFreeMap, © OpenMapTiles, data © OpenStreetMap contributors. Map rendering by
-MapLibre GL JS. Icons by Lucide.
+Campus map, floors and routes © MazeMap / University of Stirling. Sample-data base map ©
+OpenFreeMap, © OpenMapTiles, data © OpenStreetMap contributors. Map rendering by MapLibre GL JS
+and MazeMap. Icons by Lucide.

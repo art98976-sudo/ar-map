@@ -3,7 +3,7 @@ import { LocalProvider } from './local/LocalProvider';
 import type { MapProvider } from './MapProvider';
 import { MazeMapProvider, type MazeMapConfig } from './mazemap/MazeMapProvider';
 
-export type { MapOverlay, MapProvider, ProviderId } from './MapProvider';
+export type { MapOverlay, MapProvider, MazeMapBaseMap, ProviderId } from './MapProvider';
 export { LocalProvider } from './local/LocalProvider';
 export { MazeMapProvider } from './mazemap/MazeMapProvider';
 export * from './errors';

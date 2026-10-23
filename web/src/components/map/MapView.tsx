@@ -8,7 +8,8 @@ import type {
   Map as MapLibreMap,
 } from 'maplibre-gl';
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
-import type { MapOverlay } from '@/lib/providers';
+import type { MapOverlay, MazeMapBaseMap } from '@/lib/providers';
+import { loadMazemapSdk, type MazemapMapInstance } from '@/lib/providers/mazemap/sdk';
 import type { Destination, IndoorMap, LatLng, Route } from '@/lib/types';
 import { CAMPUS_CENTER, PALETTES, baseMapStyle, fallbackRasterStyle, type MapPalette } from './mapStyle';
 
@@ -43,28 +44,38 @@ export interface MapViewProps {
   dark: boolean;
   /** Space covered by floating panels, so the camera centres in the visible part. */
   padding: Padding;
+  /** Draw MazeMap's campus map (with indoor floors) instead of the plain base map. Fixed for the map's lifetime. */
+  baseMap?: MazeMapBaseMap;
   onSelect(destinationId: string): void;
   onStatus(status: 'ready' | 'error', message?: string): void;
+  /** MazeMap map only: a tap on the map that did not hit one of our features. */
+  onMapTap?(point: LatLng, level: number): void;
+  /** MazeMap map only: the floor shown changed (e.g. from the map itself). */
+  onZLevel?(level: number): void;
 }
+
+/** Floor view for MazeMap's map, which shows one z-level across the whole campus. */
+export const ALL_BUILDINGS = '*';
 
 const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 const FONT_REGULAR = ['Noto Sans Regular'];
 const FONT_BOLD = ['Noto Sans Bold'];
 const OUTDOOR = -999;
 
-type Latest = Omit<MapViewProps, 'ref' | 'onSelect' | 'onStatus'>;
+type Latest = Omit<MapViewProps, 'ref' | 'onSelect' | 'onStatus' | 'onMapTap' | 'onZLevel'>;
 
 export default function MapView(props: MapViewProps) {
-  const { ref, onSelect, onStatus, ...data } = props;
+  const { ref, onSelect, onStatus, onMapTap, onZLevel, ...data } = props;
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const latest = useRef<Latest>(data);
-  const callbacks = useRef({ onSelect, onStatus });
+  const callbacks = useRef({ onSelect, onStatus, onMapTap, onZLevel });
+  const mazemapRef = useRef<MazemapMapInstance | null>(null);
   const [styleVersion, setStyleVersion] = useState(0);
 
   useEffect(() => {
     latest.current = data;
-    callbacks.current = { onSelect, onStatus };
+    callbacks.current = { onSelect, onStatus, onMapTap, onZLevel };
   });
 
   // Camera moves asked for before the map exists (e.g. opening a shared link) wait here.
@@ -76,11 +87,23 @@ export default function MapView(props: MapViewProps) {
 
   useImperativeHandle(ref, () => ({
     flyTo(point, zoom = 18) {
-      camera((map) => map.flyTo({ center: [point.lng, point.lat], zoom, padding: latest.current.padding, duration: reducedMotion() ? 0 : 700 }));
+      if (!Number.isFinite(point.lat) || !Number.isFinite(point.lng)) return;
+      // An offset (not persistent camera padding): MazeMap's Mapbox GL v1 adds remembered padding
+      // to later fits, which can exceed the map's size.
+      const p = latest.current.padding;
+      camera((map) =>
+        map.flyTo({ center: [point.lng, point.lat], zoom, offset: [(p.left - p.right) / 2, (p.top - p.bottom) / 2], duration: reducedMotion() ? 0 : 700 }),
+      );
     },
     fitPoints(points) {
-      if (!points.length) return;
-      camera((map) => map.fitBounds(boundsOf(points), { padding: addPadding(latest.current.padding, 30), maxZoom: 18, duration: reducedMotion() ? 0 : 700 }));
+      const valid = points.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+      if (!valid.length) return;
+      camera((map) => {
+        const padding = fitPadding(map, addPadding(latest.current.padding, 30));
+        const cam = map.cameraForBounds(boundsOf(valid), { padding, maxZoom: 18 });
+        if (!cam?.center) return;
+        map.flyTo({ ...cam, duration: reducedMotion() ? 0 : 700 });
+      });
     },
   }));
 
@@ -89,6 +112,11 @@ export default function MapView(props: MapViewProps) {
     let cancelled = false;
     let map: MapLibreMap | undefined;
     (async () => {
+      const mmConfig = latest.current.baseMap;
+      if (mmConfig) {
+        map = await createMazemapMap(mmConfig);
+        return;
+      }
       const maplibre = await import('maplibre-gl');
       if (cancelled || !container.current) return;
       // MapLibre 6 needs its worker served as a separate file (copied to public/vendor on install).
@@ -142,10 +170,50 @@ export default function MapView(props: MapViewProps) {
       }
     })().catch((err) => callbacks.current.onStatus('error', err instanceof Error ? err.message : String(err)));
 
+    /** MazeMap's map: a Mapbox GL v1 map with the University's buildings and indoor floor plans. */
+    async function createMazemapMap(cfg: MazeMapBaseMap): Promise<MapLibreMap | undefined> {
+      const mm = await loadMazemapSdk({ version: cfg.sdkVersion, viewToken: cfg.viewToken, authToken: cfg.authToken });
+      if (cancelled || !container.current) return undefined;
+      const raw = new mm.Map({
+        container: container.current,
+        campuses: cfg.campusId,
+        center: { lng: CAMPUS_CENTER[0], lat: CAMPUS_CENTER[1] },
+        zoom: 16,
+        zLevel: 1,
+        zLevelControl: false, // the app's own floor control drives the floor shown
+        minZoom: 13,
+        maxZoom: 21,
+      });
+      mazemapRef.current = raw;
+      // Same camera, source and layer API as MapLibre (both descend from Mapbox GL).
+      const m = raw as unknown as MapLibreMap;
+      mapRef.current = m;
+      m.addControl(new mm.mapboxgl.NavigationControl({ showCompass: true }) as never, 'top-right');
+      m.once('load', () => {
+        setStyleVersion((v) => v + 1);
+        callbacks.current.onStatus('ready');
+        callbacks.current.onZLevel?.(raw.getZLevel());
+        if (pendingCamera.current) {
+          pendingCamera.current(m);
+          pendingCamera.current = null;
+        }
+      });
+      raw.on('zlevel', () => callbacks.current.onZLevel?.(raw.getZLevel()));
+      m.on('error', (e) => console.warn('Map error:', e.error?.message ?? e));
+      m.on('click', (e) => {
+        const ours = ['scm-route-ends', 'scm-selected'].filter((id) => m.getLayer(id));
+        const hit = m.queryRenderedFeatures(e.point, { layers: ours }).find((f) => f.properties?.destId);
+        if (hit) callbacks.current.onSelect(String(hit.properties.destId));
+        else callbacks.current.onMapTap?.({ lat: e.lngLat.lat, lng: e.lngLat.lng }, raw.getZLevel());
+      });
+      return m;
+    }
+
     return () => {
       cancelled = true;
-      map?.remove();
+      (mapRef.current ?? map)?.remove();
       mapRef.current = null;
+      mazemapRef.current = null;
     };
   }, []);
 
@@ -153,17 +221,29 @@ export default function MapView(props: MapViewProps) {
   const dark = data.dark;
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !styleVersion) return;
+    if (!map || !styleVersion || latest.current.baseMap) return;
     map.setStyle(baseMapStyle(dark));
     // Re-adding our layers happens on the next 'style.load'.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dark]);
 
+  // MazeMap map: show the floor the app asks for.
+  const viewLevel = data.indoorView?.level;
+  useEffect(() => {
+    const mm = mazemapRef.current;
+    if (!mm || !styleVersion || viewLevel === undefined) return;
+    try {
+      if (mm.getZLevel() !== viewLevel) mm.setZLevel(viewLevel);
+    } catch {
+      // The campus may still be loading; the next change will apply.
+    }
+  }, [viewLevel, styleVersion]);
+
   // (Re)build our layers whenever a style finishes loading.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !styleVersion) return;
-    addLayers(map, PALETTES[latest.current.dark ? 'dark' : 'light']);
+    addLayers(map, PALETTES[latest.current.dark && !latest.current.baseMap ? 'dark' : 'light'], Boolean(latest.current.baseMap));
   }, [styleVersion]);
 
   // Push data into sources whenever it changes.
@@ -183,6 +263,15 @@ export default function MapView(props: MapViewProps) {
 
 function reducedMotion() {
   return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/** Shrinks padding that would leave no room on a small map (keeps at least 40% of each side). */
+function fitPadding(map: MapLibreMap, p: Padding): Padding {
+  const { clientWidth: w, clientHeight: h } = map.getContainer();
+  const scale = (a: number, b: number, size: number) => (a + b > size * 0.6 ? (size * 0.6) / (a + b) : 1);
+  const v = scale(p.top, p.bottom, h);
+  const hz = scale(p.left, p.right, w);
+  return { top: p.top * v, bottom: p.bottom * v, left: p.left * hz, right: p.right * hz };
 }
 
 function addPadding(p: Padding, extra: number): Padding {
@@ -205,9 +294,10 @@ const SOURCES = [
   'scm-indoor', 'scm-route', 'scm-route-ends', 'scm-selected', 'scm-user',
 ] as const;
 
-function addLayers(map: MapLibreMap, c: MapPalette) {
+function addLayers(map: MapLibreMap, c: MapPalette, onMazemap = false) {
   for (const id of SOURCES) if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: EMPTY });
-  const hasGlyphs = Boolean(map.getStyle().glyphs);
+  // Our labels use OpenFreeMap fonts; on MazeMap's map the map draws its own labels.
+  const hasGlyphs = !onMazemap && Boolean(map.getStyle().glyphs);
   const add: MapLibreMap['addLayer'] = (layer) => (map.getLayer(layer.id) ? map : map.addLayer(layer));
 
   add({ id: 'scm-areas-water', type: 'fill', source: 'scm-areas', filter: ['==', ['get', 'kind'], 'water'], paint: { 'fill-color': c.water, 'fill-opacity': 0.35 } });
@@ -350,7 +440,7 @@ function updateData(map: MapLibreMap, d: Latest) {
       const flush = () => {
         if (run.length < 2) return;
         const lvl = run[1].level ?? OUTDOOR;
-        const faded = view ? lvl !== OUTDOOR && (run[1].buildingId !== view.buildingId || lvl !== view.level) : false;
+        const faded = view ? lvl !== OUTDOOR && ((view.buildingId !== ALL_BUILDINGS && run[1].buildingId !== view.buildingId) || lvl !== view.level) : false;
         features.push({
           type: 'Feature',
           geometry: { type: 'LineString', coordinates: run.map((p) => [p.lng, p.lat]) },

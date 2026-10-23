@@ -10,11 +10,11 @@ import { NoRouteError, OutOfAreaError, getMapProvider, type MapOverlay } from '@
 import { haversine } from '@/lib/routing/geometry';
 import { savedStore } from '@/lib/state/saved';
 import { parseUrlState, routeShareUrl, serializeUrlState, type Tab, type UrlState } from '@/lib/state/urlState';
-import type { Building, Destination, FilterCategory, IndoorMap, LatLng, RouteEndpoint, RouteStep } from '@/lib/types';
+import type { Building, Destination, FilterCategory, Floor, IndoorMap, LatLng, RouteEndpoint, RouteStep } from '@/lib/types';
 import { ArPanel } from '../ar/ArPanel';
 import { DestinationCard } from '../destination/DestinationCard';
 import { ExplorePanel } from '../explore/ExplorePanel';
-import MapView, { type IndoorViewState, type MapViewHandle, type Padding } from '../map/MapView';
+import MapView, { ALL_BUILDINGS, type IndoorViewState, type MapViewHandle, type Padding } from '../map/MapView';
 import { RouteForm, RouteSheet, type RouteState } from '../navigate/NavigatePanel';
 import { SavedPanel } from '../saved/SavedPanel';
 import { FilterChips, ResultList, SearchBar } from '../search/Search';
@@ -86,7 +86,30 @@ export default function CampusApp() {
   const toDest = useDestination(provider, url.to);
 
   // ---------- indoor view ----------
-  const [indoorView, setIndoorView] = useState<IndoorViewState | null>(null);
+  // With MazeMap's map, one floor (z-level) is shown across the whole campus and floors are always on.
+  const baseMap = provider.baseMap;
+  const [indoorView, setIndoorViewRaw] = useState<IndoorViewState | null>(null);
+  const setIndoorView = useCallback(
+    (v: IndoorViewState | null) => {
+      if (!baseMap) return setIndoorViewRaw(v);
+      if (v) setIndoorViewRaw({ buildingId: ALL_BUILDINGS, level: v.level });
+    },
+    [baseMap],
+  );
+  const [campusFloors, setCampusFloors] = useState<Floor[]>([]);
+  useEffect(() => {
+    if (!baseMap || !buildings.length) return;
+    let cancelled = false;
+    Promise.all(buildings.map((b) => provider.getFloors(b.id).catch(() => [] as Floor[]))).then((lists) => {
+      if (cancelled) return;
+      const byLevel = new Map<number, Floor>();
+      for (const fl of lists.flat()) if (!byLevel.has(fl.level)) byLevel.set(fl.level, fl);
+      setCampusFloors([...byLevel.values()].sort((a, b) => a.level - b.level));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [baseMap, buildings, provider]);
   const [indoorMap, setIndoorMap] = useState<IndoorMap | null>(null);
   useEffect(() => {
     if (!indoorView || indoorMap?.buildingId === indoorView.buildingId || !provider.getIndoorMap) return;
@@ -96,7 +119,7 @@ export default function CampusApp() {
       cancelled = true;
     };
   }, [indoorView, indoorMap, provider]);
-  const hasIndoor = (buildingId?: string) => Boolean(buildingId && buildingById.get(buildingId)?.hasIndoorData);
+  const hasIndoor = (buildingId?: string) => Boolean(buildingId && (baseMap || buildingById.get(buildingId)?.hasIndoorData));
 
   // ---------- picker (From / To) ----------
   const [picker, setPicker] = useState<'from' | 'to' | null>(null);
@@ -400,7 +423,7 @@ export default function CampusApp() {
                     <DestinationCard
                       destination={selected}
                       saved={savedIds.includes(selected.id)}
-                      hasIndoorMap={hasIndoor(selected.buildingId)}
+                      hasIndoorMap={!baseMap && hasIndoor(selected.buildingId)}
                       onDirections={() => directionsTo(selected)}
                       onToggleSave={() => showToast(savedStore.toggle(selected.id) ? 'Saved' : 'Removed from saved')}
                       onIndoor={() => setIndoorView({ buildingId: selected.buildingId!, level: selected.level ?? 0 })}
@@ -416,7 +439,7 @@ export default function CampusApp() {
                     </Button>
                   </div>
                 )}
-                <SampleNote />
+                <SampleNote sample={provider.isSampleData} />
               </div>
             </>
           ) : url.tab === 'navigate' ? (
@@ -454,7 +477,7 @@ export default function CampusApp() {
                 {!route && routeState.status === 'idle' && (
                   <p className="pointer-events-auto rounded-xl bg-surface/95 p-3 text-sm text-muted shadow">Choose a destination to see walking directions.</p>
                 )}
-                <SampleNote />
+                <SampleNote sample={provider.isSampleData} />
               </div>
             </>
           ) : url.tab === 'explore' ? (
@@ -467,9 +490,18 @@ export default function CampusApp() {
         </div>
 
         <footer className="hidden border-t border-border px-4 py-3 text-xs text-muted lg:block">
-          <strong className="font-semibold text-foreground">Sample data.</strong> Positions are approximate and hand-placed for
-          development. Not official University of Stirling or MazeMap data. Student project, not an official University service.
-          Base map © OpenFreeMap, © OpenStreetMap contributors.
+          {provider.isSampleData ? (
+            <>
+              <strong className="font-semibold text-foreground">Sample data.</strong> Positions are approximate and hand-placed for
+              development. Not official University of Stirling or MazeMap data. Student project, not an official University service.
+              Base map © OpenFreeMap, © OpenStreetMap contributors.
+            </>
+          ) : (
+            <>
+              <strong className="font-semibold text-foreground">University campus map by MazeMap.</strong> Buildings, rooms, floors and
+              routes come from the University of Stirling&apos;s MazeMap campus. Student project, not an official University service.
+            </>
+          )}
         </footer>
       </aside>
 
@@ -492,11 +524,25 @@ export default function CampusApp() {
             provider.getDestination(id).then((d) => d && select(d));
           }}
           onStatus={(s, msg) => setMapError(s === 'error' ? msg ?? 'Map failed to load' : null)}
+          baseMap={baseMap}
+          onMapTap={(point, level) => {
+            if (url.tab !== 'map' || !provider.getDestinationAt) return;
+            provider.getDestinationAt(point, level).then((d) => d && select(d));
+          }}
+          onZLevel={(level) => setIndoorViewRaw((v) => (v?.level === level ? v : { buildingId: ALL_BUILDINGS, level }))}
         />
 
         {!fullTab && (
           <div className={cx('absolute right-3 z-10 flex flex-col items-end gap-2 lg:top-28', url.tab === 'navigate' ? 'top-56' : 'top-32')}>
-            {indoorView && indoorMap && indoorMap.buildingId === indoorView.buildingId && (
+            {baseMap && indoorView && campusFloors.length > 0 && (
+              <FloorControl
+                buildingName="Campus"
+                floors={campusFloors}
+                level={indoorView.level}
+                onLevel={(level) => setIndoorView({ buildingId: ALL_BUILDINGS, level })}
+              />
+            )}
+            {!baseMap && indoorView && indoorMap && indoorMap.buildingId === indoorView.buildingId && (
               <FloorControl
                 buildingName={buildingById.get(indoorView.buildingId)?.shortName ?? buildingById.get(indoorView.buildingId)?.name ?? ''}
                 floors={indoorMap.floors}
@@ -505,7 +551,7 @@ export default function CampusApp() {
                 onClose={() => setIndoorView(null)}
               />
             )}
-            {!indoorView && url.tab === 'map' && selected && hasIndoor(selected.buildingId) && (
+            {!baseMap && !indoorView && url.tab === 'map' && selected && hasIndoor(selected.buildingId) && (
               <IconButton label="Show floors" onClick={() => setIndoorView({ buildingId: selected.buildingId!, level: selected.level ?? 0 })} className="bg-surface shadow-md">
                 <Layers aria-hidden className="size-5" />
               </IconButton>
@@ -547,16 +593,23 @@ function FloorControl({
   floors: { id: string; level: number; name: string }[];
   level: number;
   onLevel(l: number): void;
-  onClose(): void;
+  /** Omitted when floors cannot be turned off (MazeMap's map). */
+  onClose?(): void;
 }) {
   return (
     <div role="group" aria-label={`${buildingName} floors`} className="w-24 overflow-hidden rounded-2xl border border-border bg-surface shadow-lg">
       <div className="flex items-center justify-between pl-2">
         <span className="truncate text-xs font-semibold">{buildingName}</span>
-        <button type="button" aria-label="Close indoor map" onClick={onClose} className="grid size-9 place-items-center text-muted hover:text-foreground">
-          <X aria-hidden className="size-4" />
-        </button>
+        {onClose ? (
+          <button type="button" aria-label="Close indoor map" onClick={onClose} className="grid size-9 place-items-center text-muted hover:text-foreground">
+            <X aria-hidden className="size-4" />
+          </button>
+        ) : (
+          <span className="h-9" />
+        )}
       </div>
+      {/* Many floors (MazeMap campus): scroll instead of covering the panels. */}
+      <div className="max-h-[8.25rem] overflow-y-auto lg:max-h-[22rem]">
       {[...floors].reverse().map((f) => (
         <button
           key={f.id}
@@ -571,11 +624,19 @@ function FloorControl({
           {f.name}
         </button>
       ))}
+      </div>
     </div>
   );
 }
 
-function SampleNote() {
+function SampleNote({ sample }: { sample: boolean }) {
+  if (!sample) {
+    return (
+      <p className="pointer-events-auto mx-auto w-fit rounded-full bg-surface px-3 py-1 text-center text-[11px] text-muted shadow-sm lg:hidden">
+        University campus map by MazeMap · student project, not an official service
+      </p>
+    );
+  }
   return (
     <p className="pointer-events-auto mx-auto w-fit rounded-full bg-surface px-3 py-1 text-center text-[11px] text-muted shadow-sm lg:hidden">
       Sample data · approximate, not official · Map{' '}
