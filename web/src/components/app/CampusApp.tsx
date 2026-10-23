@@ -12,6 +12,8 @@ import { savedStore } from '@/lib/state/saved';
 import { parseUrlState, routeShareUrl, serializeUrlState, type Tab, type UrlState } from '@/lib/state/urlState';
 import type { Building, Destination, FilterCategory, Floor, IndoorMap, LatLng, RouteEndpoint, RouteStep } from '@/lib/types';
 import { ArPanel } from '../ar/ArPanel';
+import ArView from '../ar/ArView';
+import { requestMotionPermission } from '@/lib/ar/orientation';
 import { DestinationCard } from '../destination/DestinationCard';
 import { ExplorePanel } from '../explore/ExplorePanel';
 import MapView, { ALL_BUILDINGS, type IndoorViewState, type MapViewHandle, type Padding } from '../map/MapView';
@@ -311,6 +313,16 @@ export default function CampusApp() {
     mapRef.current?.flyTo(geo.position, 18);
   }, [geo.status, geo.position, needsLocation]);
 
+  // ---------- AR ----------
+  const [ar, setAr] = useState<{ simulate: boolean } | null>(null);
+  // Called straight from a tap: iPhone only shows the compass prompt then.
+  const startAr = (opts: { simulate: boolean }) => {
+    requestMotionPermission().finally(() => {
+      if (!opts.simulate) geo.request();
+      setAr(opts);
+    });
+  };
+
   // ---------- layout ----------
   const fullTab = url.tab === 'explore' || url.tab === 'saved' || url.tab === 'ar';
   const padding: Padding = desktop
@@ -468,6 +480,7 @@ export default function CampusApp() {
                       setComputed(null);
                     }}
                     onChooseStart={() => openPicker('from')}
+                    onAr={() => startAr({ simulate: false })}
                     onShowFloor={(s) => {
                       const fc = s.floorChange!;
                       if (s.location.buildingId) setIndoorView({ buildingId: s.location.buildingId, level: fc.toLevel });
@@ -485,7 +498,7 @@ export default function CampusApp() {
           ) : url.tab === 'saved' ? (
             <SavedPanel provider={provider} savedIds={savedIds} onPick={select} onDirections={directionsTo} />
           ) : (
-            <ArPanel route={lastRoute} onPlanRoute={() => setTab('navigate')} />
+            <ArPanel route={lastRoute} onStart={startAr} onPlanRoute={() => setTab('navigate')} />
           )}
         </div>
 
@@ -577,6 +590,14 @@ export default function CampusApp() {
       </div>
 
       <TabBar tab={url.tab} onTab={setTab} variant="bottom" />
+      {ar && (route ?? lastRoute) && (
+        <ArView
+          route={(route ?? lastRoute)!}
+          simulate={ar.simulate}
+          geo={{ status: geo.status, position: geo.position, accuracy: geo.accuracy, request: geo.request }}
+          onExit={() => setAr(null)}
+        />
+      )}
       <Toast message={toast} />
     </div>
   );

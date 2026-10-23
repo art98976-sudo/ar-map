@@ -2,6 +2,7 @@
 
 import {
   Accessibility,
+  Box,
   ArrowUp,
   ArrowUpDown,
   ArrowUpLeft,
@@ -152,6 +153,7 @@ export function RouteSheet({
   onRetry,
   onChooseStart,
   onShowFloor,
+  onAr,
 }: {
   state: RouteState;
   activeStep: number;
@@ -161,6 +163,8 @@ export function RouteSheet({
   onChooseStart(): void;
   /** Switch the map to the floor a floor-change step leads to. */
   onShowFloor(step: RouteStep): void;
+  /** Open the route in AR. */
+  onAr(): void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const activeRef = useRef<HTMLLIElement>(null);
@@ -206,6 +210,9 @@ export function RouteSheet({
             Walking{floors.size > 1 ? ` · ${floors.size} floors` : ''} · {r.isSampleData ? 'approximate sample route' : 'University campus map route'}
           </p>
         </div>
+        <IconButton label="View in AR" onClick={onAr}>
+          <Box aria-hidden className="size-5" />
+        </IconButton>
         <IconButton label="Share route" onClick={onShare}>
           <Share2 aria-hidden className="size-5" />
         </IconButton>

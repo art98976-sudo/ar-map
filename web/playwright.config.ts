@@ -28,7 +28,9 @@ export default defineConfig({
         viewport: { width: 360, height: 740 },
         // A position on campus, so "My location" works without a real GPS.
         geolocation: { latitude: 56.1456, longitude: -3.9215 },
-        permissions: ['geolocation'],
+        permissions: ['geolocation', 'camera'],
+        // A fake camera, so AR can be tested without a device.
+        launchOptions: { args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] },
       },
     },
   ],

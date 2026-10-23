@@ -29,7 +29,8 @@ A built-in sample dataset is kept for development and tests (`MAP_PROVIDER=local
 | Saved places (kept in this browser) | Saved tab |
 | Share a route as a link | Navigate tab |
 | Browse by category | Explore tab |
-| AR placeholder; the current route is kept ready and can be downloaded as JSON | AR tab |
+| AR navigation: camera view with arrows on the ground, current step, direction arrow, GPS snapped to the route, compass and tilt, floor-change confirmation, off-route warning, arrival; "Align" compass fix; simulated walk and view for demos without GPS or camera | AR tab, or the AR button on a route |
+| Route data download (the same JSON the AR view reads) | AR tab |
 | Light and dark mode, phones from 360 px wide, desktop side panel | Everywhere |
 
 ## Run it
