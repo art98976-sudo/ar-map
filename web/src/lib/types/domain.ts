@@ -95,3 +95,24 @@ export interface SearchFilters {
   /** Maximum number of results. */
   limit?: number;
 }
+
+export type IndoorFeatureType = 'room' | 'corridor' | 'stairs' | 'lift' | 'entrance';
+
+export interface IndoorFeatureProperties {
+  featureType: IndoorFeatureType;
+  id: string;
+  name?: string;
+  level: number;
+  floorId?: string;
+  /** Set for rooms that can be searched and routed to. */
+  destinationId?: string;
+  /** Entrances only. */
+  stepFree?: boolean;
+}
+
+/** What the indoor view draws for one building: floors plus rooms, corridors, stairs, lifts and entrances. */
+export interface IndoorMap {
+  buildingId: string;
+  floors: Floor[];
+  features: GeoJSON.FeatureCollection<GeoJSON.Polygon | GeoJSON.Point, IndoorFeatureProperties>;
+}

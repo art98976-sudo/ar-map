@@ -15,6 +15,8 @@ import type {
   Destination,
   Entrance,
   Floor,
+  IndoorFeatureProperties,
+  IndoorMap,
   Route,
   RouteEndpoint,
   RouteOptions,
@@ -97,6 +99,38 @@ export class LocalProvider implements MapProvider {
 
   async getRoute(from: RouteEndpoint, to: RouteEndpoint, options: RouteOptions): Promise<Route> {
     return (await this.load()).router.route(from, to, options);
+  }
+
+  async getIndoorMap(buildingId: string): Promise<IndoorMap | null> {
+    const { data } = await this.load();
+    const indoor = data.indoor.get(buildingId);
+    if (!indoor) return null;
+    const features: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.Point, IndoorFeatureProperties>[] = [];
+    for (const f of indoor.features.features) {
+      const p = f.properties;
+      features.push({
+        type: 'Feature',
+        geometry: f.geometry,
+        properties: {
+          featureType: p.featureType,
+          id: p.id,
+          level: p.level,
+          floorId: p.floorId,
+          ...(p.name ? { name: p.name } : {}),
+          ...(p.featureType === 'room' ? { destinationId: 'room:' + p.id } : {}),
+        },
+      });
+    }
+    const stepFree = new Map(data.entrances.features.map((f) => [f.properties.id, f.properties.stepFree]));
+    for (const n of indoor.nodes.filter((x) => x.kind === 'entrance')) {
+      const id = n.id.replace(/^entrance:/, '');
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [n.lng, n.lat] },
+        properties: { featureType: 'entrance', id, name: n.name, level: n.level, stepFree: stepFree.get(id) ?? true },
+      });
+    }
+    return { buildingId, floors: [...indoor.floors].sort((a, b) => a.level - b.level), features: { type: 'FeatureCollection', features } };
   }
 
   async getMapOverlay(): Promise<MapOverlay> {

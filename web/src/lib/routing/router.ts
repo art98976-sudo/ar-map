@@ -167,7 +167,10 @@ export class LocalRouter {
     for (const n of graph.nodes.values()) {
       if (n.buildingId !== p.buildingId || n.level !== p.level || n.kind === 'virtual') continue;
       const d = haversine(n, p);
-      if (d < bestD) (bestD = d), (best = n.id);
+      if (d < bestD) {
+        bestD = d;
+        best = n.id;
+      }
     }
     return best;
   }

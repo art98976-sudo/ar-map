@@ -2,6 +2,7 @@ import type {
   Building,
   Destination,
   Floor,
+  IndoorMap,
   Route,
   RouteEndpoint,
   RouteOptions,
@@ -35,6 +36,9 @@ export interface MapProvider {
   /** Floors ordered from lowest to highest. Empty when the building has no indoor data. */
   getFloors(buildingId: string): Promise<Floor[]>;
   getRoute(from: RouteEndpoint, to: RouteEndpoint, options: RouteOptions): Promise<Route>;
+
+  /** Indoor floor plan for the indoor view. Resolves to null when the building has no indoor data. */
+  getIndoorMap?(buildingId: string): Promise<IndoorMap | null>;
 
   /** Optional: features to draw on a plain base map. MazeMap draws its own map instead. */
   getMapOverlay?(): Promise<MapOverlay>;
