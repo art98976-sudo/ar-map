@@ -29,7 +29,7 @@ A built-in sample dataset is kept for development and tests (`MAP_PROVIDER=local
 | Saved places (kept in this browser) | Saved tab |
 | Share a route as a link | Navigate tab |
 | Browse by category | Explore tab |
-| AR navigation: camera view with arrows on the ground, current step, direction arrow, GPS snapped to the route, compass and tilt, floor-change confirmation, off-route warning, arrival; "Align" compass fix; simulated walk and view for demos without GPS or camera | AR tab, or the AR button on a route |
+| AR navigation: arrows laid on the ground along the exact route (ground tracking with WebXR on Android; calibrated camera overlay on iPhone), turn arrows, current step, direction arrow, floor-change confirmation, off-route warning, arrival, "recalibrating" instead of wrong arrows, debug overlay; simulated walk for demos. See [docs/AR.md](docs/AR.md) | AR tab, or the AR button on a route |
 | Route data download (the same JSON the AR view reads) | AR tab |
 | Light and dark mode, phones from 360 px wide, desktop side panel | Everywhere |
 

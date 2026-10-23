@@ -27,6 +27,25 @@ test('opens a route in AR with the camera, draws arrows and arrives', async ({ p
   await expect(ar.getByTestId('ar-gps')).toHaveText(/GPS ±\d+ m/);
   await expect(ar.getByTestId('ar-instruction')).toHaveText(/\w+/);
 
+  // This browser has no compass: rather than drawing arrows in the wrong place, AR hides them and says why.
+  await expect(ar.getByTestId('ar-status')).toHaveText(/No compass reading/);
+  await page.waitForTimeout(500);
+  expect(await arrowPixels(page)).toBe(0);
+
+  // Debug overlay: off by default, shows tracking state when switched on.
+  await expect(ar.getByTestId('ar-debug')).toBeHidden();
+  await ar.getByRole('button', { name: 'Debug overlay' }).click();
+  await expect(ar.getByTestId('ar-debug')).toContainText('engine camera overlay');
+  await expect(ar.getByTestId('ar-debug')).toContainText('phone height 1.40 m');
+
+  // Ground calibration: tap the ground 2 m ahead (here: low in the screen) → phone height measured.
+  await ar.getByRole('button', { name: 'Ground' }).click();
+  const box = (await ar.boundingBox())!;
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.7);
+  await expect(ar.getByText(/Ground calibrated: phone held \d\.\d\d m/)).toBeVisible();
+  await expect(ar.getByTestId('ar-debug')).not.toContainText('phone height 1.40 m');
+  await ar.getByRole('button', { name: 'Debug overlay' }).click();
+
   // Walk the simulation a little: the arrows are drawn on the ground ahead.
   await ar.getByRole('button', { name: 'Simulate walk' }).click();
   await expect.poll(() => arrowPixels(page), { timeout: 10_000 }).toBeGreaterThan(20);

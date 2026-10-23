@@ -1,10 +1,11 @@
 /**
- * A simple camera model for AR: the phone is held about 1.5 m above the ground, looking along the
+ * A simple camera model for AR (camera-overlay mode): the phone is held `eyeHeight` above flat ground, looking along the
  * compass heading and tilted down by `pitch`. Points on the ground are projected onto the screen,
  * so the route arrows appear to lie on the floor. (Ported from the Stirling AR prototype.)
  */
 
-const CAMERA_HEIGHT_M = 1.5;
+/** Typical height of a phone held in front of the chest while walking (calibrated per person). */
+export const DEFAULT_EYE_HEIGHT_M = 1.4;
 /** Typical phone camera field of view along the long side of the picture. */
 const DEFAULT_LENS_FOV = 65;
 
@@ -19,6 +20,8 @@ export interface Camera {
   sinPitch: number;
   /** Sideways lean of the phone, radians. */
   roll: number;
+  /** Height of the phone above the ground, metres. */
+  eyeHeight: number;
 }
 
 /**
@@ -30,6 +33,7 @@ export function makeCamera(opts: {
   height: number;
   pitchDeg: number;
   rollRad?: number;
+  eyeHeight?: number;
   video?: { width: number; height: number } | null;
   lensFov?: number;
 }): Camera {
@@ -44,7 +48,7 @@ export function makeCamera(opts: {
     f = W / 2 / Math.tan((60 * Math.PI) / 180 / 2);
   }
   const p = (opts.pitchDeg * Math.PI) / 180;
-  return { width: W, height: H, f, cx: W / 2, cy: H / 2, cosPitch: Math.cos(p), sinPitch: Math.sin(p), roll: opts.rollRad ?? 0 };
+  return { width: W, height: H, f, cx: W / 2, cy: H / 2, cosPitch: Math.cos(p), sinPitch: Math.sin(p), roll: opts.rollRad ?? 0, eyeHeight: opts.eyeHeight ?? DEFAULT_EYE_HEIGHT_M };
 }
 
 /**
@@ -52,7 +56,7 @@ export function makeCamera(opts: {
  * onto the screen. Returns null when the point is behind the camera or too close.
  */
 export function project(cam: Camera, right: number, ahead: number, up = 0): [number, number, number] | null {
-  const h = CAMERA_HEIGHT_M - up;
+  const h = cam.eyeHeight - up;
   const z = ahead * cam.cosPitch + h * cam.sinPitch;
   const y = h * cam.cosPitch - ahead * cam.sinPitch;
   if (z < 0.35) return null;

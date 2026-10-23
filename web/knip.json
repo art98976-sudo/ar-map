@@ -4,5 +4,10 @@
     "@tailwindcss/turbopack",
     "@types/geojson"
   ],
-  "ignoreMembers": ["stepStart"]
+  "ignoreMembers": [
+    "stepStart",
+    "resetGround",
+    "update",
+    "end"
+  ]
 }
