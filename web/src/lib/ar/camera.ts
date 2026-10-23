@@ -4,9 +4,9 @@
  * so the route arrows appear to lie on the floor. (Ported from the Stirling AR prototype.)
  */
 
-export const CAMERA_HEIGHT_M = 1.5;
+const CAMERA_HEIGHT_M = 1.5;
 /** Typical phone camera field of view along the long side of the picture. */
-export const DEFAULT_LENS_FOV = 65;
+const DEFAULT_LENS_FOV = 65;
 
 export interface Camera {
   width: number;

@@ -70,7 +70,7 @@ export class WalkGraph {
 }
 
 /** Id of the outdoor node at a coordinate. Paths that share a coordinate share a node. */
-export const outdoorNodeId = ([lng, lat]: GeoJSON.Position) => `o:${lng},${lat}`;
+const outdoorNodeId = ([lng, lat]: GeoJSON.Position) => `o:${lng},${lat}`;
 
 export interface BuiltGraph {
   graph: WalkGraph;

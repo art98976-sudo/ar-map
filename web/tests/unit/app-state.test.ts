@@ -56,7 +56,7 @@ describe('saved places', () => {
 
   it('saves and unsaves a place', () => {
     expect(savedStore.toggle('building:library')).toBe(true);
-    expect(savedStore.isSaved('building:library')).toBe(true);
+    expect(savedStore.getSnapshot()).toContain('building:library');
     expect(JSON.parse(memory.get(SAVED_KEY)!)).toEqual(['building:library']);
     expect(savedStore.toggle('building:library')).toBe(false);
     expect(savedStore.getSnapshot()).toEqual([]);

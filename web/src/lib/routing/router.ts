@@ -15,7 +15,7 @@ import type { BuiltGraph, GraphEdge, WalkGraph } from './graph';
 import { buildSteps } from './steps';
 
 /** Positions further than this from any path cannot be routed from (e.g. off campus). */
-export const MAX_SNAP_METRES = 400;
+const MAX_SNAP_METRES = 400;
 
 export interface RouterDeps {
   built: BuiltGraph;

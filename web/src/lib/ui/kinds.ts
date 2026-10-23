@@ -24,7 +24,7 @@ export const KIND_ICONS: Record<DestinationKind, LucideIcon> = {
   landmark: Landmark,
 };
 
-export const KIND_LABELS: Record<DestinationKind, string> = {
+const KIND_LABELS: Record<DestinationKind, string> = {
   building: 'Building',
   room: 'Room',
   cafe: 'Café',

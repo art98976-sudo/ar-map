@@ -7,6 +7,7 @@ import { useDestination } from '@/hooks/useDestination';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useSearch } from '@/hooks/useSearch';
 import { NoRouteError, OutOfAreaError, getMapProvider, type MapOverlay } from '@/lib/providers';
+import { formatDistance } from '@/lib/route/constants';
 import { haversine } from '@/lib/routing/geometry';
 import { savedStore } from '@/lib/state/saved';
 import { parseUrlState, routeShareUrl, serializeUrlState, type Tab, type UrlState } from '@/lib/state/urlState';
@@ -172,7 +173,7 @@ export default function CampusApp() {
         if (cancelled) return;
         const state: RouteState =
           e instanceof OutOfAreaError
-            ? { status: 'error', chooseStart: true, message: `You seem to be away from campus (about ${formatKm(e.distanceMetres)} from the nearest path). Choose a starting point.` }
+            ? { status: 'error', chooseStart: true, message: `You seem to be away from campus (about ${formatDistance(e.distanceMetres)} from the nearest path). Choose a starting point.` }
             : e instanceof NoRouteError
               ? { status: 'error', message: e.message }
               : { status: 'error', message: `Couldn't plan this route. ${e instanceof Error ? e.message : ''}` };
@@ -666,8 +667,4 @@ function SampleNote({ sample }: { sample: boolean }) {
       <a className="underline" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a>
     </p>
   );
-}
-
-function formatKm(m: number) {
-  return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`;
 }

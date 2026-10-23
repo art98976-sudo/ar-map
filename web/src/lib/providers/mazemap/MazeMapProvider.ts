@@ -36,7 +36,7 @@ export interface MazeMapConfig {
 }
 
 /** MazeMap asks apps to request routes sparingly (each takes 1–5 s). */
-export const MIN_ROUTE_INTERVAL_MS = 30_000;
+const MIN_ROUTE_INTERVAL_MS = 30_000;
 
 /**
  * The University's real campus data from MazeMap, behind the same MapProvider interface as

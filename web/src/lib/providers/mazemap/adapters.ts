@@ -23,9 +23,9 @@ import {
 import type { MazemapBuildingRaw, MazemapDirections, MazemapPath, MazemapPoi, MazemapSearchResult } from './client';
 
 /** Ids used inside this app for MazeMap objects (they match the share-link id pattern). */
-export const mazemapPoiId = (poiId: number) => `mmpoi:${poiId}`;
-export const mazemapBuildingId = (id: number) => `mmbuilding:${id}`;
-export const mazemapFloorId = (id: number) => `mmfloor:${id}`;
+const mazemapPoiId = (poiId: number) => `mmpoi:${poiId}`;
+const mazemapBuildingId = (id: number) => `mmbuilding:${id}`;
+const mazemapFloorId = (id: number) => `mmfloor:${id}`;
 const idNumber = (prefix: string, id: string) => {
   const m = new RegExp(`^${prefix}:(\\d+)$`).exec(id);
   return m ? Number(m[1]) : undefined;
@@ -44,7 +44,7 @@ export const floorLabel = (name: string | null | undefined, z?: number | null) =
 };
 
 /** A single point for any geometry (POIs can be points or room polygons). */
-export function geometryPoint(g: GeoJSON.Geometry | null | undefined): LatLng | undefined {
+function geometryPoint(g: GeoJSON.Geometry | null | undefined): LatLng | undefined {
   if (!g) return undefined;
   if (g.type === 'Point') return { lng: g.coordinates[0], lat: g.coordinates[1] };
   if (g.type === 'Polygon') return polygonCentroid(g);
@@ -224,7 +224,6 @@ export interface RouteContext {
   now: Date;
   /** Floor name for a building and z-level, e.g. "Floor 2". */
   floorName?(buildingId: number | null, z: number): string | undefined;
-  buildingName?(buildingId: number): string | undefined;
 }
 
 /**

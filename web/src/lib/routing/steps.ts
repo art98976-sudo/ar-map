@@ -6,7 +6,6 @@ import {
   bearing,
   cardinal,
   classifyTurn,
-  haversine,
   turnAngle,
 } from './geometry';
 import type { GraphEdge, GraphNode, WalkGraph } from './graph';
@@ -29,7 +28,7 @@ const isVertical = (e: GraphEdge) => e.kind === 'stairs' || e.kind === 'lift';
 const isIndoor = (n: GraphNode) => n.buildingId !== undefined && n.kind !== 'virtual';
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
-export function toRoutePoint(n: GraphNode): RoutePoint {
+function toRoutePoint(n: GraphNode): RoutePoint {
   return isIndoor(n)
     ? { lat: n.lat, lng: n.lng, buildingId: n.buildingId, ...(n.floorId ? { floorId: n.floorId } : {}), level: n.level ?? 0 }
     : { lat: n.lat, lng: n.lng };
@@ -183,6 +182,3 @@ export function buildSteps(nodeIds: string[], edges: GraphEdge[], ctx: StepConte
     } as RouteStep;
   });
 }
-
-/** Length of a run of route points, in metres. */
-export const pathLength = (points: RoutePoint[]) => points.slice(1).reduce((s, p, i) => s + haversine(points[i], p), 0);

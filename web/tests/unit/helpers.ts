@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { DataSource } from '@/lib/data/dataSource';
 
-export const DATA_DIR = join(__dirname, '..', '..', 'public', 'data');
+const DATA_DIR = join(__dirname, '..', '..', 'public', 'data');
 
 /** Reads sample data straight from disk, as the browser would over /data. */
 export const fsDataSource: DataSource = {

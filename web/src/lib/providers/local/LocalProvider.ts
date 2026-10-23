@@ -75,10 +75,6 @@ export class LocalProvider implements MapProvider {
     return this.index;
   }
 
-  async getDataset(): Promise<LocalDataset> {
-    return (await this.load()).data;
-  }
-
   async searchDestinations(query: string, filters?: SearchFilters): Promise<Destination[]> {
     return searchDestinationList((await this.load()).destinations, query, filters);
   }

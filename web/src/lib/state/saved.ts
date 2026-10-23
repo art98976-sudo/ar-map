@@ -53,9 +53,6 @@ export const savedStore = {
       globalThis.removeEventListener?.('storage', onStorage);
     };
   },
-  isSaved(id: string): boolean {
-    return savedStore.getSnapshot().includes(id);
-  },
   toggle(id: string): boolean {
     const ids = savedStore.getSnapshot();
     const next = ids.includes(id) ? ids.filter((x) => x !== id) : [id, ...ids].slice(0, MAX_SAVED);

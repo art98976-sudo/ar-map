@@ -50,7 +50,6 @@
   --color-green: var(--green);
   --color-on-accent: var(--on-accent);
   --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
 html,
@@ -62,26 +61,6 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
-}
-
-/* MapLibre popups follow the app theme. */
-.maplibregl-popup-content {
-  background: var(--surface);
-  color: var(--foreground);
-  border-radius: 0.75rem;
-  padding: 0.75rem 1rem;
-  box-shadow: 0 8px 24px rgb(11 31 58 / 0.18);
-  font-family: inherit;
-}
-.maplibregl-popup-tip {
-  border-top-color: var(--surface) !important;
-  border-bottom-color: var(--surface) !important;
-}
-.maplibregl-popup-close-button {
-  width: 44px;
-  height: 44px;
-  font-size: 1.25rem;
-  color: var(--muted);
 }
 
 @media (prefers-reduced-motion: reduce) {

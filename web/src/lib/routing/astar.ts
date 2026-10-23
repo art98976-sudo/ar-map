@@ -3,11 +3,11 @@ import { haversine } from './geometry';
 import type { GraphEdge, WalkGraph } from './graph';
 
 /** Extra cost, in metre-equivalents, for each floor climbed. Keeps short stair hops from looking free. */
-export const STAIRS_COST_PER_LEVEL = 15;
+const STAIRS_COST_PER_LEVEL = 15;
 /** Waiting for a lift is slow, so a lift costs more than stairs for one floor. */
-export const LIFT_COST = 30;
+const LIFT_COST = 30;
 /** Outdoor steps are a little slower than flat paths. */
-export const STEPS_COST_FACTOR = 1.2;
+const STEPS_COST_FACTOR = 1.2;
 
 export interface SearchOptions {
   accessible: boolean;
@@ -21,7 +21,7 @@ export interface PathResult {
   cost: number;
 }
 
-export function edgeCost(e: GraphEdge, graph: WalkGraph): number {
+function edgeCost(e: GraphEdge, graph: WalkGraph): number {
   if (e.kind === 'stairs' || e.kind === 'lift') {
     const a = graph.nodes.get(e.from)!.level ?? 0;
     const b = graph.nodes.get(e.to)!.level ?? 0;

@@ -56,9 +56,3 @@ export function validateRoute(candidate: unknown): RouteValidationResult {
 
   return { valid: errors.length === 0, errors };
 }
-
-/** Throws with readable messages when the route is invalid. */
-export function assertValidRoute(candidate: unknown): asserts candidate is Route {
-  const result = validateRoute(candidate);
-  if (!result.valid) throw new Error(`Invalid route:\n- ${result.errors.join('\n- ')}`);
-}

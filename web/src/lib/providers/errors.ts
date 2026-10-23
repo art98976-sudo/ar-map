@@ -1,10 +1,3 @@
-export class NotImplementedError extends Error {
-  constructor(feature: string) {
-    super(`${feature} is not implemented yet.`);
-    this.name = 'NotImplementedError';
-  }
-}
-
 export class ProviderNotConfiguredError extends Error {
   constructor(provider: string, missing: string[]) {
     super(`${provider} is not configured. Missing: ${missing.join(', ')}.`);

@@ -9,7 +9,6 @@ export const MAZEMAP_SDK_VERSION = '2.2.1';
 /** The parts of MazeMap's map (a Mapbox GL v1 map with floor support) this app uses. */
 export interface MazemapMapInstance {
   on(event: string, cb: (e?: unknown) => void): void;
-  on(event: string, layer: string, cb: (e?: unknown) => void): void;
   getZLevel(): number;
   setZLevel(z: number): void;
 }

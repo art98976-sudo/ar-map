@@ -34,7 +34,6 @@ interface Hud {
   floorPrompt: number | null; // index of the change-floor step waiting for confirmation
   heading: number;
   headingSource: 'compass' | 'route' | 'drag';
-  accuracy?: number;
 }
 
 /**
@@ -298,7 +297,6 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
           floorPrompt: gate && st.along >= limit - 3 ? gate.index : null,
           heading: st.heading,
           headingSource: st.hasCompass ? 'compass' : st.dragOffset ? 'drag' : 'route',
-          accuracy: st.simulating ? undefined : st.geo.accuracy,
         });
       }
       raf = requestAnimationFrame(loop);

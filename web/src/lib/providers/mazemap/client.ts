@@ -4,7 +4,7 @@
  * in line with MazeMap's usage guidelines. Nothing is stored in the repo.
  */
 
-export const MAZEMAP_URLS = {
+const MAZEMAP_URLS = {
   search: 'https://search.mazemap.com/search/equery/',
   api: 'https://api.mazemap.com/api',
   routing: 'https://routing.mazemap.com/routing',
@@ -80,7 +80,7 @@ export type RouteEndParam =
   | { poi: number }
   | { lat: number; lng: number; z?: number };
 
-export class MazemapHttpError extends Error {
+class MazemapHttpError extends Error {
   constructor(public readonly status: number, url: string) {
     super(`MazeMap returned ${status} for ${url.split('?')[0]}`);
     this.name = 'MazemapHttpError';
