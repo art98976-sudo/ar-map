@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. Deep navy, teal, white and a subtle green accent.
+ * Colour pairs used for text meet WCAG AA contrast in both themes.
+ */
+:root {
+  --background: #ffffff;
+  --foreground: #0b1f3a;
+  --surface: #ffffff;
+  --surface-muted: #f1f5f9;
+  --border: #d5dde8;
+  --muted: #475569;
+  --navy: #0b1f3a;
+  --navy-soft: #16325c;
+  --teal: #0b7a85;
+  --teal-strong: #075e66;
+  --green: #2f855a;
+  --on-accent: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #07142a;
+    --foreground: #e8eef6;
+    --surface: #0e2142;
+    --surface-muted: #132a52;
+    --border: #23406f;
+    --muted: #a9b8cc;
+    --navy: #e8eef6;
+    --navy-soft: #c7d4e6;
+    --teal: #3fc1c9;
+    --teal-strong: #6fd6dc;
+    --green: #68d391;
+    --on-accent: #07142a;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-navy: var(--navy);
+  --color-navy-soft: var(--navy-soft);
+  --color-teal: var(--teal);
+  --color-teal-strong: var(--teal-strong);
+  --color-green: var(--green);
+  --color-on-accent: var(--on-accent);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* MapLibre popups follow the app theme. */
+.maplibregl-popup-content {
+  background: var(--surface);
+  color: var(--foreground);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  box-shadow: 0 8px 24px rgb(11 31 58 / 0.18);
+  font-family: inherit;
+}
+.maplibregl-popup-tip {
+  border-top-color: var(--surface) !important;
+  border-bottom-color: var(--surface) !important;
+}
+.maplibregl-popup-close-button {
+  width: 44px;
+  height: 44px;
+  font-size: 1.25rem;
+  color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

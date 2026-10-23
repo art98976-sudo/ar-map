@@ -1,0 +1,689 @@
+{
+  "type": "FeatureCollection",
+  "_meta": {
+    "sample": true,
+    "notice": "SAMPLE DATA: approximate, hand-placed positions for development only. Not official University of Stirling or MazeMap data. Do not use for real navigation."
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-001",
+        "kind": "footpath",
+        "stepFree": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.92068,
+            56.14582
+          ],
+          [
+            -3.92068,
+            56.1456
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-002",
+        "kind": "footpath",
+        "stepFree": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.9197,
+            56.14582
+          ],
+          [
+            -3.9197,
+            56.1456
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-003",
+        "kind": "footpath",
+        "stepFree": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.91862,
+            56.14584
+          ],
+          [
+            -3.91862,
+            56.1456
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-004",
+        "kind": "footpath",
+        "stepFree": true,
+        "name": "Main walkway"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.9218,
+            56.1456
+          ],
+          [
+            -3.92068,
+            56.1456
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-005",
+        "kind": "footpath",
+        "stepFree": true,
+        "name": "Main walkway"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.92068,
+            56.1456
+          ],
+          [
+            -3.9197,
+            56.1456
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-006",
+        "kind": "footpath",
+        "stepFree": true,
+        "name": "Main walkway"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.9197,
+            56.1456
+          ],
+          [
+            -3.91862,
+            56.1456
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-007",
+        "kind": "footpath",
+        "stepFree": true,
+        "name": "Main walkway"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.91862,
+            56.1456
+          ],
+          [
+            -3.917,
+            56.1456
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-008",
+        "kind": "steps",
+        "stepFree": false,
+        "name": "Library steps"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.92068,
+            56.1456
+          ],
+          [
+            -3.92048,
+            56.14508
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-009",
+        "kind": "footpath",
+        "stepFree": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.92048,
+            56.14508
+          ],
+          [
+            -3.92048,
+            56.14491
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-010",
+        "kind": "ramp",
+        "stepFree": true,
+        "name": "Cottrell ramp"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.9197,
+            56.1456
+          ],
+          [
+            -3.91975,
+            56.14515
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-011",
+        "kind": "footpath",
+        "stepFree": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.91975,
+            56.14515
+          ],
+          [
+            -3.91989,
+            56.14465
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-012",
+        "kind": "footpath",
+        "stepFree": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.91989,
+            56.14465
+          ],
+          [
+            -3.91975,
+            56.14418
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-013",
+        "kind": "footpath",
+        "stepFree": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.92048,
+            56.14439
+          ],
+          [
+            -3.92048,
+            56.1442
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-014",
+        "kind": "footpath",
+        "stepFree": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.92048,
+            56.1442
+          ],
+          [
+            -3.91975,
+            56.14418
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-015",
+        "kind": "footpath",
+        "stepFree": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.91975,
+            56.14418
+          ],
+          [
+            -3.9196,
+            56.14385
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-016",
+        "kind": "footpath",
+        "stepFree": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.92048,
+            56.1442
+          ],
+          [
+            -3.9217,
+            56.14401
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-017",
+        "kind": "footpath",
+        "stepFree": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.9217,
+            56.14401
+          ],
+          [
+            -3.9218,
+            56.1456
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-018",
+        "kind": "footpath",
+        "stepFree": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.9218,
+            56.1456
+          ],
+          [
+            -3.9238,
+            56.1456
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-019",
+        "kind": "footpath",
+        "stepFree": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.9238,
+            56.1456
+          ],
+          [
+            -3.9244,
+            56.14565
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-020",
+        "kind": "footpath",
+        "stepFree": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.9244,
+            56.14565
+          ],
+          [
+            -3.9252,
+            56.14522
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-021",
+        "kind": "footpath",
+        "stepFree": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.9238,
+            56.1456
+          ],
+          [
+            -3.9252,
+            56.1476
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-022",
+        "kind": "footpath",
+        "stepFree": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.9252,
+            56.1476
+          ],
+          [
+            -3.9264,
+            56.14905
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-023",
+        "kind": "footpath",
+        "stepFree": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.9264,
+            56.14905
+          ],
+          [
+            -3.9274,
+            56.14885
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-024",
+        "kind": "footpath",
+        "stepFree": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.9264,
+            56.14905
+          ],
+          [
+            -3.9256,
+            56.1488
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-025",
+        "kind": "footpath",
+        "stepFree": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.9252,
+            56.1476
+          ],
+          [
+            -3.924,
+            56.149
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-026",
+        "kind": "footpath",
+        "stepFree": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.924,
+            56.149
+          ],
+          [
+            -3.92335,
+            56.14965
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-027",
+        "kind": "footpath",
+        "stepFree": true,
+        "name": "Loch north path"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.924,
+            56.149
+          ],
+          [
+            -3.9225,
+            56.148
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-028",
+        "kind": "footpath",
+        "stepFree": true,
+        "name": "Loch north path"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.9225,
+            56.148
+          ],
+          [
+            -3.915,
+            56.148
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-029",
+        "kind": "footpath",
+        "stepFree": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.915,
+            56.148
+          ],
+          [
+            -3.9142,
+            56.147
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-030",
+        "kind": "footpath",
+        "stepFree": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.9142,
+            56.147
+          ],
+          [
+            -3.91365,
+            56.14805
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-031",
+        "kind": "footpath",
+        "stepFree": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.917,
+            56.1456
+          ],
+          [
+            -3.9147,
+            56.14615
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path-032",
+        "kind": "footpath",
+        "stepFree": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -3.9147,
+            56.14615
+          ],
+          [
+            -3.9142,
+            56.147
+          ]
+        ]
+      }
+    }
+  ]
+}

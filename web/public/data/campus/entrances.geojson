@@ -1,0 +1,196 @@
+{
+  "type": "FeatureCollection",
+  "_meta": {
+    "sample": true,
+    "notice": "SAMPLE DATA: approximate, hand-placed positions for development only. Not official University of Stirling or MazeMap data. Do not use for real navigation."
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "cottrell-north",
+        "buildingId": "cottrell",
+        "name": "Cottrell north entrance",
+        "stepFree": true,
+        "level": 0
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.92048,
+          56.14491
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "cottrell-east",
+        "buildingId": "cottrell",
+        "name": "Cottrell east entrance",
+        "stepFree": true,
+        "level": 0
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.91989,
+          56.14465
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "cottrell-main",
+        "buildingId": "cottrell",
+        "name": "Cottrell main entrance",
+        "stepFree": true,
+        "level": 0
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.92048,
+          56.14439
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "library-main",
+        "buildingId": "library",
+        "name": "Library entrance",
+        "stepFree": true,
+        "level": 0
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.92068,
+          56.14582
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "campus-central-main",
+        "buildingId": "campus-central",
+        "name": "Campus Central entrance",
+        "stepFree": true,
+        "level": 0
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.9197,
+          56.14582
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "students-union-main",
+        "buildingId": "students-union",
+        "name": "Students' Union entrance",
+        "stepFree": true,
+        "level": 0
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.91862,
+          56.14584
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "into-main",
+        "buildingId": "into",
+        "name": "INTO Building entrance",
+        "stepFree": true,
+        "level": 0
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.9217,
+          56.14401
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "sports-centre-main",
+        "buildingId": "sports-centre",
+        "name": "Sports Centre entrance",
+        "stepFree": true,
+        "level": 0
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.9244,
+          56.14565
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "pathfoot-main",
+        "buildingId": "pathfoot",
+        "name": "Pathfoot entrance",
+        "stepFree": true,
+        "level": 0
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.9264,
+          56.14905
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "accommodation-village-main",
+        "buildingId": "accommodation-village",
+        "name": "Accommodation Village entrance",
+        "stepFree": true,
+        "level": 0
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.92335,
+          56.14965
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "airthrey-castle-main",
+        "buildingId": "airthrey-castle",
+        "name": "Airthrey Castle entrance",
+        "stepFree": false,
+        "level": 0
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.91365,
+          56.14805
+        ]
+      }
+    }
+  ]
+}

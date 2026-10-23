@@ -1,0 +1,1009 @@
+{
+  "_meta": {
+    "sample": true,
+    "notice": "SAMPLE DATA: approximate, hand-placed positions for development only. Not official University of Stirling or MazeMap data. Do not use for real navigation."
+  },
+  "buildingId": "cottrell",
+  "floors": [
+    {
+      "id": "cottrell-0",
+      "buildingId": "cottrell",
+      "level": 0,
+      "name": "Floor 1"
+    },
+    {
+      "id": "cottrell-1",
+      "buildingId": "cottrell",
+      "level": 1,
+      "name": "Floor 2"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "cottrell-0-w",
+      "lat": 56.14465,
+      "lng": -3.921,
+      "level": 0,
+      "kind": "corridor"
+    },
+    {
+      "id": "cottrell-0-st",
+      "lat": 56.14465,
+      "lng": -3.9208,
+      "level": 0,
+      "kind": "corridor"
+    },
+    {
+      "id": "cottrell-0-cw",
+      "lat": 56.14465,
+      "lng": -3.92064,
+      "level": 0,
+      "kind": "corridor"
+    },
+    {
+      "id": "cottrell-0-c",
+      "lat": 56.14465,
+      "lng": -3.92048,
+      "level": 0,
+      "kind": "corridor"
+    },
+    {
+      "id": "cottrell-0-lf",
+      "lat": 56.14465,
+      "lng": -3.9203,
+      "level": 0,
+      "kind": "corridor"
+    },
+    {
+      "id": "cottrell-0-ce",
+      "lat": 56.14465,
+      "lng": -3.92008,
+      "level": 0,
+      "kind": "corridor"
+    },
+    {
+      "id": "cottrell-0-e",
+      "lat": 56.14465,
+      "lng": -3.91995,
+      "level": 0,
+      "kind": "corridor"
+    },
+    {
+      "id": "cottrell-0-n",
+      "lat": 56.14486,
+      "lng": -3.92048,
+      "level": 0,
+      "kind": "corridor"
+    },
+    {
+      "id": "cottrell-0-s",
+      "lat": 56.14444,
+      "lng": -3.92048,
+      "level": 0,
+      "kind": "corridor"
+    },
+    {
+      "id": "cottrell-0-stairs",
+      "lat": 56.14474,
+      "lng": -3.9208,
+      "level": 0,
+      "kind": "stairs",
+      "name": "Main stairs"
+    },
+    {
+      "id": "cottrell-0-lift",
+      "lat": 56.14474,
+      "lng": -3.9203,
+      "level": 0,
+      "kind": "lift",
+      "name": "Lift"
+    },
+    {
+      "id": "cottrell-1-w",
+      "lat": 56.14465,
+      "lng": -3.921,
+      "level": 1,
+      "kind": "corridor"
+    },
+    {
+      "id": "cottrell-1-st",
+      "lat": 56.14465,
+      "lng": -3.9208,
+      "level": 1,
+      "kind": "corridor"
+    },
+    {
+      "id": "cottrell-1-cw",
+      "lat": 56.14465,
+      "lng": -3.92064,
+      "level": 1,
+      "kind": "corridor"
+    },
+    {
+      "id": "cottrell-1-c",
+      "lat": 56.14465,
+      "lng": -3.92048,
+      "level": 1,
+      "kind": "corridor"
+    },
+    {
+      "id": "cottrell-1-lf",
+      "lat": 56.14465,
+      "lng": -3.9203,
+      "level": 1,
+      "kind": "corridor"
+    },
+    {
+      "id": "cottrell-1-ce",
+      "lat": 56.14465,
+      "lng": -3.92008,
+      "level": 1,
+      "kind": "corridor"
+    },
+    {
+      "id": "cottrell-1-e",
+      "lat": 56.14465,
+      "lng": -3.91995,
+      "level": 1,
+      "kind": "corridor"
+    },
+    {
+      "id": "cottrell-1-n",
+      "lat": 56.14486,
+      "lng": -3.92048,
+      "level": 1,
+      "kind": "corridor"
+    },
+    {
+      "id": "cottrell-1-s",
+      "lat": 56.14444,
+      "lng": -3.92048,
+      "level": 1,
+      "kind": "corridor"
+    },
+    {
+      "id": "cottrell-1-stairs",
+      "lat": 56.14474,
+      "lng": -3.9208,
+      "level": 1,
+      "kind": "stairs",
+      "name": "Main stairs"
+    },
+    {
+      "id": "cottrell-1-lift",
+      "lat": 56.14474,
+      "lng": -3.9203,
+      "level": 1,
+      "kind": "lift",
+      "name": "Lift"
+    },
+    {
+      "id": "entrance:cottrell-north",
+      "lat": 56.14491,
+      "lng": -3.92048,
+      "level": 0,
+      "kind": "entrance",
+      "name": "Cottrell north entrance"
+    },
+    {
+      "id": "entrance:cottrell-east",
+      "lat": 56.14465,
+      "lng": -3.91989,
+      "level": 0,
+      "kind": "entrance",
+      "name": "Cottrell east entrance"
+    },
+    {
+      "id": "entrance:cottrell-main",
+      "lat": 56.14439,
+      "lng": -3.92048,
+      "level": 0,
+      "kind": "entrance",
+      "name": "Cottrell main entrance"
+    },
+    {
+      "id": "cottrell-0-cafe-door",
+      "lat": 56.14461,
+      "lng": -3.92064,
+      "level": 0,
+      "kind": "door",
+      "name": "Cottrell café (sample) door"
+    },
+    {
+      "id": "cottrell-0-g01-door",
+      "lat": 56.14469,
+      "lng": -3.921,
+      "level": 0,
+      "kind": "door",
+      "name": "Seminar room G.01 (sample) door"
+    },
+    {
+      "id": "cottrell-0-g02-door",
+      "lat": 56.14461,
+      "lng": -3.9203,
+      "level": 0,
+      "kind": "door",
+      "name": "Lecture theatre G.02 (sample) door"
+    },
+    {
+      "id": "cottrell-1-101-door",
+      "lat": 56.14469,
+      "lng": -3.92008,
+      "level": 1,
+      "kind": "door",
+      "name": "Seminar room 1.01 (sample) door"
+    },
+    {
+      "id": "cottrell-1-102-door",
+      "lat": 56.14461,
+      "lng": -3.92064,
+      "level": 1,
+      "kind": "door",
+      "name": "Computer lab 1.02 (sample) door"
+    },
+    {
+      "id": "cottrell-1-103-door",
+      "lat": 56.14461,
+      "lng": -3.92008,
+      "level": 1,
+      "kind": "door",
+      "name": "Study area 1.03 (sample) door"
+    }
+  ],
+  "edges": [
+    {
+      "from": "cottrell-0-w",
+      "to": "cottrell-0-st",
+      "kind": "corridor",
+      "stepFree": true
+    },
+    {
+      "from": "cottrell-0-st",
+      "to": "cottrell-0-cw",
+      "kind": "corridor",
+      "stepFree": true
+    },
+    {
+      "from": "cottrell-0-cw",
+      "to": "cottrell-0-c",
+      "kind": "corridor",
+      "stepFree": true
+    },
+    {
+      "from": "cottrell-0-c",
+      "to": "cottrell-0-lf",
+      "kind": "corridor",
+      "stepFree": true
+    },
+    {
+      "from": "cottrell-0-lf",
+      "to": "cottrell-0-ce",
+      "kind": "corridor",
+      "stepFree": true
+    },
+    {
+      "from": "cottrell-0-ce",
+      "to": "cottrell-0-e",
+      "kind": "corridor",
+      "stepFree": true
+    },
+    {
+      "from": "cottrell-0-n",
+      "to": "cottrell-0-c",
+      "kind": "corridor",
+      "stepFree": true
+    },
+    {
+      "from": "cottrell-0-s",
+      "to": "cottrell-0-c",
+      "kind": "corridor",
+      "stepFree": true
+    },
+    {
+      "from": "cottrell-0-stairs",
+      "to": "cottrell-0-st",
+      "kind": "corridor",
+      "stepFree": true
+    },
+    {
+      "from": "cottrell-0-lift",
+      "to": "cottrell-0-lf",
+      "kind": "corridor",
+      "stepFree": true
+    },
+    {
+      "from": "cottrell-1-w",
+      "to": "cottrell-1-st",
+      "kind": "corridor",
+      "stepFree": true
+    },
+    {
+      "from": "cottrell-1-st",
+      "to": "cottrell-1-cw",
+      "kind": "corridor",
+      "stepFree": true
+    },
+    {
+      "from": "cottrell-1-cw",
+      "to": "cottrell-1-c",
+      "kind": "corridor",
+      "stepFree": true
+    },
+    {
+      "from": "cottrell-1-c",
+      "to": "cottrell-1-lf",
+      "kind": "corridor",
+      "stepFree": true
+    },
+    {
+      "from": "cottrell-1-lf",
+      "to": "cottrell-1-ce",
+      "kind": "corridor",
+      "stepFree": true
+    },
+    {
+      "from": "cottrell-1-ce",
+      "to": "cottrell-1-e",
+      "kind": "corridor",
+      "stepFree": true
+    },
+    {
+      "from": "cottrell-1-n",
+      "to": "cottrell-1-c",
+      "kind": "corridor",
+      "stepFree": true
+    },
+    {
+      "from": "cottrell-1-s",
+      "to": "cottrell-1-c",
+      "kind": "corridor",
+      "stepFree": true
+    },
+    {
+      "from": "cottrell-1-stairs",
+      "to": "cottrell-1-st",
+      "kind": "corridor",
+      "stepFree": true
+    },
+    {
+      "from": "cottrell-1-lift",
+      "to": "cottrell-1-lf",
+      "kind": "corridor",
+      "stepFree": true
+    },
+    {
+      "from": "cottrell-0-stairs",
+      "to": "cottrell-1-stairs",
+      "kind": "stairs",
+      "stepFree": false
+    },
+    {
+      "from": "cottrell-0-lift",
+      "to": "cottrell-1-lift",
+      "kind": "lift",
+      "stepFree": true
+    },
+    {
+      "from": "entrance:cottrell-north",
+      "to": "cottrell-0-n",
+      "kind": "entrance",
+      "stepFree": true
+    },
+    {
+      "from": "entrance:cottrell-east",
+      "to": "cottrell-0-e",
+      "kind": "entrance",
+      "stepFree": true
+    },
+    {
+      "from": "entrance:cottrell-main",
+      "to": "cottrell-0-s",
+      "kind": "entrance",
+      "stepFree": true
+    },
+    {
+      "from": "cottrell-0-cafe-door",
+      "to": "cottrell-0-cw",
+      "kind": "door",
+      "stepFree": true
+    },
+    {
+      "from": "cottrell-0-g01-door",
+      "to": "cottrell-0-w",
+      "kind": "door",
+      "stepFree": true
+    },
+    {
+      "from": "cottrell-0-g02-door",
+      "to": "cottrell-0-lf",
+      "kind": "door",
+      "stepFree": true
+    },
+    {
+      "from": "cottrell-1-101-door",
+      "to": "cottrell-1-ce",
+      "kind": "door",
+      "stepFree": true
+    },
+    {
+      "from": "cottrell-1-102-door",
+      "to": "cottrell-1-cw",
+      "kind": "door",
+      "stepFree": true
+    },
+    {
+      "from": "cottrell-1-103-door",
+      "to": "cottrell-1-ce",
+      "kind": "door",
+      "stepFree": true
+    }
+  ],
+  "features": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "type": "Feature",
+        "properties": {
+          "featureType": "corridor",
+          "id": "cottrell-0-corridor-ew",
+          "buildingId": "cottrell",
+          "floorId": "cottrell-0",
+          "level": 0
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -3.92108,
+                56.144625
+              ],
+              [
+                -3.91992,
+                56.144625
+              ],
+              [
+                -3.91992,
+                56.144675
+              ],
+              [
+                -3.92108,
+                56.144675
+              ],
+              [
+                -3.92108,
+                56.144625
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "featureType": "corridor",
+          "id": "cottrell-0-corridor-ns",
+          "buildingId": "cottrell",
+          "floorId": "cottrell-0",
+          "level": 0
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -3.920525,
+                56.14441
+              ],
+              [
+                -3.920435,
+                56.14441
+              ],
+              [
+                -3.920435,
+                56.14489
+              ],
+              [
+                -3.920525,
+                56.14489
+              ],
+              [
+                -3.920525,
+                56.14441
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "featureType": "stairs",
+          "id": "cottrell-0-stairs",
+          "name": "Main stairs",
+          "buildingId": "cottrell",
+          "floorId": "cottrell-0",
+          "level": 0,
+          "nodeId": "cottrell-0-stairs"
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -3.92087,
+                56.14469
+              ],
+              [
+                -3.92073,
+                56.14469
+              ],
+              [
+                -3.92073,
+                56.14479
+              ],
+              [
+                -3.92087,
+                56.14479
+              ],
+              [
+                -3.92087,
+                56.14469
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "featureType": "lift",
+          "id": "cottrell-0-lift",
+          "name": "Lift",
+          "buildingId": "cottrell",
+          "floorId": "cottrell-0",
+          "level": 0,
+          "nodeId": "cottrell-0-lift"
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -3.92036,
+                56.14469
+              ],
+              [
+                -3.92024,
+                56.14469
+              ],
+              [
+                -3.92024,
+                56.14479
+              ],
+              [
+                -3.92036,
+                56.14479
+              ],
+              [
+                -3.92036,
+                56.14469
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "featureType": "corridor",
+          "id": "cottrell-1-corridor-ew",
+          "buildingId": "cottrell",
+          "floorId": "cottrell-1",
+          "level": 1
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -3.92108,
+                56.144625
+              ],
+              [
+                -3.91992,
+                56.144625
+              ],
+              [
+                -3.91992,
+                56.144675
+              ],
+              [
+                -3.92108,
+                56.144675
+              ],
+              [
+                -3.92108,
+                56.144625
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "featureType": "corridor",
+          "id": "cottrell-1-corridor-ns",
+          "buildingId": "cottrell",
+          "floorId": "cottrell-1",
+          "level": 1
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -3.920525,
+                56.14441
+              ],
+              [
+                -3.920435,
+                56.14441
+              ],
+              [
+                -3.920435,
+                56.14489
+              ],
+              [
+                -3.920525,
+                56.14489
+              ],
+              [
+                -3.920525,
+                56.14441
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "featureType": "stairs",
+          "id": "cottrell-1-stairs",
+          "name": "Main stairs",
+          "buildingId": "cottrell",
+          "floorId": "cottrell-1",
+          "level": 1,
+          "nodeId": "cottrell-1-stairs"
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -3.92087,
+                56.14469
+              ],
+              [
+                -3.92073,
+                56.14469
+              ],
+              [
+                -3.92073,
+                56.14479
+              ],
+              [
+                -3.92087,
+                56.14479
+              ],
+              [
+                -3.92087,
+                56.14469
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "featureType": "lift",
+          "id": "cottrell-1-lift",
+          "name": "Lift",
+          "buildingId": "cottrell",
+          "floorId": "cottrell-1",
+          "level": 1,
+          "nodeId": "cottrell-1-lift"
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -3.92036,
+                56.14469
+              ],
+              [
+                -3.92024,
+                56.14469
+              ],
+              [
+                -3.92024,
+                56.14479
+              ],
+              [
+                -3.92036,
+                56.14479
+              ],
+              [
+                -3.92036,
+                56.14469
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "featureType": "room",
+          "id": "cottrell-0-cafe",
+          "name": "Cottrell café (sample)",
+          "kind": "cafe",
+          "categories": [
+            "food"
+          ],
+          "buildingId": "cottrell",
+          "floorId": "cottrell-0",
+          "level": 0,
+          "doorNodeId": "cottrell-0-cafe-door"
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -3.92105,
+                56.14444
+              ],
+              [
+                -3.92055,
+                56.14444
+              ],
+              [
+                -3.92055,
+                56.1446
+              ],
+              [
+                -3.92105,
+                56.1446
+              ],
+              [
+                -3.92105,
+                56.14444
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "featureType": "room",
+          "id": "cottrell-0-g01",
+          "name": "Seminar room G.01 (sample)",
+          "kind": "room",
+          "categories": [
+            "teaching"
+          ],
+          "buildingId": "cottrell",
+          "floorId": "cottrell-0",
+          "level": 0,
+          "doorNodeId": "cottrell-0-g01-door"
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -3.92108,
+                56.1447
+              ],
+              [
+                -3.9209,
+                56.1447
+              ],
+              [
+                -3.9209,
+                56.14488
+              ],
+              [
+                -3.92108,
+                56.14488
+              ],
+              [
+                -3.92108,
+                56.1447
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "featureType": "room",
+          "id": "cottrell-0-g02",
+          "name": "Lecture theatre G.02 (sample)",
+          "kind": "room",
+          "categories": [
+            "teaching"
+          ],
+          "buildingId": "cottrell",
+          "floorId": "cottrell-0",
+          "level": 0,
+          "doorNodeId": "cottrell-0-g02-door"
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -3.9204,
+                56.14444
+              ],
+              [
+                -3.91995,
+                56.14444
+              ],
+              [
+                -3.91995,
+                56.1446
+              ],
+              [
+                -3.9204,
+                56.1446
+              ],
+              [
+                -3.9204,
+                56.14444
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "featureType": "room",
+          "id": "cottrell-1-101",
+          "name": "Seminar room 1.01 (sample)",
+          "kind": "room",
+          "categories": [
+            "teaching"
+          ],
+          "buildingId": "cottrell",
+          "floorId": "cottrell-1",
+          "level": 1,
+          "doorNodeId": "cottrell-1-101-door"
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -3.92022,
+                56.1447
+              ],
+              [
+                -3.91995,
+                56.1447
+              ],
+              [
+                -3.91995,
+                56.14488
+              ],
+              [
+                -3.92022,
+                56.14488
+              ],
+              [
+                -3.92022,
+                56.1447
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "featureType": "room",
+          "id": "cottrell-1-102",
+          "name": "Computer lab 1.02 (sample)",
+          "kind": "room",
+          "categories": [
+            "teaching",
+            "study"
+          ],
+          "buildingId": "cottrell",
+          "floorId": "cottrell-1",
+          "level": 1,
+          "doorNodeId": "cottrell-1-102-door"
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -3.92105,
+                56.14444
+              ],
+              [
+                -3.92055,
+                56.14444
+              ],
+              [
+                -3.92055,
+                56.1446
+              ],
+              [
+                -3.92105,
+                56.1446
+              ],
+              [
+                -3.92105,
+                56.14444
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "featureType": "room",
+          "id": "cottrell-1-103",
+          "name": "Study area 1.03 (sample)",
+          "kind": "study-space",
+          "categories": [
+            "study"
+          ],
+          "buildingId": "cottrell",
+          "floorId": "cottrell-1",
+          "level": 1,
+          "doorNodeId": "cottrell-1-103-door"
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -3.9204,
+                56.14444
+              ],
+              [
+                -3.91995,
+                56.14444
+              ],
+              [
+                -3.91995,
+                56.1446
+              ],
+              [
+                -3.9204,
+                56.1446
+              ],
+              [
+                -3.9204,
+                56.14444
+              ]
+            ]
+          ]
+        }
+      }
+    ]
+  }
+}

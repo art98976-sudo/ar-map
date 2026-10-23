@@ -1,0 +1,364 @@
+{
+  "type": "FeatureCollection",
+  "_meta": {
+    "sample": true,
+    "notice": "SAMPLE DATA: approximate, hand-placed positions for development only. Not official University of Stirling or MazeMap data. Do not use for real navigation."
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "cottrell",
+        "name": "Cottrell Building",
+        "shortName": "Cottrell",
+        "categories": [
+          "teaching"
+        ],
+        "hasIndoorData": true,
+        "description": "Main teaching building with lecture theatres and seminar rooms. Pilot building for indoor maps."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -3.9211,
+              56.1444
+            ],
+            [
+              -3.9199,
+              56.1444
+            ],
+            [
+              -3.9199,
+              56.1449
+            ],
+            [
+              -3.9211,
+              56.1449
+            ],
+            [
+              -3.9211,
+              56.1444
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "library",
+        "name": "Library",
+        "categories": [
+          "study"
+        ],
+        "hasIndoorData": false,
+        "description": "Quiet study, group rooms, computers and printing."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -3.92108,
+              56.14587
+            ],
+            [
+              -3.92028,
+              56.14587
+            ],
+            [
+              -3.92028,
+              56.14623
+            ],
+            [
+              -3.92108,
+              56.14623
+            ],
+            [
+              -3.92108,
+              56.14587
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "campus-central",
+        "name": "Campus Central",
+        "categories": [
+          "food",
+          "study"
+        ],
+        "hasIndoorData": false,
+        "description": "The central hub with student services, cafés and shops."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -3.92005,
+              56.14587
+            ],
+            [
+              -3.91935,
+              56.14587
+            ],
+            [
+              -3.91935,
+              56.14623
+            ],
+            [
+              -3.92005,
+              56.14623
+            ],
+            [
+              -3.92005,
+              56.14587
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "students-union",
+        "name": "Students' Union",
+        "shortName": "Union",
+        "categories": [
+          "food"
+        ],
+        "hasIndoorData": false,
+        "description": "Clubs, societies, advice and events."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -3.91897,
+              56.14587
+            ],
+            [
+              -3.91827,
+              56.14587
+            ],
+            [
+              -3.91827,
+              56.14623
+            ],
+            [
+              -3.91897,
+              56.14623
+            ],
+            [
+              -3.91897,
+              56.14587
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "into",
+        "name": "INTO Building",
+        "shortName": "INTO",
+        "categories": [
+          "teaching"
+        ],
+        "hasIndoorData": false,
+        "description": "International study centre. Position is a rough placeholder and needs checking."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -3.9221,
+              56.1437
+            ],
+            [
+              -3.9215,
+              56.1437
+            ],
+            [
+              -3.9215,
+              56.144
+            ],
+            [
+              -3.9221,
+              56.144
+            ],
+            [
+              -3.9221,
+              56.1437
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "pathfoot",
+        "name": "Pathfoot Building",
+        "shortName": "Pathfoot",
+        "categories": [
+          "teaching"
+        ],
+        "hasIndoorData": false,
+        "description": "The original 1960s campus building, home to the University Art Collection."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -3.9274,
+              56.1491
+            ],
+            [
+              -3.9256,
+              56.1491
+            ],
+            [
+              -3.9256,
+              56.1496
+            ],
+            [
+              -3.9274,
+              56.1496
+            ],
+            [
+              -3.9274,
+              56.1491
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "sports-centre",
+        "name": "Sports Centre",
+        "categories": [
+          "sports"
+        ],
+        "hasIndoorData": false,
+        "description": "Gym, sports halls and swimming pool."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -3.9255,
+              56.1457
+            ],
+            [
+              -3.9243,
+              56.1457
+            ],
+            [
+              -3.9243,
+              56.1461
+            ],
+            [
+              -3.9255,
+              56.1461
+            ],
+            [
+              -3.9255,
+              56.1457
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "airthrey-castle",
+        "name": "Airthrey Castle",
+        "shortName": "Castle",
+        "categories": [],
+        "hasIndoorData": false,
+        "description": "Late-18th-century castle on the east of the estate."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -3.91365,
+              56.14813
+            ],
+            [
+              -3.91315,
+              56.14813
+            ],
+            [
+              -3.91315,
+              56.14837
+            ],
+            [
+              -3.91365,
+              56.14837
+            ],
+            [
+              -3.91365,
+              56.14813
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "accommodation-village",
+        "name": "Accommodation Village",
+        "categories": [
+          "accommodation"
+        ],
+        "hasIndoorData": false,
+        "description": "Student residences. Position is a rough placeholder and needs checking."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -3.9237,
+              56.14975
+            ],
+            [
+              -3.9227,
+              56.14975
+            ],
+            [
+              -3.9227,
+              56.15015
+            ],
+            [
+              -3.9237,
+              56.15015
+            ],
+            [
+              -3.9237,
+              56.14975
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

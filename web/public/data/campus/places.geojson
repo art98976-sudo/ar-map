@@ -1,0 +1,301 @@
+{
+  "type": "FeatureCollection",
+  "_meta": {
+    "sample": true,
+    "notice": "SAMPLE DATA: approximate, hand-placed positions for development only. Not official University of Stirling or MazeMap data. Do not use for real navigation."
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "campus-central-cafe",
+        "name": "Campus Central café",
+        "kind": "cafe",
+        "categories": [
+          "food"
+        ],
+        "description": "Coffee, snacks and hot food.",
+        "aliases": [
+          "coffee"
+        ],
+        "buildingId": "campus-central"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.91965,
+          56.14612
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "library-cafe",
+        "name": "Library café",
+        "kind": "cafe",
+        "categories": [
+          "food"
+        ],
+        "description": "Coffee and snacks by the Library entrance.",
+        "aliases": [
+          "coffee"
+        ],
+        "buildingId": "library"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.9204,
+          56.14598
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "union-cafe",
+        "name": "Students' Union café bar",
+        "kind": "cafe",
+        "categories": [
+          "food"
+        ],
+        "description": "Food and drink in the Union.",
+        "aliases": [
+          "bar",
+          "coffee"
+        ],
+        "buildingId": "students-union"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.9186,
+          56.1461
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "library-study",
+        "name": "Library study spaces",
+        "kind": "study-space",
+        "categories": [
+          "study"
+        ],
+        "description": "Quiet and group study across the Library.",
+        "aliases": [
+          "quiet study",
+          "group room"
+        ],
+        "buildingId": "library"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.92085,
+          56.14615
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "campus-central-study",
+        "name": "Campus Central study space",
+        "kind": "study-space",
+        "categories": [
+          "study"
+        ],
+        "description": "Drop-in study tables.",
+        "aliases": [],
+        "buildingId": "campus-central"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.9199,
+          56.146
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "sports-pool",
+        "name": "Swimming pool",
+        "kind": "sports",
+        "categories": [
+          "sports"
+        ],
+        "description": "Pool inside the Sports Centre.",
+        "aliases": [
+          "swim"
+        ],
+        "buildingId": "sports-centre"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.9252,
+          56.14598
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "sports-pitches",
+        "name": "Sports pitches",
+        "kind": "sports",
+        "categories": [
+          "sports"
+        ],
+        "description": "Outdoor grass and synthetic pitches.",
+        "aliases": [
+          "football",
+          "rugby"
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.926,
+          56.1448
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "bus-cottrell",
+        "name": "Cottrell bus stop",
+        "kind": "bus-stop",
+        "categories": [
+          "transport"
+        ],
+        "description": "Buses to Stirling city centre and the railway station.",
+        "aliases": [
+          "bus"
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.91975,
+          56.14418
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "bus-pathfoot",
+        "name": "Pathfoot bus stop",
+        "kind": "bus-stop",
+        "categories": [
+          "transport"
+        ],
+        "description": "Buses on the west side of campus.",
+        "aliases": [
+          "bus"
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.9274,
+          56.14885
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "car-park-cottrell",
+        "name": "Cottrell car park",
+        "kind": "car-park",
+        "categories": [
+          "transport"
+        ],
+        "description": "Pay-and-display parking.",
+        "aliases": [
+          "parking"
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.9196,
+          56.14385
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "car-park-sports",
+        "name": "Sports Centre car park",
+        "kind": "car-park",
+        "categories": [
+          "transport"
+        ],
+        "description": "Parking for the Sports Centre.",
+        "aliases": [
+          "parking"
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.9252,
+          56.14522
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "car-park-pathfoot",
+        "name": "Pathfoot car park",
+        "kind": "car-park",
+        "categories": [
+          "transport"
+        ],
+        "description": "Parking by the Pathfoot Building.",
+        "aliases": [
+          "parking"
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.9256,
+          56.1488
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "airthrey-loch",
+        "name": "Airthrey Loch",
+        "kind": "landmark",
+        "categories": [],
+        "description": "The loch at the heart of campus, with a walking loop.",
+        "aliases": [
+          "lake",
+          "loch walk"
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.91925,
+          56.147
+        ]
+      }
+    }
+  ]
+}
