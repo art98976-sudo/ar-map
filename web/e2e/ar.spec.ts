@@ -27,8 +27,9 @@ test('opens a route in AR with the camera, draws arrows and arrives', async ({ p
   await expect(ar.getByTestId('ar-gps')).toHaveText(/GPS ±\d+ m/);
   await expect(ar.getByTestId('ar-instruction')).toHaveText(/\w+/);
 
-  // This browser has no compass: rather than drawing arrows in the wrong place, AR hides them and says why.
-  await expect(ar.getByTestId('ar-status')).toHaveText(/No compass reading/);
+  // No motion sensors or compass here (and the test position is beside this route): rather than drawing arrows
+  // in the wrong place, AR hides them and says why.
+  await expect(ar.getByTestId('ar-status')).toHaveText(/Motion sensors are off|No compass reading|from the route/);
   await page.waitForTimeout(500);
   expect(await arrowPixels(page)).toBe(0);
 
@@ -79,5 +80,23 @@ test('the AR tab starts AR for the current route, with a simulated view when the
   await expect.poll(() => arrowPixels(page), { timeout: 10_000 }).toBeGreaterThan(20);
   await ar.getByRole('button', { name: 'Exit AR' }).click();
   await expect(ar).toBeHidden();
+  await context.close();
+});
+
+test('far from the route, arrows are hidden instead of floating in the distance', async ({ browser }) => {
+  // About 6 km north of campus.
+  const context = await browser.newContext({
+    viewport: { width: 360, height: 740 },
+    geolocation: { latitude: 56.2, longitude: -3.92, accuracy: 10 },
+    permissions: ['geolocation', 'camera'],
+  });
+  const page = await context.newPage();
+  await page.goto('/?tab=navigate&from=building:library&to=building:pathfoot');
+  await expect(page.getByTestId('route-duration')).toBeVisible();
+  await page.getByRole('button', { name: 'View in AR' }).click();
+  const ar = page.getByRole('dialog', { name: 'AR navigation' });
+  await expect(ar.getByTestId('ar-status')).toHaveText(/You are \d+(\.\d)? k?m from the route/);
+  await page.waitForTimeout(500);
+  expect(await arrowPixels(page)).toBe(0);
   await context.close();
 });

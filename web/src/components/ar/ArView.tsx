@@ -47,7 +47,8 @@ export interface ArViewProps {
   onExit(): void;
 }
 
-type Engine = 'starting' | 'xr' | 'overlay';
+/** starting: checking the device; choose: ground tracking is available, waiting for the tap that starts it. */
+type Engine = 'starting' | 'choose' | 'xr' | 'overlay';
 
 interface Hud {
   stepIndex: number;
@@ -65,6 +66,9 @@ interface Hud {
 }
 
 const norm360 = (d: number) => ((d % 360) + 360) % 360;
+
+const offRouteText = (off: number) =>
+  `You are ${formatDistance(off)} from the route. Arrows appear when you reach it; follow the arrow at the top.`;
 
 /**
  * AR navigation. Two ways of putting arrows on the ground:
@@ -330,10 +334,13 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
       }
       const steady = st.compassSamples.length >= 12 && circularSpread(st.compassSamples) < 20;
       if (pose && !st.align) {
-        if (steady) {
-          const origin = gpsOk && st.geo.position ? snapped(st.geo.position, st.geo.accuracy ?? 20) : t.pointAt(st.along);
+        if (!gpsOk || !st.geo.position) {
+          // Where you are on the map is needed to place the route around you.
+          status ??= st.geo.status === 'ok' ? `Waiting for a better GPS fix (±${Math.round(st.geo.accuracy ?? 0)} m)…` : 'Finding your position (GPS)…';
+        } else if (steady) {
+          const origin = snapped(st.geo.position, st.geo.accuracy ?? 20);
           st.align = new Alignment(circularMean(st.compassSamples)!, origin, { x: pose.x, z: pose.z });
-          st.lastFixUsed = st.geo.position ?? null;
+          st.lastFixUsed = st.geo.position;
         } else {
           status ??= st.hasCompass
             ? 'Calibrating the compass… hold the phone up and look around slowly.'
@@ -366,6 +373,7 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
         st.off = proj.off;
         st.offSince = proj.off > 15 ? st.offSince || now : 0;
         st.heading = st.align.xrYawToHeading(pose.yaw);
+        if (proj.off > 20) status ??= offRouteText(proj.off);
       }
       if (xr.groundY === null) status ??= 'Point the camera at the ground for a moment to find it.';
       drawXr(status);
@@ -411,8 +419,12 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
 
       // Only show arrows when they can be put in the right place.
       if (!st.simulating) {
+        const acc = st.geo.accuracy ?? 20;
         if (st.geo.status !== 'ok') status = 'Finding your position (GPS)…';
         else if ((st.geo.accuracy ?? 99) > MAX_GPS_ACCURACY_M) status = `GPS is weak (±${Math.round(st.geo.accuracy ?? 0)} m). Arrows return when it improves.`;
+        // Not on the route: the route ahead of you is somewhere else, so its arrows would float in the distance.
+        else if (st.off > Math.max(15, acc)) status = offRouteText(st.off);
+        else if (!st.hasTilt) status = 'Motion sensors are off. iPhone: close AR, open it again and choose Allow for Motion & Orientation.';
         else if (!compassFresh) status = 'No compass reading. Move the phone in a figure-8; arrows return when the compass works.';
         else if (st.compassAccuracy !== null && (st.compassAccuracy < 0 || st.compassAccuracy > 25)) {
           status = 'The compass needs calibrating: move the phone in a figure-8.';
@@ -427,14 +439,16 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
       const stepIndex = gate && st.along >= limit - 3 ? gate.index : t.stepIndexAt(st.along);
       const nextStart = t.steps.find((x) => x.index > stepIndex)?.start ?? t.total;
       const remaining = Math.max(0, t.total - st.along);
-      const aim = t.pointAt(Math.min(t.total, st.along + Math.min(10, Math.max(2, remaining))));
+      // Off the route: point to the nearest part of it; on it: to the path 10 m ahead.
+      const aim = st.off > 15 ? t.pointAt(st.along) : t.pointAt(Math.min(t.total, st.along + Math.min(10, Math.max(2, remaining))));
       setHud({
         stepIndex,
         toNextStep: Math.max(0, nextStart - st.along),
         remaining,
         arrowDeg: angleDiff(st.heading, bearingXY(st.viewer, aim)),
         offRoute: !st.simulating && st.offSince > 0 && now - st.offSince > 5000,
-        arrived: !gate && remaining < 4,
+        // Arrived only when actually there: near the end of the route AND close to the route itself.
+        arrived: !gate && remaining < 4 && (st.simulating || st.off <= Math.max(15, st.geo.accuracy ?? 15)),
         floorPrompt: gate && st.along >= limit - 3 ? gate.index : null,
         heading: st.heading,
         headingSource: st.hasCompass ? 'compass' : st.dragOffset ? 'drag' : 'route',
@@ -539,7 +553,10 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
 
     if (!status) {
       let drawn = 0;
+      const reach = maxArrowDistance(st.eyeHeight) + 1;
       for (const a of placements) {
+        // Only arrows near where you actually stand: far ones sit near the horizon and look like they float.
+        if (Math.hypot(a.x - st.viewer.x, a.y - st.viewer.y) > reach) continue;
         const pts = shapeAt(a, a.heading, a.kind === 'turn' ? 1.05 : 0.75);
         if (pts.some((p) => !p) || !pts.some((p) => onScreen(p!))) continue;
         paintArrow(g, pts as [number, number, number][], a.opacity, a.kind);
@@ -642,22 +659,22 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
       const ok = await xrArSupported();
       if (cancelled) return;
       setXrAvailable(ok);
-      if (!ok) return setEngine('overlay');
-      try {
-        await startXr();
-      } catch (e) {
-        // Usually: the browser wants a fresh tap before starting AR. Offer a button.
-        if (!cancelled) {
-          setEngine('overlay');
-          setToast(`Ground tracking did not start (${(e as Error)?.message ?? e}). Tap "Ground tracking" to try again.`);
-        }
-      }
-    })();
+      // Browsers only start AR from a tap, so ask for one. The 3D code is already loaded by now,
+      // so the tap starts AR straight away instead of timing out while it downloads.
+      setEngine(ok ? 'choose' : 'overlay');
+    })().catch(() => !cancelled && setEngine('overlay'));
     return () => {
       cancelled = true;
       xrRef.current?.end();
     };
-  }, [startSimulated, startXr]);
+  }, [startSimulated]);
+
+  const startGroundTracking = () => {
+    startXr().catch((e) => {
+      setEngine('overlay');
+      setToast(`Ground tracking could not start (${(e as Error)?.message ?? e}). Using the camera view.`);
+    });
+  };
 
   // ---------- pointer: drag to look around (simulation without compass), or the calibration tap ----------
   useEffect(() => {
@@ -849,6 +866,21 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
         <p role="status" data-ar-ui data-testid="ar-status" className="absolute inset-x-6 top-[calc(10.5rem+env(safe-area-inset-top))] rounded-xl bg-black/65 p-2.5 text-center text-sm font-medium backdrop-blur">
           {hud.status}
         </p>
+      )}
+
+      {/* Ground tracking is available: start it from a tap (browsers require one). */}
+      {engine === 'choose' && (
+        <div data-ar-ui className="absolute inset-x-4 top-1/3 rounded-2xl bg-[#0b1f3a]/95 p-5 text-center shadow-xl">
+          <ScanLine aria-hidden className="mx-auto size-9" />
+          <p className="mt-2 text-lg font-semibold">Start AR</p>
+          <p className="mt-1 text-sm text-white/85">Your phone can find the real ground, so the arrows lie on the path. Point the camera at the ground after starting.</p>
+          <button type="button" onClick={startGroundTracking} className="mt-4 min-h-12 w-full rounded-full bg-[#0b7a85] px-5 font-semibold">
+            Start AR
+          </button>
+          <button type="button" onClick={() => setEngine('overlay')} className="mt-2 min-h-11 w-full rounded-full px-5 text-sm font-semibold text-white/85">
+            Use the simple camera view instead
+          </button>
+        </div>
       )}
 
       {/* Ground calibration (camera overlay) */}

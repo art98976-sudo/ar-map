@@ -8,6 +8,7 @@
  * Loaded on demand, so the three.js code is not downloaded unless AR starts.
  */
 import * as THREE from 'three';
+import { facingYaw } from '@/lib/ar/alignment';
 import { GroundEstimator } from '@/lib/ar/ground';
 
 export interface XrPose {
@@ -183,7 +184,10 @@ export class XrGround {
         const o = vp.transform.orientation;
         q.set(o.x, o.y, o.z, o.w);
         const f = v.set(0, 0, -1).applyQuaternion(q);
-        const yaw = ((Math.atan2(f.x, -f.z) * 180) / Math.PI + 360) % 360;
+        const forward = { x: f.x, y: f.y, z: f.z };
+        const u = v.set(0, 1, 0).applyQuaternion(q);
+        // Robust even when the camera looks straight down at the ground.
+        const yaw = facingYaw(forward, { x: u.x, y: u.y, z: u.z });
         const p = vp.transform.position;
         pose = { x: p.x, y: p.y, z: p.z, yaw, tracking: vp.emulatedPosition ? 'limited' : 'ok' };
       }

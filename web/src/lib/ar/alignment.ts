@@ -86,3 +86,24 @@ export class Alignment {
     return norm360(yaw + this.offset);
   }
 }
+
+interface Vec3 {
+  x: number;
+  y: number;
+  z: number;
+}
+
+/**
+ * Which way the person faces, from the phone's camera direction (`forward`) and the direction
+ * the top of the phone points (`up`). When the camera looks steeply down at the ground, its
+ * horizontal direction becomes tiny and unreliable; then the top of the phone points forward.
+ */
+export function facingYaw(forward: Vec3, up: Vec3): number {
+  const fh = Math.hypot(forward.x, forward.z);
+  const uh = Math.hypot(up.x, up.z);
+  // Blend smoothly: mostly the camera direction when held upright, mostly the phone's top when looking down.
+  const w = Math.min(1, Math.max(0, (fh - 0.25) / 0.4));
+  const x = (fh > 1e-6 ? forward.x / fh : 0) * w + (uh > 1e-6 ? up.x / uh : 0) * (1 - w);
+  const z = (fh > 1e-6 ? forward.z / fh : 0) * w + (uh > 1e-6 ? up.z / uh : 0) * (1 - w);
+  return xrYaw(x, z);
+}
