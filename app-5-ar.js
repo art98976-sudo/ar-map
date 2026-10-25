@@ -5,19 +5,9 @@
    on the ground are projected onto the screen, so the arrows sit on the floor.
    ===================================================================== */
 const FOV = 60;           // horizontal field of view in degrees
-const MAX_RANGE = 1500;   // metres
 const CAM_H = 1.5;        // phone height above the ground in metres
 const HORIZON = 0.45;     // where the horizon sits in the simulated scene (fraction of screen height)
-const labelEls = {};
-function buildLabels(){
-  const wrap=$('arLabels');
-  POIS.forEach(p=>{
-    const c=CATS[p.cat], el=document.createElement('div');
-    el.className='ar-label';
-    el.innerHTML=`<div class="ar-card"><div class="ic" style="background:${c.color}">${c.icon}</div><div><b>${p.name}</b><small class="dd"></small></div></div><div class="stem"></div>`;
-    el.onclick=()=>openSheet(p);
-    wrap.appendChild(el); labelEls[p.id]=el;
-  });
+function buildCompassTape(){
   const tape=$('compassTape'); let h='';
   for(let a=-360;a<=720;a+=15){const n=((a%360)+360)%360; const t=n%90===0?['N','E','S','W'][n/90]:(n%45===0?CARD[n/45]:'·');
     h+=`<span style="left:${(a+360)*4}px">${t}</span>`;}
@@ -25,7 +15,7 @@ function buildLabels(){
 }
 // Screen focal length. With the real camera it comes from the video: phone cameras see about 65° along the
 // long side of the picture, and the picture is cropped to fill the screen, so a portrait screen sees much less
-// than 60° across. Getting this right is what makes labels and arrows land on the real things.
+// than 60° across. Getting this right is what makes the arrows land on the real things.
 function camera(){
   const W=$('ar').clientWidth||innerWidth, H=$('ar').clientHeight||innerHeight, v=$('arVideo');
   let f;
@@ -42,12 +32,9 @@ function project(c,right,fwd,up){
   return [c.cx+c.f*right/z, c.cy+c.f*y/z, z];
 }
 function renderAR(now){
-  const c=camera(), W=c.W, H=c.H, half=c.hfov/2, here=S.view;
-  // nearest places first: they keep their true spot; farther ones step up out of the way, or hide
+  const c=camera(), here=S.view;
+  // places for the radar when no route is active
   const items=POIS.map(p=>({p,d:dist(here,p),b:bearing(here,p)})).sort((a,b)=>a.d-b.d);
-  // y is the bottom of a label's stem; the card sits about 100 px above it, and must stay clear of the compass and banner
-  $('arLabels').style.transform = c.roll ? `rotate(${c.roll}rad)` : '';
-  items.forEach(({p})=>{ labelEls[p.id].style.display='none'; });
   if(!S.camOn){ $('hills').style.transform=`translateX(${-((S.heading%360)/360)*66.666}%)`; }
   $('compassTape').style.transform=`translateX(${$('compass').clientWidth/2-(S.heading+360)*4}px)`;
   // status line: direction, plus GPS and compass health in live mode
@@ -58,18 +45,10 @@ function renderAR(now){
   $('arChooseBtn').style.display = (S.route || S.pendingNav) ? 'none' : 'block';
   drawRadar(here, items);
   drawGround(c,now);
-  // direction arrow: points at the path about 10 m ahead, so it shows where to walk right now
   if(S.route){
-    const r=S.route, remain=r.total-S.along;
-    const target = remain<12 ? S.dest : r.pointAt(S.along+Math.min(10,remain));
-    const rel=norm180(bearing(here,target)-S.heading);
-    $('navHud').style.display='none'; $('arHelp').style.display='none';
+    $('arHelp').style.display='none';
     $('navBanner').style.display=S.tab==='ar'?'none':'flex';
-    $('navArrow').style.transform=`rotate(${rel}deg)`;
-    $('navTxt').innerHTML = S.arrived ? `🎉 Arrived at ${S.dest.name}` :
-      Math.abs(rel)>50 ? `Turn ${rel>0?'right':'left'} to face the route` :
-      `Continue along the route<br><span style="font-weight:500">${fmtD(remain)} to ${S.dest.name}</span>`;
-  } else { $('navHud').style.display='none'; $('arHelp').style.display=''; }
+  } else $('arHelp').style.display='';
 }
 
 // draws the route as a glowing lane with moving chevrons on the ground, plus signs at the next turn and the destination
@@ -148,7 +127,7 @@ function drawRadar(here, items){
 (function(){
   let dragging=false,lx=0;
   const ar=$('ar');
-  ar.addEventListener('pointerdown',e=>{ if(S.mode!=='demo'||e.target.closest('.ar-label,.ar-tools,#calibPanel'))return; dragging=true; lx=e.clientX; S.spin=false; $('spinToggle').classList.remove('on'); });
+  ar.addEventListener('pointerdown',e=>{ if(S.mode!=='demo'||e.target.closest('.ar-tools,#calibPanel'))return; dragging=true; lx=e.clientX; S.spin=false; $('spinToggle').classList.remove('on'); });
   window.addEventListener('pointermove',e=>{ if(!dragging)return; S.targetHeading-= (e.clientX-lx)*(FOV/ar.clientWidth); lx=e.clientX; });
   window.addEventListener('pointerup',()=>dragging=false);
   window.addEventListener('keydown',e=>{

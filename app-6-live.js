@@ -336,7 +336,7 @@ async function launch(mode){
   $('arHelp').textContent = mode==='live' ? 'Hold your phone upright and turn slowly.' : 'Drag or use ← → keys to look around.';
   setVoice(mode==='live');
   if(mode==='live'){ askMotion(); setLiveUI(); startSensors(); }
-  buildLabels();
+  buildCompassTape();
   const slow=setTimeout(()=>toast('Loading the University campus map…',6000),500);
   await initMap(); clearTimeout(slow); $('toast').classList.remove('show');
   onPosChange();

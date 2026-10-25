@@ -101,7 +101,7 @@ function stopNav(){
   if(S.dest) document.getElementById('mk-'+S.dest.id)?.classList.remove('dest');
   routeToken++; S.dest=null; S.route=null; S.pendingNav=null; S.walking=false; updateWalkBtn();
   MAPV.clearRoute(); showTempMarker(null); S.view=S.pos; MAPV.setMe(S.view);
-  $('navBanner').style.display='none'; $('navHud').style.display='none'; $('stepsPanel').classList.remove('open');
+  $('navBanner').style.display='none'; $('stepsPanel').classList.remove('open');
   $('app').classList.remove('navigating'); $('navBanner').classList.remove('arrived');
   if('speechSynthesis' in window) speechSynthesis.cancel();
 }

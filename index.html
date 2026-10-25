@@ -5,10 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#0b2e1f">
 <title>Stirling Campus AR</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b2e1f'/%3E%3Cpath d='M32 10c-9 0-16 7-16 16 0 12 16 28 16 28s16-16 16-28c0-9-7-16-16-16z' fill='%23f5b301'/%3E%3Ccircle cx='32' cy='26' r='6' fill='%230b2e1f'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=2">
+<link rel="stylesheet" href="app.css?v=3">
 </head>
 <body>
 
@@ -71,7 +72,6 @@
         <div class="ground"></div>
       </div>
       <canvas id="arGround"></canvas>
-      <div id="arLabels"></div>
       <div id="compass"><div id="compassTape"></div></div>
       <div id="headingTxt">0° N</div>
       <div id="radar"><canvas id="radarCv" width="220" height="220"></canvas></div>
@@ -92,10 +92,6 @@
       <div id="rotateMsg">📱 Hold your phone upright (portrait) for AR</div>
       <div id="arHelp">Drag or use ← → keys to look around.</div>
       <button id="arChooseBtn" type="button">Choose a destination to show the ground route</button>
-      <div id="navHud">
-        <svg id="navArrow" viewBox="0 0 100 100"><path d="M50 6 L86 82 L50 64 L14 82 Z" fill="#f5b301" stroke="#fff" stroke-width="4" stroke-linejoin="round"/></svg>
-        <div id="navTxt">—</div>
-      </div>
     </section>
 
     <section class="view" id="places">
@@ -133,9 +129,9 @@
 <script src="osm-5.js"></script>
 <script src="app-1-places.js"></script>
 <script src="app-2-router.js"></script>
-<script src="app-3-map.js"></script>
-<script src="app-4-nav.js?v=2"></script>
-<script src="app-5-ar.js?v=5"></script>
-<script src="app-6-live.js?v=9"></script>
+<script src="app-3-map.js?v=2"></script>
+<script src="app-4-nav.js?v=3"></script>
+<script src="app-5-ar.js?v=6"></script>
+<script src="app-6-live.js?v=10"></script>
 </body>
 </html>

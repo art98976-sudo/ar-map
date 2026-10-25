@@ -29,7 +29,7 @@ CATS.room = {label:'Room', color:'#475569', icon:'🚪', hidden:true};
    floors, its walking routes (inside and between buildings) and its
    written directions. Otherwise it falls back to OpenStreetMap.
    ===================================================================== */
-const MAZEMAP_CAMPUS = 2058, MAZEMAP_JS = 'https://api.mazemap.com/js/v2.2.1/';
+const MAZEMAP_CAMPUS = 2058, MAZEMAP_JS = 'https://api.mazemap.com/js/v2.2.6/';
 // where each place's official route should end (an entrance, reception or the place itself)
 const MM_TARGET = {
   cottrell:{poi:1002084982}, logie:{poi:1002292415}, amb:{poi:1002096717}, library:{poi:1002083724},
