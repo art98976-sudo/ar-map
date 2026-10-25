@@ -103,7 +103,7 @@ web/
   src/
     app/                        Next.js entry (renders the app in the browser)
     components/
-      app/                      app shell (CampusApp), tab bar, place picker, floor control, credits
+      app/                      app shell (CampusApp), tab bar, place picker, floor control
       map/                      MapView, plus its layers, data, camera helpers and styles
       ar/                       ArView, which wires together:
         engine/                   AR state, one step of the frame loop, debug text

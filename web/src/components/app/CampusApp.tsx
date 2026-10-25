@@ -30,7 +30,6 @@ import { RouteForm, RouteSheet } from '../navigate/NavigatePanel';
 import { SavedPanel } from '../saved/SavedPanel';
 import { FilterChips, ResultList, SearchBar } from '../search/Search';
 import { Button, IconButton, Notice, Toast, cx } from '../ui/ui';
-import { DataNote } from './DataCredits';
 import { FloorControl } from './FloorControl';
 import { PlacePicker } from './PlacePicker';
 import { TabBar } from './TabBar';
@@ -301,7 +300,6 @@ export default function CampusApp() {
                     </Button>
                   </div>
                 )}
-                <DataNote sample={provider.isSampleData} />
               </div>
             </>
           ) : url.tab === 'navigate' ? (
@@ -337,7 +335,6 @@ export default function CampusApp() {
                 {!route && routeState.status === 'idle' && (
                   <p className="pointer-events-auto rounded-xl bg-surface/95 p-3 text-sm text-muted shadow">Choose a destination to see walking directions.</p>
                 )}
-                <DataNote sample={provider.isSampleData} />
               </div>
             </>
           ) : url.tab === 'explore' ? (

@@ -11,7 +11,7 @@ test('search, open a place and walk through a route', async ({ page }) => {
   page.on('pageerror', (e) => errors.push(e.message));
 
   await page.goto('/');
-  await expect(page.getByText('Sample data · approximate, not official', { exact: false })).toBeVisible();
+  await expect(page.getByRole('searchbox', { name: 'Search campus' })).toBeVisible();
 
   // Search and pick a building
   await page.getByRole('searchbox', { name: 'Search campus' }).fill('library');
