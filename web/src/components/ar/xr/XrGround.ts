@@ -12,6 +12,7 @@
  * Loaded on demand, so the three.js code is not downloaded unless AR starts.
  */
 import * as THREE from 'three';
+import { APP_CONFIG } from '@/config/appConfig';
 import { facingYaw, type XZ } from '@/lib/ar/alignment';
 import { FALLBACK_BELOW_CAMERA_M, GroundEstimator, groundHeight, type GroundSource } from '@/lib/ar/ground';
 
@@ -40,18 +41,29 @@ export interface XrFrameInfo {
 }
 
 export interface XrArrow {
+  /** Same arrow from frame to frame (it keeps its pooled object and glides instead of jumping). */
+  key: string;
   x: number;
   z: number;
   /** AR yaw the arrow points to. */
   yaw: number;
   kind: 'chevron' | 'turn';
   opacity: number;
+  /** Size factor (the wave's gentle pulse). */
+  scale: number;
+  /** 0..1: how much the wave lights the arrow up. */
+  glow: number;
 }
 
 type Ground = { y: number; source: GroundSource } | null;
 
-const ARROW_LIFT_M = 0.015;
+const ARROW_LIFT_M = APP_CONFIG.arrows.liftM;
 const POOL_SIZE = 14;
+const CHEVRON_COLOR = new THREE.Color(0xffbe00);
+const CHEVRON_GLOW = new THREE.Color(0xfff0b0);
+const TURN_COLOR = new THREE.Color(0x0b7a85);
+const TURN_GLOW = new THREE.Color(0x6fd6dc);
+const PIN_COLOR = 0x2f855a;
 const CHEVRON: [number, number][] = [[0, 1.05], [0.75, 0.05], [0.38, 0.05], [0, -0.55], [-0.38, 0.05], [-0.75, 0.05]];
 
 export async function xrArSupported(): Promise<boolean> {
@@ -84,19 +96,34 @@ function shadowTexture(): THREE.Texture {
 }
 
 interface PooledArrow {
+  kind: XrArrow['kind'];
   group: THREE.Group;
   fill: THREE.MeshBasicMaterial;
   outline: THREE.MeshBasicMaterial;
   shadow: THREE.MeshBasicMaterial;
+  /** Current yaw in degrees (eased toward the target). */
+  yaw: number;
 }
+
+/** Ease-out with a small overshoot, for the pin popping in (0..1 → 0..1). */
+const popEase = (t: number) => {
+  const c = 1.7;
+  const u = Math.max(0, Math.min(1, t)) - 1;
+  return 1 + (c + 1) * u * u * u + c * u * u;
+};
 
 export class XrGround {
   private readonly ground = new GroundEstimator(20);
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera();
-  private readonly chevrons: PooledArrow[] = [];
-  private readonly turns: PooledArrow[] = [];
+  /** Spare arrows, by kind. */
+  private readonly free: Record<XrArrow['kind'], PooledArrow[]> = { chevron: [], turn: [] };
+  /** Arrows in view, by key. */
+  private readonly active = new Map<string, PooledArrow>();
+  private lastUpdate = 0;
   private readonly pin = new THREE.Group();
+  private readonly pinFloat = new THREE.Group();
+  private pinShownAt = 0;
   private readonly debugGroup = new THREE.Group();
   private readonly routeLine: THREE.Line;
   private readonly hitMarker: THREE.Mesh;
@@ -125,8 +152,8 @@ export class XrGround {
     // enabledFeatures is missing on older browsers; then try anchors and let them fail quietly.
     this.anchorsSupported = session.enabledFeatures ? session.enabledFeatures.includes('anchors') : true;
     const shadowTex = shadowTexture();
-    const make = (scale: number, color: number): PooledArrow => {
-      const fill = new THREE.MeshBasicMaterial({ color, transparent: true, depthWrite: false });
+    const make = (kind: XrArrow['kind'], scale: number, color: THREE.Color): PooledArrow => {
+      const fill = new THREE.MeshBasicMaterial({ color: color.clone(), transparent: true, depthWrite: false });
       const outline = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false });
       const shadow = new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false });
       const group = new THREE.Group();
@@ -138,17 +165,24 @@ export class XrGround {
       group.add(shadowMesh, outlineMesh, fillMesh);
       group.visible = false;
       this.scene.add(group);
-      return { group, fill, outline, shadow };
+      return { kind, group, fill, outline, shadow, yaw: 0 };
     };
-    for (let i = 0; i < POOL_SIZE; i++) this.chevrons.push(make(0.55, 0xffbe00));
-    for (let i = 0; i < 4; i++) this.turns.push(make(0.8, 0x0b7a85));
+    for (let i = 0; i < POOL_SIZE; i++) this.free.chevron.push(make('chevron', 0.55, CHEVRON_COLOR));
+    for (let i = 0; i < 4; i++) this.free.turn.push(make('turn', 0.8, TURN_COLOR));
 
-    // Destination pin standing on the ground.
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 2, 12), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-    pole.position.y = 1;
-    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.2, 20, 16), new THREE.MeshBasicMaterial({ color: 0x2f855a }));
-    ball.position.y = 2.15;
-    this.pin.add(pole, ball);
+    // Destination pin floating above the ground (it bobs and pops in), with a soft shadow below it.
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 24, 16), new THREE.MeshBasicMaterial({ color: PIN_COLOR }));
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.36, 24).rotateX(Math.PI), new THREE.MeshBasicMaterial({ color: PIN_COLOR }));
+    tip.position.y = -0.2;
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.075, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    dot.position.set(0, 0.02, 0.15);
+    this.pinFloat.add(head, tip, dot);
+    const pinShadow = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.7, 0.7).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false }),
+    );
+    pinShadow.position.y = 0.005;
+    this.pin.add(this.pinFloat, pinShadow);
     this.pin.visible = false;
     this.scene.add(this.pin);
 
@@ -321,28 +355,66 @@ export class XrGround {
     }
   }
 
-  /** Lays the given arrows on the ground. An empty list hides them (e.g. while recalibrating). */
+  /**
+   * Lays the given arrows on the ground. An empty list hides them (e.g. while recalibrating).
+   * Arrows are pooled objects matched by key: an arrow already in view glides to its new spot
+   * (a low-pass filter against small corrections), a new one is placed directly.
+   */
   update(arrows: XrArrow[], dest: { x: number; z: number } | null, routeLine: { x: number; z: number }[] | null) {
+    const now = performance.now();
+    const dt = this.lastUpdate ? Math.min(0.1, (now - this.lastUpdate) / 1000) : 0;
+    this.lastUpdate = now;
+    const glide = 1 - Math.exp(-APP_CONFIG.arrows.glidePerSecond * dt);
     const y = this.groundY;
     const show = y !== null;
     this.arrowsShown = show && arrows.length > 0;
-    let ci = 0;
-    let ti = 0;
+
+    const seen = new Set<string>();
     for (const a of show ? arrows : []) {
-      const pooled = a.kind === 'turn' ? this.turns[ti++] : this.chevrons[ci++];
-      if (!pooled) continue;
-      pooled.group.visible = true;
-      pooled.group.position.set(a.x, y! + ARROW_LIFT_M, a.z);
-      pooled.group.rotation.set(0, (-a.yaw * Math.PI) / 180, 0);
+      let pooled = this.active.get(a.key);
+      const fresh = !pooled;
+      if (!pooled) {
+        pooled = this.free[a.kind].pop();
+        if (!pooled) continue;
+        this.active.set(a.key, pooled);
+      }
+      seen.add(a.key);
+      const g = pooled.group;
+      g.visible = true;
+      if (fresh) {
+        g.position.set(a.x, y! + ARROW_LIFT_M, a.z);
+        pooled.yaw = a.yaw;
+      } else {
+        g.position.x += (a.x - g.position.x) * glide;
+        g.position.z += (a.z - g.position.z) * glide;
+        g.position.y += (y! + ARROW_LIFT_M - g.position.y) * glide;
+        pooled.yaw += (((a.yaw - pooled.yaw + 540) % 360) - 180) * glide;
+      }
+      g.rotation.set(0, (-pooled.yaw * Math.PI) / 180, 0);
+      g.scale.setScalar(a.scale);
+      pooled.fill.color.copy(a.kind === 'turn' ? TURN_COLOR : CHEVRON_COLOR).lerp(a.kind === 'turn' ? TURN_GLOW : CHEVRON_GLOW, a.glow * 0.6);
       pooled.fill.opacity = a.opacity;
       pooled.outline.opacity = a.opacity;
       pooled.shadow.opacity = a.opacity;
     }
-    for (let i = ci; i < this.chevrons.length; i++) this.chevrons[i].group.visible = false;
-    for (let i = ti; i < this.turns.length; i++) this.turns[i].group.visible = false;
+    for (const [key, pooled] of this.active) {
+      if (seen.has(key)) continue;
+      pooled.group.visible = false;
+      this.active.delete(key);
+      this.free[pooled.kind].push(pooled);
+    }
 
+    // Destination pin: pops in when it first comes into view, then floats and bobs.
     this.pin.visible = show && dest !== null;
-    if (show && dest) this.pin.position.set(dest.x, y!, dest.z);
+    if (this.pin.visible) {
+      const { pinHeightM, pinBobM, pinBobPeriodMs, pinPopMs } = APP_CONFIG.arrival;
+      this.pinShownAt ||= now;
+      this.pin.position.set(dest!.x, y!, dest!.z);
+      this.pinFloat.position.y = pinHeightM + Math.sin(((now - this.pinShownAt) / pinBobPeriodMs) * Math.PI * 2) * pinBobM;
+      this.pinFloat.scale.setScalar(Math.max(0.001, popEase((now - this.pinShownAt) / pinPopMs)));
+    } else {
+      this.pinShownAt = 0;
+    }
 
     this.debugGroup.visible = this.debug;
     this.routeLine.visible = show && routeLine !== null;

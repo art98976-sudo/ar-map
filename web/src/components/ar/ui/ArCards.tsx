@@ -1,5 +1,6 @@
 /** Cards shown only at particular moments: starting AR, calibrating, changing floor, arriving, debugging. */
-import { Flag, Footprints } from 'lucide-react';
+import { Footprints, MapPin } from 'lucide-react';
+import { APP_CONFIG } from '@/config/appConfig';
 import type { RouteStep } from '@/lib/types';
 import { BELOW_TOP_BAR } from './ArTopBar';
 
@@ -43,16 +44,25 @@ export function FloorPrompt({ step, onConfirm }: { step: RouteStep; onConfirm():
   );
 }
 
-export function ArrivedCard({ destName, onDone }: { destName: string; onDone(): void }) {
+/** Arriving: the destination from the route, and what to do next. Sits at the bottom, so the pin stays in view. */
+export function ArrivedCard({ destName, onDone, onNavigateElsewhere }: { destName: string; onDone(): void; onNavigateElsewhere?: () => void }) {
+  const t = APP_CONFIG.text;
   return (
-    <div data-ar-ui className="rounded-2xl bg-black/75 p-4 text-center backdrop-blur" role="status">
-      <Flag aria-hidden className="mx-auto size-7 text-[#68d391]" />
+    <div data-ar-ui className="animate-[ar-card-in_300ms_ease-out] rounded-2xl bg-black/75 p-4 text-center backdrop-blur" role="status">
+      <MapPin aria-hidden className="mx-auto size-7 text-[#68d391]" />
       <p className="mt-1 text-lg font-semibold" data-testid="ar-arrived">
-        You have arrived at {destName}
+        {t.arrivedTitle(destName)}
       </p>
-      <button type="button" onClick={onDone} className="mt-3 min-h-11 rounded-full bg-white px-6 font-semibold text-[#0b1f3a]">
-        Done
-      </button>
+      <div className="mt-3 flex flex-col gap-2">
+        {onNavigateElsewhere && (
+          <button type="button" onClick={onNavigateElsewhere} className="min-h-11 rounded-full bg-[#0b7a85] px-5 font-semibold">
+            {t.navigateElsewhere}
+          </button>
+        )}
+        <button type="button" onClick={onDone} className="min-h-11 rounded-full bg-white px-6 font-semibold text-[#0b1f3a]">
+          {t.done}
+        </button>
+      </div>
     </div>
   );
 }

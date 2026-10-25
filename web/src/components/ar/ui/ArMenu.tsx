@@ -1,5 +1,6 @@
-/** Everything not needed while walking, behind the "⋯" button. */
-import { Bug, ChevronLeft, ChevronRight, Compass, Footprints, LocateFixed, Pause, Play, ScanLine, Video, VideoOff } from 'lucide-react';
+/** Everything not needed while walking, behind the ☰ button. */
+import { Bug, ChevronLeft, ChevronRight, CircleHelp, Compass, Footprints, LocateFixed, Pause, Play, ScanLine, Video, VideoOff } from 'lucide-react';
+import { APP_CONFIG } from '@/config/appConfig';
 import { cx } from '../../ui/ui';
 
 const row = 'flex min-h-11 items-center gap-2 rounded-xl px-3 text-left font-medium hover:bg-white/10 active:bg-white/15';
@@ -24,6 +25,8 @@ interface ArMenuProps {
   simulation?: { on: boolean; speed: number; onToggle(): void; onSpeed(): void };
   debug: boolean;
   onDebug(): void;
+  /** Shows the first-run tutorial again. */
+  onTutorial(): void;
   /** Closes the menu (called before each action that changes mode). */
   onClose(): void;
 }
@@ -99,6 +102,10 @@ export function ArMenu(p: ArMenuProps) {
           )}
         </div>
       )}
+      <button type="button" role="menuitem" onClick={act(p.onTutorial)} className={item}>
+        <CircleHelp aria-hidden className="size-4" />
+        {APP_CONFIG.text.showTutorial}
+      </button>
       <button type="button" role="menuitemcheckbox" aria-checked={p.debug} aria-label="Debug overlay" onClick={act(p.onDebug)} className={item}>
         <Bug aria-hidden className={cx('size-4', p.debug && 'text-fuchsia-400')} />
         Debug info {p.debug ? 'on' : 'off'}

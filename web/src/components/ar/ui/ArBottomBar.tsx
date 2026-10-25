@@ -1,4 +1,4 @@
-import { Ellipsis, Map as MapIcon } from 'lucide-react';
+import { Map as MapIcon, Menu } from 'lucide-react';
 import { formatDistance, formatDuration, WALKING_SPEED_MPS } from '@/lib/route/constants';
 import { cx } from '../../ui/ui';
 
@@ -14,7 +14,7 @@ interface ArBottomBarProps {
   onShowMap?: () => void;
 }
 
-/** Destination, distance and time left, the menu button and End. */
+/** Destination, distance and time left ("Library / 120 m · 2 min"), the 2D map button, the ☰ menu button and End. */
 export function ArBottomBar({ destName, remaining, faded, menuOpen, onMenu, onEnd, onShowMap }: ArBottomBarProps) {
   return (
     <div
@@ -27,8 +27,9 @@ export function ArBottomBar({ destName, remaining, faded, menuOpen, onMenu, onEn
         </button>
       )}
       <div className={cx('min-w-0 flex-1 leading-tight', !onShowMap && 'pl-2')} data-testid="ar-summary">
+        {/* Two short lines in the same compact bar: on a 360 px phone one line would cut the name to a few letters. */}
         <p className="truncate text-sm font-semibold">{destName}</p>
-        <p className="text-sm text-white/80 tabular-nums">{remaining === null ? '…' : `${formatDistance(remaining)} · ${formatDuration(remaining / WALKING_SPEED_MPS)}`}</p>
+        <p className="text-sm text-white/85 tabular-nums">{remaining === null ? '…' : `${formatDistance(remaining)} · ${formatDuration(remaining / WALKING_SPEED_MPS)}`}</p>
       </div>
       <button
         type="button"
@@ -38,7 +39,7 @@ export function ArBottomBar({ destName, remaining, faded, menuOpen, onMenu, onEn
         aria-haspopup="menu"
         className={cx('grid size-11 shrink-0 place-items-center rounded-full', menuOpen ? 'bg-white text-[#0b1f3a]' : 'bg-white/15')}
       >
-        <Ellipsis aria-hidden className="size-5" />
+        <Menu aria-hidden className="size-5" />
       </button>
       <button type="button" onClick={onEnd} className="min-h-11 shrink-0 rounded-full bg-white px-4 text-sm font-semibold text-[#0b1f3a]">
         End

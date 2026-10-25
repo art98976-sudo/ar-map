@@ -16,15 +16,18 @@
  *  - ui/       the controls on screen
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { APP_CONFIG } from '@/config/appConfig';
 import { Alignment } from '@/lib/ar/alignment';
 import { makeCamera, type Camera } from '@/lib/ar/camera';
 import { depressionAt, eyeHeightFromTap } from '@/lib/ar/ground';
 import { requestMotionPermission } from '@/lib/ar/orientation';
 import { RouteTrack, angleDiff } from '@/lib/ar/track';
+import { markOnboardingSeen } from '@/lib/state/onboarding';
 import type { Route } from '@/lib/types';
+import { Onboarding } from '../onboarding/Onboarding';
 import { cx } from '../ui/ui';
-import { debugLines } from './engine/debug';
-import { makeHud, stepOverlay, stepXr, xrScene } from './engine/frame';
+import { DEBUG_AT_START, debugLines } from './engine/debug';
+import { checkArrival, makeHud, stepOverlay, stepXr, xrScene } from './engine/frame';
 import { EYE_HEIGHT_KEY, OFFSET_KEY, createArState, norm360, type ArEffects, type ArGeo, type Engine, type Hud } from './engine/state';
 import { useCameraStream } from './hooks/useCameraStream';
 import { useDeviceOrientation } from './hooks/useDeviceOrientation';
@@ -38,8 +41,14 @@ import { ArMenu } from './ui/ArMenu';
 import { ArStatus, ArTopBar } from './ui/ArTopBar';
 import type { XrFrameInfo, XrGround } from './xr/XrGround';
 
-/** The bottom bar fades after this long without a touch. */
-const IDLE_MS = 5000;
+/** A short buzz; phones that cannot vibrate (e.g. iPhone) just skip it. */
+function vibrate(pattern: readonly number[]) {
+  try {
+    navigator.vibrate?.([...pattern]);
+  } catch {
+    // Not supported: arriving still shows the card.
+  }
+}
 
 interface ArViewProps {
   route: Route;
@@ -50,16 +59,19 @@ interface ArViewProps {
   onExit(): void;
   /** Leave AR and show the route on the 2D map. */
   onShowMap?(): void;
+  /** Leave AR and search for a new destination (from the arrival card). */
+  onNavigateElsewhere?(): void;
 }
 
-export default function ArView({ route, geo, simulate: startSimulated = false, onExit, onShowMap }: ArViewProps) {
+export default function ArView({ route, geo, simulate: startSimulated = false, onExit, onShowMap, onNavigateElsewhere }: ArViewProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const xrRef = useRef<XrGround | null>(null);
   const onExitRef = useRef(onExit);
   const onShowMapRef = useRef(onShowMap);
+  const onNavigateElsewhereRef = useRef(onNavigateElsewhere);
   /** Where to go once AR has closed (ground tracking closes asynchronously). */
-  const leaveToRef = useRef<'exit' | 'map'>('exit');
+  const leaveToRef = useRef<LeaveTo>('exit');
 
   const track = useMemo(() => new RouteTrack(route), [route]);
   const [engine, setEngine] = useState<Engine>(startSimulated ? 'overlay' : 'starting');
@@ -69,10 +81,12 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
   const [hud, setHud] = useState<Hud | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [calibrating, setCalibrating] = useState(false);
-  // Debug overlay: off by default; ?ardebug=1 turns it on from the start.
-  const [debug, setDebug] = useState(() => new URLSearchParams(window.location.search).get('ardebug') === '1');
+  // The tutorial, opened again from the menu. Drawn inside AR: ground tracking only shows what is inside this view.
+  const [tutorial, setTutorial] = useState(false);
+  // Debug overlay: off by default; the config switch or ?ardebug=1 turns it on from the start.
+  const [debug, setDebug] = useState(DEBUG_AT_START);
   const { toast, showToast } = useToastQueue();
-  const { idle, wake } = useIdle(IDLE_MS);
+  const { idle, wake } = useIdle(APP_CONFIG.arScreen.idleFadeMs);
 
   // Everything the animation loop needs, kept in a ref so it runs without re-rendering.
   const s = useRef(createArState({ simulating: startSimulated, geo, track }));
@@ -86,6 +100,7 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
     st.engine = engine;
     onExitRef.current = onExit;
     onShowMapRef.current = onShowMap;
+    onNavigateElsewhereRef.current = onNavigateElsewhere;
     if (xrRef.current) xrRef.current.debug = debug;
   });
 
@@ -95,6 +110,7 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
   // ---------- compass and tilt ----------
   useEffect(() => {
     s.current.openedAt = performance.now();
+    s.current.reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
   }, []);
   useDeviceOrientation((r) => {
     const st = s.current;
@@ -119,6 +135,8 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
       st.along = track.project(track.frame.toXY(here)).along;
       st.confirmedFloor = -1;
       st.align = null; // the map frame changed with the new route; align again
+      st.arrivedAt = 0; // a new route can be arrived at again
+      st.pinShownAt = 0;
       xrRef.current?.anchorOrigin(null);
       st.compassSamples = [];
     }
@@ -186,13 +204,18 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
     let status: string | null;
     if (xr) {
       status = stepXr(st, xr, now, dt, effects);
-      const scene = status ? null : xrScene(st);
+      const scene = status ? null : xrScene(st, now);
       xrRef.current?.update(scene?.arrows ?? [], scene?.dest ?? null, scene?.line ?? null);
     } else {
       status = stepOverlay(st, now, dt);
       const cv = canvasRef.current;
       const cam = overlayCamera();
       if (cv && cam) drawOverlay(cv, cam, st, now, status, Boolean(videoRef.current?.videoWidth));
+    }
+    // Arriving happens once per route: buzz, and show the arrival card straight away.
+    if (checkArrival(st, now)) {
+      vibrate(APP_CONFIG.arrival.vibrationMs);
+      st.lastHud = 0;
     }
 
     if (now - st.lastHud > 150) {
@@ -211,7 +234,7 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
       (info) => tick(performance.now(), info),
       () => {
         xrRef.current = null;
-        (leaveToRef.current === 'map' && onShowMapRef.current ? onShowMapRef.current : onExitRef.current)();
+        leaveTo(leaveToRef.current, { exit: onExitRef.current, map: onShowMapRef.current, search: onNavigateElsewhereRef.current });
       },
     );
     xrRef.current.debug = s.current.debug;
@@ -346,15 +369,16 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
     if (!st.simulating && st.engine !== 'xr') setSimulating(true);
   };
 
-  const leave = (to: 'exit' | 'map') => {
+  const leave = (to: LeaveTo) => {
     leaveToRef.current = to;
     if (xrRef.current) xrRef.current.end();
-    else (to === 'map' && onShowMap ? onShowMap : onExit)();
+    else leaveTo(to, { exit: onExit, map: onShowMap, search: onNavigateElsewhere });
   };
 
   // ---------- screen ----------
-  const step = hud ? route.steps[hud.stepIndex] : route.steps[0];
   const isXr = engine === 'xr';
+  // The menu button is part of the bottom bar, which the arrival card replaces: no menu after arriving.
+  const showMenu = menuOpen && !hud?.arrived;
   const gpsText = simulating
     ? 'Simulated walk'
     : geo.status === 'ok'
@@ -379,13 +403,13 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
         </>
       )}
 
-      <ArTopBar hud={hud} step={step} />
+      <ArTopBar hud={hud} route={route} />
       {hud?.status && !hud.arrived && !calibrating && <ArStatus status={hud.status} askMotion={hud.askMotion} onAskMotion={askMotion} />}
       {calibrating && <CalibrationCard onCancel={() => setCalibrating(false)} />}
       {debug && hud && <DebugPanel lines={hud.debug} />}
 
       {/* Tap outside the menu to close it */}
-      {menuOpen && <button type="button" aria-hidden tabIndex={-1} className="absolute inset-0 cursor-default" onClick={() => setMenuOpen(false)} />}
+      {showMenu && <button type="button" aria-hidden tabIndex={-1} className="absolute inset-0 cursor-default" onClick={() => setMenuOpen(false)} />}
 
       {/* Bottom: one message at a time, the menu when open, the floor prompt, and the compact bar */}
       <div className="absolute inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] flex flex-col gap-2">
@@ -394,7 +418,7 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
             {toast}
           </p>
         )}
-        {menuOpen && (
+        {showMenu && (
           <ArMenu
             gpsText={gpsText}
             compassText={hud?.headingSource === 'compass' ? `${Math.round(hud.heading)}°` : hud?.headingSource === 'drag' ? 'Drag to look' : 'No compass'}
@@ -408,6 +432,7 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
             simulation={!isXr ? { on: simulating, speed: simSpeed, onToggle: () => setSimulating((v) => !v), onSpeed: () => setSimSpeed((v) => (v === 1 ? 3 : 1)) } : undefined}
             debug={debug}
             onDebug={() => setDebug((d) => !d)}
+            onTutorial={() => setTutorial(true)}
             onClose={() => setMenuOpen(false)}
           />
         )}
@@ -415,7 +440,11 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
         {engine === 'choose' ? (
           <StartArCard onStart={startGroundTracking} onSimple={() => setEngine('overlay')} />
         ) : hud?.arrived ? (
-          <ArrivedCard destName={route.to.name} onDone={() => leave('exit')} />
+          <ArrivedCard
+            destName={route.to.name}
+            onDone={() => leave('exit')}
+            onNavigateElsewhere={onNavigateElsewhere ? () => leave('search') : undefined}
+          />
         ) : (
           <ArBottomBar
             destName={route.to.name}
@@ -429,10 +458,27 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
         )}
       </div>
 
+      {tutorial && (
+        <Onboarding
+          onClose={() => {
+            markOnboardingSeen();
+            setTutorial(false);
+          }}
+        />
+      )}
+
       {/* AR works with the phone held upright. */}
       <div className="pointer-events-none absolute inset-0 hidden items-center justify-center bg-black/80 p-6 text-center text-lg font-semibold landscape:max-lg:flex [@media(pointer:fine)]:!hidden">
         Turn your phone upright to use AR.
       </div>
     </div>
   );
+}
+
+type LeaveTo = 'exit' | 'map' | 'search';
+
+/** Runs the handler for where to go after AR; falls back to plain exit when that one is not given. */
+function leaveTo(to: LeaveTo, handlers: { exit(): void; map?: () => void; search?: () => void }) {
+  const handler = to === 'map' ? handlers.map : to === 'search' ? handlers.search : undefined;
+  (handler ?? handlers.exit)();
 }

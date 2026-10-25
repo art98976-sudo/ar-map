@@ -28,14 +28,25 @@ There are two modes. The app picks the best one the phone supports.
 
 In both modes:
 
-- **Route:** arrows are spaced every 2.5 m along the exact route polyline, the same one the 2D map
-  draws. A teal turn arrow sits just past each sharp turn.
+- **Route:** arrows are spaced every 1.75 m along the exact route polyline, the same one the 2D map
+  draws, over the next 13 m only. A teal turn arrow sits just past each sharp turn.
+- **Arrows stay put:** each arrow has a fixed spot on the route, so it stays on the ground as you
+  walk past it. In ground tracking, arrows are pooled objects that glide to corrected positions
+  instead of jumping.
 - **Arrows:** they point along the direction of travel, smoothed over 3 m so curves don't wobble.
-  They are flat painted markings with a soft shadow centred under them, and fade with distance.
+  They are flat painted markings with a soft shadow centred under them. They are brightest near
+  you and fade further ahead. A wave of light runs forward along them every 1.5 s, with a gentle
+  size pulse (none when the phone asks for reduced motion).
+- **Arrival:** within 5 m of the destination, once per route. The phone vibrates (where supported),
+  the arrows fade out, a floating pin bobs above the destination, and a card offers "Navigate
+  somewhere else" or "Done".
 - **Conversion:** map ↔ AR conversion happens in one place (`src/lib/ar/alignment.ts`) and is unit
-  tested, as are heading, placement and ground estimation.
+  tested, as are heading, placement, the arrow animation, arrival and ground estimation.
 
-**Debug overlay:** use the bug button in AR, or add `?ardebug=1` to the address. It shows the raw
+All distances, timings and text for the arrows, arrival, AR screen and tutorial are in
+`src/config/appConfig.ts`.
+
+**Debug overlay:** use **Debug info** in the ☰ menu, or add `?ardebug=1` to the address. It shows the raw
 route, the arrow anchors, the horizon and the tracking state: pose, ground height, compass offset,
 GPS accuracy and fps.
 

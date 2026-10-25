@@ -3,18 +3,18 @@
  * arrows can be shown. Shared by both engines (ground tracking and camera overlay); drawing is
  * done elsewhere. Each step returns why arrows are hidden right now, or null when they are shown.
  */
+import { APP_CONFIG } from '@/config/appConfig';
 import { Alignment, circularMean, circularSpread } from '@/lib/ar/alignment';
-import { arrowPlacements } from '@/lib/ar/placement';
+import { arrowPlacements, type ArrowPlacement } from '@/lib/ar/placement';
 import { canAskMotionPermission } from '@/lib/ar/orientation';
 import { angleDiff, bearingXY, type XY } from '@/lib/ar/track';
+import { arrowLook } from '@/lib/ar/wave';
 import { WALKING_SPEED_MPS } from '@/lib/route/constants';
 import type { LatLng } from '@/lib/types';
 import type { XrArrow, XrFrameInfo } from '../xr/XrGround';
 import {
-  CHEVRON_GAP_M,
   MAX_GPS_ACCURACY_M,
   MOTION_GRACE_MS,
-  XR_AHEAD_M,
   norm360,
   offRouteText,
   type ArEffects,
@@ -172,16 +172,45 @@ export function stepOverlay(st: ArState, now: number, dt: number): string | null
   return status;
 }
 
+/** An arrow as drawn this frame: where it is, plus the wave's brightness and size. */
+interface GroundArrow extends ArrowPlacement {
+  /** Stays the same while the arrow is in view, so renderers can reuse its object. */
+  key: string;
+  /** Final opacity: distance fade × wave × arrival fade-out. */
+  alpha: number;
+  /** Size factor from the wave's gentle pulse. */
+  scale: number;
+  /** 0..1: how much the wave is lighting the arrow up right now. */
+  glow: number;
+}
+
+/** 1 until you arrive, then down to 0 over the arrival fade time. */
+export function arrivalFade(st: ArState, now: number): number {
+  if (!st.arrivedAt) return 1;
+  return Math.max(0, 1 - (now - st.arrivedAt) / APP_CONFIG.arrival.arrowFadeMs);
+}
+
+/** The arrows from where you are up to `end` (metres along), with this moment's animation. */
+export function groundArrows(st: ArState, now: number, end: number): GroundArrow[] {
+  const fade = arrivalFade(st, now);
+  if (fade <= 0) return [];
+  const { spacingM, firstArrowM, showAheadM } = APP_CONFIG.arrows;
+  return arrowPlacements(st.track, st.along, end, { spacing: spacingM, startGap: firstArrowM, reach: showAheadM }).map((p) => {
+    const look = arrowLook(p.along - st.along, now, showAheadM, !st.reduceMotion);
+    return { ...p, key: `${p.kind}:${p.along.toFixed(2)}`, alpha: p.opacity * look.alpha * fade, scale: look.scale, glow: look.glow };
+  });
+}
+
 /** Ground tracking: the arrows to lay on the ground now, or null to hide them. */
-export function xrScene(st: ArState): { arrows: XrArrow[]; dest: { x: number; z: number } | null; line: { x: number; z: number }[] | null } | null {
+export function xrScene(st: ArState, now: number): { arrows: XrArrow[]; dest: { x: number; z: number } | null; line: { x: number; z: number }[] | null } | null {
   const align = st.align;
   if (!align) return null;
   const t = st.track;
   const { gate } = floorGate(st);
-  const end = Math.min(t.total, st.along + XR_AHEAD_M, gate ? gate.start : Infinity);
-  const arrows = arrowPlacements(t, st.along, end, { spacing: CHEVRON_GAP_M }).map((p) => {
+  const end = Math.min(t.total, st.along + APP_CONFIG.arrows.showAheadM, gate ? gate.start : Infinity);
+  const arrows = groundArrows(st, now, end).map((p) => {
     const q = align.enToXr(p);
-    return { x: q.x, z: q.z, yaw: align.headingToXrYaw(p.heading), kind: p.kind, opacity: p.opacity };
+    return { key: p.key, x: q.x, z: q.z, yaw: align.headingToXrYaw(p.heading), kind: p.kind, opacity: p.alpha, scale: p.scale, glow: p.glow };
   });
   const dest = !gate && t.total - st.along < 40 ? align.enToXr(t.pointAt(t.total)) : null;
   let line: { x: number; z: number }[] | null = null;
@@ -190,6 +219,24 @@ export function xrScene(st: ArState): { arrows: XrArrow[]; dest: { x: number; z:
     for (let d = Math.max(0, st.along - 10); d <= Math.min(t.total, st.along + 60); d += 1) line.push(align.enToXr(t.pointAt(d)));
   }
   return { arrows, dest, line };
+}
+
+/**
+ * Arrival: true on the one frame you arrive. You have arrived when you are within the arrival
+ * radius of the destination (along the route or in a straight line), on the destination's floor
+ * and actually on the route. It is set once per route, so a wobbling GPS fix cannot undo it or
+ * trigger it again.
+ */
+export function checkArrival(st: ArState, now: number): boolean {
+  if (st.arrivedAt || !st.alongReady) return false;
+  if (floorGate(st).gate) return false;
+  const t = st.track;
+  const dest = t.pointAt(t.total);
+  const left = Math.min(t.total - st.along, Math.hypot(dest.x - st.viewer.x, dest.y - st.viewer.y));
+  const onRoute = st.simulating || st.off <= Math.max(15, st.geo.accuracy ?? 15);
+  if (!onRoute || left > APP_CONFIG.arrival.radiusM) return false;
+  st.arrivedAt = now;
+  return true;
 }
 
 /** What the controls show, plus one-time warnings (off the route, no location). */
@@ -214,8 +261,8 @@ export function makeHud(st: ArState, now: number, status: string | null, debug: 
     toNextStep: Math.max(0, nextStart - st.along),
     remaining,
     arrowDeg: angleDiff(st.heading, bearingXY(st.viewer, aim)),
-    // Arrived only when actually there: near the end of the route AND close to the route itself.
-    arrived: !gate && remaining < 4 && (st.simulating || st.off <= Math.max(15, st.geo.accuracy ?? 15)),
+    // Set once by checkArrival(), so the arrival card does not flicker with GPS.
+    arrived: st.arrivedAt > 0,
     floorPrompt: gate && st.along >= limit - 3 ? gate.index : null,
     heading: st.heading,
     headingSource: st.hasCompass ? 'compass' : st.dragOffset ? 'drag' : 'route',

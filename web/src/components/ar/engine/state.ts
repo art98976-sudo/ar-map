@@ -12,10 +12,6 @@ import type { XrFrameInfo } from '../xr/XrGround';
 
 export const OFFSET_KEY = 'stirling-campus-map:ar-heading-offset';
 export const EYE_HEIGHT_KEY = 'stirling-campus-map:ar-eye-height';
-/** Distance between arrows along the route. */
-export const CHEVRON_GAP_M = 2.5;
-/** Ground tracking: how far ahead arrows are laid. */
-export const XR_AHEAD_M = 20;
 /** Arrows are only shown with a GPS fix at least this good (metres). */
 export const MAX_GPS_ACCURACY_M = 30;
 /** Motion readings get this long to arrive before AR says the sensors are off. */
@@ -98,6 +94,12 @@ export function createArState(opts: { simulating: boolean; geo: ArGeo; track: Ro
     compassSamples: [] as number[],
     lastFixUsed: null as LatLng | null,
     lastPose: null as XrFrameInfo['pose'],
+    /** When you arrived (performance.now()), or 0. Set once per route, so a wobbling GPS cannot undo it. */
+    arrivedAt: 0,
+    /** When the destination pin came into view, or 0 while it is hidden (it pops in from then). */
+    pinShownAt: 0,
+    /** The phone asks for less motion: arrows stay steady instead of pulsing. */
+    reduceMotion: false,
     lastTick: 0,
     lastHud: 0,
     fps: 0,

@@ -17,6 +17,7 @@ import { useRoutePlanning } from '@/hooks/useRoutePlanning';
 import { useSearch } from '@/hooks/useSearch';
 import { requestMotionPermission } from '@/lib/ar/orientation';
 import { getMapProvider } from '@/lib/providers';
+import { markOnboardingSeen, onboardingSeen } from '@/lib/state/onboarding';
 import { savedStore } from '@/lib/state/saved';
 import { parseUrlState, routeShareUrl, serializeUrlState, type Tab, type UrlState } from '@/lib/state/urlState';
 import type { Destination, FilterCategory, RouteStep } from '@/lib/types';
@@ -24,6 +25,7 @@ import { ArPanel } from '../ar/ArPanel';
 import ArView from '../ar/ArView';
 import { DestinationCard } from '../destination/DestinationCard';
 import { ExplorePanel } from '../explore/ExplorePanel';
+import { Onboarding } from '../onboarding/Onboarding';
 import MapView from '../map/MapView';
 import { ALL_BUILDINGS, type MapViewHandle, type Padding } from '../map/types';
 import { RouteForm, RouteSheet } from '../navigate/NavigatePanel';
@@ -54,6 +56,8 @@ export default function CampusApp() {
   const savedIds = useSyncExternalStore(savedStore.subscribe, savedStore.getSnapshot, savedStore.getServerSnapshot);
   const geo = useGeolocation();
   const mapRef = useRef<MapViewHandle>(null);
+  // First open only: the short tutorial (remembered in the browser once seen or skipped).
+  const [tutorial, setTutorial] = useState(() => !onboardingSeen());
   const [mapError, setMapError] = useState<string | null>(null);
   const [toast, showToast] = useState<string | null>(null);
   useEffect(() => {
@@ -64,6 +68,12 @@ export default function CampusApp() {
 
   // ---------- search, selection and route ends ----------
   const [query, setQuery] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
+  // Bumped to put the cursor in the search box once it is on screen (e.g. after arriving in AR).
+  const [focusSearch, setFocusSearch] = useState(0);
+  useEffect(() => {
+    if (focusSearch) searchRef.current?.focus();
+  }, [focusSearch]);
   const [cats, setCats] = useState<FilterCategory[]>([]);
   const search = useSearch(provider, query, cats, { enabled: url.tab === 'map' });
   const searching = url.tab === 'map' && search.results !== null;
@@ -274,7 +284,7 @@ export default function CampusApp() {
             <>
               <div className="pointer-events-auto space-y-2 p-3 lg:p-4">
                 <h1 className="sr-only lg:hidden">Stirling Campus Map</h1>
-                <SearchBar value={query} onChange={setQuery} onSubmit={() => search.results?.[0] && select(search.results[0])} />
+                <SearchBar inputRef={searchRef} value={query} onChange={setQuery} onSubmit={() => search.results?.[0] && select(search.results[0])} />
                 <FilterChips value={cats} onChange={setCats} />
                 {searching && <ResultList results={search.results} loading={search.loading} error={search.error} query={query} onPick={select} />}
               </div>
@@ -426,9 +436,25 @@ export default function CampusApp() {
             setAr(null);
             update({ tab: 'navigate' });
           }}
+          onNavigateElsewhere={() => {
+            setAr(null);
+            setPicker(null);
+            setQuery('');
+            setCats([]);
+            update({ tab: 'map', dest: undefined });
+            setFocusSearch((n) => n + 1);
+          }}
         />
       )}
       <Toast message={toast} />
+      {tutorial && (
+        <Onboarding
+          onClose={() => {
+            markOnboardingSeen();
+            setTutorial(false);
+          }}
+        />
+      )}
     </div>
   );
 }

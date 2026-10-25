@@ -3,6 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 const PORT = Number(process.env.PORT ?? 3005);
 /** Which data the local test build uses: sample data by default, or MazeMap (campus 2058). */
 const PROVIDER = process.env.E2E_PROVIDER === 'mazemap' ? 'mazemap' : 'local';
+const BASE_URL = process.env.E2E_BASE_URL ?? `http://localhost:${PORT}`;
 
 /**
  * End-to-end tests run on a phone-sized screen against a production build.
@@ -17,8 +18,11 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: [['list']],
   use: {
-    baseURL: process.env.E2E_BASE_URL ?? `http://localhost:${PORT}`,
+    baseURL: BASE_URL,
     trace: 'retain-on-failure',
+    // The first-run tutorial counts as seen, so it does not cover the screens under test
+    // (e2e/onboarding.spec.ts starts without it).
+    storageState: { cookies: [], origins: [{ origin: BASE_URL, localStorage: [{ name: 'stirling-campus-map:onboarding-seen', value: '1' }] }] },
   },
   projects: [
     {
@@ -42,7 +46,7 @@ export default defineConfig({
         env: PROVIDER === 'mazemap'
           ? { MAP_PROVIDER: 'mazemap', MAZEMAP_CAMPUS_ID: process.env.MAZEMAP_CAMPUS_ID ?? '2058' }
           : { MAP_PROVIDER: 'local' },
-        url: `http://localhost:${PORT}`,
+        url: BASE_URL,
         timeout: 240_000,
         reuseExistingServer: !process.env.CI,
       },

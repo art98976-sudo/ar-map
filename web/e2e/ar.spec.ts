@@ -1,6 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
 
-/** Counts the amber route-arrow pixels drawn on the AR canvas. */
+/**
+ * Counts the amber route-arrow pixels drawn on the AR canvas. Arrows are partly see-through between
+ * waves of light (blending with the simulated ground) and paler as a wave passes, so this looks for
+ * clearly orange-yellow pixels rather than one exact amber. The sky, ground, grid lines, teal turn
+ * arrows and green pin never match.
+ */
 const arrowPixels = (page: Page) =>
   page.evaluate(() => {
     const cv = document.querySelector('[aria-label="AR navigation"] canvas') as HTMLCanvasElement | null;
@@ -8,7 +13,10 @@ const arrowPixels = (page: Page) =>
     if (!cv || !g) return 0;
     const { data } = g.getImageData(0, 0, cv.width, cv.height);
     let n = 0;
-    for (let i = 0; i < data.length; i += 16) if (data[i] > 230 && data[i + 1] > 160 && data[i + 1] < 215 && data[i + 2] < 60) n++;
+    for (let i = 0; i < data.length; i += 16) {
+      const [r, gr, b, a] = [data[i], data[i + 1], data[i + 2], data[i + 3]];
+      if (a > 100 && r > 170 && r - b > 100 && r > gr + 20) n++;
+    }
     return n;
   });
 
@@ -75,7 +83,10 @@ test('opens a route in AR with the camera, draws arrows and arrives', async ({ p
   await ar.getByRole('menuitem', { name: 'Simulation speed' }).click();
   for (let i = 0; i < 4; i++) await ar.getByRole('menuitem', { name: 'Next step' }).click();
   await ar.getByRole('button', { name: 'AR menu' }).click();
-  await expect(ar.getByTestId('ar-arrived')).toHaveText(/You have arrived at Seminar room 1\.01/, { timeout: 40_000 });
+  await expect(ar.getByTestId('ar-arrived')).toHaveText(/You've arrived at Seminar room 1\.01/, { timeout: 40_000 });
+  // Arriving: the top bar says so too, and the card offers a new search or Done.
+  await expect(ar.getByTestId('ar-instruction')).toHaveText(/You've arrived at Seminar room 1\.01/);
+  await expect(ar.getByRole('button', { name: 'Navigate somewhere else' })).toBeVisible();
   await ar.getByRole('button', { name: 'Done' }).click();
   await expect(ar).toBeHidden();
 

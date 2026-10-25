@@ -1,8 +1,16 @@
 /** The debug panel's text (shown only with the debug overlay on). */
+import { APP_CONFIG } from '@/config/appConfig';
 import { circularSpread } from '@/lib/ar/alignment';
 import { maxArrowDistance } from '@/lib/ar/ground';
 import type { XrFrameInfo } from '../xr/XrGround';
 import type { ArState } from './state';
+
+/**
+ * Debug text from the start: the config switch, or ?ardebug=1 in the address. Read when the app
+ * loads, because the app then rewrites the address bar (without this parameter).
+ */
+export const DEBUG_AT_START =
+  APP_CONFIG.arScreen.debug || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('ardebug') === '1');
 
 export function debugLines(st: ArState, xr: XrFrameInfo | undefined, status: string | null): string[] {
   const lines = [

@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
+import { APP_CONFIG } from '@/config/appConfig';
 
-/** Messages show one at a time, each for this long. */
-const TOAST_MS = 3000;
-
-/** Short messages shown one at a time; the rest wait in a queue, and repeats are dropped. */
+/** Short messages shown one at a time (each for APP_CONFIG.arScreen.toastMs); the rest wait in a queue, and repeats are dropped. */
 export function useToastQueue() {
   const [queue, setQueue] = useState<string[]>([]);
   const toast = queue[0] ?? null;
@@ -12,7 +10,7 @@ export function useToastQueue() {
   }, []);
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setQueue((q) => q.slice(1)), TOAST_MS);
+    const t = setTimeout(() => setQueue((q) => q.slice(1)), APP_CONFIG.arScreen.toastMs);
     return () => clearTimeout(t);
   }, [toast]);
   return { toast, showToast };
