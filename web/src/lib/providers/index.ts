@@ -3,19 +3,19 @@ import { LocalProvider } from './local/LocalProvider';
 import type { MapProvider } from './MapProvider';
 import { MazeMapProvider, type MazeMapConfig } from './mazemap/MazeMapProvider';
 
-export type { MapOverlay, MapProvider, MazeMapBaseMap, ProviderId } from './MapProvider';
+export type { MapOverlay, MapProvider, MazeMapBaseMap } from './MapProvider';
 export { LocalProvider } from './local/LocalProvider';
 export { MazeMapProvider } from './mazemap/MazeMapProvider';
 export * from './errors';
 
-export interface ProviderConfig {
+interface ProviderConfig {
   /** Value of MAP_PROVIDER: "local" (default) or "mazemap". */
   provider?: string;
   mazemap?: MazeMapConfig;
   dataSource?: DataSource;
 }
 
-export interface ProviderChoice {
+interface ProviderChoice {
   provider: MapProvider;
   /** Set when the requested provider could not be used and local sample data was chosen instead. */
   warning?: string;

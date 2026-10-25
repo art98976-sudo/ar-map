@@ -216,7 +216,7 @@ interface PointInfo {
 
 const key = (c: GeoJSON.Position) => `${c[0].toFixed(6)},${c[1].toFixed(6)}`;
 
-export interface RouteContext {
+interface RouteContext {
   from: RouteEnd;
   to: RouteEnd;
   accessible: boolean;

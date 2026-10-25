@@ -48,8 +48,8 @@ export interface AreaProps {
   kind: 'water' | 'green';
 }
 
-export type IndoorNodeKind = 'corridor' | 'stairs' | 'lift' | 'door' | 'entrance';
-export type IndoorEdgeKind = 'corridor' | 'door' | 'entrance' | 'stairs' | 'lift';
+type IndoorNodeKind = 'corridor' | 'stairs' | 'lift' | 'door' | 'entrance';
+type IndoorEdgeKind = 'corridor' | 'door' | 'entrance' | 'stairs' | 'lift';
 
 export interface IndoorNode {
   id: string;

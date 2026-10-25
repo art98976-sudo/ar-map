@@ -17,7 +17,7 @@ import { buildSteps } from './steps';
 /** Positions further than this from any path cannot be routed from (e.g. off campus). */
 const MAX_SNAP_METRES = 400;
 
-export interface RouterDeps {
+interface RouterDeps {
   built: BuiltGraph;
   buildings: Building[];
   getDestination(id: string): Destination | undefined;

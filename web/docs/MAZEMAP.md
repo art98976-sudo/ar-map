@@ -10,7 +10,7 @@ The app's sample data is still available for development and tests (`MAP_PROVIDE
 
 | Feature | MazeMap service |
 |---|---|
-| Map with buildings and indoor floor plans | MazeMap JS API 2.2.1 (`api.mazemap.com/js/v2.2.1`), loaded in the browser |
+| Map with buildings and indoor floor plans | MazeMap JS API 2.2.6 (`api.mazemap.com/js/v2.2.6`), loaded in the browser |
 | Search rooms, cafés, buildings, car parks | `search.mazemap.com/search/equery/` (campus 2058) |
 | Place details, the room tapped on the map | `api.mazemap.com/api/pois/…` |
 | Buildings and their floors | `api.mazemap.com/api/buildings/?campusid=2058` |

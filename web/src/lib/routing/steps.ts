@@ -15,7 +15,7 @@ export const STAIRS_SECONDS_PER_LEVEL = 20;
 /** Average wait plus ride for a lift. */
 export const LIFT_SECONDS = 45;
 
-export interface StepContext {
+interface StepContext {
   graph: WalkGraph;
   accessible: boolean;
   floorsByBuilding: Map<string, Floor[]>;

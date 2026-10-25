@@ -1,10 +1,11 @@
 /**
  * Loads MazeMap's official JS map from api.mazemap.com (no copy is kept in this repo).
- * Version 2.2.1 is the version the earlier Stirling prototype uses successfully with campus 2058.
+ * Version 2.2.6 works with campus 2058. From 2.2.4 on, the map no longer logs
+ * "ProductSession not initialized" on pages outside MazeMap's own apps.
  * Docs: https://api.mazemap.com/js/latest/docs/
  */
 
-export const MAZEMAP_SDK_VERSION = '2.2.1';
+export const MAZEMAP_SDK_VERSION = '2.2.6';
 
 /** The parts of MazeMap's map (a Mapbox GL v1 map with floor support) this app uses. */
 export interface MazemapMapInstance {
@@ -13,7 +14,7 @@ export interface MazemapMapInstance {
   setZLevel(z: number): void;
 }
 
-export interface MazemapGlobal {
+interface MazemapGlobal {
   Map: new (options: Record<string, unknown>) => MazemapMapInstance;
   mapboxgl: { NavigationControl: new (options?: Record<string, unknown>) => unknown };
   Config: {

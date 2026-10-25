@@ -28,7 +28,7 @@ import type { MapOverlay, MapProvider } from '../MapProvider';
 import { searchDestinationList } from './search';
 
 /** Everything LocalProvider needs, loaded once. */
-export interface LocalDataset {
+interface LocalDataset {
   buildings: SampleCollection<GeoJSON.Polygon, BuildingProps>;
   paths: SampleCollection<GeoJSON.LineString, PathProps>;
   entrances: SampleCollection<GeoJSON.Point, EntranceProps>;
@@ -45,7 +45,7 @@ interface Index {
   router: LocalRouter;
 }
 
-export interface LocalProviderOptions {
+interface LocalProviderOptions {
   /** Clock used for route timestamps (tests pass a fixed one). */
   now?: () => Date;
 }

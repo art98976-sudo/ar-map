@@ -9,13 +9,13 @@ const LIFT_COST = 30;
 /** Outdoor steps are a little slower than flat paths. */
 const STEPS_COST_FACTOR = 1.2;
 
-export interface SearchOptions {
+interface SearchOptions {
   accessible: boolean;
   /** Real positions the goal stands for (e.g. every entrance of a building). Keeps the heuristic admissible. */
   goalPoints?: LatLng[];
 }
 
-export interface PathResult {
+interface PathResult {
   nodeIds: string[];
   edges: GraphEdge[];
   cost: number;

@@ -3,7 +3,7 @@ import addFormats from 'ajv-formats';
 import routeSchema from '../../../public/data/schemas/route.schema.json';
 import type { Route } from '../types';
 
-export interface RouteValidationResult {
+interface RouteValidationResult {
   valid: boolean;
   errors: string[];
 }

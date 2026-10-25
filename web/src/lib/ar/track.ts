@@ -20,14 +20,14 @@ export function makeLocalFrame(origin: LatLng) {
   };
 }
 
-export interface TrackStep {
+interface TrackStep {
   index: number;
   /** Metres along the route where the step starts. */
   start: number;
   type: Route['steps'][number]['type'];
 }
 
-export interface Projection {
+interface Projection {
   along: number;
   /** Distance from the route, in metres. */
   off: number;

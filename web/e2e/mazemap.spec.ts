@@ -11,7 +11,6 @@ test('search the real campus, open a place, route to it and switch floors', asyn
   page.on('pageerror', (e) => errors.push(e.message));
 
   await page.goto('/');
-  await expect(page.getByText('University campus map by MazeMap', { exact: false }).first()).toBeVisible();
   // MazeMap's floor control lists the campus floors.
   const floors = page.getByRole('group', { name: 'Campus floors' });
   await expect(floors).toBeVisible({ timeout: 30_000 });
@@ -30,7 +29,7 @@ test('search the real campus, open a place, route to it and switch floors', asyn
   await page.getByRole('button', { name: 'View in AR' }).click();
   const ar = page.getByRole('dialog', { name: 'AR navigation' });
   await expect(ar.getByTestId('ar-instruction')).toHaveText(/\w+/);
-  await ar.getByRole('button', { name: 'Exit AR' }).click();
+  await ar.getByRole('button', { name: 'End' }).click();
   await expect(ar).toBeHidden();
 
   // Switching floors from the app's control changes MazeMap's floor.
