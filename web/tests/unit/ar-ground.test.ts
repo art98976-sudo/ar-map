@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Alignment, circularMean, circularSpread, xrYaw } from '@/lib/ar/alignment';
 import { makeCamera, project } from '@/lib/ar/camera';
-import { GroundEstimator, depressionAt, eyeHeightFromTap, maxArrowDistance, MIN_DEPRESSION_DEG } from '@/lib/ar/ground';
+import { FALLBACK_BELOW_CAMERA_M, FLOOR_SEARCH_MS, GroundEstimator, depressionAt, groundHeight, eyeHeightFromTap, maxArrowDistance, MIN_DEPRESSION_DEG } from '@/lib/ar/ground';
 import { arrowPlacements, travelHeading } from '@/lib/ar/placement';
 import { RouteTrack, angleDiff, makeLocalFrame } from '@/lib/ar/track';
 import { LocalProvider } from '@/lib/providers';
@@ -160,5 +160,22 @@ describe('ground (tracking mode)', () => {
     expect(g.height!).toBeLessThan(-1.39); // ground, not the bench
     g.reset();
     expect(g.height).toBeNull();
+  });
+});
+
+describe('finding the floor (ground tracking)', () => {
+  it('ignores flat surfaces near eye level, so arrows cannot float', () => {
+    const g = new GroundEstimator(5);
+    // Phone 1.4 m up: a "floor" 20 cm below it is a false plane, the one 1.4 m below is real.
+    expect(g.add(1.2, 1, 1.4)).toBe(false);
+    expect(g.add(0.02, 1, 1.4)).toBe(true);
+  });
+
+  it('waits for a real floor, then falls back to 1.5 m below the phone', () => {
+    expect(groundHeight({ measured: null, cameraY: 1.4, searchingMs: 1000 })).toBeNull();
+    const fb = groundHeight({ measured: null, cameraY: 1.4, searchingMs: FLOOR_SEARCH_MS })!;
+    expect(fb.source).toBe('fallback');
+    expect(fb.y).toBeCloseTo(1.4 - FALLBACK_BELOW_CAMERA_M);
+    expect(groundHeight({ measured: 0.03, cameraY: 1.4, searchingMs: 9000 })).toEqual({ y: 0.03, source: 'hits' });
   });
 });

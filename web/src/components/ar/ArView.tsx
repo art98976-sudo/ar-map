@@ -115,6 +115,7 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
     headingOffset: 0,
     dragOffset: 0,
     hasTilt: false,
+    groundSource: null as XrFrameInfo['groundSource'],
     /** When AR opened; motion readings get a moment to arrive before we say they are off. */
     openedAt: 0,
     along: 0,
@@ -163,6 +164,7 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
       st.along = track.project(track.frame.toXY(here)).along;
       st.confirmedFloor = -1;
       st.align = null; // the map frame changed with the new route; align again
+      xrRef.current?.anchorOrigin(null);
       st.compassSamples = [];
     }
   }, [track]);
@@ -332,6 +334,12 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
       // ---- Ground tracking: position and heading from the phone's AR tracking ----
       const pose = xr.pose;
       st.lastPose = pose;
+      if (st.align && xr.originAnchor) st.align.originXR = xr.originAnchor;
+      // No floor found within 5 s: say so once, since arrows are now only roughly on the ground.
+      if (xr.groundSource === 'fallback' && st.groundSource !== 'fallback') {
+        setToast('No floor found. Arrows are placed about 1.5 m below your phone; point it at the floor to improve this.');
+      }
+      st.groundSource = xr.groundSource;
       if (!pose) status = 'Starting tracking… move your phone slowly.';
       else if (pose.tracking === 'limited') status = 'Tracking lost. Move the phone slowly to recalibrate.';
       // Compass vs AR direction: their difference is how AR space is turned against north.
@@ -347,6 +355,7 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
         } else if (steady) {
           const origin = snapped(st.geo.position, st.geo.accuracy ?? 20);
           st.align = new Alignment(circularMean(st.compassSamples)!, origin, { x: pose.x, z: pose.z });
+          xrRef.current?.anchorOrigin(st.align.originXR);
           st.lastFixUsed = st.geo.position;
         } else {
           status ??= st.hasCompass
@@ -382,7 +391,7 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
         st.heading = st.align.xrYawToHeading(pose.yaw);
         if (proj.off > 20) status ??= offRouteText(proj.off);
       }
-      if (xr.groundY === null) status ??= 'Point the camera at the ground for a moment to find it.';
+      if (xr.groundY === null) status ??= 'Point your phone at the floor and move it slowly.';
       drawXr(status);
     } else {
       // ---- Camera overlay: position from GPS (or the simulation), heading from the compass ----
@@ -484,7 +493,9 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
       const p = xr.pose;
       lines.push(
         `pose ${p ? `${p.tracking} x${p.x.toFixed(2)} y${p.y.toFixed(2)} z${p.z.toFixed(2)} yaw ${p.yaw.toFixed(0)}°` : 'none'}`,
-        `ground ${xr.groundY === null ? 'not found' : `${xr.groundY.toFixed(2)} m`} (${xr.groundSamples} hits, ${xr.floorSpace})`,
+        `ground ${xr.groundY === null ? 'looking for the floor' : `y ${xr.groundY.toFixed(2)} m (${xr.groundSource === 'hits' ? 'measured' : '1.5 m fallback'})`} · ${xr.groundSamples} hits · ${xr.floorSpace}`,
+        `arrow y ${xr.arrowY === null ? 'hidden' : `${xr.arrowY.toFixed(3)} m`} · phone ${p && xr.groundY !== null ? `${(p.y - xr.groundY).toFixed(2)} m above the floor` : 'height unknown'}`,
+        `anchor ${!xr.anchorsSupported ? 'not supported' : xr.originAnchor ? `x${xr.originAnchor.x.toFixed(2)} z${xr.originAnchor.z.toFixed(2)}` : 'none'}`,
         `map→AR ${st.align ? `rotation ${st.align.offset.toFixed(1)}°${st.manualAlign ? ' (manual)' : ''}` : 'not aligned'} · compass samples ${st.compassSamples.length} spread ${circularSpread(st.compassSamples).toFixed(0)}°`,
       );
     } else {
@@ -760,6 +771,7 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
       } else {
         const origin = st.geo.position && st.geo.status === 'ok' ? st.track.frame.toXY(st.geo.position) : st.track.pointAt(st.along);
         st.align = new Alignment(offset, origin, { x: pose.x, z: pose.z });
+        xrRef.current?.anchorOrigin(st.align.originXR);
       }
       st.manualAlign = true;
       return setToast('Aligned with the path you are facing.');
