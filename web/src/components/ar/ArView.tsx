@@ -22,7 +22,7 @@ import type { GeoStatus } from '@/hooks/useGeolocation';
 import { Alignment, circularMean, circularSpread } from '@/lib/ar/alignment';
 import { makeCamera, project, toViewer, type Camera } from '@/lib/ar/camera';
 import { DEFAULT_EYE_HEIGHT_M, depressionAt, eyeHeightFromTap, maxArrowDistance } from '@/lib/ar/ground';
-import { readOrientation, type OrientationLike } from '@/lib/ar/orientation';
+import { canAskMotionPermission, readOrientation, requestMotionPermission, type OrientationLike } from '@/lib/ar/orientation';
 import { arrowPlacements, type ArrowPlacement } from '@/lib/ar/placement';
 import { RouteTrack, angleDiff, bearingXY, type XY } from '@/lib/ar/track';
 import { formatDistance, formatDuration, WALKING_SPEED_MPS } from '@/lib/route/constants';
@@ -62,6 +62,8 @@ interface Hud {
   headingSource: 'compass' | 'route' | 'drag';
   /** Why arrows are hidden right now (recalibrating), or null when they are shown. */
   status: string | null;
+  /** No motion readings: show a button that asks for Motion & Orientation access again (iPhone). */
+  askMotion: boolean;
   debug: string[];
 }
 
@@ -113,6 +115,8 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
     headingOffset: 0,
     dragOffset: 0,
     hasTilt: false,
+    /** When AR opened; motion readings get a moment to arrive before we say they are off. */
+    openedAt: 0,
     along: 0,
     alongReady: false,
     confirmedFloor: -1, // last confirmed change-floor step index
@@ -216,6 +220,9 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
   }, [engine]);
 
   // ---------- compass and tilt ----------
+  useEffect(() => {
+    s.current.openedAt = performance.now();
+  }, []);
   useEffect(() => {
     const onOrientation = (e: DeviceOrientationEvent) => {
       const screenAngle = screen.orientation?.angle ?? 0;
@@ -424,7 +431,13 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
         else if ((st.geo.accuracy ?? 99) > MAX_GPS_ACCURACY_M) status = `GPS is weak (±${Math.round(st.geo.accuracy ?? 0)} m). Arrows return when it improves.`;
         // Not on the route: the route ahead of you is somewhere else, so its arrows would float in the distance.
         else if (st.off > Math.max(15, acc)) status = offRouteText(st.off);
-        else if (!st.hasTilt) status = 'Motion sensors are off. iPhone: close AR, open it again and choose Allow for Motion & Orientation.';
+        else if (!st.hasTilt) {
+          status = now - st.openedAt < 1500
+            ? 'Starting motion sensors…'
+            : canAskMotionPermission()
+              ? 'Motion sensors are off. Tap "Allow motion" and choose Allow.'
+              : 'Motion sensors are off. Allow motion and orientation access for this site in your browser settings.';
+        }
         else if (!compassFresh) status = 'No compass reading. Move the phone in a figure-8; arrows return when the compass works.';
         else if (st.compassAccuracy !== null && (st.compassAccuracy < 0 || st.compassAccuracy > 25)) {
           status = 'The compass needs calibrating: move the phone in a figure-8.';
@@ -453,6 +466,7 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
         heading: st.heading,
         headingSource: st.hasCompass ? 'compass' : st.dragOffset ? 'drag' : 'route',
         status,
+        askMotion: !st.simulating && !st.hasTilt && now - st.openedAt >= 1500 && canAskMotionPermission(),
         debug: st.debug ? debugLines(xr, status) : [],
       });
     }
@@ -669,6 +683,15 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
     };
   }, [startSimulated]);
 
+  // Must run straight from a tap: iPhone only shows the Motion & Orientation prompt then.
+  const askMotion = () => {
+    requestMotionPermission().then((r) => {
+      if (r === 'denied') {
+        setToast('Motion access is blocked for this site. Fully close Safari, open this page again and choose Allow.');
+      }
+    });
+  };
+
   const startGroundTracking = () => {
     startXr().catch((e) => {
       setEngine('overlay');
@@ -866,6 +889,17 @@ export default function ArView({ route, geo, simulate: startSimulated = false, o
         <p role="status" data-ar-ui data-testid="ar-status" className="absolute inset-x-6 top-[calc(10.5rem+env(safe-area-inset-top))] rounded-xl bg-black/65 p-2.5 text-center text-sm font-medium backdrop-blur">
           {hud.status}
         </p>
+      )}
+      {hud?.askMotion && !hud.arrived && !calibrating && (
+        <button
+          type="button"
+          data-ar-ui
+          onClick={askMotion}
+          className="absolute left-1/2 top-[calc(14rem+env(safe-area-inset-top))] inline-flex min-h-11 -translate-x-1/2 items-center gap-1.5 rounded-full bg-[#0b7a85] px-5 text-sm font-semibold shadow-lg"
+        >
+          <Compass aria-hidden className="size-4" />
+          Allow motion
+        </button>
       )}
 
       {/* Ground tracking is available: start it from a tap (browsers require one). */}

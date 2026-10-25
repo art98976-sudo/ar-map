@@ -74,3 +74,9 @@ export async function requestMotionPermission(): Promise<'granted' | 'denied' | 
   const results = await Promise.all(asks);
   return results.every((r) => r === 'granted') ? 'granted' : 'denied';
 }
+
+/** True when the browser needs an explicit tap-to-allow for motion (iPhone Safari). */
+export function canAskMotionPermission(): boolean {
+  const DOE = (globalThis as { DeviceOrientationEvent?: { requestPermission?: unknown } }).DeviceOrientationEvent;
+  return typeof DOE?.requestPermission === 'function';
+}
