@@ -30,7 +30,7 @@ import { RouteForm, RouteSheet } from '../navigate/NavigatePanel';
 import { SavedPanel } from '../saved/SavedPanel';
 import { FilterChips, ResultList, SearchBar } from '../search/Search';
 import { Button, IconButton, Notice, Toast, cx } from '../ui/ui';
-import { DataFooter, DataNote } from './DataCredits';
+import { DataNote } from './DataCredits';
 import { FloorControl } from './FloorControl';
 import { PlacePicker } from './PlacePicker';
 import { TabBar } from './TabBar';
@@ -349,7 +349,6 @@ export default function CampusApp() {
           )}
         </div>
 
-        <DataFooter sample={provider.isSampleData} />
       </aside>
 
       {/* Map */}
