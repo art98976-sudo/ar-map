@@ -58,7 +58,7 @@ export const FALLBACK_BELOW_CAMERA_M = 1.5;
  * A real floor is at least this far below the phone. Flat surfaces closer than this are tables,
  * counters or false planes near eye level; arrows placed there would float.
  */
-export const MIN_FLOOR_BELOW_CAMERA_M = 0.5;
+const MIN_FLOOR_BELOW_CAMERA_M = 0.5;
 
 export type GroundSource = 'hits' | 'fallback';
 

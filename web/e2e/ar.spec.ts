@@ -22,10 +22,18 @@ test('opens a route in AR with the camera, draws arrows and arrives', async ({ p
 
   const ar = page.getByRole('dialog', { name: 'AR navigation' });
   await expect(ar).toBeVisible();
-  await expect(ar.getByText('Camera', { exact: true })).toBeVisible();
-  // Follows GPS: the test location is on the main walkway, so AR places us along the route.
-  await expect(ar.getByTestId('ar-gps')).toHaveText(/GPS ±\d+ m/);
   await expect(ar.getByTestId('ar-instruction')).toHaveText(/\w+/);
+  // Walking view: only the instruction, the trip summary and a few small buttons are on screen.
+  await expect(ar.getByTestId('ar-summary')).toContainText('Seminar room 1.01');
+  await expect(ar.getByRole('button', { name: 'End' })).toBeVisible();
+  await expect(ar.getByRole('button', { name: 'Show 2D map' })).toBeVisible();
+  await expect(ar.getByTestId('ar-gps')).toBeHidden();
+  // Status details live in the menu. Follows GPS: the test location is on the main walkway.
+  await ar.getByRole('button', { name: 'AR menu' }).click();
+  await expect(ar.getByText('Camera', { exact: true })).toBeVisible();
+  await expect(ar.getByTestId('ar-gps')).toHaveText(/GPS ±\d+ m/);
+  await ar.getByRole('button', { name: 'AR menu' }).click();
+  await expect(ar.getByRole('menu')).toBeHidden();
 
   // No motion sensors or compass here (and the test position is beside this route): rather than drawing arrows
   // in the wrong place, AR hides them and says why.
@@ -35,25 +43,38 @@ test('opens a route in AR with the camera, draws arrows and arrives', async ({ p
 
   // Debug overlay: off by default, shows tracking state when switched on.
   await expect(ar.getByTestId('ar-debug')).toBeHidden();
-  await ar.getByRole('button', { name: 'Debug overlay' }).click();
+  await ar.getByRole('button', { name: 'AR menu' }).click();
+  await ar.getByRole('menuitemcheckbox', { name: 'Debug overlay' }).click();
   await expect(ar.getByTestId('ar-debug')).toContainText('engine camera overlay');
   await expect(ar.getByTestId('ar-debug')).toContainText('phone height 1.40 m');
 
   // Ground calibration: tap the ground 2 m ahead (here: low in the screen) → phone height measured.
-  await ar.getByRole('button', { name: 'Ground' }).click();
+  await ar.getByRole('button', { name: 'AR menu' }).click();
+  await ar.getByRole('menuitem', { name: 'Calibrate ground' }).click();
   const box = (await ar.boundingBox())!;
   await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.7);
   await expect(ar.getByText(/Ground calibrated: phone held \d\.\d\d m/)).toBeVisible();
   await expect(ar.getByTestId('ar-debug')).not.toContainText('phone height 1.40 m');
-  await ar.getByRole('button', { name: 'Debug overlay' }).click();
+  await ar.getByRole('button', { name: 'AR menu' }).click();
+  await ar.getByRole('menuitemcheckbox', { name: 'Debug overlay' }).click();
+  await expect(ar.getByTestId('ar-debug')).toBeHidden();
 
   // Walk the simulation a little: the arrows are drawn on the ground ahead.
-  await ar.getByRole('button', { name: 'Simulate walk' }).click();
+  await ar.getByRole('button', { name: 'AR menu' }).click();
+  await ar.getByRole('menuitemcheckbox', { name: 'Simulate walk' }).click();
   await expect.poll(() => arrowPixels(page), { timeout: 10_000 }).toBeGreaterThan(20);
 
+  // The bottom bar fades after 5 s without a touch, and comes back on a tap.
+  const bar = ar.getByTestId('ar-summary').locator('..');
+  await expect(bar).toHaveClass(/opacity-30/, { timeout: 8_000 });
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.5);
+  await expect(bar).not.toHaveClass(/opacity-30/);
+
   // Jump to the floor change; the simulation takes the lift and carries on to the room.
-  await ar.getByRole('button', { name: 'Simulation speed' }).click();
-  for (let i = 0; i < 4; i++) await ar.getByRole('button', { name: 'Next step' }).click();
+  await ar.getByRole('button', { name: 'AR menu' }).click();
+  await ar.getByRole('menuitem', { name: 'Simulation speed' }).click();
+  for (let i = 0; i < 4; i++) await ar.getByRole('menuitem', { name: 'Next step' }).click();
+  await ar.getByRole('button', { name: 'AR menu' }).click();
   await expect(ar.getByTestId('ar-arrived')).toHaveText(/You have arrived at Seminar room 1\.01/, { timeout: 40_000 });
   await ar.getByRole('button', { name: 'Done' }).click();
   await expect(ar).toBeHidden();
@@ -74,11 +95,15 @@ test('the AR tab starts AR for the current route, with a simulated view when the
   await page.getByRole('button', { name: 'Try it with a simulated walk' }).click();
 
   const ar = page.getByRole('dialog', { name: 'AR navigation' });
-  await expect(ar.getByText('Simulated view', { exact: true })).toBeVisible();
+  // A short message instead of a permanent panel; it hides by itself.
   await expect(ar.getByText(/No camera available/)).toBeVisible();
+  await expect(ar.getByText(/No camera available/)).toBeHidden({ timeout: 6_000 });
+  await ar.getByRole('button', { name: 'AR menu' }).click();
+  await expect(ar.getByText('Simulated view', { exact: true })).toBeVisible();
   await expect(ar.getByTestId('ar-gps')).toHaveText(/Simulated walk/);
+  await ar.getByRole('button', { name: 'AR menu' }).click();
   await expect.poll(() => arrowPixels(page), { timeout: 10_000 }).toBeGreaterThan(20);
-  await ar.getByRole('button', { name: 'Exit AR' }).click();
+  await ar.getByRole('button', { name: 'End' }).click();
   await expect(ar).toBeHidden();
   await context.close();
 });

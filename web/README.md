@@ -102,8 +102,17 @@ web/
     copy-maplibre-worker.mjs    serves MapLibre's worker file from public/vendor
   src/
     app/                        Next.js entry (renders the app in the browser)
-    components/                 app shell, map, search, destination card, navigate, explore, saved, AR
-    hooks/                      location, search, media queries
+    components/
+      app/                      app shell (CampusApp), tab bar, place picker, floor control, credits
+      map/                      MapView, plus its layers, data, camera helpers and styles
+      ar/                       ArView, which wires together:
+        engine/                   AR state, one step of the frame loop, debug text
+        overlay/                  camera-overlay drawing (iPhone)
+        xr/                       ground tracking with WebXR (Android)
+        hooks/                    camera, sensors, wake lock, messages, idle fade
+        ui/                       the on-screen controls
+      search/ navigate/ destination/ explore/ saved/ ui/
+    hooks/                      location, search, media queries, campus data, floors, route planning
     lib/
       types/                    Destination, Building, Floor, Route...
       providers/                MapProvider interface, LocalProvider, MazeMapProvider
