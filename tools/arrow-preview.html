@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Arrow preview · Stirling Welcome AR</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #6f7470;
+        font-family: system-ui, sans-serif;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      .hud {
+        position: fixed;
+        left: 12px;
+        top: 12px;
+        padding: 8px 12px;
+        border-radius: 10px;
+        background: rgba(0, 0, 0, 0.6);
+        color: #fff;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="hud" id="hud">Arrow preview: walking an L-shaped route. Same trail and pin code as the app.</div>
+    <script type="module">
+      // Dev tool: `npm run dev`, then open http://localhost:5173/tools/arrow-preview.html
+      // Add ?at=<metres> to freeze the walker at that point (used for screenshots).
+      import * as THREE from 'three'
+      import {createArrowTrail} from '/src/arrows/trail.js'
+      import {createDestinationPin} from '/src/arrows/pin.js'
+
+      const at = new URLSearchParams(location.search).get('at')
+      const renderer = new THREE.WebGLRenderer({antialias: true})
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
+      renderer.setSize(innerWidth, innerHeight)
+      document.body.appendChild(renderer.domElement)
+
+      const scene = new THREE.Scene()
+      scene.background = new THREE.Color(0x9aa39c)
+      scene.fog = new THREE.Fog(0x9aa39c, 25, 70)
+      // Paving so it feels like a campus path.
+      const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshBasicMaterial({color: 0x7d827e}))
+      ground.rotation.x = -Math.PI / 2
+      scene.add(ground)
+      const path = new THREE.Mesh(new THREE.PlaneGeometry(3, 60), new THREE.MeshBasicMaterial({color: 0x8f938f}))
+      path.rotation.x = -Math.PI / 2
+      path.position.set(0, 0.002, -30)
+      scene.add(path)
+
+      // Route in local metres (x east, y north): 30 m north, turn right, 25 m east.
+      const route = [{x: 0, y: 0}, {x: 0, y: 30}, {x: 25, y: 30}]
+      const trail = createArrowTrail(THREE, route)
+      scene.add(trail.mesh)
+      const pin = createDestinationPin(THREE, {name: 'Cottrell Building'})
+      pin.group.position.set(25, 0, -30)
+      scene.add(pin.group)
+
+      const camera = new THREE.PerspectiveCamera(65, innerWidth / innerHeight, 0.05, 500)
+      addEventListener('resize', () => {
+        renderer.setSize(innerWidth, innerHeight)
+        camera.aspect = innerWidth / innerHeight
+        camera.updateProjectionMatrix()
+      })
+
+      let s = at != null ? Number(at) : 0
+      let last = performance.now()
+      function frame(now) {
+        const dt = Math.min(0.1, (now - last) / 1000)
+        last = now
+        if (at == null) s = (s + dt * 1.3) % 52
+        // Walk along the route at eye height (1.55 m), looking down the path ahead.
+        const onFirstLeg = s < 30
+        const x = onFirstLeg ? 0 : s - 30
+        const y = onFirstLeg ? s : 30
+        camera.position.set(x - 0.4, 1.55, -y + 1.5)
+        const ahead = onFirstLeg ? {x: Math.max(0, s - 22), y: Math.min(30, s + 8)} : {x: Math.min(25, s - 22), y: 30}
+        camera.lookAt(ahead.x, 0, -ahead.y)
+        const n = trail.update(s, dt, now / 1000)
+        const d = Math.hypot(25 - x, 30 - y)
+        pin.update(now / 1000, d, camera)
+        document.getElementById('hud').textContent = `Walked ${s.toFixed(1)} m · ${n} arrows visible · ${d.toFixed(0)} m to the pin`
+        renderer.render(scene, camera)
+        requestAnimationFrame(frame)
+      }
+      trail.reset(s)
+      requestAnimationFrame(frame)
+    </script>
+  </body>
+</html>

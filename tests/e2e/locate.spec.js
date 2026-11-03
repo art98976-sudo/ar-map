@@ -44,9 +44,9 @@ test.describe('location step', () => {
     await page.getByRole('button', {name: 'Start AR'}).click()
     await page.getByRole('button', {name: 'Library', exact: true}).click()
     // Location is already allowed in this test, so the screen goes straight to finding a fix.
-    await expect(page.getByRole('heading', {name: 'Location found'})).toBeVisible({timeout: 15_000})
-    await expect(page.getByText('±6 m')).toBeVisible()
-    await expect(page.getByRole('heading', {name: 'Allow camera and motion'})).toBeVisible({timeout: 5000})
+    // The fix is good (±6 m), so it plans the walk and moves on to the camera step.
+    await expect(page.getByRole('heading', {name: 'Allow camera and motion'})).toBeVisible({timeout: 30_000})
+    await expect(page.locator('[data-route-summary]')).toContainText(/walk · about \d+ min/)
   })
 
   test('explains first when location has not been asked yet, then handles "Don\'t Allow"', async ({page}, testInfo) => {

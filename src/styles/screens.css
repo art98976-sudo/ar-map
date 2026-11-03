@@ -647,3 +647,27 @@
   max-width: 340px;
   margin-top: var(--s-2);
 }
+
+.route-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin-top: var(--s-4);
+  padding: 8px 14px;
+  border-radius: var(--r-pill);
+  background: rgba(118, 183, 42, 0.16);
+  color: var(--green-03);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.site-footer__note,
+.about__note {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.site-footer {
+  flex-wrap: wrap;
+}
+.site-footer__note {
+  flex-basis: 100%;
+}

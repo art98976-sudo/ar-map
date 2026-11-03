@@ -134,7 +134,8 @@ function fitCanvas(canvas) {
  * Returns stop().
  */
 export function startSession(XR8, canvas, handlers = {}, {allowDesktop = false} = {}) {
-  const {onCamera = noop, onTracking = noop, onFrame = noop, onError = noop, onSceneReady = noop} = handlers
+  const {onCamera = noop, onTracking = noop, onFrame = noop, onError = noop, onSceneReady = noop, onTick = noop} = handlers
+  let lastTime = null
   const unfit = fitCanvas(canvas)
 
   let frames = 0
@@ -164,6 +165,14 @@ export function startSession(XR8, canvas, handlers = {}, {allowDesktop = false} 
     onUpdate: () => {
       frames += 1
       const now = performance.now()
+      // Per-frame hook for 3D content. dt is capped so a paused tab never causes a jump.
+      const dt = lastTime == null ? 0 : Math.min(0.1, (now - lastTime) / 1000)
+      lastTime = now
+      try {
+        onTick({dt, time: now / 1000})
+      } catch (err) {
+        console.error('[xr] tick failed', err)
+      }
       if (now - lastTick >= 1000) {
         onFrame(Math.round((frames * 1000) / (now - lastTick)))
         frames = 0
@@ -173,7 +182,9 @@ export function startSession(XR8, canvas, handlers = {}, {allowDesktop = false} 
     listeners: [{event: 'reality.trackingstatus', process: ({detail}) => onTracking(detail || {})}],
   }
 
-  XR8.XrController.configure({disableWorldTracking: false})
+  // 'absolute' scale: positions are in real metres and the ground is at y = 0, so a route
+  // measured in metres from GPS can be drawn at true size (8th Wall XrController docs).
+  XR8.XrController.configure({disableWorldTracking: false, scale: 'absolute'})
   XR8.addCameraPipelineModules([
     XR8.GlTextureRenderer.pipelineModule(), // draws the camera feed
     XR8.Threejs.pipelineModule(), // Three.js scene driven by the tracked camera

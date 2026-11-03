@@ -9,6 +9,8 @@ import {
   watchLocation,
 } from '../../geo/location.js'
 import {parseUserAgent} from '../../ar/device.js'
+import {googleMapsWalkingUrl, planRoute, saveTripRoute} from '../../nav/route.js'
+import {formatDistance} from '../../arrows/pin.js'
 import {findDestination} from '../../nav/destinations.js'
 import {haptic, html, onAction, render} from '../dom.js'
 import {icon} from '../icons.js'
@@ -61,7 +63,7 @@ export function locateScreen(root, {navigate, params}) {
             </ul>
           </main>
           <footer class="page__footer">
-            <button class="btn btn--primary btn--lg btn--block" type="button" data-action="allow" data-autofocus>
+            <button class="btn btn--primary btn--lg btn--block" type="button" data-action="allow" aria-label="Allow location" data-autofocus>
               ${icon('pin')}<span>Allow location</span>
             </button>
           </footer>
@@ -96,10 +98,10 @@ export function locateScreen(root, {navigate, params}) {
             <p><strong>You may be indoors.</strong> GPS needs a clear view of the sky. Step outside, or use the 2D map.</p>
           </div>
           <div class="locate__actions">
-            <button class="btn btn--secondary btn--block" type="button" data-action="map">
+            <button class="btn btn--secondary btn--block" type="button" data-action="map" aria-label="View 2D map instead">
               ${icon('map')}<span>View 2D map instead</span>
             </button>
-            <button class="btn btn--ghost" type="button" data-action="back">Cancel</button>
+            <button class="btn btn--ghost" type="button" data-action="back" aria-label="Cancel">Cancel</button>
           </div>
         </div>
       `,
@@ -138,17 +140,64 @@ export function locateScreen(root, {navigate, params}) {
     if (disposed || !gate) return
     const s = gate.update(position)
     paint(s)
-    if (s.status === 'ready' && !continueTimer) {
+    if (s.status === 'ready' && !continueTimer && !planning) {
       haptic(18)
       saveTripFix(s.fix)
-      continueTimer = setTimeout(() => {
-        if (!disposed) navigate(`/ar?${nextQuery}`, {replace: true})
-      }, CONTINUE_DELAY_MS)
+      planTrip(s.fix)
     } else if (s.status !== 'ready' && continueTimer) {
       // Accuracy dropped again before we left: keep waiting.
       clearTimeout(continueTimer)
       continueTimer = null
     }
+  }
+
+  // Plan the walking route as soon as GPS is good, then open the camera.
+  let planning = false
+  async function planTrip(fix) {
+    planning = true
+    const body = root.querySelector('[data-body]')
+    if (body) body.textContent = 'Planning your walking route…'
+    try {
+      const route = await planRoute(fix, destination)
+      if (disposed) return
+      if (route.status === 'off-campus') {
+        stop()
+        return showOffCampus(route.distanceM)
+      }
+      saveTripRoute({...route, destinationId: destination.id, origin: fix, plannedAt: Date.now()})
+      if (body) body.textContent = `${formatDistance(route.lengthM)} walk, about ${route.minutes} min. Opening the camera…`
+      continueTimer = setTimeout(() => {
+        if (!disposed) navigate(`/ar?${nextQuery}`, {replace: true})
+      }, CONTINUE_DELAY_MS)
+    } catch (err) {
+      console.error('[locate] route planning failed', err)
+      if (!disposed) showError('no-route')
+    } finally {
+      planning = false
+    }
+  }
+
+  function showOffCampus(metres) {
+    setView(
+      html`
+        <div class="page page--narrow page--center error-state">
+          <span class="error-state__icon" data-tone="warn">${icon('map', {size: 32})}</span>
+          <h1 class="page__title" tabindex="-1">You're not on campus yet</h1>
+          <p class="page__lede">
+            You are about ${formatDistance(metres)} from the University. AR directions start once you are on campus.
+          </p>
+          <div class="error-state__actions">
+            <a class="btn btn--primary btn--lg btn--block" aria-label="Walking directions in Google Maps" href="${googleMapsWalkingUrl(destination)}" target="_blank" rel="noopener">
+              ${icon('external')}<span>Walking directions in Google Maps</span>
+            </a>
+            <button class="btn btn--secondary btn--lg btn--block" type="button" data-action="map" aria-label="View 2D map instead">
+              ${icon('map')}<span>View 2D map instead</span>
+            </button>
+          </div>
+        </div>
+      `,
+      'off-campus',
+    )
   }
 
   function start() {
@@ -181,10 +230,10 @@ export function locateScreen(root, {navigate, params}) {
           <p class="page__lede">${copy.body}</p>
           ${copy.steps ? html`<ol class="steps-list">${copy.steps.map((s) => html`<li>${s}</li>`)}</ol>` : ''}
           <div class="error-state__actions">
-            <button class="btn btn--primary btn--lg btn--block" type="button" data-action="${copy.primary.action}">
+            <button class="btn btn--primary btn--lg btn--block" type="button" data-action="${copy.primary.action}" aria-label="${copy.primary.label}">
               ${icon('refresh')}<span>${copy.primary.label}</span>
             </button>
-            <button class="btn btn--secondary btn--lg btn--block" type="button" data-action="map">
+            <button class="btn btn--secondary btn--lg btn--block" type="button" data-action="map" aria-label="View 2D map instead">
               ${icon('map')}<span>View 2D map instead</span>
             </button>
           </div>
@@ -246,6 +295,14 @@ export function locationErrorCopy(code, device = {os: 'other'}) {
         steps: ios
           ? ['Open Settings → Privacy & Security.', 'Turn on Location Services.', 'Come back and tap Try again.']
           : ['Swipe down from the top of the screen.', 'Turn on Location.', 'Come back and tap Try again.'],
+        primary: {action: 'retry', label: 'Try again'},
+      }
+    case 'no-route':
+      return {
+        icon: 'map',
+        tone: 'warn',
+        title: 'We could not plan a route',
+        body: 'Something went wrong while planning the walk. Check your connection and try again.',
         primary: {action: 'retry', label: 'Try again'},
       }
     case 'timeout':
