@@ -83,10 +83,15 @@ h1:focus,
   font-family: var(--font);
 }
 
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: 220ms;
-  animation-timing-function: var(--ease);
+/* Screen change: a short fade and lift (see router.js). */
+.app.is-entering > * {
+  animation: screen-in 220ms var(--ease) both;
+}
+@keyframes screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

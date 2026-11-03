@@ -438,7 +438,7 @@
   top: calc(var(--safe-top) + var(--s-3));
   left: var(--s-3);
   right: var(--s-3);
-  z-index: 5;
+  z-index: 6; /* above the place card, so search results are never covered */
   display: flex;
   align-items: center;
   gap: var(--s-3);
@@ -446,24 +446,6 @@
 }
 .map-screen__bar > * {
   pointer-events: auto;
-}
-.map-screen__title {
-  flex: 1;
-  padding: 8px 16px;
-  border-radius: var(--r-md);
-  background: rgba(255, 255, 255, 0.94);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  box-shadow: var(--shadow-1);
-}
-.map-screen__title h1 {
-  font-size: var(--fs-md);
-  font-weight: 600;
-  line-height: 1.25;
-}
-.map-screen__title p {
-  font-size: var(--fs-xs);
-  color: var(--text-muted);
 }
 .map-screen__overlay {
   position: absolute;

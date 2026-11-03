@@ -1,0 +1,399 @@
+/* Destination search, chips, destination cards and the map place card. */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.spinner--sm {
+  width: 18px;
+  height: 18px;
+  border-width: 2px;
+}
+
+/* ---------- Search field ---------- */
+.dsearch {
+  position: relative;
+}
+.dsearch__field {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.dsearch__icon {
+  position: absolute;
+  left: 16px;
+  color: var(--green-02);
+  pointer-events: none;
+}
+.dsearch__input {
+  width: 100%;
+  min-height: 56px;
+  padding: 0 52px 0 50px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  box-shadow:
+    inset 0 0 0 1.5px rgba(0, 105, 56, 0.22),
+    var(--shadow-1);
+  font: inherit;
+  font-size: 1.0625rem; /* >= 16px stops iPhone zooming in on focus */
+  color: var(--text);
+  -webkit-appearance: none;
+  appearance: none;
+  transition: box-shadow var(--t-fast) var(--ease);
+}
+.dsearch__input::placeholder {
+  color: #7b7e76;
+}
+.dsearch__input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+.dsearch__input:focus {
+  outline: none;
+  box-shadow:
+    inset 0 0 0 2px var(--green-02),
+    0 0 0 4px rgba(118, 183, 42, 0.25);
+}
+.dsearch__clear {
+  position: absolute;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+/* ---------- Panel ---------- */
+.dsearch__panel {
+  margin-top: var(--s-5);
+}
+.dsearch__section + .dsearch__section {
+  margin-top: var(--s-6);
+}
+.dsearch__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--s-2);
+}
+.dsearch__title {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin-bottom: var(--s-3);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.dsearch__head .dsearch__title {
+  margin-bottom: 0;
+}
+.dsearch__link {
+  min-height: 44px;
+  padding: 0 var(--s-2);
+  border: 0;
+  background: none;
+  color: var(--green-02);
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.dsearch__list {
+  display: grid;
+  overflow: hidden;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+.dsearch__list:empty {
+  display: none;
+}
+.dsearch__option {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: 64px;
+  padding: 10px var(--s-4);
+  cursor: pointer;
+  transition: background-color var(--t-fast) var(--ease);
+}
+.dsearch__option + .dsearch__option {
+  box-shadow: 0 -1px 0 var(--line);
+}
+.dsearch__option:hover,
+.dsearch__option[aria-selected='true'] {
+  background: #eef5f0;
+}
+.dsearch__option:active {
+  background: #e3efe7;
+}
+.dsearch__badge {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  color: var(--green-02);
+  background: rgba(118, 183, 42, 0.16);
+}
+.dsearch__badge[data-category='sport'] {
+  color: #005e63;
+  background: rgba(0, 137, 150, 0.14);
+}
+.dsearch__badge[data-category='room'] {
+  color: #2c498a;
+  background: rgba(61, 125, 202, 0.14);
+}
+.dsearch__badge[data-category='landmark'],
+.dsearch__badge[data-category='living'] {
+  color: #7b5c18;
+  background: rgba(237, 171, 0, 0.18);
+}
+.dsearch__text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.dsearch__name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dsearch__name mark {
+  background: none;
+  color: var(--green-02);
+}
+.dsearch__meta {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dsearch__time {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--green-03);
+}
+.dsearch__chev {
+  color: #a3a69d;
+}
+.dsearch__divider {
+  padding: 14px var(--s-4) 6px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--paper);
+}
+.dsearch__status {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-4) var(--s-2);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.dsearch__empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--s-2);
+  padding: var(--s-8) var(--s-4);
+  text-align: center;
+  color: var(--text-muted);
+}
+.dsearch__empty strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.dsearch__empty span {
+  font-size: var(--fs-sm);
+}
+
+/* ---------- Popular chips ---------- */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+.chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: 44px;
+  padding: 0 var(--s-4);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  box-shadow:
+    inset 0 0 0 1.5px rgba(0, 105, 56, 0.2),
+    var(--shadow-1);
+  color: var(--green-03);
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  transition: transform var(--t-fast) var(--ease);
+}
+.chip-btn:active {
+  transform: scale(0.97);
+  background: #eef5f0;
+}
+
+/* ---------- Search screen ---------- */
+.search-screen__box {
+  margin-top: var(--s-6);
+}
+
+/* ---------- Destination card (camera primer) ---------- */
+.dest-card {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  width: 100%;
+  margin-bottom: var(--s-6);
+  padding: var(--s-3) var(--s-3) var(--s-3) var(--s-4);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+.dest-card__text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.dest-card__label {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.dest-card__name {
+  font-weight: 600;
+}
+.dest-card__meta {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.dest-card__change {
+  min-height: 44px;
+  padding: 0 var(--s-3);
+  border: 0;
+  background: none;
+  color: var(--green-02);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ---------- AR destination pill ---------- */
+.ar__dest {
+  position: absolute;
+  top: calc(var(--safe-top) + 72px);
+  left: 50%;
+  z-index: 3;
+  max-width: calc(100% - 32px);
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.ar__dest span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- Map: search overlay ---------- */
+.map-screen__search {
+  flex: 1;
+  min-width: 0;
+}
+.dsearch--compact .dsearch__input {
+  min-height: var(--tap);
+  box-shadow: var(--shadow-1);
+  background: rgba(255, 255, 255, 0.97);
+}
+.dsearch--compact .dsearch__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  max-height: min(60dvh, 520px);
+  margin-top: 0;
+  padding: var(--s-4);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: var(--shadow-2);
+}
+.dsearch--compact .dsearch__list {
+  box-shadow: none;
+  border-radius: var(--r-sm);
+}
+
+/* ---------- Map: selected place card ---------- */
+.place-card {
+  position: absolute;
+  left: var(--s-3);
+  right: var(--s-3);
+  bottom: calc(var(--safe-bottom) + var(--s-3));
+  z-index: 5;
+  display: grid;
+  gap: var(--s-3);
+  max-width: 480px;
+  margin: 0 auto;
+  padding: var(--s-4);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+  animation: card-in var(--t-med) var(--ease);
+}
+@keyframes card-in {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+}
+.place-card__row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+.place-card__text {
+  flex: 1;
+  min-width: 0;
+}
+.place-card__name {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  line-height: 1.2;
+}
+.place-card__meta,
+.place-card__desc {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.place-card__close {
+  flex: none;
+}
+/* Keep MazeMap's own controls above the place card when it is open. */
+.map-screen:has(.place-card:not([hidden])) .mapboxgl-ctrl-bottom-left,
+.map-screen:has(.place-card:not([hidden])) .mapboxgl-ctrl-bottom-right {
+  margin-bottom: calc(var(--safe-bottom) + 210px);
+}

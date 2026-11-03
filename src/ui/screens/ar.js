@@ -5,8 +5,10 @@
 //   error    camera denied, motion denied, offline, timeout or engine crash; each says what to do
 import {requestMotionPermission} from '../../ar/permissions.js'
 import {parseUserAgent} from '../../ar/device.js'
+import {findDestination} from '../../nav/destinations.js'
+import {describeDestination} from '../../nav/search.js'
 import {haptic, html, onAction, render} from '../dom.js'
-import {icon} from '../icons.js'
+import {CATEGORY_ICON, icon} from '../icons.js'
 
 const TRACKING_HINTS = {
   INITIALIZING: 'Move your phone slowly from side to side',
@@ -17,6 +19,13 @@ const TRACKING_HINTS = {
 
 export function arScreen(root, {navigate, params}) {
   const allowDesktop = params.force === '1'
+  // Every trip starts with a destination. Without one, go and pick it first.
+  const destination = findDestination(params.to)
+  if (!destination) {
+    // Defer, so the router finishes mounting this screen before it switches again.
+    queueMicrotask(() => navigate(`/search${allowDesktop ? '?force=1' : ''}`, {replace: true}))
+    return
+  }
   const device = parseUserAgent(navigator.userAgent, {maxTouchPoints: navigator.maxTouchPoints})
   let stopSession = null
   let wakeLock = null
@@ -25,7 +34,8 @@ export function arScreen(root, {navigate, params}) {
 
   const actions = {
     exit: () => navigate('/'),
-    map: () => navigate('/map'),
+    change: () => navigate(`/search${allowDesktop ? '?force=1' : ''}`),
+    map: () => navigate(`/map?to=${encodeURIComponent(destination.id)}`),
     start: () => begin(),
     retry: () => begin(),
     reload: () => window.location.reload(),
@@ -50,7 +60,18 @@ export function arScreen(root, {navigate, params}) {
               <span class="primer__ring primer__ring--2"></span>
               <span class="primer__icon">${icon('camera', {size: 40})}</span>
             </div>
-            <p class="eyebrow">One quick step</p>
+            <div class="dest-card" data-destination>
+              <span class="dsearch__badge" data-category="${destination.category}">
+                ${icon(CATEGORY_ICON[destination.category] || 'pin', {size: 20})}
+              </span>
+              <span class="dest-card__text">
+                <span class="dest-card__label">Directions to</span>
+                <strong class="dest-card__name">${destination.name}</strong>
+                ${describeDestination(destination) ? html`<span class="dest-card__meta">${describeDestination(destination)}</span>` : ''}
+              </span>
+              <button class="dest-card__change" type="button" data-action="change">Change</button>
+            </div>
+            <p class="eyebrow">Step 2 of 3</p>
             <h1 class="page__title" tabindex="-1">Allow camera and motion</h1>
             <p class="page__lede">
               The camera finds the floor and the Welcome AR signs. Motion sensors keep the arrows in place as you walk.
@@ -118,6 +139,9 @@ export function arScreen(root, {navigate, params}) {
               <span class="chip__dot"></span><span data-tracking-label>Starting tracking</span>
             </div>
           </header>
+          <p class="ar__dest chip chip--glass" data-ar-destination>
+            ${icon('pin', {size: 16})}<span>To <strong>${destination.name}</strong></span>
+          </p>
           <p class="ar__hint" data-hint>${TRACKING_HINTS.INITIALIZING}</p>
           <section class="ar__sheet" aria-label="System check">
             <h1 class="ar__sheet-title" tabindex="-1">System check</h1>

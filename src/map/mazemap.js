@@ -60,6 +60,8 @@ export function createCampusMap(Mazemap, container, {onReady, onError} = {}) {
     center: MAZEMAP.center,
     zoom: MAZEMAP.zoom,
     zLevel: 1,
+    // MazeMap adds its own floor switcher by default; we add one styled control below.
+    zLevelControl: false,
     scrollZoom: true,
     doubleClickZoom: true,
     touchZoomRotate: true,

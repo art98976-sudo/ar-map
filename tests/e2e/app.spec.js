@@ -88,7 +88,9 @@ test.describe('device check', () => {
     await page.addInitScript(IPHONE_CAMERA_STUB)
     await page.goto('/')
     await page.getByRole('button', {name: 'Start AR'}).click()
+    await page.getByRole('button', {name: 'Library'}).click()
     await expect(page.getByRole('heading', {name: 'Allow camera and motion'})).toBeVisible({timeout: 5000})
+    await expect(page.locator('[data-destination]')).toContainText('Library')
   })
 })
 
@@ -99,6 +101,7 @@ test.describe('AR session', () => {
     await page.addInitScript(FAKE_REAR_CAMERA)
     await page.goto('/')
     await page.getByRole('button', {name: 'Start AR'}).click()
+    await page.getByRole('button', {name: 'Cottrell Building'}).click()
     await page.getByRole('button', {name: 'Allow and start'}).click()
     await expect(page.getByRole('progressbar', {name: 'Loading AR'})).toBeVisible()
     await expect(page.locator('[data-stat="camera"]')).toHaveText('Working', {timeout: 60_000})
@@ -116,7 +119,7 @@ test.describe('AR session', () => {
     await page.addInitScript(() => {
       window.DeviceMotionEvent.requestPermission = () => Promise.resolve('denied')
     })
-    await page.goto('/#/ar')
+    await page.goto('/#/ar?to=library')
     await page.getByRole('button', {name: 'Allow and start'}).click()
     await expect(page.getByRole('heading', {name: 'Motion access is off'})).toBeVisible()
     await expect(page.getByText('Tap Allow when Safari asks about motion.')).toBeVisible()
@@ -129,7 +132,7 @@ test.describe('AR session', () => {
     await page.addInitScript(() => {
       navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException('Permission denied', 'NotAllowedError'))
     })
-    await page.goto('/#/ar')
+    await page.goto('/#/ar?to=library')
     await page.getByRole('button', {name: 'Allow and start'}).click()
     await expect(page.getByRole('heading', {name: 'Camera access is off'})).toBeVisible({timeout: 60_000})
     await expect(page.getByText('Turn on Camera.')).toBeVisible()
@@ -138,7 +141,7 @@ test.describe('AR session', () => {
   test('engine download failure shows a retry, not a blank screen', async ({page}, testInfo) => {
     test.skip(onlyOn('android-chrome')(testInfo))
     await page.route('**/external/xr/xr-slam.js', (route) => route.abort('internetdisconnected'))
-    await page.goto('/#/ar')
+    await page.goto('/#/ar?to=library')
     await page.getByRole('button', {name: 'Allow and start'}).click()
     await expect(page.getByRole('heading', {name: 'AR could not load'})).toBeVisible({timeout: 30_000})
     await expect(page.getByRole('button', {name: 'Try again'})).toBeVisible()
@@ -149,7 +152,7 @@ test.describe('campus map', () => {
   test('loads the University MazeMap map full screen', async ({page}, testInfo) => {
     test.skip(onlyOn('desktop-chrome', 'android-chrome')(testInfo))
     await page.goto('/#/map')
-    await expect(page.getByRole('heading', {name: 'Campus map'})).toBeVisible()
+    await expect(page.getByRole('heading', {name: 'Campus map'})).toBeAttached()
     await expect(page.locator('[data-overlay]')).toBeHidden({timeout: 30_000})
     const height = await page.locator('[data-map]').evaluate((el) => el.getBoundingClientRect().height)
     expect(height).toBeGreaterThan(500)

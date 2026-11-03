@@ -62,7 +62,9 @@ export function checkScreen(root, {navigate, params}) {
                           <span>Opens this page on your phone.</span>
                         </figcaption>
                       </figure>
-                      <a class="link link--muted" href="#/check?force=1">Try with this computer's camera</a>
+                      <a class="link link--muted" href="#/check?force=1${params.to ? `&to=${encodeURIComponent(params.to)}` : ''}"
+                        >Try with this computer's camera</a
+                      >
                     `
                   : ''}
               `}
@@ -82,7 +84,12 @@ export function checkScreen(root, {navigate, params}) {
   })
 
   if (ok) {
-    timers.push(setTimeout(() => navigate(forced ? '/ar?force=1' : '/ar', {replace: true}), STEP_MS * 4 + 650))
+    // Carry the chosen destination through to the camera screen.
+    const next = new URLSearchParams()
+    if (params.to) next.set('to', params.to)
+    if (forced) next.set('force', '1')
+    const query = next.toString()
+    timers.push(setTimeout(() => navigate(`/ar${query ? `?${query}` : ''}`, {replace: true}), STEP_MS * 4 + 650))
   } else if (result.primaryIssue.code === 'desktop') {
     drawQr(root.querySelector('[data-qr]'))
   }

@@ -1,7 +1,7 @@
 import {defineConfig, devices} from '@playwright/test'
 
 // E2E tests run against the production build (vite preview), like Vercel serves it.
-// Port 4310 avoids clashes with other local dev servers on the default 4173.
+// Port 4311 is for tests only (4310 is for manual previews; 4173 is taken by another app here).
 const fakeCamera = {args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream']}
 const sensors = ['camera', 'accelerometer', 'gyroscope', 'magnetometer']
 
@@ -11,13 +11,14 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: [['list']],
   use: {
-    baseURL: 'http://127.0.0.1:4310',
+    baseURL: 'http://127.0.0.1:4311',
     trace: 'retain-on-failure',
   },
   webServer: {
-    command: 'npm run build && npm run preview -- --host 127.0.0.1',
-    url: 'http://127.0.0.1:4310',
-    reuseExistingServer: !process.env.CI,
+    // Always build fresh and use a test-only port, so a forgotten preview server is never reused.
+    command: 'npm run build && npm run preview -- --host 127.0.0.1 --port 4311',
+    url: 'http://127.0.0.1:4311',
+    reuseExistingServer: false,
     timeout: 120_000,
   },
   projects: [

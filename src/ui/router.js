@@ -8,6 +8,7 @@
 export function createRouter({root, routes, fallback = '/'}) {
   let cleanup = null
   let current = null
+  let renderedHash = null // the address the current screen was drawn for
 
   function parse() {
     const raw = window.location.hash.replace(/^#/, '') || '/'
@@ -15,35 +16,33 @@ export function createRouter({root, routes, fallback = '/'}) {
     return {path, params: Object.fromEntries(new URLSearchParams(query))}
   }
 
-  function render({animate = true} = {}) {
+  function render() {
     const {path, params} = parse()
+    renderedHash = window.location.hash
     const screen = routes[path]
     if (!screen) {
       navigate(fallback, {replace: true})
       return
     }
-    const swap = () => {
-      if (typeof cleanup === 'function') {
-        try {
-          cleanup()
-        } catch (err) {
-          console.error('[router] cleanup failed', err)
-        }
+    if (typeof cleanup === 'function') {
+      try {
+        cleanup()
+      } catch (err) {
+        console.error('[router] cleanup failed', err)
       }
-      root.replaceChildren()
-      root.dataset.screen = path === '/' ? 'home' : path.slice(1)
-      current = path
-      window.scrollTo(0, 0)
-      cleanup = screen(root, {navigate, params, path})
-      // Move focus to the new screen's heading for screen-reader users.
-      root.querySelector('h1, [data-autofocus]')?.focus?.({preventScroll: true})
     }
-    // Smooth cross-fade where supported (Safari 18+, Chrome). Skipped for reduced motion,
-    // and for back/forward/link history changes: iOS swipe-back already animates, and a view
-    // transition started inside a history navigation crashed WebKit in testing.
-    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    if (animate && document.startViewTransition && !reduce && current !== null) document.startViewTransition(swap)
-    else swap()
+    root.replaceChildren()
+    root.dataset.screen = path === '/' ? 'home' : path.slice(1)
+    // Screens fade in with a CSS animation (base.css). We do not use the View Transitions
+    // API: in testing it crashed WebKit when the address changed during a transition.
+    root.classList.remove('is-entering')
+    void root.offsetWidth // restart the animation
+    if (current !== null) root.classList.add('is-entering')
+    current = path
+    window.scrollTo(0, 0)
+    cleanup = screen(root, {navigate, params, path})
+    // Move focus to the new screen's heading for screen-reader users.
+    root.querySelector('h1, [data-autofocus]')?.focus?.({preventScroll: true})
   }
 
   function navigate(path, {replace = false} = {}) {
@@ -53,7 +52,12 @@ export function createRouter({root, routes, fallback = '/'}) {
     render()
   }
 
-  const onHistory = () => render({animate: false})
+  // Back/forward fire popstate; typing a #/ address or tapping a #/ link fires hashchange
+  // (WebKit does not always fire popstate for those). Draw once per address change.
+  const onHistory = () => {
+    if (window.location.hash !== renderedHash) render()
+  }
   window.addEventListener('popstate', onHistory)
-  return {start: () => render({animate: false}), navigate}
+  window.addEventListener('hashchange', onHistory)
+  return {start: render, navigate}
 }

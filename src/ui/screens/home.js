@@ -63,7 +63,7 @@ export function homeScreen(root, {navigate}) {
   )
 
   return onAction(root, {
-    start: () => navigate('/check'),
+    start: () => navigate('/search'),
     map: () => navigate('/map'),
   })
 }
