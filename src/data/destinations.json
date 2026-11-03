@@ -1,21 +1,339 @@
 {
-  "_readme": "Searchable places. Edit freely. popular: shown as chips on the search screen, in 'popularOrder'. floor: MazeMap level number, or null for a whole building. mazemapPoi: optional MazeMap POI id. Coordinates: WGS84 (check with a GPS walk before real use).",
-  "popularOrder": ["library", "atrium", "cottrell", "pathfoot", "sports-centre", "campus-central"],
+  "_readme": "Searchable places. Edit freely. popular: shown as chips on the search screen, in 'popularOrder'. floor: MazeMap level number, or null for a whole building. mazemapPoi: optional MazeMap POI id. Coordinates: WGS84 (check with a GPS walk before real use). entrance: the MAIN door to walk to (outdoor directions end here). confirmed:false until checked on campus, see ENTRANCES.md.",
+  "popularOrder": [
+    "library",
+    "atrium",
+    "cottrell",
+    "pathfoot",
+    "sports-centre",
+    "campus-central"
+  ],
   "destinations": [
-    {"id": "library", "name": "Library", "aliases": ["university library", "lib", "books", "study", "printing"], "category": "library", "building": "Library", "floor": null, "lat": 56.14599, "lng": -3.92068, "mazemapPoi": 1002078590, "description": "Study spaces, group rooms, computers and printing."},
-    {"id": "atrium", "name": "Atrium", "aliases": ["andrew miller building", "amb", "atrium food court", "food court", "student services", "shops"], "category": "services", "building": "Andrew Miller Building", "floor": null, "lat": 56.14596, "lng": -3.9197, "description": "The heart of campus: student services, cafés and shops."},
-    {"id": "cottrell", "name": "Cottrell Building", "aliases": ["cottrell", "lecture theatres", "seminar rooms", "teaching"], "category": "academic", "building": "Cottrell Building", "floor": null, "lat": 56.14465, "lng": -3.92048, "description": "The main teaching building, with lecture theatres and seminar rooms."},
-    {"id": "pathfoot", "name": "Pathfoot Building", "aliases": ["pathfoot", "art collection", "university art collection"], "category": "academic", "building": "Pathfoot Building", "floor": null, "lat": 56.14927, "lng": -3.92673, "description": "The original 1960s building, home to the University Art Collection."},
-    {"id": "sports-centre", "name": "Sports Centre", "aliases": ["gannochy", "gannochy sports centre", "gym", "pool", "swimming", "sports hall", "sport"], "category": "sport", "building": "Sports Centre", "floor": null, "lat": 56.1457, "lng": -3.92479, "description": "Gym, sports halls and the National Swimming Academy pool."},
-    {"id": "campus-central", "name": "Campus Central", "aliases": ["central", "hub", "main building"], "category": "services", "building": "Andrew Miller Building", "floor": null, "lat": 56.14583, "lng": -3.91968, "description": "The central hub linking the Atrium, the Library and the Students' Union."},
-    {"id": "logie", "name": "Logie Lecture Theatre", "aliases": ["logie", "lecture theatre"], "category": "academic", "building": "Cottrell Building", "floor": null, "lat": 56.14396, "lng": -3.92046, "description": "One of the largest lecture theatres on campus."},
-    {"id": "union", "name": "Students' Union", "aliases": ["union", "su", "student union", "societies", "advice"], "category": "services", "building": "Andrew Miller Building", "floor": null, "lat": 56.14596, "lng": -3.91861, "description": "Clubs, societies, advice and events."},
-    {"id": "macrobert", "name": "Macrobert Arts Centre", "aliases": ["macrobert", "cinema", "theatre", "arts centre"], "category": "landmark", "building": "Macrobert Arts Centre", "floor": null, "lat": 56.14564, "lng": -3.91959, "description": "Cinema, theatre and gallery, open to everyone."},
-    {"id": "iris-murdoch", "name": "Iris Murdoch Building", "aliases": ["iris murdoch", "dementia centre"], "category": "academic", "building": "Iris Murdoch Building", "floor": null, "lat": 56.14396, "lng": -3.91685, "description": "Home to the Dementia Services Development Centre."},
-    {"id": "tennis", "name": "National Tennis Centre", "aliases": ["tennis", "tennis courts"], "category": "sport", "building": "National Tennis Centre", "floor": null, "lat": 56.14488, "lng": -3.92489, "description": "Indoor and outdoor tennis courts."},
-    {"id": "stirling-court", "name": "Stirling Court Hotel", "aliases": ["hotel", "conference centre", "stirling court"], "category": "services", "building": "Stirling Court Hotel", "floor": null, "lat": 56.14327, "lng": -3.9221, "description": "On-campus hotel and conference venue."},
-    {"id": "andrew-stewart", "name": "Andrew Stewart Hall", "aliases": ["andrew stewart", "halls", "accommodation", "residence"], "category": "living", "building": "Andrew Stewart Hall", "floor": null, "lat": 56.14863, "lng": -3.92286, "description": "Student hall on the north side of the loch."},
-    {"id": "airthrey-loch", "name": "Airthrey Loch", "aliases": ["loch", "lake", "walk"], "category": "landmark", "building": "Outdoors", "floor": null, "lat": 56.14655, "lng": -3.91898, "description": "The loch at the heart of campus, with a walking loop."},
-    {"id": "airthrey-castle", "name": "Airthrey Castle", "aliases": ["castle"], "category": "landmark", "building": "Airthrey Castle", "floor": null, "lat": 56.14823, "lng": -3.91338, "description": "An 18th-century castle designed by Robert Adam."}
+    {
+      "id": "library",
+      "name": "Library",
+      "aliases": [
+        "university library",
+        "lib",
+        "books",
+        "study",
+        "printing"
+      ],
+      "category": "library",
+      "building": "Library",
+      "floor": null,
+      "lat": 56.14599,
+      "lng": -3.92068,
+      "mazemapPoi": 1002078590,
+      "description": "Study spaces, group rooms, computers and printing.",
+      "entrance": {
+        "lat": 56.145454,
+        "lng": -3.919805,
+        "via": "mazemap route, door into building 1009836",
+        "confirmed": false,
+        "note": "Enter through the Andrew Miller Building (Atrium). The Library is inside."
+      }
+    },
+    {
+      "id": "atrium",
+      "name": "Atrium",
+      "aliases": [
+        "andrew miller building",
+        "amb",
+        "atrium food court",
+        "food court",
+        "student services",
+        "shops"
+      ],
+      "category": "services",
+      "building": "Andrew Miller Building",
+      "floor": null,
+      "lat": 56.14596,
+      "lng": -3.9197,
+      "description": "The heart of campus: student services, cafés and shops.",
+      "entrance": {
+        "lat": 56.145956,
+        "lng": -3.919276,
+        "via": "mazemap route, door into building 1009836",
+        "confirmed": false
+      }
+    },
+    {
+      "id": "cottrell",
+      "name": "Cottrell Building",
+      "aliases": [
+        "cottrell",
+        "lecture theatres",
+        "seminar rooms",
+        "teaching"
+      ],
+      "category": "academic",
+      "building": "Cottrell Building",
+      "floor": null,
+      "lat": 56.14465,
+      "lng": -3.92048,
+      "description": "The main teaching building, with lecture theatres and seminar rooms.",
+      "entrance": {
+        "lat": 56.144904,
+        "lng": -3.920317,
+        "via": "mazemap route door, matches the A3 Entrance foyer",
+        "confirmed": false
+      }
+    },
+    {
+      "id": "pathfoot",
+      "name": "Pathfoot Building",
+      "aliases": [
+        "pathfoot",
+        "art collection",
+        "university art collection"
+      ],
+      "category": "academic",
+      "building": "Pathfoot Building",
+      "floor": null,
+      "lat": 56.14927,
+      "lng": -3.92673,
+      "description": "The original 1960s building, home to the University Art Collection.",
+      "entrance": {
+        "lat": 56.148705,
+        "lng": -3.926991,
+        "via": "mazemap route, door into building 1009791",
+        "confirmed": false
+      }
+    },
+    {
+      "id": "sports-centre",
+      "name": "Sports Centre",
+      "aliases": [
+        "gannochy",
+        "gannochy sports centre",
+        "gym",
+        "pool",
+        "swimming",
+        "sports hall",
+        "sport"
+      ],
+      "category": "sport",
+      "building": "Sports Centre",
+      "floor": null,
+      "lat": 56.1457,
+      "lng": -3.92479,
+      "description": "Gym, sports halls and the National Swimming Academy pool.",
+      "entrance": {
+        "lat": 56.146165,
+        "lng": -3.924479,
+        "via": "mazemap route, door into building 1009835",
+        "confirmed": false
+      }
+    },
+    {
+      "id": "campus-central",
+      "name": "Campus Central",
+      "aliases": [
+        "central",
+        "hub",
+        "main building"
+      ],
+      "category": "services",
+      "building": "Andrew Miller Building",
+      "floor": null,
+      "lat": 56.14583,
+      "lng": -3.91968,
+      "description": "The central hub linking the Atrium, the Library and the Students' Union.",
+      "entrance": {
+        "lat": 56.145454,
+        "lng": -3.919805,
+        "via": "mazemap route, door into building 1009836",
+        "confirmed": false
+      }
+    },
+    {
+      "id": "logie",
+      "name": "Logie Lecture Theatre",
+      "aliases": [
+        "logie",
+        "lecture theatre"
+      ],
+      "category": "academic",
+      "building": "Cottrell Building",
+      "floor": null,
+      "lat": 56.14396,
+      "lng": -3.92046,
+      "description": "One of the largest lecture theatres on campus.",
+      "entrance": {
+        "lat": 56.143966,
+        "lng": -3.920488,
+        "via": "mazemap route, route end (no indoor map)",
+        "confirmed": false
+      }
+    },
+    {
+      "id": "union",
+      "name": "Students' Union",
+      "aliases": [
+        "union",
+        "su",
+        "student union",
+        "societies",
+        "advice"
+      ],
+      "category": "services",
+      "building": "Andrew Miller Building",
+      "floor": null,
+      "lat": 56.14596,
+      "lng": -3.91861,
+      "description": "Clubs, societies, advice and events.",
+      "entrance": {
+        "lat": 56.146057,
+        "lng": -3.918672,
+        "via": "mazemap route, door into building 1009829",
+        "confirmed": false
+      }
+    },
+    {
+      "id": "macrobert",
+      "name": "Macrobert Arts Centre",
+      "aliases": [
+        "macrobert",
+        "cinema",
+        "theatre",
+        "arts centre"
+      ],
+      "category": "landmark",
+      "building": "Macrobert Arts Centre",
+      "floor": null,
+      "lat": 56.14564,
+      "lng": -3.91959,
+      "description": "Cinema, theatre and gallery, open to everyone.",
+      "entrance": {
+        "lat": 56.145454,
+        "lng": -3.919805,
+        "via": "mazemap route, door into building 1009836",
+        "confirmed": false
+      }
+    },
+    {
+      "id": "iris-murdoch",
+      "name": "Iris Murdoch Building",
+      "aliases": [
+        "iris murdoch",
+        "dementia centre"
+      ],
+      "category": "academic",
+      "building": "Iris Murdoch Building",
+      "floor": null,
+      "lat": 56.14396,
+      "lng": -3.91685,
+      "description": "Home to the Dementia Services Development Centre.",
+      "entrance": {
+        "lat": 56.143885,
+        "lng": -3.917163,
+        "via": "mazemap route, door into building 1009790",
+        "confirmed": false
+      }
+    },
+    {
+      "id": "tennis",
+      "name": "National Tennis Centre",
+      "aliases": [
+        "tennis",
+        "tennis courts"
+      ],
+      "category": "sport",
+      "building": "National Tennis Centre",
+      "floor": null,
+      "lat": 56.14488,
+      "lng": -3.92489,
+      "description": "Indoor and outdoor tennis courts.",
+      "entrance": {
+        "lat": 56.146165,
+        "lng": -3.924479,
+        "via": "mazemap route, door into building 1009835",
+        "confirmed": false
+      }
+    },
+    {
+      "id": "stirling-court",
+      "name": "Stirling Court Hotel",
+      "aliases": [
+        "hotel",
+        "conference centre",
+        "stirling court"
+      ],
+      "category": "services",
+      "building": "Stirling Court Hotel",
+      "floor": null,
+      "lat": 56.14327,
+      "lng": -3.9221,
+      "description": "On-campus hotel and conference venue.",
+      "entrance": {
+        "lat": 56.143177,
+        "lng": -3.922341,
+        "via": "mazemap route, route end (no indoor map)",
+        "confirmed": false
+      }
+    },
+    {
+      "id": "andrew-stewart",
+      "name": "Andrew Stewart Hall",
+      "aliases": [
+        "andrew stewart",
+        "halls",
+        "accommodation",
+        "residence"
+      ],
+      "category": "living",
+      "building": "Andrew Stewart Hall",
+      "floor": null,
+      "lat": 56.14863,
+      "lng": -3.92286,
+      "description": "Student hall on the north side of the loch.",
+      "entrance": {
+        "lat": 56.14868,
+        "lng": -3.923674,
+        "via": "mazemap route, route end (no indoor map)",
+        "confirmed": false
+      }
+    },
+    {
+      "id": "airthrey-loch",
+      "name": "Airthrey Loch",
+      "aliases": [
+        "loch",
+        "lake",
+        "walk"
+      ],
+      "category": "landmark",
+      "building": "Outdoors",
+      "floor": null,
+      "lat": 56.14655,
+      "lng": -3.91898,
+      "description": "The loch at the heart of campus, with a walking loop.",
+      "entrance": {
+        "lat": 56.14655,
+        "lng": -3.91898,
+        "via": "outdoor place",
+        "confirmed": false
+      }
+    },
+    {
+      "id": "airthrey-castle",
+      "name": "Airthrey Castle",
+      "aliases": [
+        "castle"
+      ],
+      "category": "landmark",
+      "building": "Airthrey Castle",
+      "floor": null,
+      "lat": 56.14823,
+      "lng": -3.91338,
+      "description": "An 18th-century castle designed by Robert Adam.",
+      "entrance": {
+        "lat": 56.148394,
+        "lng": -3.913483,
+        "via": "mazemap route, route end (no indoor map)",
+        "confirmed": false
+      }
+    }
   ]
 }
