@@ -1,0 +1,14 @@
+{
+  "name": "Stirling Welcome AR",
+  "short_name": "Welcome AR",
+  "description": "Augmented-reality wayfinding for the University of Stirling campus.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f1f1ef",
+  "theme_color": "#006938",
+  "icons": [
+    {"src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml"},
+    {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png"}
+  ]
+}

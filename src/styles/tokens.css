@@ -1,0 +1,102 @@
+/* Design tokens. Colours from the University of Stirling Brand Bank
+   (stir.ac.uk/brand-bank/brand-assets/colour-palette). Green leads everywhere. */
+
+@font-face {
+  font-family: 'General Sans';
+  src: url('/fonts/general-sans-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'General Sans';
+  src: url('/fonts/general-sans-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'General Sans';
+  src: url('/fonts/general-sans-600.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'General Sans';
+  src: url('/fonts/general-sans-700.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Brand: primary greens */
+  --green-02: #006938; /* Heritage Green, Pantone 349 */
+  --green-03: #005734; /* Pantone 7484 */
+  --green-01: #76b72a; /* Energy Green, Pantone 368 */
+  --green-01-70: #9fcc69;
+  /* Brand: teal set (used tone-on-tone for depth) */
+  --teal-03: #003a3d;
+  --teal-02: #005e63;
+  /* Brand: neutrals and text */
+  --neutral-01: #d1d1c9;
+  --neutral-03: #5f6350;
+  --grey: #3a3c39;
+  --paper: #f1f1ef;
+  --white: #ffffff;
+  /* Status */
+  --ok: #76b72a;
+  --warn: #edab00; /* 02 Yellow */
+  --bad: #d9541a; /* 02 Orange */
+
+  /* Roles */
+  --bg: var(--paper);
+  --surface: var(--white);
+  --text: #1f211e;
+  --text-muted: #5b5e57;
+  --line: rgba(58, 60, 57, 0.12);
+  --accent: var(--green-02);
+  --accent-press: var(--green-03);
+  --focus: #3d7dca; /* 01 Blue: visible on green and on white */
+
+  /* Type */
+  --font: 'General Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --fs-xs: 0.8125rem;
+  --fs-sm: 0.9375rem;
+  --fs-md: 1.0625rem;
+  --fs-lg: 1.25rem;
+  --fs-xl: clamp(1.75rem, 6.4vw, 2.25rem);
+  --fs-hero: clamp(2.1rem, 9.4vw, 3rem);
+
+  /* Space (4 px base) */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --gutter: 20px;
+
+  /* Shape and depth */
+  --r-sm: 12px;
+  --r-md: 18px;
+  --r-lg: 28px;
+  --r-pill: 999px;
+  --shadow-1: 0 1px 2px rgba(0, 40, 22, 0.06), 0 2px 8px rgba(0, 40, 22, 0.06);
+  --shadow-2: 0 10px 30px -10px rgba(0, 40, 22, 0.28), 0 2px 6px rgba(0, 40, 22, 0.08);
+  --glass: rgba(10, 22, 18, 0.52);
+  --glass-line: rgba(255, 255, 255, 0.16);
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --t-fast: 160ms;
+  --t-med: 280ms;
+
+  /* Safe areas (iPhone notch / Dynamic Island / home bar) */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --tap: 48px;
+}

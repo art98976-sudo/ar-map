@@ -1,2 +1,14 @@
+node_modules/
+dist/
+# Copied from node_modules by scripts/copy-xr-engine.mjs on install
+public/external/
+# Test output
+test-results/
+playwright-report/
 .playwright-mcp/
-_site/
+# Local env and editor files
+.env*
+!.env.example
+.vercel
+*.code-workspace
+.DS_Store

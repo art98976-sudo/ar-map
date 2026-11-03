@@ -1,0 +1,128 @@
+/* AR screen: full-screen camera with glass controls on top. */
+
+.app[data-screen='ar'][data-ar-state='live'] {
+  background: #000;
+}
+
+.ar {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #000;
+  color: var(--white);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.ar__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Covers the canvas until the first camera frame, so there is never a black flash. */
+.ar__veil {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--s-4);
+  background: radial-gradient(80% 60% at 50% 40%, #0b3a26 0%, #031510 100%);
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  transition: opacity 420ms var(--ease);
+}
+.ar__veil.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ar__top {
+  position: absolute;
+  top: calc(var(--safe-top) + var(--s-3));
+  left: var(--s-3);
+  right: var(--s-3);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+
+.ar__hint {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + 196px);
+  z-index: 3;
+  width: max-content;
+  max-width: calc(100% - 40px);
+  padding: 10px 16px;
+  border-radius: var(--r-pill);
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  box-shadow: inset 0 0 0 1px var(--glass-line);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+.ar__sheet {
+  position: absolute;
+  left: var(--s-3);
+  right: var(--s-3);
+  bottom: calc(var(--safe-bottom) + var(--s-3));
+  z-index: 3;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: var(--s-4) var(--s-5);
+  border-radius: var(--r-lg);
+  background: rgba(8, 20, 15, 0.62);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  backdrop-filter: blur(20px) saturate(1.5);
+  box-shadow:
+    inset 0 0 0 1px var(--glass-line),
+    0 20px 40px -20px rgba(0, 0, 0, 0.6);
+}
+.ar__sheet-title {
+  margin-bottom: var(--s-2);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--green-01-70);
+}
+.stats {
+  display: grid;
+}
+.stats__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 40px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.stats__row:first-child {
+  border-top: 0;
+}
+.stats dt {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: var(--fs-sm);
+}
+.stats dd {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.stats dd[data-tone='ok'] {
+  color: var(--green-01-70);
+}
+.stats dd[data-tone='warn'] {
+  color: #f7d64c;
+}
+.stats dd[data-tone='bad'] {
+  color: #ff994c;
+}

@@ -1,0 +1,37 @@
+<!doctype html>
+<!--
+  Stirling Welcome AR, a University of Stirling project.
+  This product includes the XR Engine software developed by Niantic Spatial, Inc.
+  Copyright © 2026 Niantic Spatial, Inc. All rights reserved.
+  License: https://github.com/8thwall/engine/blob/main/LICENSE
+-->
+<html lang="en-GB" class="no-js">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Stirling Welcome AR · University of Stirling</title>
+    <meta name="description" content="Augmented-reality wayfinding for the University of Stirling campus. Scan a Welcome AR sign and follow arrows on the floor." />
+    <meta name="theme-color" content="#006938" />
+    <meta name="color-scheme" content="light" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Welcome AR" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta property="og:title" content="Stirling Welcome AR" />
+    <meta property="og:description" content="Find your way around the University of Stirling campus with arrows on the floor." />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="preload" href="/fonts/general-sans-500.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/general-sans-600.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preconnect" href="https://api.mazemap.com" crossorigin />
+  </head>
+  <body>
+    <div id="app" class="app"></div>
+    <noscript>
+      <div class="noscript">Stirling Welcome AR needs JavaScript. Please turn it on in your browser settings.</div>
+    </noscript>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
