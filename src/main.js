@@ -13,6 +13,7 @@ import {arScreen} from './ui/screens/ar.js'
 import {mapScreen} from './ui/screens/map.js'
 import {aboutScreen} from './ui/screens/about.js'
 import {searchScreen} from './ui/screens/search.js'
+import {locateScreen} from './ui/screens/locate.js'
 import {showToast} from './ui/components/toast.js'
 
 const root = document.getElementById('app')
@@ -23,6 +24,7 @@ const router = createRouter({
     '/': homeScreen,
     '/search': searchScreen,
     '/check': checkScreen,
+    '/locate': locateScreen,
     '/ar': arScreen,
     '/map': mapScreen,
     '/about': aboutScreen,

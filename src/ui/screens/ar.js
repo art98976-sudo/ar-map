@@ -71,7 +71,7 @@ export function arScreen(root, {navigate, params}) {
               </span>
               <button class="dest-card__change" type="button" data-action="change">Change</button>
             </div>
-            <p class="eyebrow">Step 2 of 3</p>
+            <p class="eyebrow">Step 3 of 3</p>
             <h1 class="page__title" tabindex="-1">Allow camera and motion</h1>
             <p class="page__lede">
               The camera finds the floor and the Welcome AR signs. Motion sensors keep the arrows in place as you walk.

@@ -89,7 +89,8 @@ export function checkScreen(root, {navigate, params}) {
     if (params.to) next.set('to', params.to)
     if (forced) next.set('force', '1')
     const query = next.toString()
-    timers.push(setTimeout(() => navigate(`/ar${query ? `?${query}` : ''}`, {replace: true}), STEP_MS * 4 + 650))
+    // Next: the location step (it carries on to the camera once GPS is good).
+    timers.push(setTimeout(() => navigate(`/locate${query ? `?${query}` : ''}`, {replace: true}), STEP_MS * 4 + 650))
   } else if (result.primaryIssue.code === 'desktop') {
     drawQr(root.querySelector('[data-qr]'))
   }
