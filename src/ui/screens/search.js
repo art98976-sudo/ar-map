@@ -15,7 +15,7 @@ export function searchScreen(root, {navigate, params}) {
         <main>
           <p class="eyebrow">Step 1 of 3</p>
           <h1 class="page__title" tabindex="-1">Where do you want to go?</h1>
-          <p class="page__lede">Search for a building, room or service. Then scan a Welcome AR sign to start.</p>
+          <p class="page__lede">Search for a building, room or service. Then follow the arrows on the ground to the entrance.</p>
           <div class="search-screen__box" data-search></div>
         </main>
       </div>

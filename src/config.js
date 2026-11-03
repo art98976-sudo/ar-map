@@ -5,6 +5,8 @@ export const APP = {
   university: 'University of Stirling',
   // The existing 2D campus map (separate Vercel project).
   campusMapUrl: 'https://stirling-campus-map.vercel.app',
+  // Shown on the home and About pages.
+  disclaimer: 'Student prototype – not an official University of Stirling service.',
 }
 
 export const MAZEMAP = {

@@ -42,12 +42,12 @@ export function checkScreen(root, {navigate, params}) {
             ? html`<p class="check__status" data-status>Everything looks good. Opening the camera…</p>`
             : html`
                 <div class="check__actions">
-                  <button class="btn btn--primary btn--lg btn--block" data-action="map">
+                  <button class="btn btn--primary btn--lg btn--block" type="button" data-action="map" aria-label="View 2D map instead">
                     ${icon('map')}<span>View 2D map instead</span>
                   </button>
                   ${['desktop', 'in-app-browser'].includes(result.primaryIssue.code)
                     ? html`
-                        <button class="btn btn--secondary btn--lg btn--block" data-action="copy">
+                        <button class="btn btn--secondary btn--lg btn--block" type="button" data-action="copy" aria-label="Copy link">
                           ${icon('copy')}<span>Copy link</span>
                         </button>
                       `
@@ -62,9 +62,6 @@ export function checkScreen(root, {navigate, params}) {
                           <span>Opens this page on your phone.</span>
                         </figcaption>
                       </figure>
-                      <a class="link link--muted" href="#/check?force=1${params.to ? `&to=${encodeURIComponent(params.to)}` : ''}"
-                        >Try with this computer's camera</a
-                      >
                     `
                   : ''}
               `}

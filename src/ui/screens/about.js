@@ -14,8 +14,9 @@ export function aboutScreen(root, {navigate}) {
         <main class="about">
           <img src="/brand/stirling-logo.svg" alt="${APP.university}" width="160" height="40" />
           <h1 class="page__title" tabindex="-1">About ${APP.name}</h1>
+          <p class="about__note" data-disclaimer>${APP.disclaimer}</p>
           <p class="page__lede">
-            Augmented-reality wayfinding for the ${APP.university} campus. Open a link, scan a sign and follow the arrows.
+            Augmented-reality wayfinding for the ${APP.university} campus. Pick a place, allow your location and follow the arrows on the ground.
             No app to install.
           </p>
 
@@ -30,6 +31,10 @@ export function aboutScreen(root, {navigate}) {
           <section class="about__block">
             <h2>Maps</h2>
             <p>Campus map, buildings and indoor floors: the University of Stirling MazeMap campus map, © MazeMap.</p>
+            <p>
+              Backup walking paths: © OpenStreetMap contributors, available under the
+              <a class="link" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">Open Database Licence</a>.
+            </p>
           </section>
 
           <section class="about__block">

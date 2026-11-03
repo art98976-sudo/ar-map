@@ -56,6 +56,8 @@ export function onAction(root, handlers) {
 /** Light haptic tap where supported (Android). iPhone Safari ignores it silently. */
 export function haptic(pattern = 12) {
   try {
+    // Browsers refuse (and log an error) if the user has not tapped the page yet.
+    if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return
     navigator.vibrate?.(pattern)
   } catch {
     // not supported

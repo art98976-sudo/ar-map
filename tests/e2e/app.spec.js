@@ -36,7 +36,7 @@ test.describe('home', () => {
     const errors = watchErrors(page)
     await page.goto('/')
     await expect(page.getByRole('img', {name: 'University of Stirling'}).first()).toBeVisible()
-    await expect(page.getByRole('heading', {level: 1})).toHaveText('Find your way with arrows on the floor.')
+    await expect(page.getByRole('heading', {level: 1})).toHaveText('Find your way with arrows on the ground.')
     await expect(page.getByRole('button', {name: 'Start AR'})).toBeVisible()
     await expect(page.getByRole('button', {name: 'Campus map'})).toBeVisible()
     await expect(page.getByRole('heading', {name: 'How it works'})).toBeVisible()

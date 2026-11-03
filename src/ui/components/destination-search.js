@@ -98,7 +98,7 @@ export function createDestinationSearch(host, {onSelect, compact = false, placeh
                 <section class="dsearch__section" aria-labelledby="${uid}-recent">
                   <div class="dsearch__head">
                     <h2 id="${uid}-recent" class="dsearch__title">${icon('history', {size: 16})}Recent</h2>
-                    <button type="button" class="dsearch__link" data-clear-recent>Clear</button>
+                    <button type="button" class="dsearch__link" data-clear-recent aria-label="Clear recent searches">Clear</button>
                   </div>
                   <ul class="dsearch__list" role="listbox" id="${uid}-list" aria-label="Recent searches">
                     ${recent.map((d, i) => row(d, i))}
@@ -111,7 +111,7 @@ export function createDestinationSearch(host, {onSelect, compact = false, placeh
             <div class="chips">
               ${POPULAR.map(
                 (d) => html`
-                  <button type="button" class="chip-btn" data-popular="${d.id}">
+                  <button type="button" class="chip-btn" data-popular="${d.id}" aria-label="${d.name}">
                     ${icon(CATEGORY_ICON[d.category] || 'pin', {size: 16})}<span>${d.name}</span>
                   </button>
                 `,

@@ -55,7 +55,7 @@ test.describe('destination search', () => {
     await page.goto('/#/search')
     const recent = page.getByRole('listbox', {name: 'Recent searches'})
     await expect(recent.getByRole('option', {name: /Pathfoot Building/})).toBeVisible()
-    await page.getByRole('button', {name: 'Clear', exact: true}).click()
+    await page.getByRole('button', {name: 'Clear recent searches'}).click()
     await expect(recent).toHaveCount(0)
   })
 
@@ -75,7 +75,8 @@ test.describe('destination search', () => {
 
   test('the chosen destination is shown on the camera screen and can be changed', async ({page}) => {
     await page.goto('/#/ar?to=cottrell')
-    await expect(page.locator('[data-destination]')).toContainText('Cottrell Building')
+    // No route yet, so it plans one first (location step), then shows the camera screen.
+    await expect(page.locator('[data-destination]')).toContainText('Cottrell Building', {timeout: 30_000})
     await page.getByRole('button', {name: 'Change'}).click()
     await expect(page.getByRole('heading', {name: 'Where do you want to go?'})).toBeVisible()
   })

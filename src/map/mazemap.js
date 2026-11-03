@@ -33,8 +33,10 @@ export function loadMazeMap() {
     }, MAZEMAP.loadTimeoutMs)
     script.onload = () => {
       clearTimeout(timer)
-      if (window.Mazemap?.Map) resolve(window.Mazemap)
-      else reject(new MapLoadError('broken', 'The campus map loaded but could not start.'))
+      if (window.Mazemap?.Map) {
+        useModernLights(window.Mazemap)
+        resolve(window.Mazemap)
+      } else reject(new MapLoadError('broken', 'The campus map loaded but could not start.'))
     }
     script.onerror = () => {
       clearTimeout(timer)
@@ -47,6 +49,28 @@ export function loadMazeMap() {
     throw err
   })
   return ready
+}
+
+/**
+ * MazeMap 2.2.6 (the newest release) calls the deprecated `map.setLight()` itself while
+ * loading its style, which logs a warning. Route that call to `map.setLights()` with the
+ * 'flat' light type, as the map engine recommends. If anything about it fails, fall back
+ * to the original method so the map still draws.
+ */
+export function useModernLights(Mazemap) {
+  const proto = Mazemap?.Map?.prototype
+  if (!proto || typeof proto.setLights !== 'function' || proto.setLight?.__welcomeAR) return
+  const legacy = proto.setLight
+  const modern = function setLight(light, options) {
+    try {
+      return this.setLights([{id: 'flat', type: 'flat', properties: light || {}}], options)
+    } catch (err) {
+      console.warn('[map] setLights failed, using setLight', err)
+      return legacy.call(this, light, options)
+    }
+  }
+  modern.__welcomeAR = true
+  proto.setLight = modern
 }
 
 /**

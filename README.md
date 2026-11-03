@@ -1,10 +1,12 @@
 # Stirling Welcome AR
 
 Browser-based augmented-reality wayfinding for the University of Stirling campus.
-Open a link or scan a QR code, point the phone at a **Welcome AR sign**, and follow arrows on the floor.
+Pick a place, allow your location, and follow arrows on the ground to its main entrance.
 No app to install.
 
-Status: **Phase 0** (setup, device check, camera and world tracking, 2D campus map).
+Status: **Outdoor V1, Steps A–D**: destination search, GPS location, walking route, compass, arrows on the ground.
+
+**A trip:** search → device check → location (GPS ±20 m or better) → route planned → camera → find the ground → compass calibration (3 s) → arrows and a destination pin.
 
 ## Quick start
 
@@ -25,7 +27,9 @@ The camera only works on `https://` links. Two ways:
    Needs `cloudflared` (`winget install Cloudflare.cloudflared`).
 2. **Vercel preview:** push your branch. Vercel builds it and posts a preview link on the commit in GitHub.
 
-On a laptop, `#/check?force=1` runs the camera test with the webcam.
+**Arrow preview on a laptop:** `npm run dev`, then open <http://localhost:5173/tools/arrow-preview.html>. It walks an L-shaped route with the real arrow and pin code.
+
+**AR debug panel:** in AR, tap **Debug** (top right) for GPS accuracy, compass heading, distance to the entrance, arrows drawn and fps.
 
 ## Scripts
 
@@ -49,14 +53,19 @@ First time running e2e tests: `npx playwright install chromium webkit`.
   iPhone Safari has no WebXR, so 8th Wall is the only free engine that does both on iPhone.
   The engine is self-hosted from this site and downloads only when the user taps **Start AR**.
 - **3D:** Three.js (lazy-loaded with the AR screen).
-- **Map:** the University's MazeMap campus map (campus 2058), used with the University's permission.
+- **Map and routes:** the University's MazeMap campus map (campus 2058) and its walking routes, used with the University's permission. If a MazeMap route goes indoors (GPS does not work there) or MazeMap is unreachable, an OpenStreetMap footpath network with A* is used instead ([src/nav/footpaths.js](src/nav/footpaths.js)).
+- **Direction:** compass (iPhone `webkitCompassHeading`, Android `deviceorientationabsolute`), averaged over 3 s, rotates the AR world to real north.
 - **App:** plain JavaScript modules and Vite. No framework.
 
 ```
 src/
   main.js            app start, screen registration
   config.js          campus id, URLs, engine settings
-  ar/                device check, permissions, 8th Wall engine loader
+  ar/                device check, permissions, engine, compass, trip, AR scene
+  arrows/            arrow trail (InstancedMesh + shader) and destination pin
+  geo/               GPS location, GPS <-> metres maths
+  nav/               destinations, search, route planning, A*, footpaths
+  data/              destinations.json (with entrances), footpaths.json
   map/               MazeMap loader
   ui/                router, DOM helpers, icons, toast, screens/
   styles/            design tokens (Stirling brand palette), components, screens
@@ -64,6 +73,7 @@ public/
   brand/             University of Stirling logo (green and white)
   fonts/             General Sans (self-hosted)
 scripts/             engine copy, phone tunnel, icon generator
+tools/               find-entrances.mjs, build-footpaths.mjs, arrow-preview.html
 tests/unit/          Vitest
 tests/e2e/           Playwright
 ```
@@ -85,7 +95,12 @@ Every push to a branch gets a preview URL.
   Colours follow the [Brand Bank palette](https://www.stir.ac.uk/brand-bank/brand-assets/colour-palette/)
   (Heritage Green `#006938`).
 - **MazeMap:** © MazeMap.
+- **Backup footpaths:** © OpenStreetMap contributors, ODbL.
 - **Three.js, qrcode:** MIT. **General Sans:** ITF Free Font Licence.
+
+## Entrances
+
+Every destination has a suggested main entrance. They are **not confirmed yet**: see [ENTRANCES.md](ENTRANCES.md).
 
 ## Privacy
 

@@ -111,7 +111,7 @@ export function checkDevice(env) {
     primaryIssue = {
       code: 'desktop',
       title: 'AR works on your phone',
-      body: 'Open this page on an iPhone or Android phone to see directions on the floor. You can scan the QR code on any Welcome AR sign.',
+      body: 'Open this page on an iPhone or Android phone to follow arrows on the ground to any building on campus.',
     }
   } else if (device.osVersion && device.osVersion < MIN_VERSION[device.os]) {
     primaryIssue = {

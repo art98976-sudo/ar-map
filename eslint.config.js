@@ -9,7 +9,7 @@ export default [
     languageOptions: {globals: {...globals.browser}},
   },
   {
-    files: ['scripts/**/*.mjs', '*.config.js', 'tests/**/*.js'],
+    files: ['scripts/**/*.mjs', 'tools/**/*.mjs', '*.config.js', 'tests/**/*.js'],
     languageOptions: {globals: {...globals.node, ...globals.browser}},
   },
   {

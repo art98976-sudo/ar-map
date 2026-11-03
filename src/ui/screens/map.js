@@ -76,7 +76,7 @@ export function mapScreen(root, {navigate, params}) {
           </button>
         </div>
         ${selected.description ? html`<p class="place-card__desc">${selected.description}</p>` : ''}
-        <button class="btn btn--primary btn--block" type="button" data-action="go">
+        <button class="btn btn--primary btn--block" type="button" data-action="go" aria-label="Start AR to here">
           ${icon('camera')}<span>Start AR to here</span>
         </button>
       `,
@@ -122,10 +122,10 @@ export function mapScreen(root, {navigate, params}) {
           <span class="error-state__icon" data-tone="warn">${icon(offline ? 'wifiOff' : 'map', {size: 28})}</span>
           <h2>${offline ? 'You are offline' : 'The map could not load'}</h2>
           <p>${offline ? 'Connect to Wi-Fi or mobile data and try again.' : 'Check your connection and try again.'}</p>
-          <button class="btn btn--primary btn--block" type="button" data-action="retry">
+          <button class="btn btn--primary btn--block" type="button" data-action="retry" aria-label="Try again">
             ${icon('refresh')}<span>Try again</span>
           </button>
-          <a class="btn btn--secondary btn--block" href="${APP.campusMapUrl}" target="_blank" rel="noopener">
+          <a class="btn btn--secondary btn--block" aria-label="Open the full campus map" href="${APP.campusMapUrl}" target="_blank" rel="noopener">
             ${icon('external')}<span>Open the full campus map</span>
           </a>
         </div>
