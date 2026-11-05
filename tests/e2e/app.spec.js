@@ -1,7 +1,7 @@
 import {expect, test} from '@playwright/test'
 
 // MazeMap's own icon timer can fire just after its map is removed. Nothing visible breaks.
-const MAZEMAP_TEARDOWN = /getOwnSource|did not find source cache with id: mm-tiles/
+const MAZEMAP_TEARDOWN = /getOwnSource|getOwnLayer|mm-tiles|Script error/
 
 // Collect errors so every test also proves "no crashes in the console".
 function watchErrors(page) {

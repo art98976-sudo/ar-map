@@ -259,6 +259,7 @@ export function createArrowTrail(THREE, route, {approximate = false} = {}) {
     fragmentShader: laneFragmentShader,
     transparent: true,
     depthWrite: false,
+    depthTest: false, // nothing solid is drawn over a camera feed, and it lies on the ground anyway
     side: THREE.DoubleSide,
     uniforms: {uUserS, uAheadEnd, uBehind, uSlope, uColor, uGlow},
   })

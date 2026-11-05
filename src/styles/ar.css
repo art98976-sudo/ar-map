@@ -1,14 +1,14 @@
 /* AR screen: full-screen camera with glass controls on top. */
 
 .app[data-screen='ar'][data-ar-state='live'] {
-  background: #000;
+  background: var(--camera-ground);
 }
 
 .ar {
   position: fixed;
   inset: 0;
   overflow: hidden;
-  background: #000;
+  background: var(--camera-ground);
   color: var(--white);
   touch-action: none;
   user-select: none;
@@ -30,9 +30,9 @@
   place-content: center;
   justify-items: center;
   gap: var(--s-4);
-  background: radial-gradient(80% 60% at 50% 40%, #0b3a26 0%, #031510 100%);
+  background: radial-gradient(80% 60% at 50% 40%, var(--veil-from) 0%, var(--veil-to) 100%);
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--on-dark-85);
   transition: opacity 420ms var(--ease);
 }
 .ar__veil.is-hidden {
@@ -82,8 +82,6 @@
   margin-bottom: var(--s-2);
   font-size: var(--fs-xs);
   font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
   color: var(--green-01-70);
 }
 .stats {
@@ -94,13 +92,13 @@
   align-items: center;
   justify-content: space-between;
   min-height: 40px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--on-dark-08);
 }
 .stats__row:first-child {
   border-top: 0;
 }
 .stats dt {
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--on-dark-72);
   font-size: var(--fs-sm);
 }
 .stats dd {
@@ -111,10 +109,10 @@
   color: var(--green-01-70);
 }
 .stats dd[data-tone='warn'] {
-  color: #f7d64c;
+  color: var(--yellow-bright);
 }
 .stats dd[data-tone='bad'] {
-  color: #ff994c;
+  color: var(--orange-bright);
 }
 
 /* ---------- Start card: stand on the path, face the way you'll walk ---------- */
@@ -129,12 +127,12 @@
   width: min(calc(100% - 32px), 360px);
   padding: var(--s-5);
   border-radius: var(--r-lg);
-  background: rgba(8, 20, 15, 0.7);
+  background: var(--ar-panel-70);
   -webkit-backdrop-filter: blur(20px) saturate(1.5);
   backdrop-filter: blur(20px) saturate(1.5);
   box-shadow:
     inset 0 0 0 1px var(--glass-line),
-    0 20px 40px -20px rgba(0, 0, 0, 0.6);
+    0 20px 40px -20px var(--shadow-on-camera);
   text-align: center;
   transform: translate(-50%, -50%);
   animation: guide-in 260ms var(--ease);
@@ -168,7 +166,7 @@
 }
 .ar-guide__text {
   font-size: var(--fs-sm);
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--on-dark-80);
 }
 .ar-guide .btn {
   margin-top: var(--s-2);
@@ -184,7 +182,7 @@
   padding: 12px 20px;
   overflow: hidden;
   border-radius: var(--r-pill);
-  background: rgba(8, 20, 15, 0.72);
+  background: var(--ar-panel-72);
   -webkit-backdrop-filter: blur(20px) saturate(1.5);
   backdrop-filter: blur(20px) saturate(1.5);
   box-shadow: inset 0 0 0 1px var(--glass-line);
@@ -204,7 +202,7 @@
   place-items: center;
   padding: var(--gutter);
   overflow: hidden;
-  background: rgba(3, 21, 16, 0.45);
+  background: var(--ar-dim);
 }
 .arrival[hidden] {
   display: none;
@@ -282,7 +280,7 @@
   width: 148px;
   padding: var(--s-2);
   border-radius: var(--r-md);
-  background: rgba(8, 20, 15, 0.72);
+  background: var(--ar-panel-72);
   box-shadow: inset 0 0 0 1px var(--glass-line);
   pointer-events: none;
 }
@@ -291,7 +289,7 @@
   width: 100%;
   aspect-ratio: 1;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--on-dark-08);
 }
 .ar-live__rows {
   margin-top: var(--s-2);
@@ -304,7 +302,7 @@
   gap: var(--s-2);
 }
 .ar-live__rows dt {
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--on-dark-70);
   white-space: nowrap;
 }
 .ar-live__rows dd {
@@ -339,7 +337,7 @@
   overflow-y: auto;
   padding: var(--s-3) var(--s-4) var(--s-4);
   border-radius: var(--r-md);
-  background: rgba(8, 20, 15, 0.82);
+  background: var(--ar-panel-82);
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
   box-shadow: inset 0 0 0 1px var(--glass-line);

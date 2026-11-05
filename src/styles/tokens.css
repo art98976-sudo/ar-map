@@ -1,3 +1,9 @@
+/* Hallmark · checked: 2026-11-05 · genre: modern-minimal (inferred) · scope: app
+ * STAMP_COUNTS
+ * built: the project · redesign: polish · v2.0.0 */
+/* Hallmark · dismissed 29 · blur sits over the live camera and map, so labels stay legible on a moving picture */
+/* Hallmark · dismissed 40 · .error-state__icon holds only an icon, whose limit is 3:1, and it measures 4.01:1 */
+/* Hallmark · answered F5 · round map controls and the arrival check are this app's own marks, kept by the polish */
 /* Design tokens. Colours from the University of Stirling Brand Bank
    (stir.ac.uk/brand-bank/brand-assets/colour-palette). Green leads everywhere. */
 
@@ -59,6 +65,60 @@
   --accent: var(--green-02);
   --accent-press: var(--green-03);
   --focus: #3d7dca; /* 01 Blue: visible on green and on white */
+
+  /* Surfaces, overlays and tints */
+  --camera-ground: #030806;
+  --shadow-on-camera: rgba(0, 0, 0, 0.6);
+  --veil-from: #0b3a26;
+  --veil-to: #031510;
+  --ar-panel-70: rgba(8, 20, 15, 0.7);
+  --ar-panel-72: rgba(8, 20, 15, 0.72);
+  --ar-panel-82: rgba(8, 20, 15, 0.82);
+  --ar-dim: rgba(3, 21, 16, 0.45);
+  --on-dark-92: rgba(255, 255, 255, 0.92);
+  --on-dark-85: rgba(255, 255, 255, 0.85);
+  --on-dark-80: rgba(255, 255, 255, 0.8);
+  --on-dark-72: rgba(255, 255, 255, 0.72);
+  --on-dark-70: rgba(255, 255, 255, 0.7);
+  --on-dark-25: rgba(255, 255, 255, 0.25);
+  --on-dark-18: rgba(255, 255, 255, 0.18);
+  --on-dark-08: rgba(255, 255, 255, 0.08);
+  --yellow-bright: #f7d64c;
+  --orange-bright: #ff994c;
+  --on-yellow: #3d2e00;
+  --notice-bg: #fdf5d6;
+  --notice-text: #4d3a08;
+  --green-02-light: #087a44;
+  --green-tint-press: #e9f1ec;
+  --green-tint-hover: #eef5f0;
+  --green-tint-active: #e3efe7;
+  --on-green-01: #12340c;
+  --map-ground: #e8ebe6;
+  --paper-veil: rgba(241, 241, 239, 0.86);
+  --green-02-a65: rgba(0, 105, 56, 0.65);
+  --green-02-a28: rgba(0, 105, 56, 0.28);
+  --green-02-a22: rgba(0, 105, 56, 0.22);
+  --green-02-a20: rgba(0, 105, 56, 0.2);
+  --green-02-a16: rgba(0, 105, 56, 0.16);
+  --green-02-a12: rgba(0, 105, 56, 0.12);
+  --green-01-a28: rgba(118, 183, 42, 0.28);
+  --green-01-a25: rgba(118, 183, 42, 0.25);
+  --green-01-a16: rgba(118, 183, 42, 0.16);
+  --grey-a10: rgba(58, 60, 57, 0.1);
+  --grey-a07: rgba(58, 60, 57, 0.07);
+  --warn-a18: rgba(237, 171, 0, 0.18);
+  --warn-a00: rgba(237, 171, 0, 0);
+  --toast-bg: rgba(20, 28, 24, 0.9);
+  --toast-success-bg: rgba(0, 87, 52, 0.94);
+  --toast-warning-bg: rgba(123, 92, 24, 0.94);
+  --sheet-shadow: rgba(0, 40, 22, 0.28);
+  --placeholder: #6b6e66;
+  --chevron: #8a8d84;
+  --badge-teal-bg: rgba(0, 137, 150, 0.14);
+  --badge-teal-text: var(--teal-02);
+  --badge-blue-bg: rgba(61, 125, 202, 0.14);
+  --badge-blue-text: #2c498a;
+  --badge-amber-text: #7b5c18;
 
   /* Type */
   --font: 'General Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;

@@ -194,7 +194,8 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
     if (phase === 'ready') return 'ok'
     if (!trackingReady()) return 'tracking'
     const f = lookDirection()
-    if (Math.hypot(f.x, f.z) < MIN_HORIZONTAL_LOOK) return 'look'
+    // A webcam in test mode reports no direction, so only a real phone can be asked to look up.
+    if (!allowDesktop && Math.hypot(f.x, f.z) < MIN_HORIZONTAL_LOOK) return 'look'
     const fix = bestFix()
     const compass = heading == null ? null : recentHeading()
     const h = chooseStartHeading(nav.startInfo(fix).bearingDeg, compass)
