@@ -70,6 +70,11 @@
   text-align: center;
   transform: translateX(-50%);
 }
+/* Just above the trip card, so it stays clear of the other two hints. */
+.ar__hint--low {
+  bottom: calc(var(--safe-bottom) + 96px);
+}
+
 /* Sits above the tracking hint, so both can show at once. */
 .ar__hint--raised {
   bottom: calc(var(--safe-bottom) + 248px);

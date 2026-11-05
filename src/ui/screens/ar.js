@@ -111,6 +111,7 @@ export function arScreen(root, {navigate, params}) {
             : ''}
           <p class="ar__hint ar__hint--raised" data-compass-pill role="status" hidden>Wave your phone in a figure-8</p>
           <p class="ar__hint" data-hint role="status" hidden>Move your phone slowly</p>
+          ${route.source === 'direct' ? html`<p class="ar__hint ar__hint--low" data-approx-hint role="status">Approximate route – check the 2D map</p>` : ''}
 
           <section class="ar-guide" data-guide aria-live="polite" hidden>
             <span class="ar-guide__icon">${icon('alert', {size: 28})}</span>
@@ -142,6 +143,9 @@ export function arScreen(root, {navigate, params}) {
               <div class="stats__row"><dt>To entrance (route)</dt><dd data-stat="remaining">–</dd></div>
               <div class="stats__row"><dt>To entrance (GPS)</dt><dd data-stat="gpsdist">–</dd></div>
               <div class="stats__row"><dt>Off route</dt><dd data-stat="offroute">–</dd></div>
+              <div class="stats__row"><dt>Route match</dt><dd data-stat="match">–</dd></div>
+              <div class="stats__row"><dt>Match quality</dt><dd data-stat="quality">–</dd></div>
+              <div class="stats__row"><dt>Next turn</dt><dd data-stat="turn">–</dd></div>
               <div class="stats__row"><dt>Arrows drawn</dt><dd data-stat="arrows">–</dd></div>
               <div class="stats__row"><dt>Camera height</dt><dd data-stat="height">–</dd></div>
               <div class="stats__row"><dt>Route source</dt><dd data-stat="source">${route.source}</dd></div>
@@ -182,6 +186,9 @@ export function arScreen(root, {navigate, params}) {
     setStat('remaining', fmt(s.remainingM))
     setStat('gpsdist', fmt(s.gpsToEntranceM))
     setStat('offroute', s.offRouteM == null ? '–' : `${s.offRouteM.toFixed(1)} m`)
+    setStat('match', `${s.matchOffsetM.toFixed(1)} m, ${s.matchYawDeg.toFixed(1)}°`)
+    setStat('quality', s.matchResidualM == null ? 'walk 8 m first' : `${s.matchResidualM.toFixed(2)} m`, s.matchResidualM != null && s.matchResidualM < 1 ? 'ok' : 'warn')
+    setStat('turn', s.nextTurnM == null ? 'none' : `${formatDistance(s.nextTurnM)} ${s.nextTurnDir}`)
     setStat('arrows', `${s.arrows} of ${s.arrowTotal}`)
     setStat('height', `${s.cameraHeight.toFixed(2)} m`)
     const remaining = root.querySelector('[data-trip-remaining]')

@@ -5,12 +5,14 @@
 //   2. Our OpenStreetMap footpath graph with A* (works offline once loaded)
 //   3. A straight line, clearly flagged, so the user still gets a direction
 import {MAZEMAP} from '../config.js'
-import {distanceM} from '../geo/geo.js'
+import {distanceM, fromLocal, projectOntoPolyline, toLocal} from '../geo/geo.js'
 import {loadCampusGraph, routeOnFootpaths} from './footpaths.js'
 
 export const CAMPUS_RADIUS_M = 3000
 const WALK_SPEED_MPS = 1.3 // about 4.7 km/h, a relaxed campus pace
 const ROUTE_KEY = 'welcomeAR.route.v1'
+export const SNAP_TO_PATH_M = 15 // GPS this close to a path means the user is ON that path
+const ON_PATH_M = 0.5
 
 /** Where the walk should end: the main entrance if we know it, otherwise the place itself. */
 export function entranceOf(dest) {
@@ -67,12 +69,31 @@ async function mazemapRoute(from, to, {signal} = {}) {
   return parseMazeMapPath(await res.json())
 }
 
-/** Make sure the route starts exactly at the user and ends exactly at the entrance. */
-function anchor(points, from, to) {
-  const out = points.slice()
-  if (!out.length || distanceM(out[0], from) > 0.5) out.unshift(from)
-  if (distanceM(out.at(-1), to) > 0.5) out.push(to)
-  return out
+/**
+ * Fit a planned path to the trip. A raw GPS fix is 5-15 m out, so a straight leg from it to the
+ * path would cut across whatever is in between. Near a path, start at the nearest point ON it;
+ * only someone genuinely far from any path gets a leg from where they stand.
+ * The end stops at the entrance, which is only added if it is not already on the path.
+ */
+export function anchor(points, from, to) {
+  // A planner may have added its own leg from the raw fix. Measure from the real path.
+  let path = points.slice()
+  if (path.length > 2 && distanceM(path[0], from) <= ON_PATH_M) path.shift()
+  if (path.length < 2) return [from, to]
+
+  const local = path.map((p) => toLocal(from, p))
+  const start = projectOntoPolyline(local, {x: 0, y: 0})
+  if (start.offset > SNAP_TO_PATH_M) {
+    path.unshift(from)
+  } else if (start.s > 0) {
+    path = [fromLocal(from, {x: start.x, y: start.y}), ...path.slice(start.segment + 1)]
+  }
+
+  if (distanceM(path.at(-1), to) <= ON_PATH_M) return path
+  const tail = path.map((p) => toLocal(to, p))
+  const end = projectOntoPolyline(tail, {x: 0, y: 0})
+  if (end.offset <= ON_PATH_M) return [...path.slice(0, end.segment + 1), to]
+  return [...path, to]
 }
 
 function lengthOf(points) {

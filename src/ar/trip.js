@@ -7,8 +7,10 @@
 //
 // Once 'ready', a silent collector keeps averaging the compass while the phone is upright and
 // steady. Each completed 3 s window eases the route round if it has drifted by more than 5°.
+// While walking, map matching (route-matcher.js) lays the walked track onto the route.
 import {angleDiff, circularMean, createCalibrator, isPoorAccuracy, startCompass} from './compass.js'
 import {createNavScene, gpsDistanceToEntrance} from './nav-scene.js'
+import {createRouteMatcher} from './route-matcher.js'
 import {GPS, watchLocation} from '../geo/location.js'
 
 const UPRIGHT_MAX_TILT = 0.55 // |forward.y|: about 33° up or down from level
@@ -16,6 +18,8 @@ const FIRST_HEADING_WINDOW_MS = 500 // the first alignment averages this much co
 const MIN_HORIZONTAL_LOOK = 0.2 // below this the camera looks almost straight up or down: no yaw
 const STEADY_MAX_DRIFT_DEG = 6 // the camera must stay this close to where the window started
 const REALIGN_MIN_DEG = 5 // smaller differences are compass noise: leave the route alone
+const REALIGN_MIN_MATCHED_DEG = 10 // with a confident map match, trust the walked track over the compass
+const MATCH_EVERY_S = 2
 const TRACKING_HINT_AFTER_S = 4 // show "Move your phone slowly" after this long without NORMAL
 const COMPASS_PILL_AFTER_MS = 10_000 // show the figure-8 pill after this long unsteady
 const DESKTOP_START_DELAY_S = 2 // a webcam on a desk never reports NORMAL tracking
@@ -37,6 +41,8 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
   let lastFix = null
   let fps = null
   let statsTimer = 0
+  let matcher = null
+  let lastMatchAt = -Infinity
   const calibrator = createCalibrator()
 
   function setPhase(next, detail = {}) {
@@ -103,7 +109,7 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
     const r = calibrator.add(h, accuracy, now)
     if (r.status === 'done') {
       restartWindow()
-      nav.realign(r.heading, REALIGN_MIN_DEG)
+      nav.realign(r.heading, matcher.confident ? REALIGN_MIN_MATCHED_DEG : REALIGN_MIN_DEG)
     }
     return r.status === 'unsteady' ? 'unsteady' : 'ok'
   }
@@ -139,11 +145,22 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
     if (Math.hypot(f.x, f.z) >= MIN_HORIZONTAL_LOOK) place(recentHeading())
   }
 
+  /** Keep the route on the path the user is really walking. Never while tracking is unsure. */
+  function runMatching(time) {
+    if (tracking !== 'NORMAL') return
+    matcher.addSample(camera.position.x, camera.position.z, time)
+    if (time - lastMatchAt < MATCH_EVERY_S || !matcher.moving(time) || nav.easing) return
+    lastMatchAt = time
+    const correction = matcher.update(nav.worldToRoute)
+    if (correction) nav.applyCorrection(correction)
+  }
+
   // ---------- engine hooks ----------
   function onSceneReady({scene, camera: cam}) {
     THREE = window.THREE
     camera = cam
     nav = createNavScene({THREE, scene, camera, route, origin, name: destination.name})
+    matcher = createRouteMatcher(nav.route)
     if (phase !== 'no-compass') setPhase('starting')
   }
 
@@ -156,6 +173,7 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
     startedAt ??= time
     if (tracking === 'NORMAL' || lastNormalAt == null) lastNormalAt = time
     if (phase !== 'ready') tryToPlace(time)
+    if (phase === 'ready') runMatching(time)
     const s = nav.update(dt, time)
     statsTimer += dt
     if (statsTimer >= 0.25) {
@@ -177,6 +195,11 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
         arrowTotal: nav.arrowCount,
         cameraHeight: camera.position.y,
         yawDeg: nav.yawDeg,
+        matchOffsetM: matcher.totalOffsetM,
+        matchYawDeg: matcher.totalYawDeg,
+        matchResidualM: matcher.residualM,
+        nextTurnM: nav.aligned ? (s.nextTurnM ?? null) : null,
+        nextTurnDir: nav.aligned ? (s.nextTurnDir ?? null) : null,
         source: route.source,
         fps,
       })

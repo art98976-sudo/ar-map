@@ -1,7 +1,7 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import * as THREE from 'three'
 import {requestCameraPermission} from '../../src/ar/permissions.js'
-import {alignmentYaw, createNavScene, shortestTurn} from '../../src/ar/nav-scene.js'
+import {alignmentYaw, createNavScene, shortestTurn, snapToRoute} from '../../src/ar/nav-scene.js'
 import {createArTrip} from '../../src/ar/trip.js'
 
 // The real pin draws its label on a 2D canvas, which the test DOM does not have.
@@ -227,5 +227,78 @@ describe('camera permission', () => {
     await expect(requestCameraPermission(fails('NotAllowedError'))).resolves.toBe('denied')
     await expect(requestCameraPermission(fails('NotFoundError'))).resolves.toBe('unknown')
     await expect(requestCameraPermission({})).resolves.toBe('unknown')
+  })
+})
+
+describe('map matching in the scene', () => {
+  const STRAIGHT = {...ROUTE}
+
+  it('applies a correction to the placement, keeping the user fixed in the world', () => {
+    const camera = makeCamera()
+    const nav = createNavScene({THREE, scene: new THREE.Scene(), camera, route: STRAIGHT, origin: ORIGIN, name: 'Library'})
+    nav.align(25, ORIGIN)
+    const world = {x: 4, z: -9}
+    const before = nav.worldToRoute(world)
+    const pivot = nav.worldToRoute({x: camera.position.x, z: camera.position.z})
+    const turn = (8 * Math.PI) / 180
+    expect(nav.applyCorrection({dx: 1.5, dy: -2, yaw: turn, pivot})).toBe(true)
+    for (let i = 0; i < 12; i++) nav.update(0.1, i)
+    expect(nav.easing).toBe(false)
+
+    // The pivot moved by exactly (dx, dy) in the route frame.
+    const after = nav.worldToRoute({x: camera.position.x, z: camera.position.z})
+    near(after.x, pivot.x + 1.5, 1e-6)
+    near(after.y, pivot.y - 2, 1e-6)
+    // Any other point moved as p' = R(yaw)(p - pivot) + pivot + d.
+    const x = before.x - pivot.x
+    const y = before.y - pivot.y
+    const moved = nav.worldToRoute(world)
+    near(moved.x, x * Math.cos(turn) - y * Math.sin(turn) + pivot.x + 1.5, 1e-6)
+    near(moved.y, x * Math.sin(turn) + y * Math.cos(turn) + pivot.y - 2, 1e-6)
+  })
+
+  it('snaps the user onto a route within 15 m, not one further away', () => {
+    const route = [{x: 0, y: 0}, {x: 0, y: 50}]
+    expect(snapToRoute(route, {x: 9, y: 20})).toEqual({x: 0, y: 20})
+    expect(snapToRoute(route, {x: 20, y: 20})).toEqual({x: 20, y: 20})
+  })
+
+  it('walking with a compass 9° out brings the arrows back onto the path', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(1_000_000)
+    window.THREE = THREE
+    Object.defineProperty(navigator, 'geolocation', {configurable: true, value: {watchPosition: () => 1, clearWatch: () => {}}})
+    const add = vi.spyOn(window, 'addEventListener')
+    let stats = null
+    const trip = createArTrip({route: ROUTE, origin: ORIGIN, destination: {name: 'Library'}, onStats: (s) => (stats = s)})
+    const compass = add.mock.calls.find(([name]) => name === 'deviceorientation')[1]
+    add.mockRestore()
+    const camera = makeCamera()
+    trip.onSceneReady({scene: new THREE.Scene(), camera})
+    trip.onTracking({status: 'NORMAL'})
+
+    // The route really runs along -Z, where the camera looks, but the compass says 9° east of that.
+    const frame = (i) => {
+      vi.advanceTimersByTime(50)
+      compass({webkitCompassHeading: 9, webkitCompassAccuracy: 5})
+      trip.onTick({dt: 0.05, time: 1000 + i * 0.05})
+    }
+    frame(0)
+    frame(1)
+    let i = 2
+    for (; i < 12; i++) frame(i)
+    const startOff = stats.offRouteM
+    for (; i < 12 + 600; i++) {
+      camera.position.z -= 1.3 * 0.05
+      camera.updateMatrixWorld(true)
+      frame(i)
+    }
+    expect(startOff).toBeLessThan(0.1)
+    expect(stats.offRouteM).toBeLessThan(0.5)
+    near(Math.abs(stats.matchYawDeg), 9, 1)
+    expect(stats.matchResidualM).toBeLessThan(0.5)
+    trip.stop()
+    vi.useRealTimers()
+    delete window.THREE
   })
 })

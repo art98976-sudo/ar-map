@@ -7,7 +7,8 @@
 //                             moved so the user's GPS position sits under the camera,
 //                             at ground height y = 0 (8th Wall absolute scale).
 import {dedupe, distanceM, projectOntoPolyline, simplify, toLocal} from '../geo/geo.js'
-import {createArrowTrail} from '../arrows/trail.js'
+import {SNAP_TO_PATH_M} from '../nav/route.js'
+import {createArrowTrail, nextTurn} from '../arrows/trail.js'
 import {createDestinationPin} from '../arrows/pin.js'
 
 /**
@@ -35,12 +36,22 @@ export function rotateY({x, z}, yaw) {
   return {x: x * c + z * s, z: -x * s + z * c}
 }
 
-/** Route GPS points -> clean local metres (duplicates removed, GPS zig-zags smoothed). */
+/**
+ * Route GPS points -> clean local metres (duplicates removed, GPS zig-zags smoothed).
+ * The tolerance is small so corners are not cut. The trail then resamples this to 1 m.
+ */
 export function routeToLocal(origin, points) {
-  return simplify(dedupe(points.map((p) => toLocal(origin, p)), 0.3), 0.5)
+  return simplify(dedupe(points.map((p) => toLocal(origin, p)), 0.3), 0.25)
+}
+
+/** Near the route, the user is ON it: GPS error should not put them beside it. */
+export function snapToRoute(route, p, maxM = SNAP_TO_PATH_M) {
+  const hit = projectOntoPolyline(route, p)
+  return hit.offset <= maxM ? {x: hit.x, y: hit.y} : {x: p.x, y: p.y}
 }
 
 const REALIGN_EASE_S = 0.5
+const MATCH_EASE_S = 1
 
 /**
  * @param {object} o
@@ -61,7 +72,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
   geoRoot.visible = false
   scene.add(geoRoot)
 
-  const trail = createArrowTrail(THREE, local)
+  const trail = createArrowTrail(THREE, local, {approximate: route.source === 'direct'})
   geoRoot.add(trail.mesh)
   const pin = createDestinationPin(THREE, {name})
   pin.group.position.set(entranceLocal.x, 0, -entranceLocal.y)
@@ -84,7 +95,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
     camera.getWorldPosition(camPos)
     yaw = alignmentYaw({x: forward.x, z: forward.z}, headingDeg)
     // Where the user stands in the route frame (geo root coordinates: x east, z = -north).
-    const u = toLocal(origin, userFix)
+    const u = snapToRoute(local, toLocal(origin, userFix))
     const rotated = rotateY({x: u.x, z: -u.y}, yaw)
     geoRoot.rotation.set(0, yaw, 0)
     // Ground is y = 0 in 8th Wall absolute scale; put the user's position under the camera.
@@ -100,25 +111,54 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
   /**
    * Correct the heading without a snap: ease the yaw over ~0.5 s, turning the route about the
    * point where the user stands, so their place on the route does not move.
-   * Returns false (and does nothing) if the difference is not more than minDeg.
+   * Returns false (and does nothing) if the difference is not more than minDeg, or if another
+   * correction is still easing: the next compass window gets another go.
    */
   function realign(headingDeg, minDeg = 0) {
-    if (!aligned) return false
+    if (!aligned || ease) return false
     camera.getWorldDirection(forward)
     const delta = shortestTurn(yaw, alignmentYaw({x: forward.x, z: forward.z}, headingDeg))
     if (Math.abs(delta) <= (minDeg * Math.PI) / 180) return false
     camera.getWorldPosition(camPos)
     const pivot = geoRoot.worldToLocal(camPos.clone())
-    ease = {from: yaw, delta, t: 0, world: {x: camPos.x, z: camPos.z}, local: {x: pivot.x, z: pivot.z}}
+    const here = {x: pivot.x, z: pivot.z}
+    ease = {yaw, delta, t: 0, seconds: REALIGN_EASE_S, world: {x: camPos.x, z: camPos.z}, from: here, to: here}
     return true
+  }
+
+  /**
+   * Apply a map-matching correction (route-matcher.js), easing it over ~1 s. The correction moves
+   * the walked track within the route frame, so the route moves the opposite way in the world
+   * while the user's own spot in the world stays put.
+   */
+  function applyCorrection({dx, dy, yaw: turn, pivot}) {
+    if (!aligned || ease) return false
+    const from = {x: pivot.x, z: -pivot.y}
+    const rotated = rotateY(from, yaw)
+    ease = {
+      yaw,
+      delta: -turn,
+      t: 0,
+      seconds: MATCH_EASE_S,
+      world: {x: geoRoot.position.x + rotated.x, z: geoRoot.position.z + rotated.z},
+      from,
+      to: {x: pivot.x + dx, z: -(pivot.y + dy)},
+    }
+    return true
+  }
+
+  /** SLAM world (x, z) -> route frame (x east, y north) with the current placement. */
+  function worldToRoute({x, z}) {
+    const p = geoRoot.worldToLocal(tmp.set(x, 0, z))
+    return {x: p.x, y: -p.z}
   }
 
   function stepEase(dt) {
     if (!ease) return
-    ease.t = Math.min(1, ease.t + dt / REALIGN_EASE_S)
+    ease.t = Math.min(1, ease.t + dt / ease.seconds)
     const k = ease.t * ease.t * (3 - 2 * ease.t)
-    yaw = ease.from + ease.delta * k
-    const rotated = rotateY(ease.local, yaw)
+    yaw = ease.yaw + ease.delta * k
+    const rotated = rotateY({x: ease.from.x + (ease.to.x - ease.from.x) * k, z: ease.from.z + (ease.to.z - ease.from.z) * k}, yaw)
     geoRoot.rotation.set(0, yaw, 0)
     geoRoot.position.set(ease.world.x - rotated.x, 0, ease.world.z - rotated.z)
     geoRoot.updateMatrixWorld(true)
@@ -143,14 +183,29 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
     const pinWorld = pin.group.getWorldPosition(new THREE.Vector3())
     const toPinM = Math.hypot(pinWorld.x - tmp.x, pinWorld.z - tmp.z)
     pin.update(time, toPinM, camera)
-    last = {s: p.s, offset: p.offset, remainingM: Math.max(0, totalM - p.s), toPinM, arrows}
+    const turn = nextTurn(trail.turns, p.s)
+    last = {
+      s: p.s,
+      offset: p.offset,
+      remainingM: Math.max(0, totalM - p.s),
+      toPinM,
+      arrows,
+      nextTurnM: turn ? Math.max(0, turn.s - p.s) : null,
+      nextTurnDir: turn ? (turn.angle > 0 ? 'right' : 'left') : null,
+    }
     return last
   }
 
   return {
     align,
     realign,
+    applyCorrection,
+    worldToRoute,
     update,
+    route: local,
+    get easing() {
+      return ease != null
+    },
     get aligned() {
       return aligned
     },

@@ -34,11 +34,13 @@
     <script type="module">
       // Dev tool: `npm run dev`, then open http://localhost:5173/tools/arrow-preview.html
       // Add ?at=<metres> to freeze the walker at that point (used for screenshots).
+      // Add ?approx=1 to see the amber arrows of a straight-line fallback route.
       import * as THREE from 'three'
       import {createArrowTrail} from '/src/arrows/trail.js'
       import {createDestinationPin} from '/src/arrows/pin.js'
 
-      const at = new URLSearchParams(location.search).get('at')
+      const query = new URLSearchParams(location.search)
+      const at = query.get('at')
       const renderer = new THREE.WebGLRenderer({antialias: true})
       renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
       renderer.setSize(innerWidth, innerHeight)
@@ -58,7 +60,7 @@
 
       // Route in local metres (x east, y north): 30 m north, turn right, 25 m east.
       const route = [{x: 0, y: 0}, {x: 0, y: 30}, {x: 25, y: 30}]
-      const trail = createArrowTrail(THREE, route)
+      const trail = createArrowTrail(THREE, route, {approximate: query.get('approx') === '1'})
       scene.add(trail.mesh)
       const pin = createDestinationPin(THREE, {name: 'Cottrell Building'})
       pin.group.position.set(25, 0, -30)

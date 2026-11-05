@@ -12,7 +12,7 @@ import {
 } from '../../src/geo/geo.js'
 import {aStar} from '../../src/nav/astar.js'
 import {buildGraph, routeOnFootpaths} from '../../src/nav/footpaths.js'
-import {entranceOf, googleMapsWalkingUrl, isOnCampus, parseMazeMapPath, planRoute, walkingMinutes} from '../../src/nav/route.js'
+import {anchor, entranceOf, googleMapsWalkingUrl, isOnCampus, parseMazeMapPath, planRoute, walkingMinutes} from '../../src/nav/route.js'
 import {angleDiff, cameraHeadingFromOrientation, circularMean, circularSpread, createCalibrator} from '../../src/ar/compass.js'
 import {alignmentYaw, rotateY, routeToLocal} from '../../src/ar/nav-scene.js'
 import {TRAIL, visibleCount} from '../../src/arrows/trail.js'
@@ -120,6 +120,42 @@ describe('route planning', () => {
     expect(r.points[0]).toEqual(WALKWAY)
     expect(r.points.at(-1)).toEqual(entranceOf(library))
     expect(r.minutes).toBe(walkingMinutes(r.lengthM))
+  })
+
+  describe('anchor', () => {
+    const north = (m, from = WALKWAY) => ({lat: from.lat + m / 111_195, lng: from.lng})
+    const east = (m, from = WALKWAY) => fromLocal(from, {x: m, y: 0})
+
+    it('starts on the path, not at a GPS fix within 15 m of it', () => {
+      const path = [east(8, north(-20)), east(8, north(40))]
+      const to = east(8, north(40))
+      const pts = anchor(path, WALKWAY, to)
+      near(distanceM(pts[0], east(8)), 0, 0.01) // the nearest point on the path, not the fix
+      expect(pts).toHaveLength(2)
+      expect(pts.at(-1)).toEqual(to)
+    })
+    it('ignores a leg the planner added from the raw fix', () => {
+      const pts = anchor([WALKWAY, east(8), east(8, north(40))], WALKWAY, east(8, north(40)))
+      near(distanceM(pts[0], east(8)), 0, 0.01)
+    })
+    it('keeps a leg from the user when they are far from any path', () => {
+      const path = [east(40), east(40, north(40))]
+      const pts = anchor(path, WALKWAY, path[1])
+      expect(pts[0]).toEqual(WALKWAY)
+      expect(pts).toHaveLength(3)
+    })
+    it('adds the entrance only if it is not already on the path', () => {
+      const path = [WALKWAY, north(40)]
+      expect(anchor(path, WALKWAY, north(40))).toHaveLength(2)
+      expect(anchor(path, WALKWAY, north(20))).toEqual([WALKWAY, north(20)]) // stops there
+      const off = east(10, north(40))
+      expect(anchor(path, WALKWAY, off).at(-1)).toEqual(off)
+      expect(anchor(path, WALKWAY, off)).toHaveLength(3)
+    })
+    it('keeps a straight fallback as it is', () => {
+      const to = north(100)
+      expect(anchor([WALKWAY, to], WALKWAY, to)).toEqual([WALKWAY, to])
+    })
   })
 
   it('falls back to footpaths when MazeMap goes indoors or fails', async () => {

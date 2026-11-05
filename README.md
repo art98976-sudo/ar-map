@@ -6,7 +6,7 @@ No app to install.
 
 Status: **Outdoor V1, Steps A–D**: destination search, GPS location, walking route, compass, arrows on the ground.
 
-**A trip:** search → device check → one "Allow and start" tap (motion, camera, location) → GPS ±20 m or better → route planned → camera → arrows and a destination pin as soon as tracking and the compass respond. The compass keeps calibrating silently in the background.
+**A trip:** search → device check → one "Allow and start" tap (motion, camera, location) → GPS ±20 m or better → route planned → camera → arrows and a destination pin as soon as tracking and the compass respond. The compass keeps calibrating silently in the background, and map matching lays the walked track onto the route after 8 m, so the arrows sit on the real path. Arrows stop 3 m past the next corner, so they never show through a building.
 
 ## Quick start
 
