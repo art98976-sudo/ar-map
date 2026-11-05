@@ -61,6 +61,7 @@
       // Route in local metres (x east, y north): 30 m north, turn right, 25 m east.
       const route = [{x: 0, y: 0}, {x: 0, y: 30}, {x: 25, y: 30}]
       const trail = createArrowTrail(THREE, route, {approximate: query.get('approx') === '1'})
+      scene.add(trail.lane)
       scene.add(trail.mesh)
       const pin = createDestinationPin(THREE, {name: 'Cottrell Building'})
       pin.group.position.set(25, 0, -30)

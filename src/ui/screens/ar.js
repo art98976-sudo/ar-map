@@ -182,6 +182,7 @@ export function arScreen(root, {navigate, params}) {
               <div class="stats__row"><dt>Next turn</dt><dd data-stat="turn">–</dd></div>
               <div class="stats__row"><dt>Arrows drawn</dt><dd data-stat="arrows">–</dd></div>
               <div class="stats__row"><dt>Camera height</dt><dd data-stat="height">–</dd></div>
+              <div class="stats__row"><dt>Ground</dt><dd data-stat="ground">–</dd></div>
               <div class="stats__row"><dt>Route source</dt><dd data-stat="source">${route.source}</dd></div>
               <div class="stats__row"><dt>Frame rate</dt><dd data-stat="fps">–</dd></div>
             </dl>
@@ -234,6 +235,9 @@ export function arScreen(root, {navigate, params}) {
     setStat('turn', s.nextTurnM == null ? 'none' : `${formatDistance(s.nextTurnM)} ${s.nextTurnDir}`)
     setStat('arrows', `${s.arrows} of ${s.arrowTotal}`)
     setStat('height', `${s.cameraHeight.toFixed(2)} m`)
+    if (s.groundHeight != null) {
+      setStat('ground', `${s.groundHeight.toFixed(2)} m, ${(s.groundSlope * 100).toFixed(0)}%, ${s.groundHits} hits (${s.groundSource})`, s.groundSource === 'hits' ? 'ok' : 'warn')
+    }
     const pillText = root.querySelector('[data-trip-pill]')
     if (pillText && s.phase === 'ready') pillText.textContent = tripPillText(destination.name, s.remainingM)
   }

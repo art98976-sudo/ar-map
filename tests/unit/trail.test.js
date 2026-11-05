@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest'
 import * as THREE from 'three'
-import {createArrowTrail, nextTurn, TRAIL, visibleWindowEnd} from '../../src/arrows/trail.js'
+import {createArrowTrail, laneGeometryData, nextTurn, TRAIL, visibleWindowEnd} from '../../src/arrows/trail.js'
 
 // 30 m north, right turn, 30 m east, left turn, 30 m north.
 const ROUTE = [{x: 0, y: 0}, {x: 0, y: 30}, {x: 30, y: 30}, {x: 30, y: 60}]
@@ -25,6 +25,34 @@ describe('visible window', () => {
     expect(nextTurn(turns, 31.5).s).toBe(60)
     expect(visibleWindowEnd(turns, 40)).toBe(55)
     expect(nextTurn(turns, 61.5)).toBeNull()
+  })
+})
+
+describe('the painted look', () => {
+  it('uses wider chevrons and smaller corner arrows', () => {
+    expect(TRAIL.sizeM).toBe(0.85)
+    expect(TRAIL.turnScale).toBe(1.6)
+  })
+  it('lays a 1.1 m lane strip along the route, to either side of it', () => {
+    const lane = laneGeometryData([{x: 0, y: 0, s: 0}, {x: 0, y: 1, s: 1}, {x: 0, y: 2, s: 2}])
+    expect(lane.positions).toHaveLength(18)
+    expect(lane.aS).toEqual([0, 0, 1, 1, 2, 2])
+    expect(lane.aSide).toEqual([-1, 1, -1, 1, -1, 1])
+    expect(lane.index).toHaveLength(12)
+    // Heading north, the left vertex is to the west and the right to the east.
+    near(lane.positions[0], -0.55)
+    near(lane.positions[3], 0.55)
+    near(lane.positions[2], 0) // z = -north
+    near(lane.positions[8], -1)
+  })
+  it('shares the visible window and the colour with the arrows', () => {
+    const amber = createArrowTrail(THREE, ROUTE, {approximate: true})
+    const {uniforms} = amber.lane.material
+    expect(uniforms.uAheadEnd).toBe(amber.mesh.material.uniforms.uAheadEnd)
+    expect(uniforms.uColor.value.getHex()).toBe(new THREE.Color(TRAIL.approxColor).getHex())
+    amber.setSlope(0.1)
+    expect(uniforms.uSlope.value).toBe(0.1)
+    expect(amber.mesh.material.uniforms.uSlope.value).toBe(0.1)
   })
 })
 

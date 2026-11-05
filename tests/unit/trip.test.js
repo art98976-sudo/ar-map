@@ -406,6 +406,90 @@ describe('alignment in all four directions', () => {
   })
 })
 
+describe('the arrows on the real ground', () => {
+  function start(hitTest) {
+    vi.useFakeTimers()
+    vi.setSystemTime(1_000_000)
+    window.THREE = THREE
+    Object.defineProperty(navigator, 'geolocation', {configurable: true, value: {watchPosition: () => 1, clearWatch: () => {}}})
+    const box = {stats: null}
+    const scene = new THREE.Scene()
+    const trip = createArTrip({route: ROUTE, origin: ORIGIN, destination: {name: 'Library'}, onStats: (s) => (box.stats = s)})
+    const camera = makeCamera()
+    trip.onSceneReady({scene, camera, XR8: {XrController: {hitTest}}})
+    trip.onTracking({status: 'NORMAL'})
+    expect(trip.start()).toBe('ok')
+    const run = (seconds) => {
+      for (let i = 0; i < seconds / 0.05; i++) trip.onTick({dt: 0.05, time: (box.time = (box.time ?? 1000) + 0.05)})
+    }
+    return {
+      box,
+      run,
+      root: scene.getObjectByName('geo-root'),
+      trip,
+      done() {
+        trip.stop()
+        vi.useRealTimers()
+        delete window.THREE
+      },
+    }
+  }
+
+  it('starts on the phone height minus 1.45 m, with no hits', () => {
+    const t = start(() => [])
+    t.run(0.5)
+    near(t.root.position.y, 0.05, 0.001)
+    expect(t.box.stats.groundSource).toBe('eye')
+    t.done()
+  })
+
+  it('moves onto the surfaces the engine finds', () => {
+    let n = 0
+    const hitTest = vi.fn(() => {
+      n += 1
+      return [{type: 'DETECTED_SURFACE', position: {x: 0.5, y: -0.6, z: -((n % 12) + 1)}}]
+    })
+    const t = start(hitTest)
+    t.run(4)
+    expect(hitTest.mock.calls[0][2]).toEqual(['DETECTED_SURFACE', 'ESTIMATED_SURFACE', 'FEATURE_POINT'])
+    expect(hitTest.mock.calls.every(([x, y]) => x > 0 && x < 1 && y >= 0.5)).toBe(true)
+    near(t.root.position.y, -0.6, 0.02)
+    expect(t.box.stats.groundSource).toBe('hits')
+    t.done()
+  })
+
+  it('ignores a window or wall above the phone', () => {
+    const t = start(() => [{position: {x: 0.5, y: 2.5, z: -3}}])
+    t.run(2)
+    near(t.root.position.y, 0.05, 0.001)
+    expect(t.box.stats.groundHits).toBe(0)
+    t.done()
+  })
+
+  it('samples about every 0.15 s, and carries on if a hit test throws', () => {
+    const hitTest = vi.fn(() => {
+      throw new Error('not ready')
+    })
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const t = start(hitTest)
+    t.run(1.5)
+    expect(hitTest.mock.calls.length).toBeGreaterThan(5)
+    expect(hitTest.mock.calls.length).toBeLessThan(15)
+    expect(t.box.stats.phase).toBe('ready')
+    warn.mockRestore()
+    t.done()
+  })
+
+  it('does not hit test while tracking is limited', () => {
+    const hitTest = vi.fn(() => [])
+    const t = start(hitTest)
+    t.trip.onTracking({status: 'LIMITED'})
+    t.run(1)
+    expect(hitTest).not.toHaveBeenCalled()
+    t.done()
+  })
+})
+
 describe('compass readings', () => {
   const fakeWindow = (angle) => {
     const handlers = {}

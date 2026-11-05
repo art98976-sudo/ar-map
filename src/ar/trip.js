@@ -9,9 +9,11 @@
 //
 // Once 'ready', a silent collector keeps averaging the compass while the phone is upright and
 // steady. Each completed 3 s window eases the route round if it has drifted by more than 5°.
-// While walking, map matching (route-matcher.js) lays the walked track onto the route.
+// While walking, map matching (route-matcher.js) lays the walked track onto the route, and hit
+// tests (ground.js) lay the route onto the real ground.
 import {angleDiff, circularMean, createCalibrator, isPoorAccuracy, startCompass} from './compass.js'
 import {createNavScene, gpsDistanceToEntrance} from './nav-scene.js'
+import {acceptHit, createGroundTracker, GROUND, HIT_TYPES, SCREEN_POINTS} from './ground.js'
 import {createRouteMatcher} from './route-matcher.js'
 import {GPS, watchLocation} from '../geo/location.js'
 
@@ -28,6 +30,7 @@ const COMPASS_PILL_AFTER_MS = 10_000 // show the figure-8 pill after this long u
 const DESKTOP_START_DELAY_S = 2 // a webcam on a desk never reports NORMAL tracking
 const ARRIVED_WITHIN_M = 8 // this close to the entrance...
 const ARRIVED_FOR_S = 1 // ...for this long, so a correction easing past cannot end the trip
+const POINTS_PER_SAMPLE = 3
 
 /** Compass-style bearing of a direction: degrees clockwise from north (or from SLAM -Z). */
 function bearing(east, north) {
@@ -67,6 +70,11 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
   let lastMatchAt = -Infinity
   let nearEntranceFor = 0
   let arrived = false
+  let xr = null
+  let lastGroundAt = -Infinity
+  let nextPoint = 0
+  let groundNow = {height: null, slope: 0, source: 'eye'}
+  const ground = createGroundTracker()
   const calibrator = createCalibrator()
 
   function setPhase(next, detail = {}) {
@@ -191,6 +199,7 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
     const compass = heading == null ? null : recentHeading()
     const h = chooseStartHeading(nav.startInfo(fix).bearingDeg, compass)
     compassBias = compass == null ? null : angleDiff(h, compass)
+    nav.setGround(ground.fallback(camera.position.y), 0)
     nav.align(h, fix)
     restartWindow()
     setPhase('ready', {heading: h})
@@ -205,6 +214,28 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
     lastMatchAt = time
     const correction = matcher.update(nav.worldToRoute)
     if (correction) nav.applyCorrection(correction)
+  }
+
+  /** Look for the real ground at a few spots in the lower half of the screen. */
+  function sampleGround(time) {
+    if (tracking !== 'NORMAL' || !xr?.XrController?.hitTest || time - lastGroundAt < GROUND.sampleEveryS) return
+    lastGroundAt = time
+    for (let i = 0; i < POINTS_PER_SAMPLE; i++) {
+      const [x, y] = SCREEN_POINTS[nextPoint]
+      nextPoint = (nextPoint + 1) % SCREEN_POINTS.length
+      let hits
+      try {
+        hits = xr.XrController.hitTest(x, y, HIT_TYPES) || []
+      } catch (err) {
+        console.warn('[ground] hit test failed', err)
+        return
+      }
+      for (const {position} of hits) {
+        if (!position) continue
+        const along = nav.routePosition(position)
+        if (acceptHit(position, camera.position, along.offset)) ground.addHit(along.s, position.y, camera.position.y, time)
+      }
+    }
   }
 
   /** Live numbers and the route-frame picture for the ?debug=1 overlay. */
@@ -226,9 +257,10 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
   }
 
   // ---------- engine hooks ----------
-  function onSceneReady({scene, camera: cam}) {
+  function onSceneReady({scene, camera: cam, XR8}) {
     THREE = window.THREE
     camera = cam
+    xr = XR8
     nav = createNavScene({THREE, scene, camera, route, origin, name: destination.name})
     matcher = createRouteMatcher(nav.route)
     setPhase('await-start')
@@ -243,8 +275,15 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
     startedAt ??= time
     lastTime = time
     if (tracking === 'NORMAL' || lastNormalAt == null) lastNormalAt = time
-    if (phase === 'ready') runMatching(time)
+    if (phase === 'ready') {
+      runMatching(time)
+      sampleGround(time)
+    }
     const s = nav.update(dt, time)
+    if (phase === 'ready') {
+      groundNow = ground.update(dt, s.s, camera.position.y, time)
+      nav.setGround(groundNow.height, groundNow.slope, s.s)
+    }
     if (phase === 'ready' && !arrived) {
       nearEntranceFor = s.toPinM != null && s.toPinM <= ARRIVED_WITHIN_M ? nearEntranceFor + dt : 0
       if (nearEntranceFor >= ARRIVED_FOR_S) {
@@ -271,6 +310,10 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
         arrows: nav.aligned ? s.arrows : 0,
         arrowTotal: nav.arrowCount,
         cameraHeight: camera.position.y,
+        groundHeight: groundNow.height,
+        groundSlope: groundNow.slope,
+        groundSource: groundNow.source,
+        groundHits: ground.hitCount,
         yawDeg: nav.yawDeg,
         matchOffsetM: matcher.totalOffsetM,
         matchYawDeg: matcher.totalYawDeg,

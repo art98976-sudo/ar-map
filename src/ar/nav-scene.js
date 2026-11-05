@@ -8,7 +8,7 @@
 //                             at ground height y = 0 (8th Wall absolute scale).
 import {dedupe, distanceM, projectOntoPolyline, simplify, toLocal} from '../geo/geo.js'
 import {SNAP_TO_PATH_M} from '../nav/route.js'
-import {createArrowTrail, nextTurn} from '../arrows/trail.js'
+import {createArrowTrail, nextTurn, TRAIL} from '../arrows/trail.js'
 import {createDestinationPin} from '../arrows/pin.js'
 
 const START_SNAP_M = 20 // at the Start tap, GPS this close means the user is ON the route
@@ -103,6 +103,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
   scene.add(geoRoot)
 
   const trail = createArrowTrail(THREE, local, {approximate: route.source === 'direct'})
+  geoRoot.add(trail.lane)
   geoRoot.add(trail.mesh)
   const pin = createDestinationPin(THREE, {name})
   pin.group.position.set(entranceLocal.x, 0, -entranceLocal.y)
@@ -114,6 +115,8 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
   let aligned = false
   let yaw = 0
   let ease = null
+  let groundY = 0
+  const entranceS = projectOntoPolyline(local, entranceLocal).s
   let last = {s: 0, offset: 0, remainingM: totalM, arrows: 0}
 
   /**
@@ -128,8 +131,8 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
     const u = snapToRoute(local, toLocal(origin, userFix), START_SNAP_M)
     const rotated = rotateY({x: u.x, z: -u.y}, yaw)
     geoRoot.rotation.set(0, yaw, 0)
-    // Ground is y = 0 in 8th Wall absolute scale; put the user's position under the camera.
-    geoRoot.position.set(camPos.x - rotated.x, 0, camPos.z - rotated.z)
+    // Put the user's position under the camera, on the ground as tracked so far.
+    geoRoot.position.set(camPos.x - rotated.x, groundY, camPos.z - rotated.z)
     geoRoot.updateMatrixWorld(true)
     ease = null
     aligned = true
@@ -183,6 +186,21 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
     return true
   }
 
+  /** Lay the route on the ground: its height at the user, and its slope along the route. */
+  function setGround(height, slope, userS = last.s) {
+    groundY = height
+    geoRoot.position.y = height
+    geoRoot.updateMatrixWorld(true)
+    trail.setSlope(slope)
+    pin.group.position.y = Math.max(-TRAIL.maxLiftM, Math.min(TRAIL.maxLiftM, (entranceS - userS) * slope))
+  }
+
+  /** How far along the route a world point is, and how far off to the side. */
+  function routePosition(point) {
+    const hit = projectOntoPolyline(local, worldToRoute(point))
+    return {s: hit.s, offset: hit.offset}
+  }
+
   /** SLAM world (x, z) -> route frame (x east, y north) with the current placement. */
   function worldToRoute({x, z}) {
     const p = geoRoot.worldToLocal(tmp.set(x, 0, z))
@@ -196,7 +214,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
     yaw = ease.yaw + ease.delta * k
     const rotated = rotateY({x: ease.from.x + (ease.to.x - ease.from.x) * k, z: ease.from.z + (ease.to.z - ease.from.z) * k}, yaw)
     geoRoot.rotation.set(0, yaw, 0)
-    geoRoot.position.set(ease.world.x - rotated.x, 0, ease.world.z - rotated.z)
+    geoRoot.position.set(ease.world.x - rotated.x, groundY, ease.world.z - rotated.z)
     geoRoot.updateMatrixWorld(true)
     if (ease.t >= 1) ease = null
   }
@@ -238,6 +256,8 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
     realign,
     applyCorrection,
     worldToRoute,
+    setGround,
+    routePosition,
     update,
     route: local,
     get easing() {
