@@ -272,7 +272,7 @@ test.describe('phones and browsers that cannot run AR', () => {
 })
 
 test.describe('AR session', () => {
-  test('Android: from a pin to the live camera, showing only exit and the pill', async ({page}, testInfo) => {
+  test('Android: from a pin to the live camera, showing only exit, the pill and the minimap', async ({page}, testInfo) => {
     test.skip(onlyOn('android-chrome')(testInfo))
     const errors = watchErrors(page)
     await page.addInitScript(FAKE_REAR_CAMERA)
@@ -287,7 +287,7 @@ test.describe('AR session', () => {
     // Nothing else without ?debug=1.
     await expect(page.locator('[data-tracking-chip]')).toHaveCount(0)
     await expect(page.locator('[data-debug]')).toHaveCount(0)
-    await expect(page.locator('[data-minimap]')).toHaveCount(0)
+    await expect(page.locator('[data-minimap]')).toBeVisible()
     await expect(page.getByRole('button', {name: 'Show debug panel'})).toHaveCount(0)
     // Exit returns to the map and releases the camera.
     await page.getByRole('button', {name: 'Exit AR'}).click()

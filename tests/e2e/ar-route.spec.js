@@ -80,8 +80,8 @@ test.describe('route and arrows', () => {
     // Headless Chrome sends no orientation events, and its fake camera never tracks.
     await expect(page.locator('[data-start-arrow]')).toBeHidden()
     await expect(page.getByRole('button', {name: 'Start', exact: true})).toBeDisabled()
-    // Without ?debug=1 nothing of the debug tools shows.
-    await expect(page.locator('[data-minimap]')).toHaveCount(0)
+    // The minimap always shows. Without ?debug=1 nothing of the debug tools does.
+    await expect(page.locator('[data-minimap]')).toBeVisible()
     await expect(page.getByRole('button', {name: 'Show debug panel'})).toHaveCount(0)
   })
 })
