@@ -7,13 +7,13 @@
 //
 // Pure maths, no three.js. Corrections are in the route frame: x = east, y = north, angles
 // counter-clockwise, applied as p' = R(yaw)(p - pivot) + pivot + (dx, dy).
-import {projectOntoPolyline} from '../geo/geo.js'
+import {findTurns, projectOntoPolyline} from '../geo/geo.js'
 
 export const MATCH = {
   sampleEveryS: 0.5,
   minStepM: 0.25, // ignore smaller moves, so a user standing still builds up no fake "walk"
   trackM: 30, // keep this much of the walk
-  minWalkedM: 6, // no correction before this
+  minWalkedM: 5, // no correction before this
   gateM: 8, // samples further than this from the route are ignored by the fine fit
   coarseM: 16, // with too few samples in the gate, line up by direction if the user is this close
   iterations: 10,
@@ -23,6 +23,10 @@ export const MATCH = {
   maxTotalM: 20, // over the whole trip
   maxTotalDeg: 45,
   confidentResidualM: 1,
+  cornerArmM: 4, // a turn in the walk needs this much straight walking either side
+  cornerMinDeg: 35, // same as a turn in the route (findTurns)
+  cornerAgreeDeg: 30, // the walk and the route turn by a similar angle...
+  cornerNearM: 12, // ...this close together
   wrongWayDeg: 90, // walking further than this from the route direction: the alignment is flipped
   wrongWayChecks: 2, // seen on this many updates in a row, so one stumble cannot flip the route
   straightRatio: 0.7, // straight-line distance over distance walked, to read a walking direction
@@ -51,18 +55,19 @@ function nearInliers(track, route, gateM) {
   })
 }
 
-/** Best rigid move of points onto their matches (2D Procrustes). */
+/** Best rigid move of points onto their matches (weighted 2D Procrustes). */
 function bestRigid(pairs) {
-  const n = pairs.length
+  let n = 0
   let px = 0
   let py = 0
   let qx = 0
   let qy = 0
-  for (const {p, q} of pairs) {
-    px += p.x
-    py += p.y
-    qx += q.x
-    qy += q.y
+  for (const {p, q, weight = 1} of pairs) {
+    n += weight
+    px += p.x * weight
+    py += p.y * weight
+    qx += q.x * weight
+    qy += q.y * weight
   }
   px /= n
   py /= n
@@ -70,13 +75,13 @@ function bestRigid(pairs) {
   qy /= n
   let dot = 0
   let cross = 0
-  for (const {p, q} of pairs) {
+  for (const {p, q, weight = 1} of pairs) {
     const ax = p.x - px
     const ay = p.y - py
     const bx = q.x - qx
     const by = q.y - qy
-    dot += ax * bx + ay * by
-    cross += ax * by - ay * bx
+    dot += (ax * bx + ay * by) * weight
+    cross += (ax * by - ay * bx) * weight
   }
   return {yaw: Math.atan2(cross, dot), from: {x: px, y: py}, to: {x: qx, y: qy}}
 }
@@ -103,6 +108,47 @@ export function walkVsRoute(track, route) {
   return {chordM: Math.hypot(cx, cy), turn: shortestTurn(Math.atan2(ty, tx) - Math.atan2(cy, cx))}
 }
 
+/**
+ * The sharpest turn in a walked track: {index, angle} with angle in degrees, > 0 for right
+ * (the same as findTurns), or null. Compares the walk over a few metres either side of each sample.
+ */
+export function detectTrackTurn(track, armM = MATCH.cornerArmM, minDeg = MATCH.cornerMinDeg) {
+  const along = [0]
+  for (let i = 1; i < track.length; i++) along[i] = along[i - 1] + Math.hypot(track[i].x - track[i - 1].x, track[i].y - track[i - 1].y)
+  let best = null
+  let back = 0
+  let ahead = 0
+  for (let i = 0; i < track.length; i++) {
+    while (back < i && along[i] - along[back + 1] >= armM) back += 1
+    ahead = Math.max(ahead, i)
+    while (ahead < track.length - 1 && along[ahead] - along[i] < armM) ahead += 1
+    if (along[i] - along[back] < armM || along[ahead] - along[i] < armM) continue
+    const before = Math.atan2(track[i].x - track[back].x, track[i].y - track[back].y)
+    const after = Math.atan2(track[ahead].x - track[i].x, track[ahead].y - track[i].y)
+    const angle = (shortestTurn(after - before) * 180) / Math.PI
+    if (Math.abs(angle) >= minDeg && (!best || Math.abs(angle) > Math.abs(best.angle))) best = {index: i, angle}
+  }
+  return best
+}
+
+/**
+ * Where the walk turned the way the route turns: the one place that also fixes the position
+ * ALONG the route, which a straight walk cannot. Returns {index, q} or null.
+ */
+export function findCornerAnchor(track, route) {
+  const turn = detectTrackTurn(track)
+  if (!turn) return null
+  const at = track[turn.index]
+  let best = null
+  for (const corner of findTurns(route)) {
+    if (Math.sign(corner.angle) !== Math.sign(turn.angle)) continue
+    if (Math.abs(corner.angle - turn.angle) > MATCH.cornerAgreeDeg) continue
+    const distance = Math.hypot(corner.x - at.x, corner.y - at.y)
+    if (distance <= MATCH.cornerNearM && (!best || distance < best.distance)) best = {index: turn.index, q: {x: corner.x, y: corner.y}, distance}
+  }
+  return best
+}
+
 /** Too few samples near the route: turn the track to run along it, and step towards it. */
 function coarseFit(track, route, pivot) {
   const hit = projectOntoPolyline(route, pivot)
@@ -114,7 +160,8 @@ function coarseFit(track, route, pivot) {
  * Fit a walked track onto the route. Returns {dx, dy, yaw, pivot} about the pivot (the user),
  * or null when the track is too far from the route to say anything.
  */
-export function fitTrackToRoute(track, route, {pivot = track.at(-1), gateM = MATCH.gateM, iterations = MATCH.iterations, minInliers = MATCH.minInliers} = {}) {
+export function fitTrackToRoute(track, route, {pivot = track.at(-1), gateM = MATCH.gateM, iterations = MATCH.iterations, minInliers = MATCH.minInliers, useCorners = true} = {}) {
+  const corner = useCorners ? findCornerAnchor(track, route) : null
   let moved = track
   let user = pivot
   let yaw = 0
@@ -124,6 +171,8 @@ export function fitTrackToRoute(track, route, {pivot = track.at(-1), gateM = MAT
       if (i === 0) return coarseFit(track, route, pivot)
       break
     }
+    // As strong as all the other samples together.
+    if (corner) pairs.push({p: moved[corner.index], q: corner.q, weight: pairs.length})
     const step = bestRigid(pairs)
     const apply = (p) => transform(p, {dx: step.to.x - step.from.x, dy: step.to.y - step.from.y, yaw: step.yaw}, step.from)
     moved = moved.map(apply)

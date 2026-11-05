@@ -47,8 +47,10 @@ test.describe('route and arrows', () => {
     await page.goto('/#/locate?to=cottrell&force=1&debug=1')
     await page.getByRole('button', {name: 'Tap to start'}).click({timeout: 30_000})
     await expect(page.locator('[data-stat="camera"]')).toHaveText('Working', {timeout: 60_000})
-    // The test browser has no compass: test mode (force=1) faces north and places the route.
+    // The test browser has no compass: the Start tap is enough.
+    await page.getByRole('button', {name: 'Start', exact: true}).click({timeout: 30_000})
     await expect(page.locator('[data-stat="phase"]')).toHaveText('ready', {timeout: 30_000})
+    await expect(page.getByRole('heading', {name: "Stand on the path and face the way you'll walk"})).toBeHidden()
     // ?debug=1: the live overlay with its minimap.
     await expect(page.locator('[data-minimap]')).toBeVisible()
     await expect(page.locator('[data-live="segment"]')).toHaveText(/^\d+°$/, {timeout: 10_000})
@@ -65,15 +67,17 @@ test.describe('route and arrows', () => {
     expect(errors).toEqual([])
   })
 
-  test('a phone without a compass is told so, with the 2D map as a way out', async ({page}, testInfo) => {
+  test('the Start card waits for tracking and says which way the route goes, compass or not', async ({page}, testInfo) => {
     test.skip(onlyOn('android-chrome')(testInfo))
     await page.addInitScript(FAKE_REAR_CAMERA)
     await page.goto('/#/locate?to=library')
     await page.getByRole('button', {name: 'Tap to start'}).click({timeout: 30_000})
     await expect(page.locator('[data-veil]')).toHaveClass(/is-hidden/, {timeout: 60_000})
-    // Headless Chrome sends no orientation events at all.
-    await expect(page.getByRole('heading', {name: 'No compass found'})).toBeVisible({timeout: 15_000})
-    await expect(page.locator('[data-guide]').getByRole('button', {name: 'View 2D map instead'})).toBeVisible()
+    await expect(page.getByRole('heading', {name: "Stand on the path and face the way you'll walk"})).toBeVisible({timeout: 15_000})
+    await expect(page.locator('[data-start-direction]')).toHaveText(/^The route heads [a-z-]+ from here\.$/, {timeout: 10_000})
+    // Headless Chrome sends no orientation events, and its fake camera never tracks.
+    await expect(page.locator('[data-start-arrow]')).toBeHidden()
+    await expect(page.getByRole('button', {name: 'Start', exact: true})).toBeDisabled()
     // Without ?debug=1 nothing of the debug tools shows.
     await expect(page.locator('[data-minimap]')).toHaveCount(0)
     await expect(page.getByRole('button', {name: 'Show debug panel'})).toHaveCount(0)

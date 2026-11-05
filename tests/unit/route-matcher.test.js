@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {clampCorrection, createRouteMatcher, fitTrackToRoute, MATCH, walkVsRoute} from '../../src/ar/route-matcher.js'
+import {clampCorrection, createRouteMatcher, detectTrackTurn, findCornerAnchor, fitTrackToRoute, MATCH, walkVsRoute} from '../../src/ar/route-matcher.js'
 
 const DEG = Math.PI / 180
 const near = (a, b, tol) => expect(Math.abs(a - b)).toBeLessThanOrEqual(tol)
@@ -123,9 +123,9 @@ describe('route matcher', () => {
     expect(matcher.confident).toBe(false)
   })
 
-  it('does nothing before 6 m of walking', () => {
+  it('does nothing before 5 m of walking', () => {
     const matcher = createRouteMatcher(L)
-    for (let i = 0; i < 8; i++) matcher.addSample(2, i * 0.7, i)
+    for (let i = 0; i < 7; i++) matcher.addSample(2, i * 0.7, i)
     expect(matcher.walkedM).toBeLessThan(MATCH.minWalkedM)
     expect(matcher.update((w) => ({x: w.x, y: w.z}))).toBeNull()
   })
@@ -161,6 +161,71 @@ describe('route matcher', () => {
     near(withFar.yaw, alone.yaw, 1e-9)
     near(withFar.dx, -0.5, 1e-6)
     expect(fitTrackToRoute(far, L)).toBeNull()
+  })
+
+  describe('corners', () => {
+    /** Leg one and just enough of leg two, every metre, offset along the route by offsetY. */
+    const walkRoundCorner = (afterCorner, offsetY) => {
+      const track = []
+      for (let s = 8; s <= 30 + afterCorner; s += 1) {
+        const p = pointOnL(s)
+        track.push({x: p.x, y: p.y + offsetY})
+      }
+      return track
+    }
+
+    it('finds the turn in a walk, right and left', () => {
+      const right = detectTrackTurn(walkRoundCorner(8, 0))
+      near(right.angle, 90, 15)
+      expect(right.index).toBe(22) // s = 30
+      const left = detectTrackTurn(walkRoundCorner(8, 0).map((p) => ({x: -p.x, y: p.y})))
+      near(left.angle, -90, 15)
+    })
+    it('finds no turn in a straight walk, or one that has only just begun', () => {
+      expect(detectTrackTurn(walkRoundCorner(-5, 0))).toBeNull()
+      // Only 2 m round the corner the walk looks like 45°, too far from the route's 90° to anchor.
+      expect(findCornerAnchor(walkRoundCorner(2, 0), L)).toBeNull()
+    })
+    it('matches a turn in the walk to the same turn in the route', () => {
+      const anchor = findCornerAnchor(walkRoundCorner(6, -5), L)
+      expect(anchor.q).toEqual({x: 0, y: 30})
+    })
+    it('ignores a turn the opposite way to the route, or far from any corner', () => {
+      const mirrored = walkRoundCorner(6, 0).map((p) => ({x: -p.x, y: p.y}))
+      expect(findCornerAnchor(mirrored, L)).toBeNull()
+      expect(findCornerAnchor(walkRoundCorner(6, -40), L)).toBeNull()
+    })
+    it('fixes an along-route offset that side-on samples hardly can', () => {
+      const track = walkRoundCorner(5, -6)
+      const plain = fitTrackToRoute(track, L, {iterations: 1, useCorners: false})
+      const anchored = fitTrackToRoute(track, L, {iterations: 1})
+      expect(Math.abs(anchored.dy)).toBeGreaterThan(Math.abs(plain.dy) * 1.5)
+      const settled = fitTrackToRoute(track, L)
+      near(settled.dy, 6, 0.5)
+      near(settled.dx, 0, 0.5)
+    })
+    it('corrects an along-route offset while walking round the corner', () => {
+      const error = (p) => ({x: p.x, y: p.y - 7})
+      const {placed} = walkWithMisplacement(error, 42)
+      for (const s of [31, 36, 42]) {
+        const truth = pointOnL(s)
+        const got = placed(error(truth))
+        expect(Math.hypot(got.x - truth.x, got.y - truth.y)).toBeLessThan(0.5)
+      }
+    })
+  })
+
+  it('locks once the fit is confident, and stays locked', () => {
+    const matcher = createRouteMatcher(L)
+    const toRoute = (w) => ({x: w.x, y: w.z})
+    expect(matcher.locked).toBe(false)
+    let t = 0
+    for (let y = 0; y <= 8; y += 0.65) matcher.addSample(0.2, y, (t += 0.5))
+    matcher.update(toRoute)
+    expect(matcher.locked).toBe(true)
+    matcher.addSample(40, 40, t + 0.5) // a SLAM jump loses the fit...
+    expect(matcher.confident).toBe(false)
+    expect(matcher.locked).toBe(true) // ...but the hint does not come back
   })
 
   it('reads the walking direction against the route', () => {
