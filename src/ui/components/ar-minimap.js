@@ -16,18 +16,26 @@ export function fitToBox(points, size, padding = 14) {
   return (p) => ({x: offX + (p.x - minX) * scale, y: size - offY - (p.y - minY) * scale})
 }
 
-export function drawMinimap(canvas, {route, user, lookDeg, track = []}) {
+export function drawMinimap(canvas, {route, user, headingDeg = 0, nextTurn = null, track = []}) {
   const ctx = canvas?.getContext?.('2d')
   if (!ctx) return
   const size = canvas.width
   const toPx = fitToBox([...route, user, ...track], size)
+  const centre = toPx(user)
+  const heading = (headingDeg * Math.PI) / 180
+  const rotate = (p) => {
+    const q = toPx(p)
+    const x = q.x - centre.x
+    const y = q.y - centre.y
+    return {x: centre.x + x * Math.cos(heading) + y * Math.sin(heading), y: centre.y - x * Math.sin(heading) + y * Math.cos(heading)}
+  }
   ctx.clearRect(0, 0, size, size)
 
   const line = (points, color, width) => {
     if (points.length < 2) return
     ctx.beginPath()
     points.forEach((p, i) => {
-      const q = toPx(p)
+      const q = rotate(p)
       if (i) ctx.lineTo(q.x, q.y)
       else ctx.moveTo(q.x, q.y)
     })
@@ -40,21 +48,21 @@ export function drawMinimap(canvas, {route, user, lookDeg, track = []}) {
   line(track, '#ffffff', 3)
 
   // Route start, so its direction can be read at a glance.
-  const start = toPx(route[0])
+  const start = rotate(route[0])
   ctx.fillStyle = '#76b72a'
   ctx.beginPath()
   ctx.arc(start.x, start.y, 7, 0, Math.PI * 2)
   ctx.fill()
 
   // User and camera direction.
-  const at = toPx(user)
-  const rad = (lookDeg * Math.PI) / 180
-  ctx.strokeStyle = '#f7d64c'
-  ctx.lineWidth = 5
-  ctx.beginPath()
-  ctx.moveTo(at.x, at.y)
-  ctx.lineTo(at.x + Math.sin(rad) * 34, at.y - Math.cos(rad) * 34)
-  ctx.stroke()
+  const at = rotate(user)
+  if (nextTurn) {
+    const turn = rotate(nextTurn)
+    ctx.fillStyle = '#f7d64c'
+    ctx.beginPath()
+    ctx.arc(turn.x, turn.y, 5, 0, Math.PI * 2)
+    ctx.fill()
+  }
   ctx.fillStyle = '#f7d64c'
   ctx.beginPath()
   ctx.arc(at.x, at.y, 8, 0, Math.PI * 2)

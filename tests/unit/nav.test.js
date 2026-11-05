@@ -117,7 +117,7 @@ describe('route planning', () => {
   it('uses MazeMap when it gives an outdoor route', async () => {
     const r = await planRoute(WALKWAY, library, {mazemap: mmOk, graph: vi.fn()})
     expect(r).toMatchObject({status: 'ok', source: 'mazemap'})
-    expect(r.points[0]).toEqual(WALKWAY)
+    expect(r.points[0]).not.toEqual(WALKWAY)
     expect(r.points.at(-1)).toEqual(entranceOf(library))
     expect(r.minutes).toBe(walkingMinutes(r.lengthM))
   })
@@ -126,13 +126,19 @@ describe('route planning', () => {
     const north = (m, from = WALKWAY) => ({lat: from.lat + m / 111_195, lng: from.lng})
     const east = (m, from = WALKWAY) => fromLocal(from, {x: m, y: 0})
 
-    it('starts on the path, not at a GPS fix within 15 m of it', () => {
+    it('starts on the path, not at a GPS fix within 25 m of it', () => {
       const path = [east(8, north(-20)), east(8, north(40))]
       const to = east(8, north(40))
       const pts = anchor(path, WALKWAY, to)
       near(distanceM(pts[0], east(8)), 0, 0.01) // the nearest point on the path, not the fix
       expect(pts).toHaveLength(2)
       expect(pts.at(-1)).toEqual(to)
+    })
+    it('keeps a real-shaped MazeMap start 17 m from the GPS fix', () => {
+      const path = [north(17), east(20, north(17)), east(20, north(50))]
+      const pts = anchor(path, WALKWAY, path.at(-1))
+      expect(pts[0]).toEqual(path[0])
+      expect(distanceM(pts[0], WALKWAY)).toBeCloseTo(17, 0)
     })
     it('ignores a leg the planner added from the raw fix', () => {
       const pts = anchor([WALKWAY, east(8), east(8, north(40))], WALKWAY, east(8, north(40)))
@@ -144,18 +150,18 @@ describe('route planning', () => {
       expect(pts[0]).toEqual(WALKWAY)
       expect(pts).toHaveLength(3)
     })
-    it('ends on the path when the entrance is within 15 m of it', () => {
+    it('only appends the entrance when it is more than 3 m from the path end', () => {
       const path = [WALKWAY, north(40)]
       expect(anchor(path, WALKWAY, north(40))).toHaveLength(2)
-      expect(anchor(path, WALKWAY, north(20))).toEqual([WALKWAY, north(20)]) // stops there
+      expect(anchor(path, WALKWAY, north(20))).toEqual([WALKWAY, north(40), north(20)])
       const beside = anchor(path, WALKWAY, east(10, north(30)))
-      expect(beside).toHaveLength(2)
-      near(distanceM(beside[1], north(30)), 0, 0.01) // the nearest point on the path
+      expect(beside).toHaveLength(3)
+      expect(beside.at(-1)).toEqual(east(10, north(30)))
     })
     it('ignores a leg the planner added to the entrance', () => {
       const door = east(10, north(40))
       const pts = anchor([north(1), north(40), door], WALKWAY, door)
-      near(distanceM(pts.at(-1), north(40)), 0, 0.01)
+      expect(pts.at(-1)).toEqual(door)
     })
     it('keeps a leg to the entrance when it is far from any path', () => {
       const door = east(30, north(40))
@@ -294,12 +300,12 @@ describe('AR alignment', () => {
 })
 
 describe('arrow trail', () => {
-  it('only counts arrows in the next 15 m (and 1.5 m behind)', () => {
-    expect(TRAIL.aheadM).toBe(15)
+  it('shows up to 30 m ahead (and 1.5 m behind)', () => {
+    expect(TRAIL.aheadM).toBe(30)
     expect(TRAIL.spacingM).toBe(1)
     const aS = Float32Array.from({length: 100}, (_, i) => i)
-    expect(visibleCount(aS, 0)).toBe(15)
-    expect(visibleCount(aS, 50)).toBe(16) // 49..64
+    expect(visibleCount(aS, 0)).toBe(30)
+    expect(visibleCount(aS, 50)).toBe(31) // 49..80
     expect(visibleCount(aS, 95)).toBe(6) // 94..99, the route ends
   })
   it('formats distances for people', () => {

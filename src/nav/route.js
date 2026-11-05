@@ -12,8 +12,9 @@ import {loadCampusGraph, routeOnFootpaths} from './footpaths.js'
 export const CAMPUS_RADIUS_M = 3000
 const WALK_SPEED_MPS = 1.3 // about 4.7 km/h, a relaxed campus pace
 const ROUTE_KEY = 'welcomeAR.route.v1'
-export const SNAP_TO_PATH_M = 15 // GPS this close to a path means the user is ON that path
+export const SNAP_TO_PATH_M = 25 // GPS this close to a path means the user is ON that path
 const ON_PATH_M = 0.5
+const ENTRANCE_APPEND_M = 3
 
 /** Where the walk should end: the main entrance if we know it, otherwise the place itself. */
 export function entranceOf(dest) {
@@ -83,11 +84,10 @@ async function mazemapRoute(from, to, {signal} = {}) {
 }
 
 /**
- * Fit a planned path to the trip. A raw GPS fix is 5-15 m out, so a straight leg from it to the
- * path would cut across whatever is in between. Near a path, start at the nearest point ON it;
- * only someone genuinely far from any path gets a leg from where they stand.
- * The end works the same way: within 15 m of the entrance the route ends on the path, and the
- * destination pin marks the door. A straight last leg could cut through the building.
+ * Fit a planned path to the trip. A raw GPS fix is often several metres out, so a straight leg
+ * from it to the path would cut across whatever is in between. Near a path, start at the nearest
+ * point ON it; only someone genuinely far from any path gets a leg from where they stand. The
+ * entrance is appended only when it is more than 3 m from the final path point.
  */
 export function anchor(points, from, to) {
   // A planner may have added its own leg from the raw fix. Measure from the real path.
@@ -104,13 +104,8 @@ export function anchor(points, from, to) {
     path = [fromLocal(from, {x: start.x, y: start.y}), ...path.slice(start.segment + 1)]
   }
 
-  if (distanceM(path.at(-1), to) <= ON_PATH_M) return path
-  const end = projectOntoPolyline(path.map((p) => toLocal(to, p)), {x: 0, y: 0})
-  if (end.offset > SNAP_TO_PATH_M) return [...path, to]
-  const last = end.offset <= ON_PATH_M ? to : fromLocal(to, {x: end.x, y: end.y})
-  const trimmed = [...path.slice(0, end.segment + 1), last]
-  // Practically at the door already: nothing left of the path to walk.
-  return lengthOf(trimmed) < 1 ? [from, to] : trimmed
+  if (distanceM(path.at(-1), to) <= ENTRANCE_APPEND_M) return path
+  return [...path, to]
 }
 
 function lengthOf(points) {

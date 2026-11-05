@@ -295,10 +295,10 @@ describe('map matching in the scene', () => {
     near(moved.y, x * Math.sin(turn) + y * Math.cos(turn) + pivot.y - 2, 1e-6)
   })
 
-  it('snaps the user onto a route within 15 m, not one further away', () => {
+  it('projects the user onto the route for alignment', () => {
     const route = [{x: 0, y: 0}, {x: 0, y: 50}]
     expect(snapToRoute(route, {x: 9, y: 20})).toEqual({x: 0, y: 20})
-    expect(snapToRoute(route, {x: 20, y: 20})).toEqual({x: 20, y: 20})
+    expect(snapToRoute(route, {x: 20, y: 20})).toEqual({x: 0, y: 20})
   })
 
   it('walking with a compass 9° out, averaged in at Start, brings the arrows back onto the path', () => {

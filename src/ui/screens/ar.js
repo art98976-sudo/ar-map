@@ -67,6 +67,10 @@ export function arScreen(root, {navigate, params}) {
       const result = trip?.start()
       const note = root.querySelector('[data-start-note]')
       if (note) note.hidden = result !== 'look'
+      if (result === 'path' && note) {
+        note.hidden = false
+        note.textContent = 'Walk to the path first, then tap Start again.'
+      }
     },
     map: () => navigate(`/?to=${encodeURIComponent(destination.id)}`),
     retry: () => begin(),
@@ -146,9 +150,11 @@ export function arScreen(root, {navigate, params}) {
           <p class="ar__hint ar__hint--guide" data-guidance hidden></p>
           </div>
 
+          <canvas class="ar-minimap" data-minimap width="90" height="90" aria-label="Mini map of the route and next turn"></canvas>
+
           <section class="ar-guide" data-start aria-labelledby="start-title" hidden>
             <span class="ar-guide__icon" data-start-arrow hidden>${icon('arrowUp', {size: 28})}</span>
-            <h1 class="ar-guide__title" id="start-title" tabindex="-1">Stand on the path and face the way you'll walk</h1>
+            <h1 class="ar-guide__title" data-start-title id="start-title" tabindex="-1">Stand on the path and face the way you'll walk</h1>
             <p class="ar-guide__text" data-start-direction></p>
             <p class="ar-guide__text" data-start-note role="status" hidden>Hold your phone up, looking ahead.</p>
             <button class="btn btn--primary btn--block" type="button" data-action="start-walk" aria-label="Start" disabled>Start</button>
@@ -160,7 +166,6 @@ export function arScreen(root, {navigate, params}) {
 
           ${showDebug
             ? html`<section class="ar-live" data-live-debug aria-label="Live alignment">
-                <canvas class="ar-live__map" data-minimap width="280" height="280" aria-label="Minimap of the route, the walked track and the camera direction"></canvas>
                 <dl class="ar-live__rows">
                   <div><dt>Compass</dt><dd data-live="compass">–</dd></div>
                   <div><dt>Source</dt><dd data-live="source">–</dd></div>
@@ -192,6 +197,9 @@ export function arScreen(root, {navigate, params}) {
               <div class="stats__row"><dt>Camera height</dt><dd data-stat="height">–</dd></div>
               <div class="stats__row"><dt>Ground</dt><dd data-stat="ground">–</dd></div>
               <div class="stats__row"><dt>Route source</dt><dd data-stat="source">${route.source}</dd></div>
+              <div class="stats__row"><dt>Route points</dt><dd data-stat="route-points">â€“</dd></div>
+              <div class="stats__row"><dt>Turns</dt><dd data-stat="turns">â€“</dd></div>
+              <div class="stats__row"><dt>Start gap (GPS to path)</dt><dd data-stat="start-gap">â€“</dd></div>
               <div class="stats__row"><dt>Frame rate</dt><dd data-stat="fps">–</dd></div>
             </dl>
             <button class="btn btn--secondary btn--block" type="button" data-action="recalibrate" aria-label="Recalibrate compass">
@@ -238,6 +246,8 @@ export function arScreen(root, {navigate, params}) {
     if (rerouteHint) rerouteHint.hidden = !s.rerouting
     const approx = root.querySelector('[data-approx-hint]')
     if (approx) approx.hidden = s.source !== 'direct'
+    const minimap = root.querySelector('[data-minimap]')
+    if (minimap && s.minimap) drawMinimap(minimap, s.minimap)
     const fmt = (m) => (m == null ? '–' : formatDistance(m))
     setStat('gps', s.gpsAccuracy == null ? 'waiting…' : `±${Math.round(s.gpsAccuracy)} m`, s.gpsAccuracy != null && s.gpsAccuracy <= 20 ? 'ok' : 'warn')
     setStat(
@@ -251,6 +261,9 @@ export function arScreen(root, {navigate, params}) {
     setStat('quality', s.matchResidualM == null ? 'walk 8 m first' : `${s.matchResidualM.toFixed(2)} m`, s.matchResidualM != null && s.matchResidualM < 1 ? 'ok' : 'warn')
     setStat('turn', s.nextManoeuvre ? `${s.nextManoeuvre.type}, ${formatDistance(Math.max(0, s.nextManoeuvre.s - s.userS))}` : '–')
     setStat('source', `${s.source}, ${s.routePoints} points`, s.source === 'direct' ? 'warn' : 'ok')
+    setStat('route-points', String(s.routePoints))
+    setStat('turns', String(s.turns))
+    setStat('start-gap', `${Math.round(s.startGapM)} m`)
     setStat('arrows', `${s.arrows} of ${s.arrowTotal}`)
     setStat('height', `${s.cameraHeight.toFixed(2)} m`)
     if (s.groundHeight != null) {
@@ -266,10 +279,15 @@ export function arScreen(root, {navigate, params}) {
     if (!card || card.hidden) return
     card.querySelector('[data-action="start-walk"]').disabled = !s.canStart
     if (s.routeBearingDeg == null) return
-    card.querySelector('[data-start-direction]').textContent = `The route heads ${compassPoint(s.routeBearingDeg)} from here.`
+    const far = s.startGapM > 25
+    card.querySelector('[data-start-title]').textContent = far ? 'Walk to the path first' : "Stand on the path and face the way you'll walk"
+    card.querySelector('[data-start-direction]').textContent = far
+      ? `The path is ${Math.round(s.startGapM)} m away. Walk that way, then tap Start again.`
+      : `The route heads ${compassPoint(s.routeBearingDeg)} from here.`
     const arrow = card.querySelector('[data-start-arrow]')
-    arrow.hidden = s.heading == null
-    if (s.heading != null) arrow.style.transform = `rotate(${Math.round(s.routeBearingDeg - s.heading)}deg)`
+    arrow.hidden = s.heading == null && !far
+    const target = far ? s.pathBearingDeg : s.routeBearingDeg
+    if (target != null) arrow.style.transform = `rotate(${Math.round(target - (s.heading ?? 0))}deg)`
   }
 
   function paintLiveDebug(s) {
@@ -287,7 +305,6 @@ export function arScreen(root, {navigate, params}) {
       const el = root.querySelector(`[data-live="${name}"]`)
       if (el) el.textContent = text
     }
-    drawMinimap(root.querySelector('[data-minimap]'), s.debug)
   }
 
   function toggleDebug(force) {

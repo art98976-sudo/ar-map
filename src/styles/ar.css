@@ -178,6 +178,19 @@
   font-size: var(--fs-md);
 }
 
+.ar-minimap {
+  position: absolute;
+  left: 14px;
+  bottom: calc(var(--safe-bottom) + 14px);
+  z-index: 3;
+  width: 90px;
+  height: 90px;
+  border: 3px solid rgb(255 255 255 / 75%);
+  border-radius: 50%;
+  background: rgb(8 42 28 / 72%);
+  box-shadow: 0 4px 18px rgb(0 0 0 / 30%);
+}
+
 /* ---------- The one pill ---------- */
 .ar-pill {
   position: absolute;

@@ -17,7 +17,7 @@ import {acceptHit, createGroundTracker, GROUND, HIT_TYPES, SCREEN_POINTS} from '
 import {createRouteMatcher} from './route-matcher.js'
 import {GPS, watchLocation} from '../geo/location.js'
 import {createArrivalDetector, createGuidance, createOffRouteMonitor} from '../nav/guidance.js'
-import {planRoute} from '../nav/route.js'
+import {planRoute, SNAP_TO_PATH_M} from '../nav/route.js'
 
 const UPRIGHT_MAX_TILT = 0.55 // |forward.y|: about 33° up or down from level
 const FIRST_HEADING_WINDOW_MS = 500 // the Start tap averages this much compass history
@@ -219,8 +219,10 @@ export function createArTrip({
     // A webcam in test mode reports no direction, so only a real phone can be asked to look up.
     if (!allowDesktop && Math.hypot(f.x, f.z) < MIN_HORIZONTAL_LOOK) return 'look'
     const fix = bestFix()
+    const startInfo = nav.startInfo(fix)
+    if (startInfo.offset > SNAP_TO_PATH_M) return 'path'
     const compass = heading == null ? null : recentHeading()
-    const h = chooseStartHeading(nav.startInfo(fix).bearingDeg, compass)
+    const h = chooseStartHeading(startInfo.bearingDeg, compass)
     compassBias = compass == null ? null : angleDiff(h, compass)
     nav.setGround(ground.fallback(camera.position.y), 0)
     nav.align(h, fix)
@@ -302,6 +304,18 @@ export function createArTrip({
     }
   }
 
+  function minimapData() {
+    const fix = bestFix()
+    const start = nav.startInfo(fix)
+    const user = nav.aligned ? nav.userRoutePoint() : nav.routePointForFix(fix)
+    return {
+      route: nav.route,
+      user,
+      headingDeg: heading ?? start.bearingDeg,
+      nextTurn: nav.nextTurnAt(nav.aligned ? undefined : start.s),
+    }
+  }
+
   // ---------- engine hooks ----------
   function onSceneReady({scene, camera: cam, XR8}) {
     THREE = window.THREE
@@ -360,6 +374,8 @@ export function createArTrip({
         compassSource,
         gpsAccuracy: lastFix?.accuracy ?? null,
         gpsToEntranceM: gpsDistanceToEntrance(lastFix, route),
+         startGapM: nav.startInfo(bestFix()).offset,
+         pathBearingDeg: nav.startInfo(bestFix()).pathBearingDeg,
         remainingM: nav.aligned ? s.remainingM : route.lengthM,
         toPinM: s.toPinM ?? null,
         offRouteM: nav.aligned ? s.offset : null,
@@ -381,6 +397,8 @@ export function createArTrip({
         nextManoeuvre: nav.aligned ? guidance.getNextManoeuvre(s.s) : null,
         userS: nav.aligned ? s.s : null,
         routePoints: route.points.length,
+         turns: nav.turns,
+         minimap: minimapData(),
         canStart: trackingReady(),
         routeBearingDeg: phase === 'ready' ? null : nav.startInfo(bestFix()).bearingDeg,
         debug: debug ? debugData() : null,

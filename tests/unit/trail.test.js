@@ -9,21 +9,21 @@ const turns = [{s: 30, angle: 90}, {s: 60, angle: -90}]
 describe('visible window', () => {
   it('ends 3 m after the next turn', () => {
     expect(visibleWindowEnd(turns, 20)).toBe(33)
-    expect(visibleWindowEnd(turns, 25)).toBe(33)
+    expect(visibleWindowEnd(turns, 25)).toBe(35)
     expect(visibleWindowEnd(turns, 50)).toBe(63)
   })
   it('shows at least 6 m', () => {
-    expect(visibleWindowEnd(turns, 29)).toBe(35)
-    expect(visibleWindowEnd(turns, 58)).toBe(64)
+    expect(visibleWindowEnd(turns, 29)).toBe(39)
+    expect(visibleWindowEnd(turns, 58)).toBe(68)
   })
-  it('never looks further ahead than the 15 m limit', () => {
+  it('never looks further ahead than the 30 m limit', () => {
     expect(visibleWindowEnd(turns, 0)).toBe(TRAIL.aheadM)
     expect(visibleWindowEnd([], 40)).toBe(40 + TRAIL.aheadM)
   })
   it('moves on to the next turn once the user has passed a corner', () => {
     expect(nextTurn(turns, 30.5).s).toBe(30)
     expect(nextTurn(turns, 31.5).s).toBe(60)
-    expect(visibleWindowEnd(turns, 40)).toBe(55)
+    expect(visibleWindowEnd(turns, 40)).toBe(63)
     expect(nextTurn(turns, 61.5)).toBeNull()
   })
 })
@@ -60,12 +60,12 @@ describe('arrow trail', () => {
   it('feeds the window end to the shader, and fades in the next leg after the turn', () => {
     const trail = createArrowTrail(THREE, ROUTE)
     trail.reset(25)
-    expect(trail.windowEnd).toBe(33)
+    expect(trail.windowEnd).toBe(35)
     expect(trail.update(25, 0.016, 1)).toBe(trail.update(25, 0.016, 1))
-    near(trail.mesh.material.uniforms.uAheadEnd.value, 33)
+    near(trail.mesh.material.uniforms.uAheadEnd.value, 35)
     // Walk past the corner: the end eases out, it does not jump.
     trail.reset(34)
-    expect(trail.windowEnd).toBe(34 + TRAIL.aheadM)
+    expect(trail.windowEnd).toBe(63)
     trail.reset(25)
     for (let i = 0; i < 3; i++) trail.update(36, 0.1, 2 + i)
     expect(trail.windowEnd).toBeGreaterThan(33)

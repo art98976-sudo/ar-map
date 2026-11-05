@@ -12,7 +12,6 @@ import {createArrowTrail, nextTurn, TRAIL} from '../arrows/trail.js'
 import {createGuideArrow} from '../arrows/guide-arrow.js'
 import {createDestinationPin} from '../arrows/pin.js'
 
-const START_SNAP_M = 20 // at the Start tap, GPS this close means the user is ON the route
 const START_LOOK_AHEAD_M = 8
 const GUIDE_LOOK_AHEAD_M = 4
 
@@ -51,8 +50,9 @@ export function routeToLocal(origin, points) {
 
 /** Near the route, the user is ON it: GPS error should not put them beside it. */
 export function snapToRoute(route, p, maxM = SNAP_TO_PATH_M) {
+  void maxM
   const hit = projectOntoPolyline(route, p)
-  return hit.offset <= maxM ? {x: hit.x, y: hit.y} : {x: p.x, y: p.y}
+  return {x: hit.x, y: hit.y}
 }
 
 /**
@@ -136,7 +136,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
     camera.getWorldPosition(camPos)
     yaw = alignmentYaw({x: forward.x, z: forward.z}, headingDeg)
     // Where the user stands in the route frame (geo root coordinates: x east, z = -north).
-    const u = snapToRoute(local, toLocal(origin, userFix), START_SNAP_M)
+    const u = snapToRoute(local, toLocal(origin, userFix))
     const rotated = rotateY({x: u.x, z: -u.y}, yaw)
     geoRoot.rotation.set(0, yaw, 0)
     // Put the user's position under the camera, on the ground as tracked so far.
@@ -151,8 +151,16 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
 
   /** Where a GPS fix falls on the route, and which way the route heads from there. */
   function startInfo(userFix = origin) {
-    const hit = projectOntoPolyline(local, toLocal(origin, userFix))
-    return {s: hit.s, offset: hit.offset, bearingDeg: bearingAlong(local, hit.s)}
+    const fix = toLocal(origin, userFix)
+    const hit = projectOntoPolyline(local, fix)
+    const pathBearing = (Math.atan2(hit.x - fix.x, hit.y - fix.y) * 180) / Math.PI
+    return {
+      s: hit.s,
+      offset: hit.offset,
+      bearingDeg: bearingAlong(local, hit.s),
+      pathBearingDeg: (pathBearing + 360) % 360,
+      onPath: hit.offset <= SNAP_TO_PATH_M,
+    }
   }
 
   /**
@@ -259,6 +267,16 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
     return projectOntoPolyline(local, {x: tmp.x, y: -tmp.z})
   }
 
+  function userRoutePoint() {
+    const p = whereAmI()
+    return {x: p.x, y: p.y}
+  }
+
+  function routePointForFix(userFix = origin) {
+    const p = projectOntoPolyline(local, toLocal(origin, userFix))
+    return {x: p.x, y: p.y}
+  }
+
   /** Call every frame. Returns stats for the UI and the debug panel. */
   function update(dt, time) {
     if (!aligned) return last
@@ -291,6 +309,9 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
   return {
     align,
     startInfo,
+    userRoutePoint,
+    routePointForFix,
+    nextTurnAt: (s = whereAmI().s) => nextTurn(trail.turns, s),
     realign,
     applyCorrection,
     worldToRoute,

@@ -2,7 +2,7 @@
 //
 // Performance: ONE InstancedMesh (one draw call) for every arrow on the route. The shader
 // draws a soft, glowing chevron and does all per-frame work on the GPU:
-//   - visibility window: arrows stop ~3 m past the next corner (at most 15 m ahead), so the
+//   - visibility window: arrows stop ~3 m past the next corner (at most 30 m ahead), so the
 //     next leg never shows through the building on the corner; it fades in after the turn
 //   - "runway lights": a brighter pulse flows forward along the arrows
 // Each frame the CPU only eases one number (how far along the route the user is), so the
@@ -11,14 +11,14 @@ import {findTurns, resample} from '../geo/geo.js'
 
 export const TRAIL = {
   spacingM: 1, // one chevron per metre
-  aheadM: 15, // how far ahead arrows are visible
+  aheadM: 30, // maximum distance ahead arrows are visible
   behindM: 1.5, // arrows fade out this far behind the user
   heightM: 0.01, // 1 cm above the ground so they never flicker into it
   sizeM: 0.85, // chevron width
   maxLiftM: 1.5, // the slope raises or lowers arrows ahead by at most this
   laneWidthM: 1.1,
   laneHeightM: 0.005,
-  minAheadM: 6, // always show at least this far ahead
+  minAheadM: 10, // always show at least this far ahead
   afterTurnM: 3, // the window ends this far past the next corner
   turnPassedM: 1, // a corner counts as passed this far beyond it
   windowEaseS: 0.6, // the next leg fades in rather than appearing all at once
@@ -179,7 +179,7 @@ export function nextTurn(turns, s) {
   return turns.find((t) => t.s + TRAIL.turnPassedM > s) ?? null
 }
 
-/** Route distance where the visible arrows end: 3 m past the next corner, 6-15 m ahead. */
+/** Route distance where the visible arrows end: 3 m past the next corner, 10-30 m ahead. */
 export function visibleWindowEnd(turns, s) {
   const turn = nextTurn(turns, s)
   const end = turn ? turn.s + TRAIL.afterTurnM : Infinity
