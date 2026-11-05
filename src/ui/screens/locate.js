@@ -30,7 +30,7 @@ const CONTINUE_DELAY_MS = 900
 export function locateScreen(root, {navigate, params}) {
   const destination = findDestination(params.to)
   if (!destination) {
-    queueMicrotask(() => navigate('/search', {replace: true}))
+    queueMicrotask(() => navigate('/', {replace: true}))
     return
   }
   const device = parseUserAgent(navigator.userAgent, {maxTouchPoints: navigator.maxTouchPoints})
@@ -292,11 +292,11 @@ export function locateScreen(root, {navigate, params}) {
   }
 
   const off = onAction(root, {
-    back: () => navigate('/search'),
+    back: () => navigate(`/?to=${encodeURIComponent(destination.id)}`),
     tap: () => awaitPermissions(startPermissionRequests()),
     retry: () => start(),
     reload: () => window.location.reload(),
-    map: () => navigate(`/map?to=${encodeURIComponent(destination.id)}`),
+    map: () => navigate(`/?to=${encodeURIComponent(destination.id)}`),
     copy: async () => {
       const url = window.location.href.split('#')[0]
       try {

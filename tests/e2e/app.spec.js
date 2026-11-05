@@ -1,16 +1,22 @@
 import {expect, test} from '@playwright/test'
 
+// MazeMap's own icon timer can fire just after its map is removed. Nothing visible breaks.
+const MAZEMAP_TEARDOWN = /getOwnSource|did not find source cache with id: mm-tiles/
+
 // Collect errors so every test also proves "no crashes in the console".
 function watchErrors(page) {
   const errors = []
-  page.on('pageerror', (e) => errors.push(e.message))
+  page.on('pageerror', (e) => {
+    if (!MAZEMAP_TEARDOWN.test(e.message)) errors.push(e.message)
+  })
   page.on('console', (m) => {
-    if (m.type() === 'error' && !/favicon|GL Driver/i.test(m.text())) errors.push(m.text())
+    if (m.type() === 'error' && !/favicon|GL Driver/i.test(m.text()) && !MAZEMAP_TEARDOWN.test(m.text())) errors.push(m.text())
   })
   return errors
 }
 
 const onlyOn = (...names) => (testInfo) => !names.includes(testInfo.project.name)
+const CHROME = ['desktop-chrome', 'android-chrome']
 
 // Chromium's fake camera has no "rear" camera, but the engine (correctly) asks for one.
 // Real phones have it; in tests, drop the facingMode constraint so the fake feed is used.
@@ -31,42 +37,223 @@ const IPHONE_CAMERA_STUB = () => {
   }
 }
 
-test.describe('home', () => {
-  test('shows the brand, the actions and how it works', async ({page}) => {
+const mapReady = (page) => expect(page.locator('[data-overlay]')).toBeHidden({timeout: 30_000})
+const tapPin = (page, id) => page.locator(`[data-pin="${id}"]`).dispatchEvent('click')
+
+test.describe('the map home', () => {
+  test('is the University map, with search, chips and pins', async ({page}, testInfo) => {
+    test.skip(onlyOn(...CHROME)(testInfo))
     const errors = watchErrors(page)
     await page.goto('/')
-    await expect(page.getByRole('img', {name: 'University of Stirling'}).first()).toBeVisible()
-    await expect(page.getByRole('heading', {level: 1})).toHaveText('Find your way with arrows on the ground.')
-    await expect(page.getByRole('button', {name: 'Start AR'})).toBeVisible()
-    await expect(page.getByRole('button', {name: 'Campus map'})).toBeVisible()
-    await expect(page.getByRole('heading', {name: 'How it works'})).toBeVisible()
+    await expect(page.getByRole('heading', {name: 'Campus map'})).toBeAttached()
+    await mapReady(page)
+    const height = await page.locator('[data-map]').evaluate((el) => el.getBoundingClientRect().height)
+    expect(height).toBeGreaterThan(500)
+    await expect(page.locator('.mapboxgl-canvas')).toBeVisible()
+    await expect(page.getByRole('button', {name: 'Where do you want to go?'})).toBeVisible()
+    for (const name of ['Buildings', 'Library', 'Food', 'Bus', 'Sport']) {
+      await expect(page.locator('.map-chips').getByRole('button', {name, exact: true})).toBeVisible()
+    }
+    await expect(page.locator('.map-pin')).toHaveCount(20)
+    await expect(page.getByRole('button', {name: 'Pathfoot Building'})).toBeAttached()
     expect(errors).toEqual([])
   })
 
-  test('has no horizontal scroll on a phone', async ({page}) => {
+  test('the old hero, how-it-works list and privacy block are gone', async ({page}) => {
     await page.goto('/')
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
-    expect(overflow).toBeLessThanOrEqual(0)
+    await expect(page.getByRole('heading', {name: 'How it works'})).toHaveCount(0)
+    await expect(page.getByText('Find your way with arrows on the ground.')).toHaveCount(0)
+    await expect(page.getByRole('button', {name: 'Start AR'})).toHaveCount(0)
   })
 
-  test('opens About with the licence notices', async ({page}) => {
+  test('chips filter the pins, and tapping again shows them all', async ({page}, testInfo) => {
+    test.skip(onlyOn(...CHROME)(testInfo))
     await page.goto('/')
-    await page.getByRole('link', {name: 'About and licences'}).click()
-    await expect(page.getByRole('heading', {name: 'About Stirling Welcome AR'})).toBeVisible()
-    await expect(page.getByText('Niantic Spatial, Inc.', {exact: false})).toBeVisible()
+    await mapReady(page)
+    const chips = page.locator('.map-chips')
+    const bus = chips.getByRole('button', {name: 'Bus', exact: true})
+    await bus.click()
+    await expect(bus).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('.map-pin:not([hidden])')).toHaveCount(1)
+    await expect(page.locator('[data-pin="bus-hub"]')).toBeVisible()
+    await chips.getByRole('button', {name: 'Food', exact: true}).click()
+    await expect(page.locator('[data-pin="scran"]')).toBeVisible()
+    await expect(page.locator('[data-pin="bus-hub"]')).toBeHidden()
+    await chips.getByRole('button', {name: 'Food', exact: true}).click()
+    await expect(page.locator('.map-pin:not([hidden])')).toHaveCount(20)
+  })
+
+  test('the ⓘ button opens about, privacy, the disclaimer and licences', async ({page}) => {
+    await page.goto('/')
+    await page.getByRole('button', {name: 'About and privacy'}).click()
+    const sheet = page.getByRole('dialog', {name: /About Stirling Welcome AR/})
+    await expect(sheet).toBeVisible()
+    await expect(sheet.getByRole('heading', {name: 'Privacy'})).toBeVisible()
+    await expect(sheet.locator('[data-disclaimer]')).toContainText('Student prototype')
+    await expect(sheet.getByText('Niantic Spatial, Inc.', {exact: false})).toBeVisible()
     const licence = await page.request.get('/external/xr/LICENSE')
     expect(licence.ok()).toBe(true)
+    await sheet.getByRole('button', {name: 'Close about'}).click()
+    await expect(sheet).toBeHidden()
+  })
+
+  test('shows a friendly error with a retry when MazeMap is unreachable', async ({page}, testInfo) => {
+    test.skip(onlyOn('desktop-chrome')(testInfo))
+    await page.route('https://api.mazemap.com/**', (route) => route.abort('internetdisconnected'))
+    await page.goto('/')
+    await expect(page.getByRole('heading', {name: 'The map could not load'})).toBeVisible({timeout: 20_000})
+    await expect(page.getByRole('button', {name: 'Try again'})).toBeVisible()
+    await expect(page.getByRole('link', {name: 'Open the full campus map'})).toHaveAttribute(
+      'href',
+      'https://stirling-campus-map.vercel.app',
+    )
+  })
+
+  test('old addresses land on the map', async ({page}) => {
+    for (const old of ['/#/check', '/#/search', '/#/map', '/#/about']) {
+      await page.goto(old)
+      await expect(page.getByRole('button', {name: 'Where do you want to go?'})).toBeVisible()
+    }
+  })
+})
+
+test.describe('at 360 px wide', () => {
+  test.use({viewport: {width: 360, height: 700}})
+
+  const tooSmall = (page) =>
+    page.evaluate(() =>
+      [...document.querySelectorAll('button, a.btn')]
+        .filter((el) => {
+          if (el.closest('.mm-floor-bar, .mapboxgl-ctrl-attrib')) return false // MazeMap's own
+          const r = el.getBoundingClientRect()
+          // Rounded: a sheet sliding in can make a 48 px height read as 47.99.
+          return r.width > 0 && (Math.round(r.height) < 48 || Math.round(r.width) < 48)
+        })
+        .map((el) => el.getAttribute('aria-label') || el.textContent.trim()),
+    )
+  const overflow = (page) => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+
+  test('every screen fits, and every button is at least 48 px', async ({page}, testInfo) => {
+    test.skip(onlyOn('android-chrome')(testInfo))
+    await page.goto('/')
+    await mapReady(page)
+    expect(await overflow(page)).toBeLessThanOrEqual(0)
+    expect(await tooSmall(page)).toEqual([])
+
+    await tapPin(page, 'pathfoot')
+    await expect(page.getByRole('button', {name: 'Walk here in AR'})).toBeVisible()
+    expect(await overflow(page)).toBeLessThanOrEqual(0)
+    expect(await tooSmall(page)).toEqual([])
+    await page.getByRole('button', {name: 'Close', exact: true}).click()
+
+    await page.getByRole('button', {name: 'Where do you want to go?'}).click()
+    await expect(page.getByRole('combobox')).toBeFocused()
+    expect(await overflow(page)).toBeLessThanOrEqual(0)
+    expect(await tooSmall(page)).toEqual([])
+    await page.getByRole('button', {name: 'Close search'}).click()
+
+    await page.getByRole('button', {name: 'About and privacy'}).click()
+    expect(await overflow(page)).toBeLessThanOrEqual(0)
+    expect(await tooSmall(page)).toEqual([])
+  })
+})
+
+test.describe('the destination card', () => {
+  test('tapping a pin shows the place, one main button and a route link', async ({page}, testInfo) => {
+    test.skip(onlyOn(...CHROME)(testInfo))
+    await page.goto('/')
+    await mapReady(page)
+    await tapPin(page, 'pathfoot')
+    const card = page.locator('[data-card]')
+    await expect(card.getByRole('heading', {name: 'Pathfoot Building'})).toBeVisible()
+    await expect(card).toContainText('Academic building')
+    await expect(card.getByRole('button', {name: 'Walk here in AR'})).toBeVisible()
+    await expect(card.getByRole('button', {name: 'Show route on map'})).toBeVisible()
+    await expect(page.locator('[data-pin="pathfoot"]')).toHaveClass(/is-selected/)
+  })
+
+  test('says "On campus" before GPS, and a walking time once GPS is allowed', async ({browser, page}, testInfo) => {
+    test.skip(onlyOn('desktop-chrome')(testInfo))
+    await page.goto('/')
+    await mapReady(page)
+    await tapPin(page, 'pathfoot')
+    await expect(page.locator('[data-walk-text]')).toHaveText(/About \d+ min walk/, {timeout: 10_000})
+
+    const noGps = await browser.newContext({...testInfo.project.use, permissions: [], geolocation: undefined})
+    const other = await noGps.newPage()
+    await other.goto('/')
+    await mapReady(other)
+    await tapPin(other, 'pathfoot')
+    await expect(other.locator('[data-walk-text]')).toHaveText('On campus')
+    await noGps.close()
+  })
+
+  test('shows the route on the map, and hides it again', async ({page}, testInfo) => {
+    test.skip(onlyOn('desktop-chrome')(testInfo))
+    await page.goto('/')
+    await mapReady(page)
+    await tapPin(page, 'pathfoot')
+    await page.getByRole('button', {name: 'Show route on map'}).click()
+    const hide = page.getByRole('button', {name: 'Hide route'})
+    await expect(hide).toBeVisible({timeout: 30_000})
+    await hide.click()
+    await expect(page.getByRole('button', {name: 'Show route on map'})).toBeVisible()
+  })
+
+  test('#/?to= opens with that place selected', async ({page}) => {
+    await page.goto('/#/?to=sports-centre')
+    await expect(page.locator('[data-card]').getByRole('heading', {name: 'Sports Centre'})).toBeVisible()
+  })
+
+  test('Walk here in AR goes straight on, with no permission screen', async ({page}, testInfo) => {
+    test.skip(onlyOn('iphone-safari')(testInfo))
+    await page.addInitScript(IPHONE_CAMERA_STUB)
+    await page.goto('/#/?to=library')
+    await page.getByRole('button', {name: 'Walk here in AR'}).click()
+    await expect(page).toHaveURL(/#\/(locate|ar)\?to=library/, {timeout: 5000})
+    await expect(page.getByRole('button', {name: 'Tap to start'})).toHaveCount(0)
+  })
+
+  test('asks for motion, camera and location inside the tap', async ({page}, testInfo) => {
+    test.skip(onlyOn('iphone-safari')(testInfo))
+    await page.addInitScript(IPHONE_CAMERA_STUB)
+    await page.addInitScript(() => {
+      window.__asked = []
+      window.DeviceMotionEvent.requestPermission = () => {
+        window.__asked.push('motion')
+        return Promise.resolve('granted')
+      }
+      const watch = navigator.geolocation.watchPosition.bind(navigator.geolocation)
+      navigator.geolocation.watchPosition = (...args) => {
+        window.__asked.push('location')
+        return watch(...args)
+      }
+      const camera = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices)
+      navigator.mediaDevices.getUserMedia = (c) => {
+        window.__asked.push('camera')
+        return camera(c)
+      }
+    })
+    await page.goto('/#/?to=library')
+    // Asked in one go: the order is fixed, and nothing else ran between them.
+    const asked = await page.evaluate(() => {
+      window.__asked.length = 0
+      document.querySelector('[data-action="walk"]').click()
+      return [...window.__asked]
+    })
+    expect(asked).toEqual(['motion', 'camera', 'location'])
   })
 })
 
 test.describe('phones and browsers that cannot run AR', () => {
   test('desktop: explains AR is for phones and offers the map', async ({page}, testInfo) => {
     test.skip(onlyOn('desktop-chrome')(testInfo))
-    await page.goto('/#/locate?to=library')
+    await page.goto('/#/?to=library')
+    await page.getByRole('button', {name: 'Walk here in AR'}).click()
     await expect(page.getByRole('heading', {name: 'AR works on your phone'})).toBeVisible()
     await expect(page.getByRole('button', {name: 'Copy link'})).toBeVisible()
     await page.getByRole('button', {name: 'View 2D map instead'}).click()
-    await expect(page).toHaveURL(/#\/map/)
+    await expect(page.locator('[data-card]').getByRole('heading', {name: 'Library'})).toBeVisible()
   })
 
   test('in-app browser: asks to open Safari', async ({browser}, testInfo) => {
@@ -82,35 +269,42 @@ test.describe('phones and browsers that cannot run AR', () => {
     await expect(page.getByRole('button', {name: 'Copy link'})).toBeVisible()
     await ctx.close()
   })
-
-  test('iPhone: tapping a destination goes straight on, with no permission screen', async ({page}, testInfo) => {
-    test.skip(onlyOn('iphone-safari')(testInfo))
-    await page.addInitScript(IPHONE_CAMERA_STUB)
-    await page.goto('/')
-    await page.getByRole('button', {name: 'Start AR'}).click()
-    await page.getByRole('button', {name: 'Library'}).click()
-    await expect(page).toHaveURL(/#\/(locate|ar)\?to=library/, {timeout: 5000})
-    await expect(page.getByRole('button', {name: 'Tap to start'})).toHaveCount(0)
-    await expect(page.getByText('Library').first()).toBeVisible()
-  })
 })
 
 test.describe('AR session', () => {
-  test('Android: downloads the engine and shows the live camera with tracking', async ({page}, testInfo) => {
+  test('Android: from a pin to the live camera, showing only exit and the pill', async ({page}, testInfo) => {
     test.skip(onlyOn('android-chrome')(testInfo))
     const errors = watchErrors(page)
     await page.addInitScript(FAKE_REAR_CAMERA)
     await page.goto('/')
-    await page.getByRole('button', {name: 'Start AR'}).click()
-    await page.getByRole('button', {name: 'Cottrell Building'}).click()
-    await expect(page.getByRole('progressbar', {name: 'Loading AR'})).toBeVisible()
-    await expect(page.locator('[data-stat="camera"]')).toHaveText('Working', {timeout: 60_000})
-    await expect(page.locator('canvas[data-canvas]')).toBeVisible()
-    await expect(page.locator('[data-stat="fps"]')).toHaveText(/\d+ fps/, {timeout: 10_000})
-    // Exit returns home and releases the camera.
+    await mapReady(page)
+    await tapPin(page, 'cottrell')
+    await page.getByRole('button', {name: 'Walk here in AR'}).click()
+    await expect(page.getByRole('progressbar', {name: 'Loading AR'})).toBeVisible({timeout: 15_000})
+    await expect(page.locator('canvas[data-canvas]')).toBeVisible({timeout: 60_000})
+    await expect(page.locator('[data-veil]')).toHaveClass(/is-hidden/, {timeout: 60_000})
+    await expect(page.locator('[data-trip-pill]')).toHaveText(/^Cottrell · \d+ m · \d+ min$/)
+    // Nothing else without ?debug=1.
+    await expect(page.locator('[data-tracking-chip]')).toHaveCount(0)
+    await expect(page.locator('[data-debug]')).toHaveCount(0)
+    await expect(page.locator('[data-minimap]')).toHaveCount(0)
+    await expect(page.getByRole('button', {name: 'Show debug panel'})).toHaveCount(0)
+    // Exit returns to the map and releases the camera.
     await page.getByRole('button', {name: 'Exit AR'}).click()
-    await expect(page.getByRole('button', {name: 'Start AR'})).toBeVisible()
+    await expect(page.getByRole('button', {name: 'Where do you want to go?'})).toBeVisible()
     expect(errors).toEqual([])
+  })
+
+  test('at the entrance: "You\'ve arrived", and Done goes back to the map', async ({page, context}, testInfo) => {
+    test.skip(onlyOn('android-chrome')(testInfo))
+    await page.addInitScript(FAKE_REAR_CAMERA)
+    // Standing at the Cottrell entrance. Test mode faces north and places the route.
+    await context.setGeolocation({latitude: 56.144904, longitude: -3.920317, accuracy: 5})
+    await page.goto('/#/locate?to=cottrell&force=1')
+    await page.getByRole('button', {name: 'Tap to start'}).click({timeout: 30_000})
+    await expect(page.getByRole('heading', {name: "You've arrived"})).toBeVisible({timeout: 90_000})
+    await page.getByRole('button', {name: 'Done'}).click()
+    await expect(page.getByRole('button', {name: 'Where do you want to go?'})).toBeVisible()
   })
 
   test('iPhone: motion denied shows Safari steps and a way out', async ({page}, testInfo) => {
@@ -124,7 +318,7 @@ test.describe('AR session', () => {
     await expect(page.getByRole('heading', {name: 'Motion access is off'})).toBeVisible()
     await expect(page.getByText('Tap Allow when Safari asks about motion.')).toBeVisible()
     await page.getByRole('button', {name: 'View 2D map instead'}).click()
-    await expect(page).toHaveURL(/#\/map/)
+    await expect(page.getByRole('button', {name: 'Where do you want to go?'})).toBeVisible()
   })
 
   test('Android: camera blocked shows how to turn it back on', async ({page}, testInfo) => {
@@ -145,29 +339,5 @@ test.describe('AR session', () => {
     await page.getByRole('button', {name: 'Tap to start'}).click()
     await expect(page.getByRole('heading', {name: 'AR could not load'})).toBeVisible({timeout: 30_000})
     await expect(page.getByRole('button', {name: 'Try again'})).toBeVisible()
-  })
-})
-
-test.describe('campus map', () => {
-  test('loads the University MazeMap map full screen', async ({page}, testInfo) => {
-    test.skip(onlyOn('desktop-chrome', 'android-chrome')(testInfo))
-    await page.goto('/#/map')
-    await expect(page.getByRole('heading', {name: 'Campus map'})).toBeAttached()
-    await expect(page.locator('[data-overlay]')).toBeHidden({timeout: 30_000})
-    const height = await page.locator('[data-map]').evaluate((el) => el.getBoundingClientRect().height)
-    expect(height).toBeGreaterThan(500)
-    await expect(page.locator('.mapboxgl-canvas')).toBeVisible()
-  })
-
-  test('shows a friendly error with a retry when MazeMap is unreachable', async ({page}, testInfo) => {
-    test.skip(onlyOn('desktop-chrome')(testInfo))
-    await page.route('https://api.mazemap.com/**', (route) => route.abort('internetdisconnected'))
-    await page.goto('/#/map')
-    await expect(page.getByRole('heading', {name: 'The map could not load'})).toBeVisible({timeout: 20_000})
-    await expect(page.getByRole('button', {name: 'Try again'})).toBeVisible()
-    await expect(page.getByRole('link', {name: 'Open the full campus map'})).toHaveAttribute(
-      'href',
-      'https://stirling-campus-map.vercel.app',
-    )
   })
 })

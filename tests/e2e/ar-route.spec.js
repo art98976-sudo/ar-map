@@ -19,7 +19,7 @@ test.describe('route and arrows', () => {
     await page.goto('/#/locate?to=pathfoot')
     await page.getByRole('button', {name: 'Tap to start'}).click({timeout: 30_000})
     // Pathfoot is roughly 700 m from the walkway: about 9 minutes.
-    await expect(page.locator('[data-trip-remaining]')).toContainText(/\d+ m · about \d+ min/, {timeout: 60_000})
+    await expect(page.locator('[data-trip-pill]')).toHaveText(/^Pathfoot · \d+ m · \d+ min$/, {timeout: 60_000})
   })
 
   test('not on campus: offers Google Maps walking directions', async ({browser}, testInfo) => {
@@ -70,7 +70,7 @@ test.describe('route and arrows', () => {
     await page.addInitScript(FAKE_REAR_CAMERA)
     await page.goto('/#/locate?to=library')
     await page.getByRole('button', {name: 'Tap to start'}).click({timeout: 30_000})
-    await expect(page.locator('[data-stat="camera"]')).toHaveText('Working', {timeout: 60_000})
+    await expect(page.locator('[data-veil]')).toHaveClass(/is-hidden/, {timeout: 60_000})
     // Headless Chrome sends no orientation events at all.
     await expect(page.getByRole('heading', {name: 'No compass found'})).toBeVisible({timeout: 15_000})
     await expect(page.locator('[data-guide]').getByRole('button', {name: 'View 2D map instead'})).toBeVisible()

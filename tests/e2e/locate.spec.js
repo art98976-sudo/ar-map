@@ -30,7 +30,7 @@ const failingGps = (code) => {
 }
 
 test.describe('location step', () => {
-  test('the trip goes search → tap a destination → location → camera, with no screen to tap through', async ({page}, testInfo) => {
+  test('the trip goes map → card → location → camera, with no screen to tap through', async ({page}, testInfo) => {
     test.skip(onlyOn('android-chrome', 'iphone-safari')(testInfo))
     if (testInfo.project.name === 'iphone-safari') {
       // Desktop WebKit has no camera API; every iPhone does.
@@ -40,9 +40,8 @@ test.describe('location step', () => {
         }
       })
     }
-    await page.goto('/')
-    await page.getByRole('button', {name: 'Start AR'}).click()
-    await page.getByRole('button', {name: 'Library', exact: true}).click()
+    await page.goto('/#/?to=library')
+    await page.getByRole('button', {name: 'Walk here in AR'}).click()
     // That tap asked for everything. The fix is good (±6 m), so it plans the walk and opens the camera.
     await expect(page).toHaveURL(/#\/ar\?to=library/, {timeout: 30_000})
   })
@@ -104,7 +103,7 @@ test.describe('location step', () => {
     await page.clock.fastForward(31_000)
     await expect(page.getByText('You may be indoors.')).toBeVisible()
     await page.getByRole('button', {name: 'View 2D map instead'}).click()
-    await expect(page).toHaveURL(/#\/map\?to=library/)
+    await expect(page.locator('[data-card]').getByRole('heading', {name: 'Library'})).toBeVisible()
   })
 
   for (const [code, title] of [
@@ -122,8 +121,8 @@ test.describe('location step', () => {
     })
   }
 
-  test('without a destination it goes back to search', async ({page}) => {
+  test('without a destination it goes back to the map', async ({page}) => {
     await page.goto('/#/locate')
-    await expect(page.getByRole('heading', {name: 'Where do you want to go?'})).toBeVisible()
+    await expect(page.getByRole('button', {name: 'Where do you want to go?'})).toBeVisible()
   })
 })

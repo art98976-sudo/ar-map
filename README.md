@@ -6,7 +6,7 @@ No app to install.
 
 Status: **Outdoor V1, Steps A–D**: destination search, GPS location, walking route, compass, arrows on the ground.
 
-**A trip:** search → tap a destination (the phone asks for motion, camera and location) → GPS ±20 m or better → route planned → camera → arrows and a destination pin as soon as tracking and the compass respond. The compass keeps calibrating silently in the background, and map matching lays the walked track onto the route after 6 m, even turning it round if the compass had it backwards, so the arrows sit on the real path. Arrows stop 3 m past the next corner, so they never show through a building.
+**A trip:** the home screen is the campus map. Tap a pin or search, then "Walk here in AR" on the card: the phone asks for motion, camera and location in that tap, GPS reaches ±20 m or better, the route is planned, and the camera opens with arrows on the ground. The compass keeps calibrating silently in the background, and map matching lays the walked track onto the route after 6 m, even turning it round if the compass had it backwards. Arrows stop 3 m past the next corner, so they never show through a building. Within 8 m of the entrance you get "You've arrived".
 
 ## Quick start
 

@@ -1,4 +1,4 @@
-/* Destination search, chips, destination cards and the map place card. */
+/* Destination search, popular chips and the destination card on the location step. */
 
 .sr-only {
   position: absolute;
@@ -67,8 +67,8 @@
   right: 6px;
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: var(--tap);
+  height: var(--tap);
   border: 0;
   border-radius: 50%;
   background: transparent;
@@ -104,7 +104,8 @@
   margin-bottom: 0;
 }
 .dsearch__link {
-  min-height: 44px;
+  min-width: var(--tap);
+  min-height: var(--tap);
   padding: 0 var(--s-2);
   border: 0;
   background: none;
@@ -241,7 +242,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--s-2);
-  min-height: 44px;
+  min-height: var(--tap);
   padding: 0 var(--s-4);
   border: 0;
   border-radius: var(--r-pill);
@@ -258,11 +259,6 @@
 .chip-btn:active {
   transform: scale(0.97);
   background: #eef5f0;
-}
-
-/* ---------- Search screen ---------- */
-.search-screen__box {
-  margin-top: var(--s-6);
 }
 
 /* ---------- Destination card (location step) ---------- */
@@ -288,99 +284,4 @@
 }
 .dest-card__name {
   font-weight: 600;
-}
-
-/* ---------- AR destination pill ---------- */
-.ar__dest {
-  position: absolute;
-  top: calc(var(--safe-top) + 72px);
-  left: 50%;
-  z-index: 3;
-  max-width: calc(100% - 32px);
-  transform: translateX(-50%);
-  white-space: nowrap;
-}
-.ar__dest span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* ---------- Map: search overlay ---------- */
-.map-screen__search {
-  flex: 1;
-  min-width: 0;
-}
-.dsearch--compact .dsearch__input {
-  min-height: var(--tap);
-  box-shadow: var(--shadow-1);
-  background: rgba(255, 255, 255, 0.97);
-}
-.dsearch--compact .dsearch__panel {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  right: 0;
-  max-height: min(60dvh, 520px);
-  margin-top: 0;
-  padding: var(--s-4);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  border-radius: var(--r-md);
-  background: rgba(255, 255, 255, 0.98);
-  box-shadow: var(--shadow-2);
-}
-.dsearch--compact .dsearch__list {
-  box-shadow: none;
-  border-radius: var(--r-sm);
-}
-
-/* ---------- Map: selected place card ---------- */
-.place-card {
-  position: absolute;
-  left: var(--s-3);
-  right: var(--s-3);
-  bottom: calc(var(--safe-bottom) + var(--s-3));
-  z-index: 5;
-  display: grid;
-  gap: var(--s-3);
-  max-width: 480px;
-  margin: 0 auto;
-  padding: var(--s-4);
-  border-radius: var(--r-lg);
-  background: var(--surface);
-  box-shadow: var(--shadow-2);
-  animation: card-in var(--t-med) var(--ease);
-}
-@keyframes card-in {
-  from {
-    transform: translateY(16px);
-    opacity: 0;
-  }
-}
-.place-card__row {
-  display: flex;
-  align-items: center;
-  gap: var(--s-3);
-}
-.place-card__text {
-  flex: 1;
-  min-width: 0;
-}
-.place-card__name {
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  line-height: 1.2;
-}
-.place-card__meta,
-.place-card__desc {
-  font-size: var(--fs-sm);
-  color: var(--text-muted);
-}
-.place-card__close {
-  flex: none;
-}
-/* Keep MazeMap's own controls above the place card when it is open. */
-.map-screen:has(.place-card:not([hidden])) .mapboxgl-ctrl-bottom-left,
-.map-screen:has(.place-card:not([hidden])) .mapboxgl-ctrl-bottom-right {
-  margin-bottom: calc(var(--safe-bottom) + 210px);
 }

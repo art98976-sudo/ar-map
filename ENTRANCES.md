@@ -37,3 +37,13 @@ Popular places are in **bold**: check these first.
 - Places marked *route end (no indoor map)* have no indoor map on MazeMap, so their point is just where the outdoor route stops. These need checking the most.
 
 To regenerate all suggestions after MazeMap updates: `node tools/find-entrances.mjs --write` (this overwrites manual changes, so note them first).
+
+## Added for the map chips
+
+Food and bus places come from the University's MazeMap, and Starbucks from OpenStreetMap. Check they still exist and where the door is.
+
+- [ ] Bus Hub: [56.143862, -3.921099](https://www.google.com/maps?q=56.143862,-3.921099)
+- [ ] Scran: [56.145956, -3.919276](https://www.google.com/maps?q=56.145956,-3.919276)
+- [ ] The Bite: [56.144904, -3.920317](https://www.google.com/maps?q=56.144904,-3.920317)
+- [ ] Umami: [56.144327, -3.921595](https://www.google.com/maps?q=56.144327,-3.921595)
+- [ ] Starbucks: [56.146068, -3.918701](https://www.google.com/maps?q=56.146068,-3.918701)

@@ -158,28 +158,6 @@
   text-decoration-thickness: 1.5px;
   text-underline-offset: 3px;
 }
-.link--muted {
-  color: var(--text-muted);
-  font-weight: 500;
-  font-size: var(--fs-sm);
-}
-
-/* ---------- Eyebrow / section title ---------- */
-.eyebrow {
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--green-02);
-}
-.eyebrow--light {
-  color: var(--green-01-70);
-}
-.section-title {
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
 
 /* ---------- Toast ---------- */
 .toast-region {

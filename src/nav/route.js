@@ -28,6 +28,12 @@ export function walkingMinutes(metres) {
   return Math.max(1, Math.round(metres / WALK_SPEED_MPS / 60))
 }
 
+/** Rough walking time before a route is planned: paths are about 1.3 x the straight line. */
+export function estimateWalkMinutes(from, dest) {
+  if (!from || !isOnCampus(from)) return null
+  return walkingMinutes(distanceM(from, entranceOf(dest)) * 1.3)
+}
+
 /** Google Maps walking directions (for people who are not on campus yet). */
 export function googleMapsWalkingUrl(dest) {
   const e = entranceOf(dest)

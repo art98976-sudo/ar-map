@@ -1,137 +1,4 @@
-/* Screen layouts: home, generic page, loading, errors, map, about, location step. */
-
-/* ---------- Home ---------- */
-.home {
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-}
-
-.hero {
-  position: relative;
-  overflow: hidden;
-  padding: calc(var(--safe-top) + 28px) var(--gutter) 88px;
-  color: var(--white);
-  background:
-    radial-gradient(120% 80% at 100% 0%, rgba(118, 183, 42, 0.38) 0%, rgba(118, 183, 42, 0) 55%),
-    radial-gradient(90% 70% at 0% 100%, rgba(0, 58, 61, 0.9) 0%, rgba(0, 58, 61, 0) 70%),
-    linear-gradient(165deg, #007a42 0%, var(--green-02) 45%, var(--green-03) 100%);
-}
-/* Contour lines: a nod to the Ochil Hills behind campus. */
-.hero__pattern {
-  position: absolute;
-  inset: 0;
-  opacity: 0.16;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400' fill='none' stroke='white' stroke-width='1.2'%3E%3Cpath d='M-20 300c60-40 120-50 180-20s120 40 260-30'/%3E%3Cpath d='M-20 270c60-40 120-50 180-20s120 40 260-30'/%3E%3Cpath d='M-20 240c70-50 130-55 190-25s110 30 250-35'/%3E%3Cpath d='M-20 210c70-50 130-55 190-25s110 30 250-35'/%3E%3Cpath d='M-20 180c80-60 140-60 200-30s100 20 240-40'/%3E%3Cpath d='M-20 150c80-60 140-60 200-30s100 20 240-40'/%3E%3Cpath d='M-20 120c90-70 150-65 210-35s90 10 230-45'/%3E%3Cpath d='M-20 90c90-70 150-65 210-35s90 10 230-45'/%3E%3C/svg%3E");
-  background-size: 520px 520px;
-  background-position: 30% 40%;
-  mask-image: linear-gradient(180deg, transparent 0%, #000 35%, #000 75%, transparent 100%);
-}
-.hero__inner {
-  position: relative;
-  display: grid;
-  gap: var(--s-4);
-  max-width: 560px;
-  margin: 0 auto;
-}
-.hero__logo {
-  width: 152px;
-  height: auto;
-  margin-bottom: var(--s-6);
-}
-.hero__title {
-  font-size: var(--fs-hero);
-  font-weight: 600;
-  line-height: 1.06;
-  letter-spacing: -0.028em;
-  text-wrap: balance;
-}
-.hero__lede {
-  max-width: 34ch;
-  font-size: var(--fs-md);
-  color: rgba(255, 255, 255, 0.86);
-}
-
-.home__panel {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  gap: var(--s-3);
-  width: calc(100% - 2 * var(--gutter));
-  max-width: 520px;
-  margin: -56px auto 0;
-  padding: var(--s-5);
-  border-radius: var(--r-lg);
-  background: var(--surface);
-  box-shadow: var(--shadow-2);
-}
-.privacy-note {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--s-2);
-  padding-top: var(--s-1);
-  font-size: var(--fs-xs);
-  color: var(--text-muted);
-  text-align: center;
-}
-.privacy-note .icon {
-  color: var(--green-02);
-}
-
-.how {
-  width: 100%;
-  max-width: 520px;
-  margin: 0 auto;
-  padding: var(--s-8) var(--gutter) var(--s-6);
-}
-.how__steps {
-  display: grid;
-  gap: var(--s-2);
-  margin-top: var(--s-4);
-  counter-reset: step;
-}
-.how__step {
-  display: flex;
-  align-items: center;
-  gap: var(--s-4);
-  padding: var(--s-4);
-  border-radius: var(--r-md);
-  background: rgba(255, 255, 255, 0.6);
-  box-shadow: inset 0 0 0 1px var(--line);
-}
-.how__step div {
-  display: grid;
-}
-.how__step strong {
-  font-weight: 600;
-}
-.how__step span:last-child {
-  font-size: var(--fs-sm);
-  color: var(--text-muted);
-}
-.how__icon {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  color: var(--green-02);
-  background: rgba(118, 183, 42, 0.16);
-}
-
-.site-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--s-4);
-  width: 100%;
-  max-width: 520px;
-  margin: auto auto 0;
-  padding: var(--s-6) var(--gutter) calc(var(--safe-bottom) + var(--s-6));
-  font-size: var(--fs-sm);
-}
+/* Screen layouts: map home, sheets, generic page, loading, errors, location step. */
 
 /* ---------- Generic page ---------- */
 .page {
@@ -152,12 +19,6 @@
   text-align: center;
   gap: var(--s-4);
 }
-.page__bar {
-  display: flex;
-  align-items: center;
-  min-height: var(--tap);
-  margin-bottom: var(--s-6);
-}
 .page__title {
   margin-top: var(--s-2);
   font-size: var(--fs-xl);
@@ -171,11 +32,6 @@
   color: var(--text-muted);
   text-wrap: pretty;
 }
-.page__footer {
-  margin-top: auto;
-  padding-top: var(--s-6);
-}
-
 /* ---------- Loading ---------- */
 .progress-ring {
   --p: 0;
@@ -275,89 +131,17 @@
   margin-top: var(--s-4);
 }
 
-/* ---------- Map ---------- */
-.map-screen {
-  position: fixed;
-  inset: 0;
-  background: #e8ebe6;
-}
-/* MazeMap adds .mapboxgl-map { position: relative }, so size the container explicitly too. */
-.map-screen__map {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-.map-screen__bar {
-  position: absolute;
-  top: calc(var(--safe-top) + var(--s-3));
-  left: var(--s-3);
-  right: var(--s-3);
-  z-index: 6; /* above the place card, so search results are never covered */
-  display: flex;
-  align-items: center;
-  gap: var(--s-3);
-  pointer-events: none;
-}
-.map-screen__bar > * {
-  pointer-events: auto;
-}
-.map-screen__overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: var(--s-3);
-  padding: var(--gutter);
-  background: rgba(241, 241, 239, 0.86);
-  color: var(--text-muted);
-  font-weight: 500;
-}
-.map-screen__error {
-  display: grid;
-  justify-items: center;
-  gap: var(--s-3);
-  width: min(100%, 360px);
-  padding: var(--s-6);
-  border-radius: var(--r-lg);
-  background: var(--surface);
-  box-shadow: var(--shadow-2);
-  text-align: center;
-}
-.map-screen__error h2 {
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  color: var(--text);
-}
-/* MazeMap controls: keep clear of the iPhone home bar, brand the active floor. */
-.map-screen .mapboxgl-ctrl-bottom-left,
-.map-screen .mapboxgl-ctrl-bottom-right {
-  margin-bottom: calc(var(--safe-bottom) + 12px);
-}
-.map-screen .mm-floor-bar {
-  border-radius: 14px !important;
-  overflow: hidden;
-  box-shadow: var(--shadow-1) !important;
-}
-
 /* ---------- About ---------- */
 .about {
   display: grid;
   gap: var(--s-2);
-}
-.about > img {
-  width: 140px;
-  height: auto;
-  margin-bottom: var(--s-4);
 }
 .about__block {
   margin-top: var(--s-6);
   padding-top: var(--s-5);
   border-top: 1px solid var(--line);
 }
-.about__block h2 {
+.about__block h3 {
   margin-bottom: var(--s-2);
   font-size: var(--fs-md);
   font-weight: 600;
@@ -460,14 +244,310 @@
   flex: none;
 }
 
-.site-footer__note,
 .about__note {
   font-size: var(--fs-xs);
   color: var(--text-muted);
 }
-.site-footer {
-  flex-wrap: wrap;
+
+/* ---------- Map home ---------- */
+.map-home {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #e8ebe6;
 }
-.site-footer__note {
-  flex-basis: 100%;
+/* MazeMap adds .mapboxgl-map { position: relative }, so size the container explicitly too. */
+.map-home__map {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.map-home__top {
+  position: absolute;
+  top: calc(var(--safe-top) + var(--s-3));
+  left: 0;
+  right: 0;
+  z-index: 4;
+  display: grid;
+  gap: var(--s-2);
+  pointer-events: none;
+}
+.map-home__top > * {
+  pointer-events: auto;
+}
+.map-home__row {
+  display: flex;
+  gap: var(--s-2);
+  padding: 0 var(--s-3);
+}
+.map-search {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--s-2);
+  min-width: 0;
+  min-height: 52px;
+  padding: 0 var(--s-4);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+  color: var(--text-muted);
+  font: inherit;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.map-search span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.map-search .icon {
+  color: var(--green-02);
+}
+.map-home__row .icon-btn {
+  flex: none;
+  width: 52px;
+  height: 52px;
+}
+.map-chips {
+  display: flex;
+  gap: var(--s-2);
+  padding: 0 var(--s-3) var(--s-1);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.map-chips::-webkit-scrollbar {
+  display: none;
+}
+.map-chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--tap);
+  padding: 0 var(--s-4);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.map-chip .icon {
+  color: var(--green-02);
+}
+.map-chip[aria-pressed='true'] {
+  background: var(--green-02);
+  color: var(--white);
+}
+.map-chip[aria-pressed='true'] .icon {
+  color: inherit;
+}
+.map-home__overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--s-3);
+  padding: var(--gutter);
+  background: rgba(241, 241, 239, 0.86);
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.map-home__overlay[hidden] {
+  display: none;
+}
+.map-home__error {
+  display: grid;
+  justify-items: center;
+  gap: var(--s-3);
+  width: min(100%, 360px);
+  padding: var(--s-6);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+  text-align: center;
+}
+.map-home__error h2 {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--text);
+}
+/* MazeMap controls: keep clear of the iPhone home bar, big enough to tap, brand the floor bar. */
+.map-home .mapboxgl-ctrl-bottom-left,
+.map-home .mapboxgl-ctrl-bottom-right {
+  margin-bottom: calc(var(--safe-bottom) + 12px);
+}
+.map-home .mapboxgl-ctrl-group button {
+  width: var(--tap);
+  height: var(--tap);
+}
+.map-home .mm-floor-bar {
+  border-radius: 14px !important;
+  overflow: hidden;
+  box-shadow: var(--shadow-1) !important;
+}
+/* Keep the controls above the card when it is open. */
+.map-home:has(.dest-sheet:not([hidden])) .mapboxgl-ctrl-bottom-left,
+.map-home:has(.dest-sheet:not([hidden])) .mapboxgl-ctrl-bottom-right {
+  margin-bottom: calc(var(--safe-bottom) + 230px);
+}
+
+/* ---------- Pins ---------- */
+.map-pin {
+  display: grid;
+  place-items: center;
+  width: var(--tap);
+  height: var(--tap);
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.map-pin[hidden] {
+  display: none;
+}
+.map-pin__dot {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid var(--white);
+  background: var(--green-02);
+  box-shadow: var(--shadow-2);
+  color: var(--white);
+  transition: transform var(--t-fast) var(--ease);
+}
+.map-pin[data-category='food'] .map-pin__dot {
+  background: var(--teal-02);
+}
+.map-pin[data-category='bus'] .map-pin__dot {
+  background: var(--teal-03);
+}
+.map-pin.is-selected {
+  z-index: 2;
+}
+.map-pin.is-selected .map-pin__dot {
+  background: var(--green-01);
+  color: #12340c;
+  transform: scale(1.3);
+}
+
+/* ---------- Destination card ---------- */
+.dest-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  display: grid;
+  gap: var(--s-2);
+  max-width: 520px;
+  margin: 0 auto;
+  padding: var(--s-4) var(--s-4) calc(var(--safe-bottom) + var(--s-2));
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: var(--surface);
+  box-shadow: 0 -10px 30px -10px rgba(0, 40, 22, 0.28);
+  animation: sheet-in var(--t-med) var(--ease);
+}
+.dest-sheet[hidden] {
+  display: none;
+}
+@keyframes sheet-in {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+.dest-sheet__photo {
+  width: 100%;
+  height: 132px;
+  border-radius: var(--r-md);
+  object-fit: cover;
+}
+.dest-sheet__head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  margin-bottom: var(--s-2);
+}
+.dest-sheet__text {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+.dest-sheet__name {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  line-height: 1.2;
+}
+.dest-sheet__meta {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.dest-sheet__walk {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--s-1);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--green-03);
+}
+.dest-sheet__link {
+  min-height: var(--tap);
+  border: 0;
+  background: none;
+  color: var(--green-02);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* ---------- Full-height sheets: search and about ---------- */
+.sheet {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: calc(var(--safe-top) + var(--s-3)) var(--gutter) calc(var(--safe-bottom) + var(--s-6));
+  background: var(--bg);
+  animation: sheet-in var(--t-med) var(--ease);
+}
+.sheet[hidden] {
+  display: none;
+}
+.sheet__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  margin-bottom: var(--s-4);
+}
+.sheet__bar .icon-btn {
+  flex: none;
+}
+.sheet__bar--end {
+  justify-content: flex-end;
+  margin-bottom: 0;
+}
+.sheet__title {
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: -0.022em;
 }

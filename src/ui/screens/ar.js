@@ -1,6 +1,7 @@
 // AR screen. States, in order:
 //   loading  download the AR engine with a real progress bar
-//   live     camera feed + world tracking, with a live system check card
+//   live     camera feed + world tracking: the exit button, the arrows and one pill.
+//            Everything else on this screen appears only with ?debug=1.
 //   error    camera denied, motion denied, offline, timeout or engine crash; each says what to do
 import {permissionsAllowed} from '../../ar/permissions.js'
 import {parseUserAgent} from '../../ar/device.js'
@@ -8,10 +9,18 @@ import {findDestination} from '../../nav/destinations.js'
 import {readTripRoute} from '../../nav/route.js'
 import {readTripFix} from '../../geo/location.js'
 import {formatDistance} from '../../arrows/pin.js'
-import {showToast} from '../components/toast.js'
+import {showArrival} from '../components/arrival.js'
 import {drawMinimap} from '../components/ar-minimap.js'
 import {haptic, html, onAction, render} from '../dom.js'
-import {CATEGORY_ICON, icon} from '../icons.js'
+import {icon} from '../icons.js'
+
+const WALK_MPS = 1.3
+
+/** The one line on the AR screen: "Pathfoot · 120 m · 2 min". */
+export function tripPillText(name, metres) {
+  const minutes = Math.max(1, Math.round(metres / WALK_MPS / 60))
+  return `${name.replace(/ Building$/, '')} · ${formatDistance(metres)} · ${minutes} min`
+}
 
 export function arScreen(root, {navigate, params}) {
   const allowDesktop = params.force === '1'
@@ -20,7 +29,7 @@ export function arScreen(root, {navigate, params}) {
   const destination = findDestination(params.to)
   if (!destination) {
     // Defer, so the router finishes mounting this screen before it switches again.
-    queueMicrotask(() => navigate(`/search${allowDesktop ? '?force=1' : ''}`, {replace: true}))
+    queueMicrotask(() => navigate('/', {replace: true}))
     return
   }
   // The walking route and the one permission tap happen on the location screen. Without them, go back.
@@ -40,7 +49,8 @@ export function arScreen(root, {navigate, params}) {
 
   const actions = {
     exit: () => navigate('/'),
-    map: () => navigate(`/map?to=${encodeURIComponent(destination.id)}`),
+    done: () => navigate('/'),
+    map: () => navigate(`/?to=${encodeURIComponent(destination.id)}`),
     retry: () => begin(),
     reload: () => window.location.reload(),
     debug: () => toggleDebug(),
@@ -98,13 +108,12 @@ export function arScreen(root, {navigate, params}) {
           </div>
           <header class="ar__top">
             <button class="icon-btn icon-btn--glass" data-action="exit" aria-label="Exit AR">${icon('close')}</button>
-            <div class="chip chip--glass" data-tracking-chip data-tone="pending" aria-live="polite">
-              <span class="chip__dot"></span><span data-tracking-label>Starting tracking</span>
-            </div>
+            ${showDebug
+              ? html`<div class="chip chip--glass" data-tracking-chip data-tone="pending" aria-live="polite">
+                  <span class="chip__dot"></span><span data-tracking-label>Starting tracking</span>
+                </div>`
+              : ''}
           </header>
-          <p class="ar__dest chip chip--glass" data-ar-destination>
-            ${icon('pin', {size: 16})}<span>To <strong>${destination.name}</strong></span>
-          </p>
           ${showDebug
             ? html`<button class="debug-toggle chip chip--glass" type="button" data-action="debug" aria-label="Show debug panel" aria-expanded="false" aria-controls="ar-debug">
                 ${icon('info', {size: 16})}<span>Debug</span>
@@ -113,7 +122,7 @@ export function arScreen(root, {navigate, params}) {
           <div class="ar__hints">
           <p class="ar__hint" data-compass-pill role="status" hidden>Wave your phone in a figure-8</p>
           <p class="ar__hint" data-hint role="status" hidden>Move your phone slowly</p>
-          <p class="ar__hint" data-lock-hint role="status" hidden>Walk a few steps along the path to lock the arrows</p>
+          ${showDebug ? html`<p class="ar__hint" data-lock-hint role="status" hidden>Walk a few steps along the path to lock the arrows</p>` : ''}
           ${route.source === 'direct' ? html`<p class="ar__hint" data-approx-hint role="status">Approximate route - check the 2D map</p>` : ''}
           </div>
 
@@ -126,15 +135,9 @@ export function arScreen(root, {navigate, params}) {
             </button>
           </section>
 
-          <section class="trip-card" data-trip-card aria-label="Trip">
-            <span class="dsearch__badge" data-category="${destination.category}">
-              ${icon(CATEGORY_ICON[destination.category] || 'pin', {size: 20})}
-            </span>
-            <div class="trip-card__text">
-              <strong>${destination.name}</strong>
-              <span data-trip-remaining>${formatDistance(route.lengthM)} · about ${route.minutes} min</span>
-            </div>
-          </section>
+          <p class="ar-pill" data-trip-pill>${tripPillText(destination.name, route.lengthM)}</p>
+
+          <div class="arrival" data-arrival hidden></div>
 
           ${showDebug
             ? html`<section class="ar-live" data-live-debug aria-label="Live alignment">
@@ -151,7 +154,8 @@ export function arScreen(root, {navigate, params}) {
               </section>`
             : ''}
 
-          <section class="ar-debug" id="ar-debug" data-debug hidden aria-label="Debug panel">
+          ${showDebug
+            ? html`<section class="ar-debug" id="ar-debug" data-debug hidden aria-label="Debug panel">
             <h2 class="ar__sheet-title">Debug</h2>
             <dl class="stats">
               <div class="stats__row"><dt>Camera</dt><dd data-stat="camera">Starting…</dd></div>
@@ -173,7 +177,8 @@ export function arScreen(root, {navigate, params}) {
             <button class="btn btn--secondary btn--block" type="button" data-action="recalibrate" aria-label="Recalibrate compass">
               ${icon('compass')}<span>Recalibrate compass</span>
             </button>
-          </section>
+          </section>`
+            : ''}
         </div>
       `,
       'live',
@@ -185,10 +190,12 @@ export function arScreen(root, {navigate, params}) {
     if (!card) return
     setStat('phase', phase)
     card.hidden = phase !== 'no-compass'
-    if (phase === 'ready') {
-      haptic([20, 60, 20])
-      showToast(`Follow the arrows to the ${destination.name}`, {tone: 'success'})
-    }
+    if (phase === 'ready') haptic([20, 60, 20])
+  }
+
+  function onArrived() {
+    const host = root.querySelector('[data-arrival]')
+    if (host) showArrival(host, {name: destination.name})
   }
 
   function onStats(s) {
@@ -213,11 +220,8 @@ export function arScreen(root, {navigate, params}) {
     setStat('turn', s.nextTurnM == null ? 'none' : `${formatDistance(s.nextTurnM)} ${s.nextTurnDir}`)
     setStat('arrows', `${s.arrows} of ${s.arrowTotal}`)
     setStat('height', `${s.cameraHeight.toFixed(2)} m`)
-    const remaining = root.querySelector('[data-trip-remaining]')
-    if (remaining && s.phase === 'ready') {
-      const minutes = Math.max(1, Math.round(s.remainingM / 1.3 / 60))
-      remaining.textContent = `${formatDistance(s.remainingM)} · about ${minutes} min`
-    }
+    const pillText = root.querySelector('[data-trip-pill]')
+    if (pillText && s.phase === 'ready') pillText.textContent = tripPillText(destination.name, s.remainingM)
   }
 
   function paintLiveDebug(s) {
@@ -260,7 +264,10 @@ export function arScreen(root, {navigate, params}) {
     const {status, reason} = detail
     const chip = root.querySelector('[data-tracking-chip]')
     const label = root.querySelector('[data-tracking-label]')
-    if (!chip) return
+    if (!chip) {
+      if (status === 'NORMAL') haptic(18)
+      return
+    }
     if (status === 'NORMAL') {
       if (chip.dataset.tone !== 'ok') haptic(18)
       chip.dataset.tone = 'ok'
@@ -341,7 +348,7 @@ export function arScreen(root, {navigate, params}) {
     const canvas = root.querySelector('[data-canvas]')
     const {createArTrip} = await import('../../ar/trip.js')
     if (disposed) return
-    trip = createArTrip({route, origin, destination, allowDesktop, debug: showDebug, onPhase, onStats})
+    trip = createArTrip({route, origin, destination, allowDesktop, debug: showDebug, onPhase, onStats, onArrived})
     stopSession = startSession(
       XR8,
       canvas,

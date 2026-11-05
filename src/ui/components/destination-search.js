@@ -13,10 +13,9 @@ let instances = 0
 
 /**
  * @param {HTMLElement} host
- * @param {{onSelect: (dest) => void, compact?: boolean, placeholder?: string, label?: string}} options
- *   compact: for overlays (map). The panel only opens while the box is focused or has text.
+ * @param {{onSelect: (dest) => void, placeholder?: string, label?: string}} options
  */
-export function createDestinationSearch(host, {onSelect, compact = false, placeholder, label = 'Search destinations'}) {
+export function createDestinationSearch(host, {onSelect, placeholder, label = 'Search destinations'}) {
   const uid = `ds${++instances}`
   let query = ''
   let local = []
@@ -25,12 +24,11 @@ export function createDestinationSearch(host, {onSelect, compact = false, placeh
   let active = -1
   let timer = null
   let controller = null
-  let open = !compact
 
   render(
     host,
     html`
-      <div class="dsearch ${compact ? 'dsearch--compact' : ''}">
+      <div class="dsearch">
         <div class="dsearch__field">
           ${icon('search', {className: 'dsearch__icon'})}
           <input
@@ -152,10 +150,9 @@ export function createDestinationSearch(host, {onSelect, compact = false, placeh
       )
     }
     if (active >= options.length) active = options.length - 1
-    input.setAttribute('aria-expanded', String(open && options.length > 0))
+    input.setAttribute('aria-expanded', String(options.length > 0))
     if (active >= 0) input.setAttribute('aria-activedescendant', `${uid}-opt-${active}`)
     else input.removeAttribute('aria-activedescendant')
-    panel.hidden = !open
   }
 
   // ---------- behaviour ----------
@@ -192,10 +189,6 @@ export function createDestinationSearch(host, {onSelect, compact = false, placeh
     if (!dest) return
     addRecent(dest)
     input.blur()
-    if (compact) {
-      open = false
-      draw()
-    }
     onSelect(dest)
   }
 
@@ -214,7 +207,6 @@ export function createDestinationSearch(host, {onSelect, compact = false, placeh
 
   const onInput = () => {
     query = input.value
-    open = true
     runSearch()
   }
   const onKeyDown = (e) => {
@@ -229,16 +221,6 @@ export function createDestinationSearch(host, {onSelect, compact = false, placeh
       choose(options[active >= 0 ? active : 0])
     } else if (e.key === 'Escape') {
       if (query) clear()
-      else if (compact) {
-        open = false
-        draw()
-      }
-    }
-  }
-  const onFocus = () => {
-    if (!open) {
-      open = true
-      draw()
     }
   }
   const onClick = (e) => {
@@ -255,19 +237,10 @@ export function createDestinationSearch(host, {onSelect, compact = false, placeh
       input.focus()
     }
   }
-  // Compact mode: close the panel when the user taps outside (e.g. on the map).
-  const onOutside = (e) => {
-    if (compact && open && !host.contains(e.target)) {
-      open = false
-      draw()
-    }
-  }
 
   input.addEventListener('input', onInput)
   input.addEventListener('keydown', onKeyDown)
-  input.addEventListener('focus', onFocus)
   host.addEventListener('click', onClick)
-  document.addEventListener('pointerdown', onOutside)
   draw()
 
   return {
@@ -277,9 +250,7 @@ export function createDestinationSearch(host, {onSelect, compact = false, placeh
       controller?.abort()
       input.removeEventListener('input', onInput)
       input.removeEventListener('keydown', onKeyDown)
-      input.removeEventListener('focus', onFocus)
       host.removeEventListener('click', onClick)
-      document.removeEventListener('pointerdown', onOutside)
     },
   }
 }

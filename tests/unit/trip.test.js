@@ -380,14 +380,14 @@ describe('compass readings', () => {
 })
 
 describe('walking beats the compass', () => {
-  function startTrip(reading) {
+  function startTrip(reading, extra = {}) {
     vi.useFakeTimers()
     vi.setSystemTime(1_000_000)
     window.THREE = THREE
     Object.defineProperty(navigator, 'geolocation', {configurable: true, value: {watchPosition: () => 1, clearWatch: () => {}}})
     const add = vi.spyOn(window, 'addEventListener')
     const box = {stats: null}
-    const trip = createArTrip({route: ROUTE, origin: ORIGIN, destination: {name: 'Library'}, debug: true, onStats: (s) => (box.stats = s)})
+    const trip = createArTrip({route: ROUTE, origin: ORIGIN, destination: {name: 'Library'}, debug: true, onStats: (s) => (box.stats = s), ...extra})
     const compass = add.mock.calls.find(([name]) => name === 'deviceorientation')[1]
     add.mockRestore()
     const camera = makeCamera()
@@ -439,6 +439,19 @@ describe('walking beats the compass', () => {
     expect(t.box.stats.matchFlipped).toBe(false)
     expect(t.box.stats.offRouteM).toBeLessThan(0.5)
     near(Math.abs(t.box.stats.matchYawDeg), 30, 2)
+    t.done()
+  })
+
+  it('says you have arrived once, within 8 m of the entrance, not before', () => {
+    const arrivals = []
+    const t = startTrip(0, {onArrived: () => arrivals.push(true)})
+    for (let i = 0; i < 10; i++) t.frame()
+    t.walk(100)
+    expect(arrivals).toHaveLength(0) // 11 m to go
+    t.walk(8)
+    expect(arrivals).toHaveLength(1)
+    t.walk(2)
+    expect(arrivals).toHaveLength(1)
     t.done()
   })
 

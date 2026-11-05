@@ -57,7 +57,7 @@
   position: absolute;
   left: 20px;
   right: 20px;
-  bottom: calc(var(--safe-bottom) + 96px);
+  bottom: calc(var(--safe-bottom) + 72px);
   z-index: 3;
   display: flex;
   flex-direction: column;
@@ -77,23 +77,6 @@
   font-size: var(--fs-sm);
   font-weight: 600;
   text-align: center;
-}
-.ar__sheet {
-  position: absolute;
-  left: var(--s-3);
-  right: var(--s-3);
-  bottom: calc(var(--safe-bottom) + var(--s-3));
-  z-index: 3;
-  max-width: 480px;
-  margin: 0 auto;
-  padding: var(--s-4) var(--s-5);
-  border-radius: var(--r-lg);
-  background: rgba(8, 20, 15, 0.62);
-  -webkit-backdrop-filter: blur(20px) saturate(1.5);
-  backdrop-filter: blur(20px) saturate(1.5);
-  box-shadow:
-    inset 0 0 0 1px var(--glass-line),
-    0 20px 40px -20px rgba(0, 0, 0, 0.6);
 }
 .ar__sheet-title {
   margin-bottom: var(--s-2);
@@ -184,32 +167,103 @@
   margin-top: var(--s-2);
 }
 
-/* ---------- Trip card (bottom) ---------- */
-.trip-card {
+/* ---------- The one pill ---------- */
+.ar-pill {
   position: absolute;
-  left: var(--s-3);
-  right: var(--s-3);
-  bottom: calc(var(--safe-bottom) + var(--s-3));
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + var(--s-4));
   z-index: 3;
-  display: flex;
-  align-items: center;
-  gap: var(--s-3);
-  max-width: 480px;
-  margin: 0 auto;
-  padding: var(--s-3) var(--s-4);
-  border-radius: var(--r-lg);
-  background: rgba(8, 20, 15, 0.62);
+  max-width: calc(100% - 2 * var(--s-4));
+  padding: 12px 20px;
+  overflow: hidden;
+  border-radius: var(--r-pill);
+  background: rgba(8, 20, 15, 0.72);
   -webkit-backdrop-filter: blur(20px) saturate(1.5);
   backdrop-filter: blur(20px) saturate(1.5);
   box-shadow: inset 0 0 0 1px var(--glass-line);
-}
-.trip-card__text {
-  display: grid;
-}
-.trip-card__text span {
-  font-size: var(--fs-sm);
-  color: rgba(255, 255, 255, 0.78);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+/* ---------- Arrival ---------- */
+.arrival {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  padding: var(--gutter);
+  overflow: hidden;
+  background: rgba(3, 21, 16, 0.45);
+}
+.arrival[hidden] {
+  display: none;
+}
+.arrival__card {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: var(--s-2);
+  width: min(100%, 340px);
+  padding: var(--s-6);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+  color: var(--text);
+  text-align: center;
+}
+.arrival__icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--green-02);
+  color: var(--white);
+}
+.arrival__title {
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.arrival__name {
+  margin-bottom: var(--s-3);
+  color: var(--text-muted);
+}
+.arrival__confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.confetti {
+  position: absolute;
+  top: -16px;
+  width: 9px;
+  height: 14px;
+  border-radius: 2px;
+  opacity: 0;
+  animation: confetti-fall 2.2s var(--delay, 0s) cubic-bezier(0.3, 0.6, 0.6, 1) forwards;
+}
+@keyframes confetti-fall {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0);
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--drift, 0), 100dvh, 0) rotate(540deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .arrival__confetti {
+    display: none;
+  }
 }
 
 /* ---------- Live alignment overlay (?debug=1) ---------- */

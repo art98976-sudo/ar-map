@@ -24,13 +24,15 @@ const MATCH_EVERY_S = 2
 const TRACKING_HINT_AFTER_S = 4 // show "Move your phone slowly" after this long without NORMAL
 const COMPASS_PILL_AFTER_MS = 10_000 // show the figure-8 pill after this long unsteady
 const DESKTOP_START_DELAY_S = 2 // a webcam on a desk never reports NORMAL tracking
+const ARRIVED_WITHIN_M = 8 // this close to the entrance...
+const ARRIVED_FOR_S = 1 // ...for this long, so a correction easing past cannot end the trip
 
 /** Compass-style bearing of a direction: degrees clockwise from north (or from SLAM -Z). */
 function bearing(east, north) {
   return (((Math.atan2(east, north) * 180) / Math.PI) % 360 + 360) % 360
 }
 
-export function createArTrip({route, origin, destination, allowDesktop = false, debug = false, onPhase, onStats}) {
+export function createArTrip({route, origin, destination, allowDesktop = false, debug = false, onPhase, onStats, onArrived}) {
   let phase = null
   let nav = null
   let camera = null
@@ -50,6 +52,8 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
   let statsTimer = 0
   let matcher = null
   let lastMatchAt = -Infinity
+  let nearEntranceFor = 0
+  let arrived = false
   const calibrator = createCalibrator()
 
   function setPhase(next, detail = {}) {
@@ -204,6 +208,13 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
     if (phase !== 'ready') tryToPlace(time)
     if (phase === 'ready') runMatching(time)
     const s = nav.update(dt, time)
+    if (phase === 'ready' && !arrived) {
+      nearEntranceFor = s.toPinM != null && s.toPinM <= ARRIVED_WITHIN_M ? nearEntranceFor + dt : 0
+      if (nearEntranceFor >= ARRIVED_FOR_S) {
+        arrived = true
+        onArrived?.()
+      }
+    }
     statsTimer += dt
     if (statsTimer >= 0.25) {
       statsTimer = 0

@@ -9,9 +9,6 @@ import './styles/search.css'
 import {createRouter} from './ui/router.js'
 import {homeScreen} from './ui/screens/home.js'
 import {arScreen} from './ui/screens/ar.js'
-import {mapScreen} from './ui/screens/map.js'
-import {aboutScreen} from './ui/screens/about.js'
-import {searchScreen} from './ui/screens/search.js'
 import {locateScreen} from './ui/screens/locate.js'
 import {showToast} from './ui/components/toast.js'
 
@@ -21,11 +18,8 @@ const router = createRouter({
   root,
   routes: {
     '/': homeScreen,
-    '/search': searchScreen,
     '/locate': locateScreen,
     '/ar': arScreen,
-    '/map': mapScreen,
-    '/about': aboutScreen,
   },
 })
 

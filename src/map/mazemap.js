@@ -98,7 +98,7 @@ export function createCampusMap(Mazemap, container, {onReady, onError} = {}) {
         new Mazemap.ZLevelBarControl({className: 'mm-floor-bar', autoUpdate: true, maxHeight: 260}),
         'bottom-left',
       )
-      map.addControl(new Mazemap.mapboxgl.NavigationControl({showCompass: true}), 'bottom-right')
+      map.addControl(new Mazemap.mapboxgl.NavigationControl({showCompass: true, showZoom: false}), 'bottom-right')
       map.addControl(
         new Mazemap.mapboxgl.GeolocateControl({
           positionOptions: {enableHighAccuracy: true},

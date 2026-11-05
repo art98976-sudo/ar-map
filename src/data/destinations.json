@@ -1,5 +1,5 @@
 {
-  "_readme": "Searchable places. Edit freely. popular: shown as chips on the search screen, in 'popularOrder'. floor: MazeMap level number, or null for a whole building. mazemapPoi: optional MazeMap POI id. Coordinates: WGS84 (check with a GPS walk before real use). entrance: the MAIN door to walk to (outdoor directions end here). confirmed:false until checked on campus, see ENTRANCES.md.",
+  "_readme": "Searchable places. Edit freely. popular: shown as chips in the search sheet, in 'popularOrder'. category and tags decide which chip on the map shows a place (see src/nav/filters.js). photo: optional image URL for the place's card. floor: MazeMap level number, or null for a whole building. mazemapPoi: optional MazeMap POI id. Coordinates: WGS84 (check with a GPS walk before real use). entrance: the MAIN door to walk to (outdoor directions end here). confirmed:false until checked on campus, see ENTRANCES.md.",
   "popularOrder": [
     "library",
     "atrium",
@@ -56,7 +56,10 @@
         "lng": -3.919276,
         "via": "mazemap route, door into building 1009836",
         "confirmed": false
-      }
+      },
+      "tags": [
+        "food"
+      ]
     },
     {
       "id": "cottrell",
@@ -332,6 +335,128 @@
         "lat": 56.148394,
         "lng": -3.913483,
         "via": "mazemap route, route end (no indoor map)",
+        "confirmed": false
+      }
+    },
+    {
+      "id": "bus-hub",
+      "name": "Bus Hub",
+      "aliases": [
+        "bus",
+        "buses",
+        "bus stop",
+        "bus station",
+        "transport"
+      ],
+      "category": "bus",
+      "building": "Outdoors",
+      "floor": null,
+      "lat": 56.143862,
+      "lng": -3.921099,
+      "mazemapPoi": 1003481622,
+      "description": "The campus bus stops.",
+      "entrance": {
+        "lat": 56.143862,
+        "lng": -3.921099,
+        "via": "MazeMap POI",
+        "confirmed": false
+      }
+    },
+    {
+      "id": "scran",
+      "name": "Scran",
+      "aliases": [
+        "cafe",
+        "café",
+        "food",
+        "coffee",
+        "lunch"
+      ],
+      "category": "food",
+      "building": "Andrew Miller Building",
+      "floor": null,
+      "lat": 56.146188,
+      "lng": -3.92005,
+      "mazemapPoi": 1002096756,
+      "description": "Café in the Andrew Miller Building.",
+      "entrance": {
+        "lat": 56.145956,
+        "lng": -3.919276,
+        "via": "the Atrium entrance",
+        "confirmed": false,
+        "note": "Inside the Andrew Miller Building."
+      }
+    },
+    {
+      "id": "the-bite",
+      "name": "The Bite",
+      "aliases": [
+        "cafe",
+        "café",
+        "food",
+        "coffee",
+        "lunch"
+      ],
+      "category": "food",
+      "building": "Cottrell Building",
+      "floor": null,
+      "lat": 56.144509,
+      "lng": -3.920672,
+      "mazemapPoi": 1002085223,
+      "description": "Food in the Cottrell Building.",
+      "entrance": {
+        "lat": 56.144904,
+        "lng": -3.920317,
+        "via": "the Cottrell Building entrance",
+        "confirmed": false,
+        "note": "Inside the Cottrell Building."
+      }
+    },
+    {
+      "id": "umami",
+      "name": "Umami",
+      "aliases": [
+        "cafe",
+        "café",
+        "food",
+        "coffee",
+        "into",
+        "lunch"
+      ],
+      "category": "food",
+      "building": "INTO",
+      "floor": null,
+      "lat": 56.144327,
+      "lng": -3.921595,
+      "mazemapPoi": 1002081896,
+      "description": "Café in the INTO building.",
+      "entrance": {
+        "lat": 56.144327,
+        "lng": -3.921595,
+        "via": "MazeMap POI, inside the INTO building",
+        "confirmed": false
+      }
+    },
+    {
+      "id": "starbucks",
+      "name": "Starbucks",
+      "aliases": [
+        "cafe",
+        "café",
+        "food",
+        "coffee"
+      ],
+      "category": "food",
+      "building": "",
+      "floor": null,
+      "lat": 56.146068,
+      "lng": -3.918701,
+      "mazemapPoi": null,
+      "description": "Coffee shop.",
+      "entrance": {
+        "lat": 56.146068,
+        "lng": -3.918701,
+        "via": "OpenStreetMap node 4060143184",
         "confirmed": false
       }
     }
