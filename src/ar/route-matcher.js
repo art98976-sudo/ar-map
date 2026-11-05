@@ -1,8 +1,8 @@
 // Map matching: lines up where the user has actually walked with the planned route.
 //
-// GPS is 5-15 m out sideways and the compass rotates the route a few degrees. SLAM, though,
-// knows the SHAPE of the walk very accurately. So: keep the last ~25 m of camera positions,
-// and find the small move and turn (about the user) that lays that track onto the route,
+// GPS is 5-15 m out sideways and the compass can rotate the route, even by 180°. SLAM, though,
+// knows the SHAPE of the walk very accurately. So: keep the last ~30 m of camera positions,
+// and find the move and turn (about the user) that lays that track onto the route,
 // using a few iterations of point-to-segment ICP.
 //
 // Pure maths, no three.js. Corrections are in the route frame: x = east, y = north, angles
@@ -12,16 +12,20 @@ import {projectOntoPolyline} from '../geo/geo.js'
 export const MATCH = {
   sampleEveryS: 0.5,
   minStepM: 0.25, // ignore smaller moves, so a user standing still builds up no fake "walk"
-  trackM: 25, // keep this much of the walk
-  minWalkedM: 8, // no correction before this
-  gateM: 6, // samples further than this from the route are ignored
+  trackM: 30, // keep this much of the walk
+  minWalkedM: 6, // no correction before this
+  gateM: 8, // samples further than this from the route are ignored by the fine fit
+  coarseM: 16, // with too few samples in the gate, line up by direction if the user is this close
   iterations: 10,
   minInliers: 6,
   maxStepM: 3, // per update
-  maxStepDeg: 8,
-  maxTotalM: 15, // over the whole trip
-  maxTotalDeg: 25,
+  maxStepDeg: 10,
+  maxTotalM: 20, // over the whole trip
+  maxTotalDeg: 45,
   confidentResidualM: 1,
+  wrongWayDeg: 90, // walking further than this from the route direction: the alignment is flipped
+  wrongWayChecks: 2, // seen on this many updates in a row, so one stumble cannot flip the route
+  straightRatio: 0.7, // straight-line distance over distance walked, to read a walking direction
   maxSpeedMps: 5, // faster than this is a SLAM jump, not walking: start the track again
   movingWithinS: 1.5,
   ignoreM: 0.02, // smaller corrections are not worth moving the arrows for
@@ -29,6 +33,8 @@ export const MATCH = {
 }
 
 const DEG = Math.PI / 180
+
+const shortestTurn = (a) => Math.atan2(Math.sin(a), Math.cos(a))
 
 function transform(p, {dx, dy, yaw}, pivot) {
   const c = Math.cos(yaw)
@@ -76,8 +82,37 @@ function bestRigid(pairs) {
 }
 
 /**
+ * Which way the track runs compared with the route alongside it.
+ * turn: signed radians from the walking direction to the route direction.
+ */
+export function walkVsRoute(track, route) {
+  const first = track[0]
+  const last = track.at(-1)
+  let tx = 0
+  let ty = 0
+  for (const p of track) {
+    const {segment} = projectOntoPolyline(route, p)
+    const a = route[segment]
+    const b = route[segment + 1]
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1
+    tx += (b.x - a.x) / len
+    ty += (b.y - a.y) / len
+  }
+  const cx = last.x - first.x
+  const cy = last.y - first.y
+  return {chordM: Math.hypot(cx, cy), turn: shortestTurn(Math.atan2(ty, tx) - Math.atan2(cy, cx))}
+}
+
+/** Too few samples near the route: turn the track to run along it, and step towards it. */
+function coarseFit(track, route, pivot) {
+  const hit = projectOntoPolyline(route, pivot)
+  if (hit.offset > MATCH.coarseM) return null
+  return {dx: hit.x - pivot.x, dy: hit.y - pivot.y, yaw: walkVsRoute(track, route).turn, pivot}
+}
+
+/**
  * Fit a walked track onto the route. Returns {dx, dy, yaw, pivot} about the pivot (the user),
- * or null when too few samples are near the route.
+ * or null when the track is too far from the route to say anything.
  */
 export function fitTrackToRoute(track, route, {pivot = track.at(-1), gateM = MATCH.gateM, iterations = MATCH.iterations, minInliers = MATCH.minInliers} = {}) {
   let moved = track
@@ -86,7 +121,7 @@ export function fitTrackToRoute(track, route, {pivot = track.at(-1), gateM = MAT
   for (let i = 0; i < iterations; i++) {
     const pairs = nearInliers(moved, route, gateM).filter(Boolean)
     if (pairs.length < minInliers) {
-      if (i === 0) return null
+      if (i === 0) return coarseFit(track, route, pivot)
       break
     }
     const step = bestRigid(pairs)
@@ -134,16 +169,21 @@ function fitQuality(track, route) {
  * Keeps the walked track and works out corrections.
  *   addSample(x, z, time)  camera floor position in SLAM world metres
  *   update(toRoute)        toRoute({x, z}) -> {x, y} with the CURRENT route placement.
- *                          Returns a clamped {dx, dy, yaw, pivot}, or null for nothing to do.
+ *                          Returns {dx, dy, yaw, pivot, flipped?}, or null for nothing to do.
+ *                          A flip is exempt from the clamps: it exists to fix a 180° error.
  */
 export function createRouteMatcher(route) {
   let samples = []
   let walked = 0
+  let everWalked = 0
   let lastAt = null
   let lastMovedAt = null
   const total = {dx: 0, dy: 0, yaw: 0}
   let residual = null
   let confident = false
+  let everConfident = false
+  let wrongWayCount = 0
+  let flipped = false
 
   function trim() {
     while (samples.length > 2) {
@@ -170,9 +210,11 @@ export function createRouteMatcher(route) {
         samples = [{x, z}]
         walked = 0
         confident = false
+        wrongWayCount = 0
       } else {
         samples.push({x, z})
         walked += step
+        everWalked += step
         trim()
       }
       lastMovedAt = time
@@ -181,15 +223,35 @@ export function createRouteMatcher(route) {
     update(toRoute) {
       if (walked < MATCH.minWalkedM) return null
       const track = samples.map((s) => toRoute(s))
-      const fit = fitTrackToRoute(track, route)
+      const pivot = track.at(-1)
+
+      // Walking against the route. Once a fit has been confident the placement is known to be
+      // right, so someone turning back along the route is just turning back.
+      const direction = walkVsRoute(track, route)
+      const wrongWay =
+        !everConfident &&
+        direction.chordM >= MATCH.minWalkedM &&
+        direction.chordM >= walked * MATCH.straightRatio &&
+        Math.abs(direction.turn) > MATCH.wrongWayDeg * DEG
+      wrongWayCount = wrongWay ? wrongWayCount + 1 : 0
+      if (wrongWay) {
+        confident = false
+        if (wrongWayCount < MATCH.wrongWayChecks) return null
+        wrongWayCount = 0
+        flipped = true
+        return {dx: 0, dy: 0, yaw: direction.turn, pivot, flipped: true}
+      }
+
+      const fit = fitTrackToRoute(track, route, {pivot})
       if (!fit) {
         confident = false
         return null
       }
       const correction = clampCorrection(fit, total)
-      const after = fitQuality(track.map((p) => transform(p, correction, fit.pivot)), route)
+      const after = fitQuality(track.map((p) => transform(p, correction, pivot)), route)
       residual = after.residual
       confident = residual != null && residual < MATCH.confidentResidualM && after.matchedM >= MATCH.minWalkedM
+      if (confident) everConfident = true
       if (Math.hypot(correction.dx, correction.dy) < MATCH.ignoreM && Math.abs(correction.yaw) < MATCH.ignoreDeg * DEG) return null
       total.dx += correction.dx
       total.dy += correction.dy
@@ -199,11 +261,19 @@ export function createRouteMatcher(route) {
     get walkedM() {
       return walked
     },
+    /** Everything walked this trip, never trimmed: decides when to stop asking for a few steps. */
+    get everWalkedM() {
+      return everWalked
+    },
     get samples() {
       return samples
     },
     get confident() {
       return confident
+    },
+    /** Walking proved the compass 90°+ wrong this trip, so the compass may no longer turn the route. */
+    get flipped() {
+      return flipped
     },
     get residualM() {
       return residual

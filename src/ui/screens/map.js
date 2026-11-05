@@ -3,6 +3,8 @@
 import {createCampusMap, loadMazeMap} from '../../map/mazemap.js'
 import {createDestinationSearch} from '../components/destination-search.js'
 import {findDestination, setCurrentDestination} from '../../nav/destinations.js'
+import {deviceIssue} from '../../ar/device.js'
+import {startPermissionRequests} from '../../ar/permissions.js'
 import {describeDestination} from '../../nav/search.js'
 import {html, onAction, render} from '../dom.js'
 import {CATEGORY_ICON, icon} from '../icons.js'
@@ -167,8 +169,10 @@ export function mapScreen(root, {navigate, params}) {
       showCard()
     },
     go: () => {
+      // First, inside the tap: iPhone only shows the motion prompt here.
+      if (!deviceIssue()) startPermissionRequests()
       setCurrentDestination(selected)
-      navigate(`/check?to=${encodeURIComponent(selected.id)}`)
+      navigate(`/locate?to=${encodeURIComponent(selected.id)}`)
     },
   })
   showCard()

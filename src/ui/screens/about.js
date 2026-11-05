@@ -53,7 +53,6 @@ export function aboutScreen(root, {navigate}) {
             <h2>Open-source software</h2>
             <ul class="about__list">
               <li>three.js, MIT licence</li>
-              <li>qrcode, MIT licence</li>
               <li>General Sans typeface by the Indian Type Foundry, ITF Free Font Licence</li>
             </ul>
           </section>

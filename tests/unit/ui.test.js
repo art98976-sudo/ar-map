@@ -1,6 +1,13 @@
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {esc, html, render} from '../../src/ui/dom.js'
-import {requestMotionPermission} from '../../src/ar/permissions.js'
+import {
+  markPermissionsAllowed,
+  permissionsAllowed,
+  requestMotionPermission,
+  settlePermissions,
+  startPermissionRequests,
+  takePendingPermissions,
+} from '../../src/ar/permissions.js'
 import {createRouter} from '../../src/ui/router.js'
 import {errorCopy} from '../../src/ui/screens/ar.js'
 
@@ -90,5 +97,80 @@ describe('router', () => {
     createRouter({root, routes: {'/': (el) => (el.innerHTML = '<h1>Home</h1>')}}).start()
     expect(root.textContent).toBe('Home')
     expect(window.location.hash).toBe('#/')
+  })
+})
+
+describe('the one tap', () => {
+  it('starts motion, camera and GPS synchronously, before any await', () => {
+    const calls = []
+    vi.stubGlobal('DeviceMotionEvent', undefined)
+    const getUserMedia = vi.fn(() => {
+      calls.push('camera')
+      return Promise.resolve({getTracks: () => []})
+    })
+    const watchPosition = vi.fn(() => {
+      calls.push('gps')
+      return 1
+    })
+    Object.defineProperty(navigator, 'mediaDevices', {configurable: true, value: {getUserMedia}})
+    Object.defineProperty(navigator, 'geolocation', {configurable: true, value: {watchPosition, clearWatch: vi.fn()}})
+    window.DeviceMotionEvent = {
+      requestPermission: () => {
+        calls.push('motion')
+        return Promise.resolve('granted')
+      },
+    }
+    const pending = startPermissionRequests()
+    // Nothing has been awaited yet, and all three have already been asked, motion first.
+    expect(calls).toEqual(['motion', 'camera', 'gps'])
+    expect(takePendingPermissions()).toBe(pending)
+    expect(takePendingPermissions()).toBeNull()
+    delete window.DeviceMotionEvent
+    vi.unstubAllGlobals()
+  })
+
+  it('marks permissions allowed when motion is granted or not needed, not when denied', async () => {
+    Object.defineProperty(navigator, 'geolocation', {configurable: true, value: {watchPosition: () => 1, clearWatch: () => {}}})
+    markPermissionsAllowed(false)
+    window.DeviceMotionEvent = {requestPermission: () => Promise.resolve('denied')}
+    const denied = await settlePermissions(startPermissionRequests())
+    expect(denied.motion).toBe('denied')
+    expect(permissionsAllowed()).toBe(false)
+    delete window.DeviceMotionEvent
+    const fine = startPermissionRequests()
+    await settlePermissions(fine)
+    expect(permissionsAllowed()).toBe(true)
+    markPermissionsAllowed(false)
+    takePendingPermissions()
+  })
+
+  it('does not wait for ever on a camera prompt that never settles', async () => {
+    const answer = await settlePermissions({motion: Promise.resolve('granted'), camera: new Promise(() => {})}, 5)
+    expect(answer).toEqual({motion: 'granted', camera: 'unknown'})
+  })
+})
+
+describe('the GPS watch from the tap', () => {
+  it('hands over to the location screen with the fix it already has, using one watch', () => {
+    const watchers = []
+    const clearWatch = vi.fn()
+    const watchPosition = vi.fn((ok) => {
+      watchers.push(ok)
+      return 1
+    })
+    Object.defineProperty(navigator, 'geolocation', {configurable: true, value: {watchPosition, clearWatch}})
+    const {gps} = startPermissionRequests()
+    takePendingPermissions()
+    const fix = {coords: {latitude: 56, longitude: -3, accuracy: 5}}
+    watchers[0](fix) // arrives while the permission prompts are still up
+    const onFix = vi.fn()
+    gps.listen({onFix, onError: vi.fn()})
+    expect(onFix).toHaveBeenCalledWith(fix)
+    watchers[0](fix)
+    expect(onFix).toHaveBeenCalledTimes(2)
+    expect(watchPosition).toHaveBeenCalledTimes(1)
+    gps.stop()
+    expect(clearWatch).toHaveBeenCalledTimes(1)
+    markPermissionsAllowed(false)
   })
 })

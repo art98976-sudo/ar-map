@@ -1,7 +1,8 @@
-// Permission and location step: one tap asks for motion, camera and location, then we wait
-// until GPS is accurate enough and open the camera.
-// States: primer -> waiting (live accuracy) -> found -> (camera screen)
+// Location step: waits for the permission answers, then until GPS is accurate enough, then
+// opens the camera. The permissions were requested in the tap that chose the destination.
+// States: waiting (live accuracy) -> found -> (camera screen)
 //         or error (denied, location off, timeout, unsupported), each with what to do next.
+//         tap: after a reload the iPhone has forgotten motion, so one small button asks again.
 import {
   GPS,
   createFixGate,
@@ -9,18 +10,18 @@ import {
   saveTripFix,
   watchLocation,
 } from '../../geo/location.js'
-import {parseUserAgent} from '../../ar/device.js'
+import {deviceIssue, parseUserAgent} from '../../ar/device.js'
 import {
-  markPermissionsAllowed,
   permissionsAllowed,
-  requestCameraPermission,
-  requestMotionPermission,
+  settlePermissions,
+  startPermissionRequests,
+  takePendingPermissions,
 } from '../../ar/permissions.js'
 import {errorCopy} from './ar.js'
-import {describeDestination} from '../../nav/search.js'
 import {googleMapsWalkingUrl, planRoute, saveTripRoute} from '../../nav/route.js'
 import {formatDistance} from '../../arrows/pin.js'
 import {findDestination} from '../../nav/destinations.js'
+import {showToast} from '../components/toast.js'
 import {haptic, html, onAction, render} from '../dom.js'
 import {CATEGORY_ICON, icon} from '../icons.js'
 
@@ -38,6 +39,7 @@ export function locateScreen(root, {navigate, params}) {
   if (params.debug === '1') nextQuery.set('debug', '1')
 
   let stopWatch = null
+  let tapWatch = null
   let gate = null
   let tick = null
   let continueTimer = null
@@ -48,83 +50,60 @@ export function locateScreen(root, {navigate, params}) {
     render(root, fragment)
   }
 
-  // ---------- primer ----------
-  function showPrimer() {
+  const destinationCard = () => html`
+    <div class="dest-card" data-destination>
+      <span class="dsearch__badge" data-category="${destination.category}">
+        ${icon(CATEGORY_ICON[destination.category] || 'pin', {size: 20})}
+      </span>
+      <span class="dest-card__text">
+        <span class="dest-card__label">Directions to</span>
+        <strong class="dest-card__name">${destination.name}</strong>
+      </span>
+    </div>
+  `
+
+  // ---------- tap to start: only after a reload ----------
+  function showTapToStart() {
     setView(
       html`
-        <div class="page page--narrow primer">
-          <header class="page__bar">
-            <button class="icon-btn" type="button" data-action="back" aria-label="Back">${icon('arrowLeft')}</button>
-          </header>
-          <main class="primer__body">
-            <div class="primer__art" aria-hidden="true">
-              <span class="primer__ring"></span>
-              <span class="primer__ring primer__ring--2"></span>
-              <span class="primer__icon">${icon('camera', {size: 40})}</span>
-            </div>
-            <div class="dest-card" data-destination>
-              <span class="dsearch__badge" data-category="${destination.category}">
-                ${icon(CATEGORY_ICON[destination.category] || 'pin', {size: 20})}
-              </span>
-              <span class="dest-card__text">
-                <span class="dest-card__label">Directions to</span>
-                <strong class="dest-card__name">${destination.name}</strong>
-                ${describeDestination(destination) ? html`<span class="dest-card__meta">${describeDestination(destination)}</span>` : ''}
-              </span>
-              <button class="dest-card__change" type="button" data-action="change" aria-label="Change destination">Change</button>
-            </div>
-            <p class="eyebrow">Step 2 of 2</p>
-            <h1 class="page__title" tabindex="-1">Allow motion, location and camera</h1>
-            <p class="page__lede" id="primer-lede">
-              We use GPS to plan the walk from where you are standing to the entrance of the ${destination.name}. The
-              camera draws the arrows on the ground, and motion sensors and the compass keep them pointing the right way.
-            </p>
-            <ul class="primer__points">
-              <li>${icon('lock', {size: 18})}<span>Video is processed on your phone and never uploaded.</span></li>
-              <li>${icon('lock', {size: 18})}<span>Your location stays on your phone. It is never stored or shared.</span></li>
-              <li>${icon('sun', {size: 18})}<span>Works best outside, with a clear view of the sky.</span></li>
-              <li>${icon('info', {size: 18})}<span>Your phone will ask for each one. Tap <strong>Allow</strong>.</span></li>
-            </ul>
-          </main>
-          <footer class="page__footer">
-            <button class="btn btn--primary btn--lg btn--block" type="button" data-action="allow" aria-label="Allow and start" aria-describedby="primer-lede" data-autofocus>
-              ${icon('camera')}<span>Allow and start</span>
+        <div class="page page--narrow page--center locate">
+          <div class="locate-card">
+            ${destinationCard()}
+            <h1 class="locate-card__title" tabindex="-1">Ready when you are</h1>
+            <button class="btn btn--primary btn--block" type="button" data-action="tap" aria-label="Tap to start" data-autofocus>
+              ${icon('camera')}<span>Tap to start</span>
             </button>
-          </footer>
+            <button class="btn btn--ghost" type="button" data-action="back" aria-label="Cancel">Cancel</button>
+          </div>
         </div>
       `,
-      'primer',
+      'tap',
     )
   }
 
   // ---------- waiting / found ----------
-  function showWaiting() {
+  function showWaiting(title = 'Finding your location…', body = 'This usually takes a few seconds outdoors.') {
     setView(
       html`
         <div class="page page--narrow page--center locate">
-          <div class="gps-dial" data-dial data-level="searching" aria-hidden="true">
-            <span class="gps-dial__pulse"></span>
-            <span class="gps-dial__pulse gps-dial__pulse--2"></span>
-            <span class="gps-dial__core">${icon('pin', {size: 30})}</span>
-          </div>
-          <h1 class="page__title" tabindex="-1" data-title>Finding your location…</h1>
-          <p class="page__lede" data-body aria-live="polite">This usually takes a few seconds outdoors.</p>
-          <div class="gps-meter" data-meter hidden>
-            <div class="gps-meter__row">
-              <span>GPS accuracy</span>
-              <strong data-accuracy>–</strong>
+          <div class="locate-card">
+            ${destinationCard()}
+            <h1 class="locate-card__title" tabindex="-1" data-title>${title}</h1>
+            <p class="locate-card__body" data-body aria-live="polite">${body}</p>
+            <div class="gps-meter" data-meter>
+              <div class="gps-meter__row">
+                <span>GPS accuracy</span>
+                <strong data-accuracy>–</strong>
+              </div>
+              <div class="gps-meter__track" aria-hidden="true"><span class="gps-meter__fill" data-fill></span></div>
+              <p class="gps-meter__hint">Needs ±${GPS.goodAccuracyM} m or better</p>
             </div>
-            <div class="gps-meter__track" aria-hidden="true"><span class="gps-meter__fill" data-fill></span></div>
-            <p class="gps-meter__hint">Needs ±${GPS.goodAccuracyM} m or better</p>
-          </div>
-          <div class="note-card" data-indoors hidden>
-            ${icon('info', {size: 20})}
-            <p><strong>You may be indoors.</strong> GPS needs a clear view of the sky. Step outside, or use the 2D map.</p>
-          </div>
-          <div class="locate__actions">
-            <button class="btn btn--secondary btn--block" type="button" data-action="map" aria-label="View 2D map instead">
-              ${icon('map')}<span>View 2D map instead</span>
-            </button>
+            <div class="locate-card__indoors" data-indoors hidden>
+              <p>${icon('info', {size: 20})}<span><strong>You may be indoors.</strong> GPS needs a clear view of the sky. Step outside, or use the 2D map.</span></p>
+              <button class="btn btn--secondary btn--block" type="button" data-action="map" aria-label="View 2D map instead">
+                ${icon('map')}<span>View 2D map instead</span>
+              </button>
+            </div>
             <button class="btn btn--ghost" type="button" data-action="back" aria-label="Cancel">Cancel</button>
           </div>
         </div>
@@ -134,22 +113,19 @@ export function locateScreen(root, {navigate, params}) {
   }
 
   function paint(s) {
-    const dial = root.querySelector('[data-dial]')
-    if (!dial) return
+    const meter = root.querySelector('[data-meter]')
+    if (!meter) return
     const title = root.querySelector('[data-title]')
     const body = root.querySelector('[data-body]')
-    const meter = root.querySelector('[data-meter]')
     root.querySelector('[data-indoors]').hidden = !s.indoors
 
     if (s.status === 'searching') return
-    meter.hidden = false
     const acc = Math.round(s.accuracy)
     root.querySelector('[data-accuracy]').textContent = Number.isFinite(acc) ? `±${acc} m` : 'unknown'
     // Bar: full at ≤ 5 m, empty at ≥ 60 m.
     const fill = Math.max(0.04, Math.min(1, (60 - s.accuracy) / 55))
     root.querySelector('[data-fill]').style.transform = `scaleX(${fill})`
     meter.dataset.level = s.level
-    dial.dataset.level = s.status === 'ready' ? 'ready' : 'weak'
 
     if (s.status === 'weak') {
       title.textContent = 'Weak GPS – move into the open'
@@ -224,25 +200,19 @@ export function locateScreen(root, {navigate, params}) {
     )
   }
 
-  /** The one tap: motion first (iPhone only shows it inside a tap), then camera, then GPS. */
-  async function allowAndStart() {
-    const motion = requestMotionPermission()
-    showWaiting()
-    root.querySelector('[data-title]').textContent = 'Tap Allow on each prompt'
-    root.querySelector('[data-body]').textContent = 'Your phone asks about motion, the camera and your location.'
-    if ((await motion) === 'denied') return showErrorCopy(errorCopy('motion-denied', device))
-    if (disposed) return
-    if ((await requestCameraPermission()) === 'denied') return showErrorCopy(errorCopy('camera-denied', device))
-    if (disposed) return
-    markPermissionsAllowed()
-    start()
-  }
-
-  function start() {
+  function start(title, body) {
     stop()
-    showWaiting()
+    showWaiting(title, body)
     gate = createFixGate()
-    stopWatch = watchLocation({onFix, onError: showError})
+    if (tapWatch) {
+      // The watch started in the tap carries on, with any fix it already has.
+      stopWatch = tapWatch.stop
+      const watch = tapWatch
+      tapWatch = null
+      watch.listen({onFix, onError: showError})
+    } else {
+      stopWatch = watchLocation({onFix, onError: showError})
+    }
     // Re-check once a second so the "indoors" hint appears even when no fixes arrive.
     tick = setInterval(() => gate && paint(gate.check()), 1000)
   }
@@ -255,6 +225,17 @@ export function locateScreen(root, {navigate, params}) {
     continueTimer = null
   }
 
+  /** Wait for the answers to the requests made in the tap, then look for a good fix. */
+  async function awaitPermissions(pending) {
+    tapWatch = pending.gps
+    showWaiting('Tap Allow when your phone asks', 'Your phone asks about motion, the camera and your location.')
+    const answer = await settlePermissions(pending)
+    if (disposed) return
+    if (answer.motion === 'denied') return showErrorCopy(errorCopy('motion-denied', device))
+    if (answer.camera === 'denied') return showErrorCopy(errorCopy('camera-denied', device))
+    start()
+  }
+
   // ---------- errors ----------
   function showError(code) {
     showErrorCopy(locationErrorCopy(code, device))
@@ -263,6 +244,8 @@ export function locateScreen(root, {navigate, params}) {
   function showErrorCopy(copy) {
     if (disposed) return
     stop()
+    tapWatch?.stop()
+    tapWatch = null
     setView(
       html`
         <div class="page page--narrow page--center error-state">
@@ -284,26 +267,69 @@ export function locateScreen(root, {navigate, params}) {
     )
   }
 
+  /** A laptop or an in-app browser cannot run AR: say so, and offer a way on. */
+  function showUnsupported(issue) {
+    setView(
+      html`
+        <div class="page page--narrow page--center error-state">
+          <span class="error-state__icon" data-tone="warn">${icon('alert', {size: 32})}</span>
+          <h1 class="page__title" tabindex="-1">${issue.title}</h1>
+          <p class="page__lede">${issue.body}</p>
+          <div class="error-state__actions">
+            <button class="btn btn--primary btn--lg btn--block" type="button" data-action="map" aria-label="View 2D map instead">
+              ${icon('map')}<span>View 2D map instead</span>
+            </button>
+            ${['desktop', 'in-app-browser'].includes(issue.code)
+              ? html`<button class="btn btn--secondary btn--lg btn--block" type="button" data-action="copy" aria-label="Copy link">
+                  ${icon('copy')}<span>Copy link</span>
+                </button>`
+              : ''}
+          </div>
+        </div>
+      `,
+      'unsupported',
+    )
+  }
+
   const off = onAction(root, {
     back: () => navigate('/search'),
-    allow: () => allowAndStart(),
-    change: () => navigate(`/search${params.force === '1' ? '?force=1' : ''}`),
+    tap: () => awaitPermissions(startPermissionRequests()),
     retry: () => start(),
     reload: () => window.location.reload(),
     map: () => navigate(`/map?to=${encodeURIComponent(destination.id)}`),
+    copy: async () => {
+      const url = window.location.href.split('#')[0]
+      try {
+        await navigator.clipboard.writeText(url)
+        showToast('Link copied')
+      } catch {
+        showToast(url, {duration: 6000})
+      }
+    },
   })
 
-  // Skip the tap only if it already happened in this page load: iPhone motion needs a fresh one.
-  locationPermissionState().then((state) => {
-    if (disposed) return
-    if (state === 'denied') showError('denied')
-    else if (permissionsAllowed()) start()
-    else showPrimer()
-  })
+  const issue = deviceIssue(params.force === '1')
+  const pending = takePendingPermissions()
+  if (issue) {
+    pending?.gps.stop()
+    showUnsupported(issue)
+  } else if (pending) {
+    // The usual way in: the tap on a destination has already asked.
+    awaitPermissions(pending)
+  } else {
+    // A reload or a direct link. Explain a block first; otherwise ask for a tap only if needed.
+    locationPermissionState().then((state) => {
+      if (disposed) return
+      if (state === 'denied') showError('denied')
+      else if (permissionsAllowed()) start()
+      else showTapToStart()
+    })
+  }
 
   return () => {
     disposed = true
     stop()
+    tapWatch?.stop()
     off()
     delete root.dataset.locateState
   }

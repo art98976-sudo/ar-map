@@ -30,7 +30,7 @@ const failingGps = (code) => {
 }
 
 test.describe('location step', () => {
-  test('the trip goes search → check → location → camera', async ({page}, testInfo) => {
+  test('the trip goes search → tap a destination → location → camera, with no screen to tap through', async ({page}, testInfo) => {
     test.skip(onlyOn('android-chrome', 'iphone-safari')(testInfo))
     if (testInfo.project.name === 'iphone-safari') {
       // Desktop WebKit has no camera API; every iPhone does.
@@ -43,12 +43,11 @@ test.describe('location step', () => {
     await page.goto('/')
     await page.getByRole('button', {name: 'Start AR'}).click()
     await page.getByRole('button', {name: 'Library', exact: true}).click()
-    // One tap for everything. The fix is good (±6 m), so it plans the walk and opens the camera.
-    await page.getByRole('button', {name: 'Allow and start'}).click({timeout: 30_000})
+    // That tap asked for everything. The fix is good (±6 m), so it plans the walk and opens the camera.
     await expect(page).toHaveURL(/#\/ar\?to=library/, {timeout: 30_000})
   })
 
-  test('explains first when location has not been asked yet, then handles "Don\'t Allow"', async ({page}, testInfo) => {
+  test('a direct link shows one small button, then handles "Don\'t Allow"', async ({page}, testInfo) => {
     test.skip(onlyOn('desktop-chrome')(testInfo))
     // Pretend the phone has never asked, and that the user then taps "Don't Allow".
     await page.addInitScript(() => {
@@ -56,10 +55,9 @@ test.describe('location step', () => {
       navigator.permissions.query = (d) => (d?.name === 'geolocation' ? Promise.resolve({state: 'prompt'}) : query(d))
     })
     await page.addInitScript(failingGps, 1)
-    await page.goto('/#/locate?to=library')
-    await expect(page.getByRole('heading', {name: 'Allow motion, location and camera'})).toBeVisible()
-    await expect(page.getByText('entrance of the Library')).toBeVisible()
-    await page.getByRole('button', {name: 'Allow and start'}).click()
+    await page.goto('/#/locate?to=library&force=1')
+    await expect(page.locator('[data-destination]')).toContainText('Library')
+    await page.getByRole('button', {name: 'Tap to start'}).click()
     await expect(page.getByRole('heading', {name: 'Location access is off'})).toBeVisible()
     await expect(page.getByRole('button', {name: 'View 2D map instead'})).toBeVisible()
   })
@@ -69,7 +67,7 @@ test.describe('location step', () => {
     // No geolocation permission: headless Chrome reports it as blocked.
     const ctx = await browser.newContext({...testInfo.project.use, permissions: [], geolocation: undefined})
     const page = await ctx.newPage()
-    await page.goto('/#/locate?to=library')
+    await page.goto('/#/locate?to=library&force=1')
     await expect(page.getByRole('heading', {name: 'Location access is off'})).toBeVisible()
     await expect(page.getByText('Turn on Location.')).toBeVisible()
     await ctx.close()
@@ -79,7 +77,7 @@ test.describe('location step', () => {
     test.skip(onlyOn('android-chrome')(testInfo))
     await page.addInitScript(controllableGps)
     await page.goto('/#/locate?to=atrium')
-    await page.getByRole('button', {name: 'Allow and start'}).click({timeout: 30_000})
+    await page.getByRole('button', {name: 'Tap to start'}).click({timeout: 30_000})
     await expect(page.locator('[data-title]')).toHaveText('Finding your location…')
     await page.evaluate(() => window.__emitFix(48))
     await expect(page.getByRole('heading', {name: 'Weak GPS – move into the open'})).toBeVisible()
@@ -98,7 +96,7 @@ test.describe('location step', () => {
     await page.addInitScript(controllableGps)
     await page.clock.install()
     await page.goto('/#/locate?to=library')
-    await page.getByRole('button', {name: 'Allow and start'}).click({timeout: 30_000})
+    await page.getByRole('button', {name: 'Tap to start'}).click({timeout: 30_000})
     await expect(page.locator('[data-title]')).toHaveText('Finding your location…')
     await page.evaluate(() => window.__emitFix(65))
     await expect(page.getByRole('heading', {name: 'Weak GPS – move into the open'})).toBeVisible()
@@ -116,8 +114,8 @@ test.describe('location step', () => {
     test(`GPS error ${code} shows "${title}" with a retry`, async ({page}, testInfo) => {
       test.skip(onlyOn('desktop-chrome')(testInfo))
       await page.addInitScript(failingGps, code)
-      await page.goto('/#/locate?to=library')
-      await page.getByRole('button', {name: 'Allow and start'}).click({timeout: 30_000})
+      await page.goto('/#/locate?to=library&force=1')
+      await page.getByRole('button', {name: 'Tap to start'}).click({timeout: 30_000})
       await expect(page.getByRole('heading', {name: title})).toBeVisible({timeout: 10_000})
       await expect(page.getByRole('button', {name: 'Try again'})).toBeVisible()
       await expect(page.getByRole('button', {name: 'View 2D map instead'})).toBeVisible()

@@ -144,13 +144,24 @@ describe('route planning', () => {
       expect(pts[0]).toEqual(WALKWAY)
       expect(pts).toHaveLength(3)
     })
-    it('adds the entrance only if it is not already on the path', () => {
+    it('ends on the path when the entrance is within 15 m of it', () => {
       const path = [WALKWAY, north(40)]
       expect(anchor(path, WALKWAY, north(40))).toHaveLength(2)
       expect(anchor(path, WALKWAY, north(20))).toEqual([WALKWAY, north(20)]) // stops there
-      const off = east(10, north(40))
-      expect(anchor(path, WALKWAY, off).at(-1)).toEqual(off)
-      expect(anchor(path, WALKWAY, off)).toHaveLength(3)
+      const beside = anchor(path, WALKWAY, east(10, north(30)))
+      expect(beside).toHaveLength(2)
+      near(distanceM(beside[1], north(30)), 0, 0.01) // the nearest point on the path
+    })
+    it('ignores a leg the planner added to the entrance', () => {
+      const door = east(10, north(40))
+      const pts = anchor([north(1), north(40), door], WALKWAY, door)
+      near(distanceM(pts.at(-1), north(40)), 0, 0.01)
+    })
+    it('keeps a leg to the entrance when it is far from any path', () => {
+      const door = east(30, north(40))
+      const pts = anchor([WALKWAY, north(40)], WALKWAY, door)
+      expect(pts.at(-1)).toEqual(door)
+      expect(pts).toHaveLength(3)
     })
     it('keeps a straight fallback as it is', () => {
       const to = north(100)

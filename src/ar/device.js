@@ -127,6 +127,15 @@ export function checkDevice(env) {
   return {status: primaryIssue ? 'unsupported' : 'supported', device, checks, primaryIssue}
 }
 
+/**
+ * The reason AR cannot run here, or null if it can.
+ * forced: ?force=1 lets a laptop webcam run the camera test (development and demos).
+ */
+export function deviceIssue(forced = false, env = readBrowserEnv()) {
+  const {primaryIssue} = checkDevice(env)
+  return forced && primaryIssue?.code === 'desktop' ? null : primaryIssue
+}
+
 /** Read the real browser environment. Kept separate so `checkDevice` stays testable. */
 export function readBrowserEnv(win = window) {
   let hasWebGL = false

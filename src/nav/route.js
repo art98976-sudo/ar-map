@@ -73,12 +73,14 @@ async function mazemapRoute(from, to, {signal} = {}) {
  * Fit a planned path to the trip. A raw GPS fix is 5-15 m out, so a straight leg from it to the
  * path would cut across whatever is in between. Near a path, start at the nearest point ON it;
  * only someone genuinely far from any path gets a leg from where they stand.
- * The end stops at the entrance, which is only added if it is not already on the path.
+ * The end works the same way: within 15 m of the entrance the route ends on the path, and the
+ * destination pin marks the door. A straight last leg could cut through the building.
  */
 export function anchor(points, from, to) {
   // A planner may have added its own leg from the raw fix. Measure from the real path.
   let path = points.slice()
   if (path.length > 2 && distanceM(path[0], from) <= ON_PATH_M) path.shift()
+  if (path.length > 2 && distanceM(path.at(-1), to) <= ON_PATH_M) path.pop()
   if (path.length < 2) return [from, to]
 
   const local = path.map((p) => toLocal(from, p))
@@ -90,10 +92,12 @@ export function anchor(points, from, to) {
   }
 
   if (distanceM(path.at(-1), to) <= ON_PATH_M) return path
-  const tail = path.map((p) => toLocal(to, p))
-  const end = projectOntoPolyline(tail, {x: 0, y: 0})
-  if (end.offset <= ON_PATH_M) return [...path.slice(0, end.segment + 1), to]
-  return [...path, to]
+  const end = projectOntoPolyline(path.map((p) => toLocal(to, p)), {x: 0, y: 0})
+  if (end.offset > SNAP_TO_PATH_M) return [...path, to]
+  const last = end.offset <= ON_PATH_M ? to : fromLocal(to, {x: end.x, y: end.y})
+  const trimmed = [...path.slice(0, end.segment + 1), last]
+  // Practically at the door already: nothing left of the path to walk.
+  return lengthOf(trimmed) < 1 ? [from, to] : trimmed
 }
 
 function lengthOf(points) {

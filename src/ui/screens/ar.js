@@ -9,6 +9,7 @@ import {readTripRoute} from '../../nav/route.js'
 import {readTripFix} from '../../geo/location.js'
 import {formatDistance} from '../../arrows/pin.js'
 import {showToast} from '../components/toast.js'
+import {drawMinimap} from '../components/ar-minimap.js'
 import {haptic, html, onAction, render} from '../dom.js'
 import {CATEGORY_ICON, icon} from '../icons.js'
 
@@ -109,9 +110,12 @@ export function arScreen(root, {navigate, params}) {
                 ${icon('info', {size: 16})}<span>Debug</span>
               </button>`
             : ''}
-          <p class="ar__hint ar__hint--raised" data-compass-pill role="status" hidden>Wave your phone in a figure-8</p>
+          <div class="ar__hints">
+          <p class="ar__hint" data-compass-pill role="status" hidden>Wave your phone in a figure-8</p>
           <p class="ar__hint" data-hint role="status" hidden>Move your phone slowly</p>
-          ${route.source === 'direct' ? html`<p class="ar__hint ar__hint--low" data-approx-hint role="status">Approximate route – check the 2D map</p>` : ''}
+          <p class="ar__hint" data-lock-hint role="status" hidden>Walk a few steps along the path to lock the arrows</p>
+          ${route.source === 'direct' ? html`<p class="ar__hint" data-approx-hint role="status">Approximate route - check the 2D map</p>` : ''}
+          </div>
 
           <section class="ar-guide" data-guide aria-live="polite" hidden>
             <span class="ar-guide__icon">${icon('alert', {size: 28})}</span>
@@ -131,6 +135,21 @@ export function arScreen(root, {navigate, params}) {
               <span data-trip-remaining>${formatDistance(route.lengthM)} · about ${route.minutes} min</span>
             </div>
           </section>
+
+          ${showDebug
+            ? html`<section class="ar-live" data-live-debug aria-label="Live alignment">
+                <canvas class="ar-live__map" data-minimap width="280" height="280" aria-label="Minimap of the route, the walked track and the camera direction"></canvas>
+                <dl class="ar-live__rows">
+                  <div><dt>Compass</dt><dd data-live="compass">–</dd></div>
+                  <div><dt>Source</dt><dd data-live="source">–</dd></div>
+                  <div><dt>Tilt (beta)</dt><dd data-live="beta">–</dd></div>
+                  <div><dt>SLAM yaw</dt><dd data-live="camera">–</dd></div>
+                  <div><dt>Align yaw</dt><dd data-live="align">–</dd></div>
+                  <div><dt>1st segment</dt><dd data-live="segment">–</dd></div>
+                  <div><dt>Look (route)</dt><dd data-live="look">–</dd></div>
+                </dl>
+              </section>`
+            : ''}
 
           <section class="ar-debug" id="ar-debug" data-debug hidden aria-label="Debug panel">
             <h2 class="ar__sheet-title">Debug</h2>
@@ -177,6 +196,9 @@ export function arScreen(root, {navigate, params}) {
     if (hint) hint.hidden = !s.trackingStalled
     const pill = root.querySelector('[data-compass-pill]')
     if (pill) pill.hidden = !s.compassUnsteady
+    const lock = root.querySelector('[data-lock-hint]')
+    if (lock) lock.hidden = !s.needsWalk
+    if (s.debug) paintLiveDebug(s)
     const fmt = (m) => (m == null ? '–' : formatDistance(m))
     setStat('gps', s.gpsAccuracy == null ? 'waiting…' : `±${Math.round(s.gpsAccuracy)} m`, s.gpsAccuracy != null && s.gpsAccuracy <= 20 ? 'ok' : 'warn')
     setStat(
@@ -186,7 +208,7 @@ export function arScreen(root, {navigate, params}) {
     setStat('remaining', fmt(s.remainingM))
     setStat('gpsdist', fmt(s.gpsToEntranceM))
     setStat('offroute', s.offRouteM == null ? '–' : `${s.offRouteM.toFixed(1)} m`)
-    setStat('match', `${s.matchOffsetM.toFixed(1)} m, ${s.matchYawDeg.toFixed(1)}°`)
+    setStat('match', `${s.matchOffsetM.toFixed(1)} m, ${s.matchYawDeg.toFixed(1)}°${s.matchFlipped ? ', flipped' : ''}`)
     setStat('quality', s.matchResidualM == null ? 'walk 8 m first' : `${s.matchResidualM.toFixed(2)} m`, s.matchResidualM != null && s.matchResidualM < 1 ? 'ok' : 'warn')
     setStat('turn', s.nextTurnM == null ? 'none' : `${formatDistance(s.nextTurnM)} ${s.nextTurnDir}`)
     setStat('arrows', `${s.arrows} of ${s.arrowTotal}`)
@@ -196,6 +218,24 @@ export function arScreen(root, {navigate, params}) {
       const minutes = Math.max(1, Math.round(s.remainingM / 1.3 / 60))
       remaining.textContent = `${formatDistance(s.remainingM)} · about ${minutes} min`
     }
+  }
+
+  function paintLiveDebug(s) {
+    const deg = (v) => (v == null ? '–' : `${Math.round(v)}°`)
+    const live = {
+      compass: deg(s.heading),
+      source: s.compassSource ?? '–',
+      beta: deg(s.debug.beta),
+      camera: deg(s.debug.cameraYawDeg),
+      align: deg(s.yawDeg),
+      segment: deg(s.debug.firstSegmentDeg),
+      look: deg(s.debug.lookDeg),
+    }
+    for (const [name, text] of Object.entries(live)) {
+      const el = root.querySelector(`[data-live="${name}"]`)
+      if (el) el.textContent = text
+    }
+    drawMinimap(root.querySelector('[data-minimap]'), s.debug)
   }
 
   function toggleDebug(force) {
@@ -301,7 +341,7 @@ export function arScreen(root, {navigate, params}) {
     const canvas = root.querySelector('[data-canvas]')
     const {createArTrip} = await import('../../ar/trip.js')
     if (disposed) return
-    trip = createArTrip({route, origin, destination, allowDesktop, onPhase, onStats})
+    trip = createArTrip({route, origin, destination, allowDesktop, debug: showDebug, onPhase, onStats})
     stopSession = startSession(
       XR8,
       canvas,

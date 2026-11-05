@@ -1,7 +1,8 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import * as THREE from 'three'
 import {requestCameraPermission} from '../../src/ar/permissions.js'
-import {alignmentYaw, createNavScene, shortestTurn, snapToRoute} from '../../src/ar/nav-scene.js'
+import {startCompass, topEdgeHeading} from '../../src/ar/compass.js'
+import {alignmentYaw, createNavScene, rotateY, shortestTurn, snapToRoute} from '../../src/ar/nav-scene.js'
 import {createArTrip} from '../../src/ar/trip.js'
 
 // The real pin draws its label on a 2D canvas, which the test DOM does not have.
@@ -300,5 +301,155 @@ describe('map matching in the scene', () => {
     trip.stop()
     vi.useRealTimers()
     delete window.THREE
+  })
+})
+
+describe('alignment in all four directions', () => {
+  const FACING = {'-Z': {x: 0, z: -1}, '+X': {x: 1, z: 0}, '+Z': {x: 0, z: 1}, '-X': {x: -1, z: 0}}
+  const HEADING = {north: 0, east: 90, south: 180, west: 270}
+
+  for (const [facing, cam] of Object.entries(FACING)) {
+    for (const [name, h] of Object.entries(HEADING)) {
+      it(`compass says ${name}, SLAM camera faces ${facing}: a segment going ${name} ends up in front`, () => {
+        const yaw = alignmentYaw(cam, h)
+        const r = (h * Math.PI) / 180
+        // A route segment on that compass bearing, in the geo root: x east, z = -north.
+        const out = rotateY({x: Math.sin(r), z: -Math.cos(r)}, yaw)
+        near(out.x, cam.x, 1e-9)
+        near(out.z, cam.z, 1e-9)
+      })
+    }
+  }
+
+  it('in the real scene, a route going north runs ahead of a user facing north', () => {
+    for (const [lookX, lookZ] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
+      const camera = makeCamera(lookX, lookZ)
+      const nav = createNavScene({THREE, scene: new THREE.Scene(), camera, route: ROUTE, origin: ORIGIN, name: 'Library'})
+      nav.align(0, ORIGIN)
+      // Ten metres straight ahead of the camera is ten metres north along the route.
+      const ahead = nav.worldToRoute({x: lookX * 10, z: lookZ * 10})
+      near(ahead.x, 0, 1e-6)
+      near(ahead.y, 10, 1e-6)
+    }
+  })
+})
+
+describe('compass readings', () => {
+  const fakeWindow = (angle) => {
+    const handlers = {}
+    return {
+      handlers,
+      screen: {orientation: {angle}},
+      addEventListener: (name, fn) => (handlers[name] = fn),
+      removeEventListener: () => {},
+    }
+  }
+
+  it('iPhone: uses webkitCompassHeading, corrected for screen rotation', () => {
+    const readings = []
+    for (const [angle, expected] of [[0, 30], [90, 120], [270, 300]]) {
+      const win = fakeWindow(angle)
+      const stop = startCompass({onReading: (r) => readings.push(r)}, win)
+      win.handlers.deviceorientation({webkitCompassHeading: 30, webkitCompassAccuracy: 5, beta: 80})
+      stop()
+      expect(readings.at(-1)).toMatchObject({heading: expected, source: 'webkitCompassHeading', beta: 80})
+    }
+  })
+
+  it('Android: an upright phone gives the direction out of the back, whatever the screen does', () => {
+    const win = fakeWindow(90)
+    win.ondeviceorientationabsolute = null
+    const readings = []
+    const stop = startCompass({onReading: (r) => readings.push(r)}, win)
+    win.handlers.deviceorientationabsolute({alpha: 90, beta: 90, gamma: 0}) // facing west
+    stop()
+    near(readings[0].heading, 270, 1e-6)
+    expect(readings[0].source).toBe('alpha')
+  })
+
+  it('Android: a phone lying flat falls back to 360 - alpha, so it is not "no compass"', () => {
+    const win = fakeWindow(0)
+    win.ondeviceorientationabsolute = null
+    const readings = []
+    const stop = startCompass({onReading: (r) => readings.push(r)}, win)
+    win.handlers.deviceorientationabsolute({alpha: 40, beta: 0, gamma: 0})
+    stop()
+    near(readings[0].heading, 320, 1e-6)
+    expect(topEdgeHeading(null)).toBeNull()
+  })
+})
+
+describe('walking beats the compass', () => {
+  function startTrip(reading) {
+    vi.useFakeTimers()
+    vi.setSystemTime(1_000_000)
+    window.THREE = THREE
+    Object.defineProperty(navigator, 'geolocation', {configurable: true, value: {watchPosition: () => 1, clearWatch: () => {}}})
+    const add = vi.spyOn(window, 'addEventListener')
+    const box = {stats: null}
+    const trip = createArTrip({route: ROUTE, origin: ORIGIN, destination: {name: 'Library'}, debug: true, onStats: (s) => (box.stats = s)})
+    const compass = add.mock.calls.find(([name]) => name === 'deviceorientation')[1]
+    add.mockRestore()
+    const camera = makeCamera()
+    trip.onSceneReady({scene: new THREE.Scene(), camera})
+    trip.onTracking({status: 'NORMAL'})
+    let i = 0
+    const frame = () => {
+      vi.advanceTimersByTime(50)
+      compass({webkitCompassHeading: reading, webkitCompassAccuracy: 5})
+      trip.onTick({dt: 0.05, time: 1000 + i++ * 0.05})
+    }
+    const walk = (metres) => {
+      for (let m = 0; m < metres; m += 1.3 * 0.05) {
+        camera.position.z -= 1.3 * 0.05
+        camera.updateMatrixWorld(true)
+        frame()
+      }
+    }
+    return {
+      box,
+      frame,
+      walk,
+      done() {
+        trip.stop()
+        vi.useRealTimers()
+        delete window.THREE
+      },
+    }
+  }
+
+  it('a compass 180° wrong: the route turns round once the user has walked, and stays round', () => {
+    const t = startTrip(180)
+    for (let i = 0; i < 10; i++) t.frame()
+    expect(t.box.stats.needsWalk).toBe(true)
+    t.walk(45)
+    expect(t.box.stats.needsWalk).toBe(false)
+    expect(t.box.stats.matchFlipped).toBe(true)
+    expect(t.box.stats.offRouteM).toBeLessThan(0.5)
+    // Walked 45 m along a 111 m route, in the right direction.
+    near(t.box.stats.remainingM, 111 - 45, 3)
+    near(t.box.stats.debug.lookDeg, 0, 2)
+    t.done()
+  })
+
+  it('a compass 30° out is corrected by walking, with no flip', () => {
+    const t = startTrip(30)
+    for (let i = 0; i < 10; i++) t.frame()
+    t.walk(40)
+    expect(t.box.stats.matchFlipped).toBe(false)
+    expect(t.box.stats.offRouteM).toBeLessThan(0.5)
+    near(Math.abs(t.box.stats.matchYawDeg), 30, 2)
+    t.done()
+  })
+
+  it('reports the numbers the debug overlay shows', () => {
+    const t = startTrip(0)
+    for (let i = 0; i < 10; i++) t.frame()
+    const {debug} = t.box.stats
+    near(debug.cameraYawDeg, 0, 1e-6)
+    near(debug.firstSegmentDeg, 0, 1e-6)
+    near(debug.lookDeg, 0, 1e-6)
+    expect(debug.route.length).toBeGreaterThanOrEqual(2)
+    t.done()
   })
 })

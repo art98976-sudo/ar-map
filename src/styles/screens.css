@@ -1,4 +1,4 @@
-/* Screen layouts: home, generic page, device check, primer, loading, errors, map, about. */
+/* Screen layouts: home, generic page, loading, errors, map, about, location step. */
 
 /* ---------- Home ---------- */
 .home {
@@ -174,151 +174,6 @@
 .page__footer {
   margin-top: auto;
   padding-top: var(--s-6);
-}
-
-/* ---------- Device check ---------- */
-.checklist {
-  display: grid;
-  gap: var(--s-2);
-  margin-top: var(--s-6);
-}
-.checklist__item {
-  display: flex;
-  align-items: center;
-  gap: var(--s-3);
-  padding: 14px var(--s-4);
-  border-radius: var(--r-md);
-  background: var(--surface);
-  box-shadow: var(--shadow-1);
-  font-weight: 500;
-  transition:
-    opacity var(--t-med) var(--ease),
-    transform var(--t-med) var(--ease);
-}
-.checklist__item[data-state='pending'] {
-  opacity: 0.45;
-  transform: translateY(4px);
-}
-.checklist__mark {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  color: var(--white);
-  background: var(--neutral-01);
-  transition:
-    background-color var(--t-med) var(--ease),
-    transform var(--t-med) var(--ease);
-}
-.checklist__item[data-state='pending'] .checklist__mark .icon {
-  opacity: 0;
-}
-.checklist__item[data-state='ok'] .checklist__mark {
-  background: var(--green-02);
-  transform: scale(1.04);
-}
-.checklist__item[data-state='fail'] .checklist__mark {
-  background: var(--bad);
-}
-.check__status {
-  margin-top: var(--s-6);
-  color: var(--green-03);
-  font-weight: 600;
-  text-align: center;
-}
-.check__actions {
-  display: grid;
-  gap: var(--s-3);
-  margin-top: var(--s-8);
-}
-.qr-card {
-  display: flex;
-  align-items: center;
-  gap: var(--s-4);
-  margin-top: var(--s-6);
-  padding: var(--s-4);
-  border-radius: var(--r-md);
-  background: var(--surface);
-  box-shadow: var(--shadow-1);
-}
-.qr-card__code {
-  width: 112px;
-  height: 112px;
-  border-radius: 10px;
-}
-.qr-card figcaption {
-  display: grid;
-  gap: 2px;
-}
-.qr-card figcaption span {
-  font-size: var(--fs-sm);
-  color: var(--text-muted);
-}
-.check > .link--muted {
-  display: inline-block;
-  margin-top: var(--s-5);
-}
-
-/* ---------- Permission primer ---------- */
-.primer__body {
-  display: grid;
-  justify-items: start;
-}
-.primer__art {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 120px;
-  height: 120px;
-  margin-bottom: var(--s-6);
-}
-.primer__icon {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 84px;
-  height: 84px;
-  border-radius: 28px;
-  color: var(--white);
-  background: linear-gradient(160deg, #0a8049, var(--green-03));
-  box-shadow: 0 14px 30px -12px rgba(0, 87, 52, 0.7);
-}
-.primer__ring {
-  position: absolute;
-  inset: 0;
-  border-radius: 40px;
-  border: 2px solid rgba(118, 183, 42, 0.5);
-  animation: ring 2.4s var(--ease) infinite;
-}
-.primer__ring--2 {
-  animation-delay: 1.2s;
-}
-@keyframes ring {
-  from {
-    transform: scale(0.7);
-    opacity: 1;
-  }
-  to {
-    transform: scale(1.25);
-    opacity: 0;
-  }
-}
-.primer__points {
-  display: grid;
-  gap: var(--s-3);
-  margin-top: var(--s-6);
-}
-.primer__points li {
-  display: flex;
-  gap: var(--s-3);
-  align-items: flex-start;
-  font-size: var(--fs-sm);
-  color: var(--text-muted);
-}
-.primer__points .icon {
-  margin-top: 2px;
-  color: var(--green-02);
 }
 
 /* ---------- Loading ---------- */
@@ -518,65 +373,8 @@
 }
 
 /* ---------- Location step ---------- */
-.gps-dial {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 136px;
-  height: 136px;
-  margin-bottom: var(--s-2);
-}
-.gps-dial__core {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 76px;
-  height: 76px;
-  border-radius: 50%;
-  color: var(--white);
-  background: linear-gradient(160deg, #0a8049, var(--green-03));
-  box-shadow: 0 14px 30px -12px rgba(0, 87, 52, 0.7);
-  transition: background 300ms var(--ease);
-}
-.gps-dial__pulse {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 2px solid rgba(118, 183, 42, 0.55);
-  animation: gps-pulse 2s var(--ease) infinite;
-}
-.gps-dial__pulse--2 {
-  animation-delay: 1s;
-}
-@keyframes gps-pulse {
-  from {
-    transform: scale(0.55);
-    opacity: 1;
-  }
-  to {
-    transform: scale(1.15);
-    opacity: 0;
-  }
-}
-.gps-dial[data-level='weak'] .gps-dial__core {
-  color: #3d2e00;
-  background: #f7d64c;
-  box-shadow: 0 14px 30px -12px rgba(123, 92, 24, 0.6);
-}
-.gps-dial[data-level='weak'] .gps-dial__pulse {
-  border-color: rgba(237, 171, 0, 0.6);
-}
-.gps-dial[data-level='ready'] .gps-dial__pulse {
-  animation: none;
-  opacity: 0;
-}
-.locate .page__lede {
-  margin-top: 0;
-  max-width: 32ch;
-}
 .gps-meter {
   width: 100%;
-  max-width: 340px;
   padding: var(--s-4) var(--s-5);
   border-radius: var(--r-md);
   background: var(--surface);
@@ -622,44 +420,46 @@
   font-size: var(--fs-xs);
   color: var(--text-muted);
 }
-.note-card {
-  display: flex;
+.locate-card {
+  display: grid;
   gap: var(--s-3);
-  align-items: flex-start;
+  justify-items: center;
   width: 100%;
-  max-width: 340px;
+  max-width: 360px;
+}
+.locate-card .dest-card {
+  margin-bottom: 0;
+  text-align: left;
+}
+.locate-card__title {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  text-align: center;
+}
+.locate-card__body {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  text-align: center;
+}
+.locate-card__indoors {
+  display: grid;
+  gap: var(--s-3);
+  width: 100%;
   padding: var(--s-4);
   border-radius: var(--r-md);
   background: #fdf5d6;
   color: #4d3a08;
   font-size: var(--fs-sm);
-  text-align: left;
 }
-.note-card .icon {
+.locate-card__indoors p {
+  display: flex;
+  gap: var(--s-3);
+  align-items: flex-start;
+}
+.locate-card__indoors .icon {
   flex: none;
-  margin-top: 1px;
-}
-.locate__actions {
-  display: grid;
-  justify-items: center;
-  gap: var(--s-2);
-  width: 100%;
-  max-width: 340px;
-  margin-top: var(--s-2);
 }
 
-.route-summary {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s-2);
-  margin-top: var(--s-4);
-  padding: 8px 14px;
-  border-radius: var(--r-pill);
-  background: rgba(118, 183, 42, 0.16);
-  color: var(--green-03);
-  font-size: var(--fs-sm);
-  font-weight: 600;
-}
 .site-footer__note,
 .about__note {
   font-size: var(--fs-xs);

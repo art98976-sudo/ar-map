@@ -21,7 +21,6 @@
   },
   "dependencies": {
     "@8thwall/engine-binary": "^1.0.0",
-    "qrcode": "^1.5.4",
     "three": "^0.187.0"
   },
   "devDependencies": {

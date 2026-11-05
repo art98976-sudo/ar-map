@@ -1,4 +1,4 @@
-// Tiny hash router: #/ (home), #/check, #/ar, #/map, #/about.
+// Tiny hash router: #/ (home), #/search, #/locate, #/ar, #/map, #/about.
 // Hash routes keep the phone's back button working and need no server config.
 
 /**

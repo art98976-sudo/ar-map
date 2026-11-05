@@ -59,12 +59,12 @@ test.describe('home', () => {
   })
 })
 
-test.describe('device check', () => {
-  test('desktop: explains AR is for phones, offers the map and a QR code', async ({page}, testInfo) => {
+test.describe('phones and browsers that cannot run AR', () => {
+  test('desktop: explains AR is for phones and offers the map', async ({page}, testInfo) => {
     test.skip(onlyOn('desktop-chrome')(testInfo))
-    await page.goto('/#/check')
+    await page.goto('/#/locate?to=library')
     await expect(page.getByRole('heading', {name: 'AR works on your phone'})).toBeVisible()
-    await expect(page.locator('[data-qr]')).toBeVisible()
+    await expect(page.getByRole('button', {name: 'Copy link'})).toBeVisible()
     await page.getByRole('button', {name: 'View 2D map instead'}).click()
     await expect(page).toHaveURL(/#\/map/)
   })
@@ -77,20 +77,21 @@ test.describe('device check', () => {
         'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 357.0',
     })
     const page = await ctx.newPage()
-    await page.goto('/#/check')
+    await page.goto('/#/locate?to=library')
     await expect(page.getByRole('heading', {name: 'Open this page in Safari'})).toBeVisible()
     await expect(page.getByRole('button', {name: 'Copy link'})).toBeVisible()
     await ctx.close()
   })
 
-  test('iPhone: passes the check and shows the one-tap permission step', async ({page}, testInfo) => {
+  test('iPhone: tapping a destination goes straight on, with no permission screen', async ({page}, testInfo) => {
     test.skip(onlyOn('iphone-safari')(testInfo))
     await page.addInitScript(IPHONE_CAMERA_STUB)
     await page.goto('/')
     await page.getByRole('button', {name: 'Start AR'}).click()
     await page.getByRole('button', {name: 'Library'}).click()
-    await expect(page.getByRole('heading', {name: 'Allow motion, location and camera'})).toBeVisible({timeout: 5000})
-    await expect(page.locator('[data-destination]')).toContainText('Library')
+    await expect(page).toHaveURL(/#\/(locate|ar)\?to=library/, {timeout: 5000})
+    await expect(page.getByRole('button', {name: 'Tap to start'})).toHaveCount(0)
+    await expect(page.getByText('Library').first()).toBeVisible()
   })
 })
 
@@ -102,7 +103,6 @@ test.describe('AR session', () => {
     await page.goto('/')
     await page.getByRole('button', {name: 'Start AR'}).click()
     await page.getByRole('button', {name: 'Cottrell Building'}).click()
-    await page.getByRole('button', {name: 'Allow and start'}).click()
     await expect(page.getByRole('progressbar', {name: 'Loading AR'})).toBeVisible()
     await expect(page.locator('[data-stat="camera"]')).toHaveText('Working', {timeout: 60_000})
     await expect(page.locator('canvas[data-canvas]')).toBeVisible()
@@ -120,7 +120,7 @@ test.describe('AR session', () => {
       window.DeviceMotionEvent.requestPermission = () => Promise.resolve('denied')
     })
     await page.goto('/#/ar?to=library')
-    await page.getByRole('button', {name: 'Allow and start'}).click()
+    await page.getByRole('button', {name: 'Tap to start'}).click()
     await expect(page.getByRole('heading', {name: 'Motion access is off'})).toBeVisible()
     await expect(page.getByText('Tap Allow when Safari asks about motion.')).toBeVisible()
     await page.getByRole('button', {name: 'View 2D map instead'}).click()
@@ -133,7 +133,7 @@ test.describe('AR session', () => {
       navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException('Permission denied', 'NotAllowedError'))
     })
     await page.goto('/#/ar?to=library')
-    await page.getByRole('button', {name: 'Allow and start'}).click()
+    await page.getByRole('button', {name: 'Tap to start'}).click()
     await expect(page.getByRole('heading', {name: 'Camera access is off'})).toBeVisible({timeout: 60_000})
     await expect(page.getByText('Turn on Camera.')).toBeVisible()
   })
@@ -142,7 +142,7 @@ test.describe('AR session', () => {
     test.skip(onlyOn('android-chrome')(testInfo))
     await page.route('**/external/xr/xr-slam.js', (route) => route.abort('internetdisconnected'))
     await page.goto('/#/ar?to=library')
-    await page.getByRole('button', {name: 'Allow and start'}).click()
+    await page.getByRole('button', {name: 'Tap to start'}).click()
     await expect(page.getByRole('heading', {name: 'AR could not load'})).toBeVisible({timeout: 30_000})
     await expect(page.getByRole('button', {name: 'Try again'})).toBeVisible()
   })

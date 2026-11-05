@@ -20,7 +20,7 @@ test.describe('destination search', () => {
     const option = page.getByRole('option', {name: /Library/}).first()
     await expect(option).toBeVisible()
     await option.click()
-    await expect(page).toHaveURL(/#\/(check|ar)\?to=library/)
+    await expect(page).toHaveURL(/#\/(locate|ar)\?to=library/)
   })
 
   test('aliases work: "gym" finds the Sports Centre', async ({page}) => {
@@ -73,11 +73,12 @@ test.describe('destination search', () => {
     await expect(page.getByRole('heading', {name: 'Where do you want to go?'})).toBeVisible()
   })
 
-  test('the chosen destination is shown on the camera screen and can be changed', async ({page}) => {
-    await page.goto('/#/ar?to=cottrell')
-    // No route yet, so it plans one first (location step), then shows the camera screen.
+  test('reloading the camera screen shows the destination and one small button', async ({page}, testInfo) => {
+    test.skip(onlyOn('desktop-chrome', 'android-chrome')(testInfo))
+    await page.goto('/#/ar?to=cottrell&force=1')
     await expect(page.locator('[data-destination]')).toContainText('Cottrell Building', {timeout: 30_000})
-    await page.getByRole('button', {name: 'Change'}).click()
+    await expect(page.getByRole('button', {name: 'Tap to start'})).toBeVisible()
+    await page.getByRole('button', {name: 'Cancel'}).click()
     await expect(page.getByRole('heading', {name: 'Where do you want to go?'})).toBeVisible()
   })
 })

@@ -18,13 +18,19 @@ const FIRST_HEADING_WINDOW_MS = 500 // the first alignment averages this much co
 const MIN_HORIZONTAL_LOOK = 0.2 // below this the camera looks almost straight up or down: no yaw
 const STEADY_MAX_DRIFT_DEG = 6 // the camera must stay this close to where the window started
 const REALIGN_MIN_DEG = 5 // smaller differences are compass noise: leave the route alone
-const REALIGN_MIN_MATCHED_DEG = 10 // with a confident map match, trust the walked track over the compass
+const REALIGN_MIN_MATCHED_DEG = 15 // with a confident map match, walking beats the compass
+const LOCK_AFTER_M = 6 // ask for a few steps until the matcher has had this much walking
 const MATCH_EVERY_S = 2
 const TRACKING_HINT_AFTER_S = 4 // show "Move your phone slowly" after this long without NORMAL
 const COMPASS_PILL_AFTER_MS = 10_000 // show the figure-8 pill after this long unsteady
 const DESKTOP_START_DELAY_S = 2 // a webcam on a desk never reports NORMAL tracking
 
-export function createArTrip({route, origin, destination, allowDesktop = false, onPhase, onStats}) {
+/** Compass-style bearing of a direction: degrees clockwise from north (or from SLAM -Z). */
+function bearing(east, north) {
+  return (((Math.atan2(east, north) * 180) / Math.PI) % 360 + 360) % 360
+}
+
+export function createArTrip({route, origin, destination, allowDesktop = false, debug = false, onPhase, onStats}) {
   let phase = null
   let nav = null
   let camera = null
@@ -35,6 +41,7 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
   let heading = null
   let headingAccuracy = null
   let compassSource = null
+  let beta = null
   let recent = []
   let steadyAnchorDeg = null
   let unsteadySince = null
@@ -53,11 +60,12 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
 
   // ---------- sensors ----------
   const stopCompass = startCompass({
-    onReading: ({heading: h, accuracy, source}) => {
+    onReading: ({heading: h, accuracy, source, beta: tilt}) => {
       const now = Date.now()
       heading = h
       headingAccuracy = accuracy
       compassSource = source
+      beta = tilt ?? null
       recent.push({heading: h, at: now})
       recent = recent.filter((r) => now - r.at <= FIRST_HEADING_WINDOW_MS)
       // A compass that woke up late clears the "no compass" card.
@@ -109,7 +117,10 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
     const r = calibrator.add(h, accuracy, now)
     if (r.status === 'done') {
       restartWindow()
-      nav.realign(r.heading, matcher.confident ? REALIGN_MIN_MATCHED_DEG : REALIGN_MIN_DEG)
+      // Once walking has shown the compass is badly wrong, it could only turn the route back.
+      // Compare with the turn walking has already applied: a compass that is steadily a few
+      // degrees out must not undo that turn every 3 s. Only new drift counts.
+      if (!matcher.flipped) nav.realign(r.heading - matcher.totalYawDeg, matcher.confident ? REALIGN_MIN_MATCHED_DEG : REALIGN_MIN_DEG)
     }
     return r.status === 'unsteady' ? 'unsteady' : 'ok'
   }
@@ -155,6 +166,24 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
     if (correction) nav.applyCorrection(correction)
   }
 
+  /** Live numbers and the route-frame picture for the ?debug=1 overlay. */
+  function debugData() {
+    const here = camera.position
+    const f = lookDirection()
+    const user = nav.worldToRoute({x: here.x, z: here.z})
+    const ahead = nav.worldToRoute({x: here.x + f.x, z: here.z + f.z})
+    const [a, b] = nav.route
+    return {
+      beta,
+      cameraYawDeg: bearing(f.x, -f.z),
+      firstSegmentDeg: bearing(b.x - a.x, b.y - a.y),
+      lookDeg: bearing(ahead.x - user.x, ahead.y - user.y),
+      user,
+      route: nav.route,
+      track: matcher.samples.map((p) => nav.worldToRoute(p)),
+    }
+  }
+
   // ---------- engine hooks ----------
   function onSceneReady({scene, camera: cam}) {
     THREE = window.THREE
@@ -198,6 +227,9 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
         matchOffsetM: matcher.totalOffsetM,
         matchYawDeg: matcher.totalYawDeg,
         matchResidualM: matcher.residualM,
+        matchFlipped: matcher.flipped,
+        needsWalk: phase === 'ready' && matcher.everWalkedM < LOCK_AFTER_M,
+        debug: debug ? debugData() : null,
         nextTurnM: nav.aligned ? (s.nextTurnM ?? null) : null,
         nextTurnDir: nav.aligned ? (s.nextTurnDir ?? null) : null,
         source: route.source,
