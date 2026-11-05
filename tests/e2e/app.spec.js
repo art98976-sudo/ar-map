@@ -83,13 +83,13 @@ test.describe('device check', () => {
     await ctx.close()
   })
 
-  test('iPhone: passes the check and shows the camera primer', async ({page}, testInfo) => {
+  test('iPhone: passes the check and shows the one-tap permission step', async ({page}, testInfo) => {
     test.skip(onlyOn('iphone-safari')(testInfo))
     await page.addInitScript(IPHONE_CAMERA_STUB)
     await page.goto('/')
     await page.getByRole('button', {name: 'Start AR'}).click()
     await page.getByRole('button', {name: 'Library'}).click()
-    await expect(page.getByRole('heading', {name: 'Allow camera and motion'})).toBeVisible({timeout: 5000})
+    await expect(page.getByRole('heading', {name: 'Allow motion, location and camera'})).toBeVisible({timeout: 5000})
     await expect(page.locator('[data-destination]')).toContainText('Library')
   })
 })

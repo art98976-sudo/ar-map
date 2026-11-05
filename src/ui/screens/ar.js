@@ -1,28 +1,20 @@
 // AR screen. States, in order:
-//   primer   explain the camera and motion prompts, one tap to continue
 //   loading  download the AR engine with a real progress bar
 //   live     camera feed + world tracking, with a live system check card
 //   error    camera denied, motion denied, offline, timeout or engine crash; each says what to do
-import {requestMotionPermission} from '../../ar/permissions.js'
+import {permissionsAllowed} from '../../ar/permissions.js'
 import {parseUserAgent} from '../../ar/device.js'
 import {findDestination} from '../../nav/destinations.js'
 import {readTripRoute} from '../../nav/route.js'
 import {readTripFix} from '../../geo/location.js'
 import {formatDistance} from '../../arrows/pin.js'
 import {showToast} from '../components/toast.js'
-import {describeDestination} from '../../nav/search.js'
 import {haptic, html, onAction, render} from '../dom.js'
 import {CATEGORY_ICON, icon} from '../icons.js'
 
-const TRACKING_HINTS = {
-  INITIALIZING: 'Move your phone slowly from side to side',
-  TOO_MUCH_MOTION: 'Slow down a little',
-  NOT_ENOUGH_TEXTURE: 'Point at the floor or a wall with some detail',
-  UNSPECIFIED: 'Hold steady for a moment',
-}
-
 export function arScreen(root, {navigate, params}) {
   const allowDesktop = params.force === '1'
+  const showDebug = params.debug === '1' || new URLSearchParams(window.location.search).get('debug') === '1'
   // Every trip starts with a destination. Without one, go and pick it first.
   const destination = findDestination(params.to)
   if (!destination) {
@@ -30,11 +22,12 @@ export function arScreen(root, {navigate, params}) {
     queueMicrotask(() => navigate(`/search${allowDesktop ? '?force=1' : ''}`, {replace: true}))
     return
   }
-  // The walking route is planned on the location screen. Without one, go back there.
+  // The walking route and the one permission tap happen on the location screen. Without them, go back.
   const route = readTripRoute()
   const origin = readTripFix() || route?.origin
-  if (!route || route.destinationId !== destination.id || !origin) {
-    queueMicrotask(() => navigate(`/locate?to=${encodeURIComponent(destination.id)}${allowDesktop ? '&force=1' : ''}`, {replace: true}))
+  if (!route || route.destinationId !== destination.id || !origin || !permissionsAllowed()) {
+    const debugQuery = params.debug === '1' ? '&debug=1' : ''
+    queueMicrotask(() => navigate(`/locate?to=${encodeURIComponent(destination.id)}${allowDesktop ? '&force=1' : ''}${debugQuery}`, {replace: true}))
     return
   }
   const device = parseUserAgent(navigator.userAgent, {maxTouchPoints: navigator.maxTouchPoints})
@@ -46,9 +39,7 @@ export function arScreen(root, {navigate, params}) {
 
   const actions = {
     exit: () => navigate('/'),
-    change: () => navigate(`/search${allowDesktop ? '?force=1' : ''}`),
     map: () => navigate(`/map?to=${encodeURIComponent(destination.id)}`),
-    start: () => begin(),
     retry: () => begin(),
     reload: () => window.location.reload(),
     debug: () => toggleDebug(),
@@ -61,56 +52,6 @@ export function arScreen(root, {navigate, params}) {
   function setView(fragment, state) {
     root.dataset.arState = state
     render(root, fragment)
-  }
-
-  // ---------- primer ----------
-  function showPrimer() {
-    setView(
-      html`
-        <div class="page page--narrow primer">
-          <header class="page__bar">
-            <button class="icon-btn" data-action="exit" aria-label="Back">${icon('arrowLeft')}</button>
-          </header>
-          <main class="primer__body">
-            <div class="primer__art" aria-hidden="true">
-              <span class="primer__ring"></span>
-              <span class="primer__ring primer__ring--2"></span>
-              <span class="primer__icon">${icon('camera', {size: 40})}</span>
-            </div>
-            <div class="dest-card" data-destination>
-              <span class="dsearch__badge" data-category="${destination.category}">
-                ${icon(CATEGORY_ICON[destination.category] || 'pin', {size: 20})}
-              </span>
-              <span class="dest-card__text">
-                <span class="dest-card__label">Directions to</span>
-                <strong class="dest-card__name">${destination.name}</strong>
-                ${describeDestination(destination) ? html`<span class="dest-card__meta">${describeDestination(destination)}</span>` : ''}
-              </span>
-              <button class="dest-card__change" type="button" data-action="change" aria-label="Change destination">Change</button>
-            </div>
-            <p class="eyebrow">Step 3 of 3</p>
-            <h1 class="page__title" tabindex="-1">Allow camera and motion</h1>
-            <p class="page__lede" id="primer-lede">
-              The camera finds the ground so the arrows can be drawn on it. Motion sensors and the compass keep them
-              pointing the right way as you walk.
-            </p>
-            <p class="route-summary" data-route-summary>
-              ${icon('footsteps', {size: 18})}<span>${formatDistance(route.lengthM)} walk · about ${route.minutes} min</span>
-            </p>
-            <ul class="primer__points">
-              <li>${icon('lock', {size: 18})}<span>Video is processed on your phone and never uploaded.</span></li>
-              <li>${icon('info', {size: 18})}<span>Your phone will ask for permission. Tap <strong>Allow</strong>.</span></li>
-            </ul>
-          </main>
-          <footer class="page__footer">
-            <button class="btn btn--primary btn--lg btn--block" type="button" data-action="start" aria-label="Allow and start" aria-describedby="primer-lede" data-autofocus>
-              ${icon('camera')}<span>Allow and start</span>
-            </button>
-          </footer>
-        </div>
-      `,
-      'primer',
-    )
   }
 
   // ---------- loading ----------
@@ -163,17 +104,19 @@ export function arScreen(root, {navigate, params}) {
           <p class="ar__dest chip chip--glass" data-ar-destination>
             ${icon('pin', {size: 16})}<span>To <strong>${destination.name}</strong></span>
           </p>
-          <button class="debug-toggle chip chip--glass" type="button" data-action="debug" aria-label="Show debug panel" aria-expanded="false" aria-controls="ar-debug">
-            ${icon('info', {size: 16})}<span>Debug</span>
-          </button>
-          <p class="ar__hint" data-hint>${TRACKING_HINTS.INITIALIZING}</p>
+          ${showDebug
+            ? html`<button class="debug-toggle chip chip--glass" type="button" data-action="debug" aria-label="Show debug panel" aria-expanded="false" aria-controls="ar-debug">
+                ${icon('info', {size: 16})}<span>Debug</span>
+              </button>`
+            : ''}
+          <p class="ar__hint ar__hint--raised" data-compass-pill role="status" hidden>Wave your phone in a figure-8</p>
+          <p class="ar__hint" data-hint role="status" hidden>Move your phone slowly</p>
 
           <section class="ar-guide" data-guide aria-live="polite" hidden>
-            <span class="ar-guide__icon" data-guide-icon></span>
-            <h1 class="ar-guide__title" tabindex="-1" data-guide-title></h1>
-            <p class="ar-guide__text" data-guide-text></p>
-            <div class="ar-guide__bar" data-guide-bar hidden><span data-guide-fill></span></div>
-            <button class="btn btn--secondary btn--block" type="button" data-guide-map data-action="map" aria-label="View 2D map instead" hidden>
+            <span class="ar-guide__icon">${icon('alert', {size: 28})}</span>
+            <h1 class="ar-guide__title" tabindex="-1">No compass found</h1>
+            <p class="ar-guide__text">This phone does not share its compass with the browser, so the arrows cannot point the right way.</p>
+            <button class="btn btn--secondary btn--block" type="button" data-action="map" aria-label="View 2D map instead">
               ${icon('map')}<span>View 2D map instead</span>
             </button>
           </section>
@@ -214,51 +157,22 @@ export function arScreen(root, {navigate, params}) {
     )
   }
 
-  // ---------- guide card (ground -> compass -> ready) ----------
-  const GUIDE = {
-    ground: {
-      icon: 'scan',
-      title: 'Find the ground',
-      text: 'Point your phone at the ground a few steps ahead and move it slowly from side to side.',
-    },
-    compass: {icon: 'compass', title: 'Hold your phone upright', text: 'Stand still for 3 seconds while we find north.'},
-    unsteady: {icon: 'compass', title: 'Move your phone in a figure-8 to calibrate', text: 'Then hold it upright and still again.'},
-    tilt: {icon: 'phone', title: 'Hold your phone upright', text: 'Point the camera straight ahead, not at the ground.'},
-    'no-compass': {
-      icon: 'alert',
-      title: 'No compass found',
-      text: 'This phone does not share its compass with the browser, so the arrows cannot point the right way.',
-    },
-  }
-
-  let currentPhase = null
-  function onPhase(phase, detail = {}) {
+  function onPhase(phase) {
     const card = root.querySelector('[data-guide]')
     if (!card) return
-    currentPhase = phase
     setStat('phase', phase)
-    // Tracking tips ("move slowly…") only matter while finding the ground.
-    if (phase !== 'ground') root.querySelector('[data-hint]').hidden = true
+    card.hidden = phase !== 'no-compass'
     if (phase === 'ready') {
-      card.hidden = true
       haptic([20, 60, 20])
       showToast(`Follow the arrows to the ${destination.name}`, {tone: 'success'})
-      return
     }
-    const key = phase === 'compass' && detail.issue ? detail.issue : phase
-    const copy = GUIDE[key] || GUIDE.ground
-    card.hidden = false
-    card.dataset.kind = key
-    root.querySelector('[data-guide-icon]').innerHTML = icon(copy.icon, {size: 28}).value
-    root.querySelector('[data-guide-title]').textContent = copy.title
-    root.querySelector('[data-guide-text]').textContent = copy.text
-    const bar = root.querySelector('[data-guide-bar]')
-    bar.hidden = key !== 'compass'
-    root.querySelector('[data-guide-fill]').style.transform = `scaleX(${detail.progress || 0})`
-    root.querySelector('[data-guide-map]').hidden = phase !== 'no-compass'
   }
 
   function onStats(s) {
+    const hint = root.querySelector('[data-hint]')
+    if (hint) hint.hidden = !s.trackingStalled
+    const pill = root.querySelector('[data-compass-pill]')
+    if (pill) pill.hidden = !s.compassUnsteady
     const fmt = (m) => (m == null ? '–' : formatDistance(m))
     setStat('gps', s.gpsAccuracy == null ? 'waiting…' : `±${Math.round(s.gpsAccuracy)} m`, s.gpsAccuracy != null && s.gpsAccuracy <= 20 ? 'ok' : 'warn')
     setStat(
@@ -299,20 +213,15 @@ export function arScreen(root, {navigate, params}) {
     const {status, reason} = detail
     const chip = root.querySelector('[data-tracking-chip]')
     const label = root.querySelector('[data-tracking-label]')
-    const hint = root.querySelector('[data-hint]')
     if (!chip) return
-    const showHints = currentPhase === null || currentPhase === 'ground'
     if (status === 'NORMAL') {
       if (chip.dataset.tone !== 'ok') haptic(18)
       chip.dataset.tone = 'ok'
       label.textContent = 'Tracking'
-      hint.hidden = true
       setStat('tracking', 'Ready', 'ok')
     } else {
       chip.dataset.tone = 'warn'
       label.textContent = reason === 'INITIALIZING' ? 'Starting tracking' : 'Tracking limited'
-      hint.hidden = !showHints
-      hint.textContent = TRACKING_HINTS[reason] || TRACKING_HINTS.UNSPECIFIED
       setStat('tracking', reason === 'INITIALIZING' ? 'Starting…' : 'Limited', 'warn')
     }
   }
@@ -365,10 +274,7 @@ export function arScreen(root, {navigate, params}) {
 
   // ---------- flow ----------
   async function begin() {
-    // Must run first, inside the tap, or iPhone will not show the motion prompt.
-    const motion = requestMotionPermission()
     showLoading()
-    if ((await motion) === 'denied') return showError('motion-denied')
     if (!navigator.onLine && !window.XR8) return showError('offline')
 
     let XR8
@@ -433,7 +339,7 @@ export function arScreen(root, {navigate, params}) {
   }
 
   offAction = onAction(root, actions)
-  showPrimer()
+  begin()
 
   return () => {
     disposed = true

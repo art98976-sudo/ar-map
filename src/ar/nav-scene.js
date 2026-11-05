@@ -23,6 +23,11 @@ export function alignmentYaw(cameraForward, headingDeg) {
   return camAngle - geoAngle
 }
 
+/** Smallest signed turn (radians, -PI..PI) from yaw `from` to yaw `to`. */
+export function shortestTurn(from, to) {
+  return Math.atan2(Math.sin(to - from), Math.cos(to - from))
+}
+
 /** Rotate a geo-root point (x, z) by yaw about +Y, the same way three.js does. */
 export function rotateY({x, z}, yaw) {
   const c = Math.cos(yaw)
@@ -34,6 +39,8 @@ export function rotateY({x, z}, yaw) {
 export function routeToLocal(origin, points) {
   return simplify(dedupe(points.map((p) => toLocal(origin, p)), 0.3), 0.5)
 }
+
+const REALIGN_EASE_S = 0.5
 
 /**
  * @param {object} o
@@ -65,6 +72,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
   const tmp = new THREE.Vector3()
   let aligned = false
   let yaw = 0
+  let ease = null
   let last = {s: 0, offset: 0, remainingM: totalM, arrows: 0}
 
   /**
@@ -82,10 +90,39 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
     // Ground is y = 0 in 8th Wall absolute scale; put the user's position under the camera.
     geoRoot.position.set(camPos.x - rotated.x, 0, camPos.z - rotated.z)
     geoRoot.updateMatrixWorld(true)
+    ease = null
     aligned = true
     geoRoot.visible = true
     const s = whereAmI().s
     trail.reset(s)
+  }
+
+  /**
+   * Correct the heading without a snap: ease the yaw over ~0.5 s, turning the route about the
+   * point where the user stands, so their place on the route does not move.
+   * Returns false (and does nothing) if the difference is not more than minDeg.
+   */
+  function realign(headingDeg, minDeg = 0) {
+    if (!aligned) return false
+    camera.getWorldDirection(forward)
+    const delta = shortestTurn(yaw, alignmentYaw({x: forward.x, z: forward.z}, headingDeg))
+    if (Math.abs(delta) <= (minDeg * Math.PI) / 180) return false
+    camera.getWorldPosition(camPos)
+    const pivot = geoRoot.worldToLocal(camPos.clone())
+    ease = {from: yaw, delta, t: 0, world: {x: camPos.x, z: camPos.z}, local: {x: pivot.x, z: pivot.z}}
+    return true
+  }
+
+  function stepEase(dt) {
+    if (!ease) return
+    ease.t = Math.min(1, ease.t + dt / REALIGN_EASE_S)
+    const k = ease.t * ease.t * (3 - 2 * ease.t)
+    yaw = ease.from + ease.delta * k
+    const rotated = rotateY(ease.local, yaw)
+    geoRoot.rotation.set(0, yaw, 0)
+    geoRoot.position.set(ease.world.x - rotated.x, 0, ease.world.z - rotated.z)
+    geoRoot.updateMatrixWorld(true)
+    if (ease.t >= 1) ease = null
   }
 
   /** The user's position projected onto the route. */
@@ -98,6 +135,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
   /** Call every frame. Returns stats for the UI and the debug panel. */
   function update(dt, time) {
     if (!aligned) return last
+    stepEase(dt)
     const p = whereAmI()
     const arrows = trail.update(p.s, dt, time)
     // Straight-line distance from the camera to the entrance (what the pin shows).
@@ -111,6 +149,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
 
   return {
     align,
+    realign,
     update,
     get aligned() {
       return aligned

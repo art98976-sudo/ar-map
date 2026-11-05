@@ -1,4 +1,5 @@
-// Location step: ask for GPS, wait until it is accurate enough, then open the camera.
+// Permission and location step: one tap asks for motion, camera and location, then we wait
+// until GPS is accurate enough and open the camera.
 // States: primer -> waiting (live accuracy) -> found -> (camera screen)
 //         or error (denied, location off, timeout, unsupported), each with what to do next.
 import {
@@ -9,11 +10,19 @@ import {
   watchLocation,
 } from '../../geo/location.js'
 import {parseUserAgent} from '../../ar/device.js'
+import {
+  markPermissionsAllowed,
+  permissionsAllowed,
+  requestCameraPermission,
+  requestMotionPermission,
+} from '../../ar/permissions.js'
+import {errorCopy} from './ar.js'
+import {describeDestination} from '../../nav/search.js'
 import {googleMapsWalkingUrl, planRoute, saveTripRoute} from '../../nav/route.js'
 import {formatDistance} from '../../arrows/pin.js'
 import {findDestination} from '../../nav/destinations.js'
 import {haptic, html, onAction, render} from '../dom.js'
-import {icon} from '../icons.js'
+import {CATEGORY_ICON, icon} from '../icons.js'
 
 const CONTINUE_DELAY_MS = 900
 
@@ -26,6 +35,7 @@ export function locateScreen(root, {navigate, params}) {
   const device = parseUserAgent(navigator.userAgent, {maxTouchPoints: navigator.maxTouchPoints})
   const nextQuery = new URLSearchParams({to: destination.id})
   if (params.force === '1') nextQuery.set('force', '1')
+  if (params.debug === '1') nextQuery.set('debug', '1')
 
   let stopWatch = null
   let gate = null
@@ -50,21 +60,35 @@ export function locateScreen(root, {navigate, params}) {
             <div class="primer__art" aria-hidden="true">
               <span class="primer__ring"></span>
               <span class="primer__ring primer__ring--2"></span>
-              <span class="primer__icon">${icon('pin', {size: 40})}</span>
+              <span class="primer__icon">${icon('camera', {size: 40})}</span>
             </div>
-            <p class="eyebrow">Step 2 of 3</p>
-            <h1 class="page__title" tabindex="-1">Allow your location</h1>
-            <p class="page__lede">
-              We use GPS to plan the walk from where you are standing to the entrance of the ${destination.name}.
+            <div class="dest-card" data-destination>
+              <span class="dsearch__badge" data-category="${destination.category}">
+                ${icon(CATEGORY_ICON[destination.category] || 'pin', {size: 20})}
+              </span>
+              <span class="dest-card__text">
+                <span class="dest-card__label">Directions to</span>
+                <strong class="dest-card__name">${destination.name}</strong>
+                ${describeDestination(destination) ? html`<span class="dest-card__meta">${describeDestination(destination)}</span>` : ''}
+              </span>
+              <button class="dest-card__change" type="button" data-action="change" aria-label="Change destination">Change</button>
+            </div>
+            <p class="eyebrow">Step 2 of 2</p>
+            <h1 class="page__title" tabindex="-1">Allow motion, location and camera</h1>
+            <p class="page__lede" id="primer-lede">
+              We use GPS to plan the walk from where you are standing to the entrance of the ${destination.name}. The
+              camera draws the arrows on the ground, and motion sensors and the compass keep them pointing the right way.
             </p>
             <ul class="primer__points">
+              <li>${icon('lock', {size: 18})}<span>Video is processed on your phone and never uploaded.</span></li>
               <li>${icon('lock', {size: 18})}<span>Your location stays on your phone. It is never stored or shared.</span></li>
               <li>${icon('sun', {size: 18})}<span>Works best outside, with a clear view of the sky.</span></li>
+              <li>${icon('info', {size: 18})}<span>Your phone will ask for each one. Tap <strong>Allow</strong>.</span></li>
             </ul>
           </main>
           <footer class="page__footer">
-            <button class="btn btn--primary btn--lg btn--block" type="button" data-action="allow" aria-label="Allow location" data-autofocus>
-              ${icon('pin')}<span>Allow location</span>
+            <button class="btn btn--primary btn--lg btn--block" type="button" data-action="allow" aria-label="Allow and start" aria-describedby="primer-lede" data-autofocus>
+              ${icon('camera')}<span>Allow and start</span>
             </button>
           </footer>
         </div>
@@ -200,6 +224,20 @@ export function locateScreen(root, {navigate, params}) {
     )
   }
 
+  /** The one tap: motion first (iPhone only shows it inside a tap), then camera, then GPS. */
+  async function allowAndStart() {
+    const motion = requestMotionPermission()
+    showWaiting()
+    root.querySelector('[data-title]').textContent = 'Tap Allow on each prompt'
+    root.querySelector('[data-body]').textContent = 'Your phone asks about motion, the camera and your location.'
+    if ((await motion) === 'denied') return showErrorCopy(errorCopy('motion-denied', device))
+    if (disposed) return
+    if ((await requestCameraPermission()) === 'denied') return showErrorCopy(errorCopy('camera-denied', device))
+    if (disposed) return
+    markPermissionsAllowed()
+    start()
+  }
+
   function start() {
     stop()
     showWaiting()
@@ -219,9 +257,12 @@ export function locateScreen(root, {navigate, params}) {
 
   // ---------- errors ----------
   function showError(code) {
+    showErrorCopy(locationErrorCopy(code, device))
+  }
+
+  function showErrorCopy(copy) {
     if (disposed) return
     stop()
-    const copy = locationErrorCopy(code, device)
     setView(
       html`
         <div class="page page--narrow page--center error-state">
@@ -245,17 +286,18 @@ export function locateScreen(root, {navigate, params}) {
 
   const off = onAction(root, {
     back: () => navigate('/search'),
-    allow: () => start(),
+    allow: () => allowAndStart(),
+    change: () => navigate(`/search${params.force === '1' ? '?force=1' : ''}`),
     retry: () => start(),
     reload: () => window.location.reload(),
     map: () => navigate(`/map?to=${encodeURIComponent(destination.id)}`),
   })
 
-  // Skip the explanation if the user already allowed location; explain first otherwise.
+  // Skip the tap only if it already happened in this page load: iPhone motion needs a fresh one.
   locationPermissionState().then((state) => {
     if (disposed) return
-    if (state === 'granted') start()
-    else if (state === 'denied') showError('denied')
+    if (state === 'denied') showError('denied')
+    else if (permissionsAllowed()) start()
     else showPrimer()
   })
 

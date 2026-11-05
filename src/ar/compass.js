@@ -29,6 +29,11 @@ export function cameraHeadingFromOrientation(alpha, beta, gamma) {
   return wrap360(deg(Math.atan2(east, north)))
 }
 
+/** iPhone reports ± degrees, or -1 when uncalibrated. Android reports nothing (null). */
+export function isPoorAccuracy(accuracy, maxDeg = 30) {
+  return Number.isFinite(accuracy) && (accuracy < 0 || accuracy > maxDeg)
+}
+
 /** Mean of angles (degrees), handling the 359° / 1° wrap. */
 export function circularMean(angles) {
   if (!angles.length) return null
@@ -75,8 +80,7 @@ export function createCalibrator({durationMs = 3000, maxSpreadDeg = 12, maxAccur
       const angles = samples.map((s) => s.heading)
       const spread = circularSpread(angles)
       const span = now - samples[0].now
-      const poorAccuracy = Number.isFinite(accuracy) && (accuracy < 0 || accuracy > maxAccuracyDeg)
-      if (spread > maxSpreadDeg || poorAccuracy) return {status: 'unsteady', progress: 0, heading: null, spread}
+      if (spread > maxSpreadDeg || isPoorAccuracy(accuracy, maxAccuracyDeg)) return {status: 'unsteady', progress: 0, heading: null, spread}
       // The window is "full" once readings span (almost) the whole duration.
       const progress = Math.min(1, span / (durationMs * 0.95))
       // Need a full window and enough readings (compass events come at 20-60 Hz).

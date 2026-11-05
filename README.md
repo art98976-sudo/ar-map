@@ -6,7 +6,7 @@ No app to install.
 
 Status: **Outdoor V1, Steps A–D**: destination search, GPS location, walking route, compass, arrows on the ground.
 
-**A trip:** search → device check → location (GPS ±20 m or better) → route planned → camera → find the ground → compass calibration (3 s) → arrows and a destination pin.
+**A trip:** search → device check → one "Allow and start" tap (motion, camera, location) → GPS ±20 m or better → route planned → camera → arrows and a destination pin as soon as tracking and the compass respond. The compass keeps calibrating silently in the background.
 
 ## Quick start
 
@@ -29,7 +29,7 @@ The camera only works on `https://` links. Two ways:
 
 **Arrow preview on a laptop:** `npm run dev`, then open <http://localhost:5173/tools/arrow-preview.html>. It walks an L-shaped route with the real arrow and pin code.
 
-**AR debug panel:** in AR, tap **Debug** (top right) for GPS accuracy, compass heading, distance to the entrance, arrows drawn and fps.
+**AR debug panel:** add `?debug=1` to the URL (before the `#`), then in AR tap **Debug** (top right) for GPS accuracy, compass heading, distance to the entrance, arrows drawn and fps.
 
 ## Scripts
 

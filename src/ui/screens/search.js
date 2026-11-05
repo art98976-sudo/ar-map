@@ -13,7 +13,7 @@ export function searchScreen(root, {navigate, params}) {
           <button class="icon-btn" type="button" data-action="back" aria-label="Back">${icon('arrowLeft')}</button>
         </header>
         <main>
-          <p class="eyebrow">Step 1 of 3</p>
+          <p class="eyebrow">Step 1 of 2</p>
           <h1 class="page__title" tabindex="-1">Where do you want to go?</h1>
           <p class="page__lede">Search for a building, room or service. Then follow the arrows on the ground to the entrance.</p>
           <div class="search-screen__box" data-search></div>

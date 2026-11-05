@@ -43,8 +43,8 @@ export function homeScreen(root, {navigate}) {
             <li class="how__step">
               <span class="how__icon">${icon('pin')}</span>
               <div>
-                <strong>Allow your location</strong>
-                <span>GPS finds where you are and plans the walk.</span>
+                <strong>Allow motion, location and camera</strong>
+                <span>One tap. GPS finds where you are and plans the walk.</span>
               </div>
             </li>
             <li class="how__step">

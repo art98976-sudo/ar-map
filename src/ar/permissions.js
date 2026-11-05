@@ -17,3 +17,27 @@ export function requestMotionPermission(win = window) {
     .then((results) => (results.every((r) => r === 'granted') ? 'granted' : 'denied'))
     .catch(() => 'denied')
 }
+
+/**
+ * Ask for the camera, then release it at once: the AR engine opens it again later.
+ * Only a clear "no" counts as denied. Other failures are left for the engine to report.
+ * @returns {Promise<'granted'|'denied'|'unknown'>}
+ */
+export async function requestCameraPermission(nav = navigator) {
+  if (!nav.mediaDevices?.getUserMedia) return 'unknown'
+  try {
+    const stream = await nav.mediaDevices.getUserMedia({video: {facingMode: 'environment'}})
+    stream.getTracks().forEach((track) => track.stop())
+    return 'granted'
+  } catch (err) {
+    return err?.name === 'NotAllowedError' ? 'denied' : 'unknown'
+  }
+}
+
+// iPhone forgets the motion answer on reload, so this lives in memory on purpose: a reload
+// needs a new tap, and a second trip in the same page load needs none.
+let allowed = false
+export const permissionsAllowed = () => allowed
+export function markPermissionsAllowed(value = true) {
+  allowed = value
+}

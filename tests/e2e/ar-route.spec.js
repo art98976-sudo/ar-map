@@ -15,10 +15,11 @@ const FAKE_REAR_CAMERA = () => {
 test.describe('route and arrows', () => {
   test('plans the walk after the GPS fix and shows it before the camera', async ({page}, testInfo) => {
     test.skip(onlyOn('android-chrome')(testInfo))
+    await page.addInitScript(FAKE_REAR_CAMERA)
     await page.goto('/#/locate?to=pathfoot')
-    await expect(page.getByRole('heading', {name: 'Allow camera and motion'})).toBeVisible({timeout: 30_000})
+    await page.getByRole('button', {name: 'Allow and start'}).click({timeout: 30_000})
     // Pathfoot is roughly 700 m from the walkway: about 9 minutes.
-    await expect(page.locator('[data-route-summary]')).toContainText(/\d+ m walk · about \d+ min/)
+    await expect(page.locator('[data-trip-remaining]')).toContainText(/\d+ m · about \d+ min/, {timeout: 60_000})
   })
 
   test('not on campus: offers Google Maps walking directions', async ({browser}, testInfo) => {
@@ -29,6 +30,7 @@ test.describe('route and arrows', () => {
     })
     const page = await ctx.newPage()
     await page.goto('/#/locate?to=library')
+    await page.getByRole('button', {name: 'Allow and start'}).click({timeout: 30_000})
     await expect(page.getByRole('heading', {name: "You're not on campus yet"})).toBeVisible({timeout: 15_000})
     const link = page.getByRole('link', {name: 'Walking directions in Google Maps'})
     await expect(link).toHaveAttribute('href', /google\.com\/maps\/dir\/\?api=1&destination=56\.\d+,-3\.\d+&travelmode=walking/)
@@ -42,7 +44,7 @@ test.describe('route and arrows', () => {
     const errors = []
     page.on('pageerror', (e) => errors.push(e.message))
     await page.addInitScript(FAKE_REAR_CAMERA)
-    await page.goto('/#/locate?to=cottrell&force=1')
+    await page.goto('/#/locate?to=cottrell&force=1&debug=1')
     await page.getByRole('button', {name: 'Allow and start'}).click({timeout: 30_000})
     await expect(page.locator('[data-stat="camera"]')).toHaveText('Working', {timeout: 60_000})
     // The test browser has no compass: test mode (force=1) faces north and places the route.

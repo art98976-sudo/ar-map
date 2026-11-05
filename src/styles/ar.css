@@ -70,6 +70,10 @@
   text-align: center;
   transform: translateX(-50%);
 }
+/* Sits above the tracking hint, so both can show at once. */
+.ar__hint--raised {
+  bottom: calc(var(--safe-bottom) + 248px);
+}
 
 .ar__sheet {
   position: absolute;
@@ -127,7 +131,7 @@
   color: #ff994c;
 }
 
-/* ---------- Guide card: find the ground / calibrate the compass ---------- */
+/* ---------- Full card: only for a phone with no compass ---------- */
 .ar-guide {
   position: absolute;
   left: 50%;
@@ -161,29 +165,6 @@
   width: 56px;
   height: 56px;
   border-radius: 18px;
-  color: var(--white);
-  background: linear-gradient(160deg, #0a8049, var(--green-03));
-}
-.ar-guide[data-kind='unsteady'] .ar-guide__icon {
-  animation: figure8 2.4s ease-in-out infinite;
-}
-@keyframes figure8 {
-  0%,
-  100% {
-    transform: translate(0, 0);
-  }
-  25% {
-    transform: translate(14px, -8px);
-  }
-  50% {
-    transform: translate(0, 0);
-  }
-  75% {
-    transform: translate(-14px, -8px);
-  }
-}
-.ar-guide[data-kind='no-compass'] .ar-guide__icon,
-.ar-guide[data-kind='unsteady'] .ar-guide__icon {
   color: #3d2e00;
   background: #f7d64c;
 }
@@ -195,23 +176,6 @@
 .ar-guide__text {
   font-size: var(--fs-sm);
   color: rgba(255, 255, 255, 0.8);
-}
-.ar-guide__bar {
-  width: 100%;
-  height: 6px;
-  margin-top: var(--s-2);
-  overflow: hidden;
-  border-radius: var(--r-pill);
-  background: rgba(255, 255, 255, 0.16);
-}
-.ar-guide__bar span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--green-01);
-  transform: scaleX(0);
-  transform-origin: left center;
-  transition: transform 120ms linear;
 }
 .ar-guide .btn {
   margin-top: var(--s-2);
