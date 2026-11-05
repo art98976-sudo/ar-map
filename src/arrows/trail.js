@@ -2,8 +2,8 @@
 //
 // Performance: ONE InstancedMesh (one draw call) for every arrow on the route. The shader
 // draws a soft, glowing chevron and does all per-frame work on the GPU:
-//   - visibility window: arrows stop ~3 m past the next corner (at most 30 m ahead), so the
-//     next leg never shows through the building on the corner; it fades in after the turn
+//   - visibility window: arrows reach 8 m ahead, or to the next corner if that is closer, so
+//     they never run into a building; the next leg fades in after the turn
 //   - "runway lights": a brighter pulse flows forward along the arrows
 // Each frame the CPU only eases one number (how far along the route the user is), so the
 // arrows never jump.
@@ -11,15 +11,14 @@ import {findTurns, resample} from '../geo/geo.js'
 
 export const TRAIL = {
   spacingM: 1, // one chevron per metre
-  aheadM: 30, // maximum distance ahead arrows are visible
+  aheadM: 8, // arrows are never drawn further ahead than this
   behindM: 1.5, // arrows fade out this far behind the user
   heightM: 0.01, // 1 cm above the ground so they never flicker into it
   sizeM: 0.85, // chevron width
   maxLiftM: 1.5, // the slope raises or lowers arrows ahead by at most this
   laneWidthM: 1.1,
   laneHeightM: 0.005,
-  minAheadM: 10, // always show at least this far ahead
-  afterTurnM: 3, // the window ends this far past the next corner
+  fadeS: 0.5, // fading out when the compass is poor, and back in
   turnPassedM: 1, // a corner counts as passed this far beyond it
   windowEaseS: 0.6, // the next leg fades in rather than appearing all at once
   turnScale: 1.6, // corner arrows are bigger
@@ -35,9 +34,11 @@ const vertexShader = /* glsl */ `
   attribute float aTurn;
   uniform float uUserS;
   uniform float uAheadEnd;
+  uniform float uAheadM;
   uniform float uBehind;
   uniform float uTime;
   uniform float uSlope;
+  uniform float uOpacity;
   varying vec2 vUv;
   varying float vAlpha;
   varying float vPulse;
@@ -48,8 +49,9 @@ const vertexShader = /* glsl */ `
     float d = aS - uUserS;
     // Fade in from behind the user, full strength nearby, fade out towards the far end.
     float near = smoothstep(-uBehind, 0.6, d);
-    float far = 1.0 - smoothstep(uAheadEnd - 2.0, uAheadEnd, aS);
-    vAlpha = near * far;
+    // ...and nothing past the corner, whose own arrow stays. The window edge fades softly.
+    float far = (1.0 - smoothstep(uAheadM - 2.0, uAheadM, d)) * (1.0 - smoothstep(uAheadEnd, uAheadEnd + 0.5, aS));
+    vAlpha = near * far * uOpacity;
     // Runway-light pulse travelling forward at 3 m/s, one every 7 m.
     float phase = fract((aS - uTime * 3.0) / 7.0);
     vPulse = 1.0 - smoothstep(0.0, 0.16, phase);
@@ -120,14 +122,16 @@ const laneVertexShader = /* glsl */ `
   attribute float aSide;
   uniform float uUserS;
   uniform float uAheadEnd;
+  uniform float uAheadM;
   uniform float uBehind;
   uniform float uSlope;
+  uniform float uOpacity;
   varying float vAlpha;
   varying float vSide;
   void main() {
     vSide = aSide;
     float d = aS - uUserS;
-    vAlpha = smoothstep(-uBehind, 0.6, d) * (1.0 - smoothstep(uAheadEnd - 2.0, uAheadEnd, aS));
+    vAlpha = smoothstep(-uBehind, 0.6, d) * (1.0 - smoothstep(uAheadM - 2.0, uAheadM, d)) * (1.0 - smoothstep(uAheadEnd - 0.5, uAheadEnd, aS)) * uOpacity;
     vec4 world = modelMatrix * vec4(position, 1.0);
     world.y += clamp(d * uSlope, -1.5, 1.5);
     gl_Position = projectionMatrix * viewMatrix * world;
@@ -179,11 +183,10 @@ export function nextTurn(turns, s) {
   return turns.find((t) => t.s + TRAIL.turnPassedM > s) ?? null
 }
 
-/** Route distance where the visible arrows end: 3 m past the next corner, 10-30 m ahead. */
+/** Route distance where the visible arrows end: 8 m ahead, or the next corner if that is closer. */
 export function visibleWindowEnd(turns, s) {
   const turn = nextTurn(turns, s)
-  const end = turn ? turn.s + TRAIL.afterTurnM : Infinity
-  return Math.min(s + TRAIL.aheadM, Math.max(end, s + TRAIL.minAheadM))
+  return Math.min(s + TRAIL.aheadM, turn ? turn.s : Infinity)
 }
 
 /**
@@ -211,6 +214,8 @@ export function createArrowTrail(THREE, route, {approximate = false} = {}) {
     uniforms: {
       uUserS: {value: 0},
       uAheadEnd: {value: visibleWindowEnd(turns, 0)},
+      uAheadM: {value: TRAIL.aheadM},
+      uOpacity: {value: 1},
       uBehind: {value: TRAIL.behindM},
       uTime: {value: 0},
       uSlope: {value: 0},
@@ -253,7 +258,7 @@ export function createArrowTrail(THREE, route, {approximate = false} = {}) {
   laneGeometry.setAttribute('aS', new THREE.Float32BufferAttribute(lane.aS, 1))
   laneGeometry.setAttribute('aSide', new THREE.Float32BufferAttribute(lane.aSide, 1))
   laneGeometry.setIndex(lane.index)
-  const {uUserS, uAheadEnd, uBehind, uSlope, uColor, uGlow} = material.uniforms
+  const {uUserS, uAheadEnd, uAheadM, uOpacity, uBehind, uSlope, uColor, uGlow} = material.uniforms
   const laneMaterial = new THREE.ShaderMaterial({
     vertexShader: laneVertexShader,
     fragmentShader: laneFragmentShader,
@@ -261,7 +266,7 @@ export function createArrowTrail(THREE, route, {approximate = false} = {}) {
     depthWrite: false,
     depthTest: false, // nothing solid is drawn over a camera feed, and it lies on the ground anyway
     side: THREE.DoubleSide,
-    uniforms: {uUserS, uAheadEnd, uBehind, uSlope, uColor, uGlow},
+    uniforms: {uUserS, uAheadEnd, uAheadM, uOpacity, uBehind, uSlope, uColor, uGlow},
   })
   const laneMesh = new THREE.Mesh(laneGeometry, laneMaterial)
   laneMesh.frustumCulled = false
@@ -269,6 +274,7 @@ export function createArrowTrail(THREE, route, {approximate = false} = {}) {
 
   let shownS = 0
   let shownEnd = material.uniforms.uAheadEnd.value
+  let wantOpacity = 1
 
   return {
     mesh,
@@ -278,6 +284,13 @@ export function createArrowTrail(THREE, route, {approximate = false} = {}) {
     get windowEnd() {
       return shownEnd
     },
+    get opacity() {
+      return uOpacity.value
+    },
+    /** Fade all the arrows out (0) or in (1). */
+    setOpacity(value) {
+      wantOpacity = value
+    },
     /** The ground's rise per metre along the route. */
     setSlope(slope) {
       material.uniforms.uSlope.value = slope
@@ -286,7 +299,10 @@ export function createArrowTrail(THREE, route, {approximate = false} = {}) {
     update(targetS, dt, time) {
       const k = 1 - Math.exp(-dt / TRAIL.easeS)
       shownS += (targetS - shownS) * k
-      shownEnd += (visibleWindowEnd(turns, shownS) - shownEnd) * (1 - Math.exp(-dt / TRAIL.windowEaseS))
+      // Grows gently after a corner, but never lags past the limit when it shrinks.
+      const end = visibleWindowEnd(turns, shownS)
+      shownEnd = Math.min(end, shownEnd + (end - shownEnd) * (1 - Math.exp(-dt / TRAIL.windowEaseS)))
+      uOpacity.value += (wantOpacity - uOpacity.value) * (1 - Math.exp(-dt / TRAIL.fadeS))
       material.uniforms.uUserS.value = shownS
       material.uniforms.uAheadEnd.value = shownEnd
       material.uniforms.uTime.value = time

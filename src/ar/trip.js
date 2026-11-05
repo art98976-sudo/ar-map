@@ -1,27 +1,31 @@
 // One AR trip: the user stands on the path and taps Start, then the route keeps being corrected.
 //
 // Phases (reported through onPhase):
-//   'await-start'  the camera is running: the user faces the way they will walk and taps Start
-//   'ready'        route placed: arrows and pin visible
+//   'await-start'  the camera is running: the user taps Start
+//   'facing'       facing more than 60° off the route: turn until within 30°, then guidance starts
+//   'ready'        route placed: guidance running
 //
-// A compass can be 20-90° out near glass buildings, so the person facing the path decides the
-// direction at the start. The compass only refines that if the two agree within 30°.
+// The compass decides the direction, not which way the user happens to face. A compass can be
+// 20-90° out near glass buildings, so with a poor one (or none) nothing is drawn on the ground
+// until 6 m of walking has shown the direction. Map matching then corrects whatever is left.
 //
 // Once 'ready', a silent collector keeps averaging the compass while the phone is upright and
 // steady. Each completed 3 s window eases the route round if it has drifted by more than 5°.
 // While walking, map matching (route-matcher.js) lays the walked track onto the route, and hit
 // tests (ground.js) lay the route onto the real ground.
 import {angleDiff, circularMean, createCalibrator, isPoorAccuracy, startCompass} from './compass.js'
+import {fromLocal, pointAt, polylineSlice, toLocal} from '../geo/geo.js'
+import {DESTINATIONS} from '../nav/destinations.js'
+import {arrowTarget, arrowYawDeg, COMPASS_GUIDE, createRouteTracker, turnPrompt, walkingCorrection} from '../nav/compass-guide.js'
 import {createNavScene, gpsDistanceToEntrance} from './nav-scene.js'
 import {acceptHit, createGroundTracker, GROUND, HIT_TYPES, SCREEN_POINTS} from './ground.js'
 import {createRouteMatcher} from './route-matcher.js'
 import {GPS, watchLocation} from '../geo/location.js'
-import {createArrivalDetector, createGuidance, createOffRouteMonitor} from '../nav/guidance.js'
+import {createArrivalDetector, createGuidance, createOffRouteMonitor, landmarksFrom} from '../nav/guidance.js'
 import {planRoute, SNAP_TO_PATH_M} from '../nav/route.js'
 
 const UPRIGHT_MAX_TILT = 0.55 // |forward.y|: about 33° up or down from level
 const FIRST_HEADING_WINDOW_MS = 500 // the Start tap averages this much compass history
-const START_COMPASS_AGREE_DEG = 30 // further apart than this, trust the user facing the path
 const MIN_HORIZONTAL_LOOK = 0.2 // below this the camera looks almost straight up or down: no yaw
 const STEADY_MAX_DRIFT_DEG = 6 // the camera must stay this close to where the window started
 const REALIGN_MIN_DEG = 5 // smaller differences are compass noise: leave the route alone
@@ -39,14 +43,7 @@ function bearing(east, north) {
   return (((Math.atan2(east, north) * 180) / Math.PI) % 360 + 360) % 360
 }
 
-/**
- * The bearing the camera is taken to face at the Start tap: along the route, averaged with the
- * compass only if they agree. routeDeg and compassDeg in degrees; compassDeg may be null.
- */
-export function chooseStartHeading(routeDeg, compassDeg) {
-  if (compassDeg == null || Math.abs(angleDiff(routeDeg, compassDeg)) > START_COMPASS_AGREE_DEG) return routeDeg
-  return circularMean([routeDeg, compassDeg])
-}
+const toCoord = (p) => [p.lng, p.lat]
 
 export function createArTrip({
   route: firstRoute,
@@ -56,10 +53,13 @@ export function createArTrip({
   debug = false,
   arriveLabel = 'Destination',
   plan = planRoute,
+  landmarks = landmarksFrom(DESTINATIONS, origin, destination.id),
   onPhase,
   onStats,
   onArrived,
   onTurnClose,
+  onTurnNow,
+  onTurnPassed,
 }) {
   let route = firstRoute
   let phase = null
@@ -73,7 +73,15 @@ export function createArTrip({
   let headingAccuracy = null
   let compassSource = null
   let beta = null
-  let compassBias = null // compass minus the placement at the start: steady error, not drift
+  let compassBias = null // compass minus the placement: steady error, not drift
+  let directionKnown = false // false: placed provisionally, waiting for a compass or 6 m of walking
+  let tracker = null
+  let startS = 0
+  let fedFix = null
+  let facingYaw = null
+  let ringFill = 0
+  let routeVersion = 0
+  let legCache = null
   let lastTime = null
   let recent = []
   let steadyAnchorDeg = null
@@ -120,7 +128,7 @@ export function createArTrip({
     },
     onUnavailable: () => {
       if (heading != null) return
-      compassSource = 'none' // not a problem: the user facing the path sets the direction
+      compassSource = 'none' // not a problem: walking the first few metres sets the direction
     },
   })
 
@@ -167,7 +175,7 @@ export function createArTrip({
 
   function realignFromCompass(h) {
     // Once walking has shown the compass is badly wrong, it could only turn the route back.
-    if (matcher.flipped || compassOff) return
+    if (!directionKnown || matcher.flipped || compassOff) return
     // A compass that only woke up after Start: remember its error, do not act on it.
     if (compassBias == null) {
       compassBias = angleDiff(cameraBearing() + matcher.totalYawDeg, h)
@@ -207,13 +215,42 @@ export function createArTrip({
     return tracking === 'NORMAL' || (allowDesktop && lastTime != null && lastTime - startedAt > DESKTOP_START_DELAY_S)
   }
 
+  function compassUsable() {
+    return heading != null && !isPoorAccuracy(headingAccuracy, COMPASS_GUIDE.poorAccuracyDeg)
+  }
+
+  /** Which way the user faces for the arrow and the map: walking has the last word once it has spoken. */
+  function guideHeading() {
+    if (directionKnown && (compassOff || matcher.locked)) return cameraBearing()
+    if (heading != null) return recentHeading()
+    return directionKnown ? cameraBearing() : null
+  }
+
+  /** Place the route and start guiding. headingDeg: the compass; null: find out by walking. */
+  function beginGuidance(headingDeg) {
+    const fix = bestFix()
+    const info = nav.startInfo(fix)
+    nav.setGround(ground.fallback(camera.position.y), 0)
+    nav.align(headingDeg ?? info.bearingDeg, fix)
+    // A webcam in test mode has no compass and cannot walk.
+    directionKnown = headingDeg != null || allowDesktop
+    nav.setVisible(directionKnown)
+    compassBias = headingDeg == null ? null : 0
+    tracker = createRouteTracker(nav.route, info.s)
+    startS = info.s
+    restartWindow()
+    facingYaw = null
+    setPhase('ready', {heading: headingDeg})
+  }
+
   /**
-   * The Start tap: the user is on the path, facing the way they will walk.
-   * Returns 'ok', 'tracking' (world tracking not ready) or 'look' (phone pointing up or down).
+   * The Start tap, with the user on the path. Returns 'ok', 'facing' (turn first), 'tracking' (world
+   * tracking not ready), 'look' (phone pointing up or down) or 'path' (too far from the path).
    */
   function start() {
     if (!nav) return 'tracking'
     if (phase === 'ready') return 'ok'
+    if (phase === 'facing') return 'facing'
     if (!trackingReady()) return 'tracking'
     const f = lookDirection()
     // A webcam in test mode reports no direction, so only a real phone can be asked to look up.
@@ -221,24 +258,55 @@ export function createArTrip({
     const fix = bestFix()
     const startInfo = nav.startInfo(fix)
     if (startInfo.offset > SNAP_TO_PATH_M) return 'path'
-    const compass = heading == null ? null : recentHeading()
-    const h = chooseStartHeading(startInfo.bearingDeg, compass)
-    compassBias = compass == null ? null : angleDiff(h, compass)
-    nav.setGround(ground.fallback(camera.position.y), 0)
-    nav.align(h, fix)
-    restartWindow()
-    setPhase('ready', {heading: h})
+    if (!compassUsable()) {
+      beginGuidance(null)
+      return 'ok'
+    }
+    const h = recentHeading()
+    facingYaw = arrowYawDeg(startInfo.bearingDeg, h)
+    if (turnPrompt(facingYaw)) {
+      setPhase('facing')
+      return 'facing'
+    }
+    beginGuidance(h)
     return 'ok'
+  }
+
+  /** Waiting for the user to turn towards the route. A compass that goes poor stops the wait. */
+  function watchFacing() {
+    if (!compassUsable()) return beginGuidance(null)
+    const h = recentHeading()
+    facingYaw = arrowYawDeg(nav.startInfo(bestFix()).bearingDeg, h)
+    if (Math.abs(facingYaw) <= COMPASS_GUIDE.facingOkDeg) beginGuidance(h)
+  }
+
+  /** The direction came from walking or a compass that recovered: now the ground can be drawn. */
+  function directionFound() {
+    directionKnown = true
+    nav.setVisible(true)
   }
 
   /** Keep the route on the path the user is really walking. Never while tracking is unsure. */
   function runMatching(time) {
     if (tracking !== 'NORMAL') return
     matcher.addSample(camera.position.x, camera.position.z, time)
+    if (!directionKnown) {
+      if (nav.easing) return
+      const track = matcher.samples.map((p) => nav.worldToRoute(p))
+      const correction = walkingCorrection(track, nav.route, tracker.s, matcher.walkedM)
+      if (correction) {
+        nav.applyCorrection(correction)
+        compassOff = true
+        directionFound()
+      }
+      return
+    }
     if (time - lastMatchAt < MATCH_EVERY_S || !matcher.moving(time) || nav.easing) return
     lastMatchAt = time
     const correction = matcher.update(nav.worldToRoute)
     if (correction) nav.applyCorrection(correction)
+    // Until the flip that walk counted as going backwards. It was going forwards all along.
+    if (correction?.flipped) tracker.set(startS + matcher.everWalkedM)
   }
 
   /** Plan again from where GPS says the user is, keeping the current placement. */
@@ -250,12 +318,15 @@ export function createArTrip({
       if (stopped || arrived || !nav || next.status !== 'ok') return
       route = next
       nav.setRoute(next)
+      routeVersion += 1
+      legCache = null
+      tracker = createRouteTracker(nav.route, nav.startInfo(lastFix).s)
       // The walk so far no longer has a route to fit, so matching starts afresh. Its turn stays in
       // the placement, so the compass has to keep allowing for it.
       compassOff ||= matcher.flipped
       if (compassBias != null) compassBias += matcher.totalYawDeg
       matcher = createRouteMatcher(nav.route)
-      guidance = createGuidance(nav.route, {arriveLabel})
+      guidance = createGuidance(nav.route, {arriveLabel, landmarks})
       instructionAt = -Infinity
     } catch (err) {
       console.warn('[trip] reroute failed', err)
@@ -316,6 +387,48 @@ export function createArTrip({
     }
   }
 
+  /** The heading-up map: where to draw everything, in lat/lng. Null until the scene is ready. */
+  function mapState() {
+    if (!nav) return null
+    const s = tracker ? tracker.shownS : nav.startInfo(bestFix()).s
+    const next = guidance.getNextManoeuvre(tracker ? tracker.s : s)
+    const key = `${Math.round(s)}:${next.s}`
+    if (legCache?.key !== key) {
+      legCache = {key, coords: polylineSlice(nav.route, s, next.s).map((p) => toCoord(fromLocal(origin, p)))}
+    }
+    const at = pointAt(nav.route, next.s)
+    return {
+      headingDeg: guideHeading(),
+      user: fromLocal(origin, pointAt(nav.route, s)),
+      leg: legCache.coords,
+      routeCoords: route.points.map(toCoord),
+      routeVersion,
+      approximate: route.source === 'direct',
+      entrance: route.entrance || route.points.at(-1),
+      turn: next.type === 'arrive' ? null : {number: guidance.manoeuvres.indexOf(next) + 1, at: fromLocal(origin, at)},
+    }
+  }
+
+  /** The big arrow: the way to walk, measured from the way the user faces. */
+  function updateArrow(dt, s) {
+    if (arrived) return nav.updateGuide(dt, null)
+    if (phase === 'facing') return nav.updateGuide(dt, facingYaw)
+    if (phase !== 'ready') return nav.updateGuide(dt, null)
+    const h = guideHeading()
+    const target = arrowTarget(nav.route, guidance.manoeuvres, guidance.getNextManoeuvre(s), s)
+    ringFill = target.ringFill
+    nav.updateGuide(dt, h == null ? null : arrowYawDeg(target.bearingDeg, h), ringFill)
+  }
+
+  function compassPoor() {
+    return heading != null && isPoorAccuracy(headingAccuracy, COMPASS_GUIDE.poorAccuracyDeg)
+  }
+
+  /** Walking has proved the placement, so a poor compass no longer matters for the ground arrows. */
+  function placementTrusted() {
+    return matcher.locked || compassOff || !compassPoor()
+  }
+
   // ---------- engine hooks ----------
   function onSceneReady({scene, camera: cam, XR8}) {
     THREE = window.THREE
@@ -323,7 +436,7 @@ export function createArTrip({
     xr = XR8
     nav = createNavScene({THREE, scene, camera, route, origin, name: destination.name})
     matcher = createRouteMatcher(nav.route)
-    guidance = createGuidance(nav.route, {arriveLabel})
+    guidance = createGuidance(nav.route, {arriveLabel, landmarks})
     setPhase('await-start')
   }
 
@@ -336,7 +449,14 @@ export function createArTrip({
     startedAt ??= time
     lastTime = time
     if (tracking === 'NORMAL' || lastNormalAt == null) lastNormalAt = time
+    if (phase === 'facing') watchFacing()
     if (phase === 'ready' && !arrived) {
+      // A compass that recovers before walking has shown the way: use it, from where the user is.
+      if (!directionKnown && compassUsable()) {
+        nav.align(recentHeading(), fromLocal(origin, pointAt(nav.route, tracker.s)))
+        compassBias = 0
+        directionFound()
+      }
       runMatching(time)
       sampleGround(time)
     }
@@ -344,9 +464,18 @@ export function createArTrip({
     if (phase === 'ready') {
       groundNow = ground.update(dt, s.s, camera.position.y, time)
       nav.setGround(groundNow.height, groundNow.slope, s.s)
+      nav.setChevronOpacity(placementTrusted() ? 1 : 0)
+      if (tracking === 'NORMAL') tracker.walk(camera.position, directionKnown ? nav.worldToRoute : null)
+      if (lastFix && lastFix !== fedFix) {
+        fedFix = lastFix
+        tracker.fix(toLocal(origin, lastFix), lastFix.accuracy)
+      }
+      tracker.tick(dt)
     }
+    const routeS = tracker ? tracker.s : 0
+    const remainingM = tracker ? Math.max(0, tracker.totalM - routeS) : route.lengthM
     if (phase === 'ready' && !arrived) {
-      if (arrival.update(dt, s.remainingM, s.toPinM)) {
+      if (arrival.update(dt, remainingM, directionKnown ? s.toPinM : null)) {
         arrived = true
         instruction = null
         nav.finish()
@@ -354,13 +483,16 @@ export function createArTrip({
       } else {
         if (time - instructionAt >= INSTRUCTION_EVERY_S) {
           instructionAt = time
-          instruction = guidance.instruction(s.s)
+          instruction = guidance.instruction(routeS)
         }
-        if (guidance.turnIsClose(s.s)) onTurnClose?.()
+        if (guidance.turnPassed(routeS)) onTurnPassed?.()
+        if (guidance.turnIsClose(routeS)) onTurnClose?.()
+        if (guidance.turnIsNow(routeS)) onTurnNow?.()
         // Only while SLAM knows where the user is, and not while already planning.
-        if (tracking === 'NORMAL' && !rerouting && offRoute.update(s.offset, time)) reroute()
+        if (directionKnown && tracking === 'NORMAL' && !rerouting && offRoute.update(s.offset, time)) reroute()
       }
     }
+    updateArrow(dt, routeS)
     statsTimer += dt
     if (statsTimer >= 0.25) {
       statsTimer = 0
@@ -369,6 +501,12 @@ export function createArTrip({
         tracking,
         trackingStalled: time - lastNormalAt >= TRACKING_HINT_AFTER_S,
         compassUnsteady: unsteadySince != null && Date.now() - unsteadySince > COMPASS_PILL_AFTER_MS,
+        compassPoor: compassPoor() && !placementTrusted(),
+        directionKnown,
+        turnPrompt: phase === 'facing' ? turnPrompt(facingYaw, 0) : null,
+        step: phase === 'ready' && !arrived ? guidance.step(routeS) : null,
+        steps: phase === 'ready' ? guidance.steps(routeS) : null,
+        ringFill,
         heading,
         headingAccuracy,
         compassSource,
@@ -376,7 +514,7 @@ export function createArTrip({
         gpsToEntranceM: gpsDistanceToEntrance(lastFix, route),
          startGapM: nav.startInfo(bestFix()).offset,
          pathBearingDeg: nav.startInfo(bestFix()).pathBearingDeg,
-        remainingM: nav.aligned ? s.remainingM : route.lengthM,
+        remainingM: nav.aligned ? remainingM : route.lengthM,
         toPinM: s.toPinM ?? null,
         offRouteM: nav.aligned ? s.offset : null,
         arrows: nav.aligned ? s.arrows : 0,
@@ -394,8 +532,8 @@ export function createArTrip({
         locked: matcher.locked,
         instruction,
         rerouting,
-        nextManoeuvre: nav.aligned ? guidance.getNextManoeuvre(s.s) : null,
-        userS: nav.aligned ? s.s : null,
+        nextManoeuvre: nav.aligned ? guidance.getNextManoeuvre(routeS) : null,
+        userS: nav.aligned ? routeS : null,
         routePoints: route.points.length,
          turns: nav.turns,
          minimap: minimapData(),
@@ -414,6 +552,7 @@ export function createArTrip({
     onSceneReady,
     onTracking,
     onTick,
+    mapState,
     setFps: (value) => (fps = value),
     /** Debug panel: correct the route now from the latest readings, however small the error. */
     recalibrate() {

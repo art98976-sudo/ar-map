@@ -45,20 +45,20 @@
   top: calc(var(--safe-top) + var(--s-3));
   left: var(--s-3);
   right: var(--s-3);
-  z-index: 3;
+  z-index: 5;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--s-3);
 }
 
-/* Small hints stack above the trip card, however many show and however they wrap. */
+/* Small hints stack above the map, however many show and however they wrap. */
 .ar__hints {
   position: absolute;
   left: 20px;
   right: 20px;
-  bottom: calc(var(--safe-bottom) + 72px);
-  z-index: 3;
+  bottom: calc(38dvh + var(--s-3));
+  z-index: 4;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -119,7 +119,7 @@
 .ar-guide {
   position: absolute;
   left: 50%;
-  top: 46%;
+  top: 31%; /* clear of the hints above the map */
   z-index: 4;
   display: grid;
   justify-items: center;
@@ -172,33 +172,232 @@
   margin-top: var(--s-2);
 }
 
-/* What to do next: the hint that matters most, at the bottom of the stack. */
-.ar__hint--guide {
-  padding: 12px 20px;
-  font-size: var(--fs-md);
-}
-
-.ar-minimap {
+/* ---------- Instruction card, and the list of steps it pulls down ---------- */
+.ar-steps {
   position: absolute;
-  left: 14px;
-  bottom: calc(var(--safe-bottom) + 14px);
-  z-index: 3;
-  width: 90px;
-  height: 90px;
-  border: 3px solid rgb(255 255 255 / 75%);
-  border-radius: 50%;
-  background: rgb(8 42 28 / 72%);
-  box-shadow: 0 4px 18px rgb(0 0 0 / 30%);
+  top: calc(var(--safe-top) + var(--s-3));
+  left: calc(var(--s-3) + 52px);
+  right: var(--s-3);
+  z-index: 5;
+  display: grid;
+  gap: var(--s-2);
+}
+.ar-steps[hidden] {
+  display: none;
+}
+.ar-steps__card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  width: 100%;
+  min-height: 64px;
+  padding: var(--s-2) var(--s-3) var(--s-3);
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--ar-panel-82);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  backdrop-filter: blur(20px) saturate(1.5);
+  box-shadow: inset 0 0 0 1px var(--glass-line);
+  color: var(--white);
+  font: inherit;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+  touch-action: none;
+}
+.ar-steps__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--green-02);
+}
+.ar-steps__handle {
+  position: absolute;
+  left: 50%;
+  bottom: 5px;
+  width: 32px;
+  height: 4px;
+  border-radius: var(--r-pill);
+  background: var(--on-dark-70);
+  transform: translateX(-50%);
+}
+.ar-steps__list {
+  display: grid;
+  max-height: 38dvh;
+  overflow-y: auto;
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--r-md);
+  background: var(--ar-panel-82);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  box-shadow: inset 0 0 0 1px var(--glass-line);
+  font-size: var(--fs-sm);
+  list-style: none;
+  touch-action: pan-y;
+}
+.ar-steps__list[hidden] {
+  display: none;
+}
+.ar-steps__item {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: 40px;
+  padding-block: 6px;
+  color: var(--on-dark-85);
+}
+.ar-steps__item + .ar-steps__item {
+  border-top: 1px solid var(--on-dark-08);
+}
+.ar-steps__item[data-done='true'] {
+  color: var(--on-dark-70);
+}
+.ar-steps__item[data-done='true'] .ar-steps__tick {
+  color: var(--green-01-70);
+}
+.ar-steps__item[data-current='true'] {
+  color: var(--white);
+  font-weight: 600;
+}
+.ar-steps__tick {
+  display: grid;
+  place-items: center;
+}
+.ar-steps__far {
+  font-variant-numeric: tabular-nums;
 }
 
-/* ---------- The one pill ---------- */
+/* A corner has been passed. */
+.ar-check {
+  position: absolute;
+  left: 50%;
+  top: 36%;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  margin: -42px 0 0 -42px;
+  border-radius: 50%;
+  background: var(--green-02);
+  color: var(--white);
+  pointer-events: none;
+  animation: check-pulse 700ms var(--ease) forwards;
+}
+.ar-check[hidden] {
+  display: none;
+}
+@keyframes check-pulse {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ar-check {
+    animation: none;
+  }
+}
+
+/* ---------- The heading-up map: the bottom of the screen, or all of it ---------- */
+.ar-map {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  height: 38dvh;
+  overflow: hidden;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: var(--camera-ground);
+  box-shadow: 0 -8px 28px var(--shadow-on-camera);
+  transition: height 240ms var(--ease);
+}
+.ar-map.is-expanded {
+  height: 100dvh;
+  border-radius: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ar-map {
+    transition: none;
+  }
+}
+.ar-map__canvas,
+.ar-map__fallback,
+.ar-map__tap {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.ar-map__fallback {
+  object-fit: contain;
+}
+.ar-map__fallback[hidden] {
+  display: none;
+}
+.ar-map__tap {
+  border: 0;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ar-map__tap:focus-visible {
+  outline: 3px solid var(--white);
+  outline-offset: -6px;
+}
+.ar-map__dot {
+  width: 22px;
+  height: 22px;
+  border: 4px solid var(--white);
+  border-radius: 50%;
+  background: var(--green-02);
+  box-shadow: 0 2px 8px var(--shadow-on-camera);
+}
+.ar-map__pin {
+  width: 20px;
+  height: 20px;
+  border: 3px solid var(--white);
+  border-radius: 50%;
+  background: var(--orange-bright);
+  box-shadow: 0 2px 6px var(--shadow-on-camera);
+}
+.ar-map__turn {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--white);
+  border-radius: 50%;
+  background: var(--ar-panel-82);
+  color: var(--white);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* ---------- The trip pill, on the map ---------- */
 .ar-pill {
   position: absolute;
   left: 50%;
-  bottom: calc(var(--safe-bottom) + var(--s-4));
+  bottom: calc(var(--safe-bottom) + var(--s-3));
   z-index: 3;
   max-width: calc(100% - 2 * var(--s-4));
-  padding: 12px 20px;
+  padding: 8px 16px;
+  pointer-events: none;
   overflow: hidden;
   border-radius: var(--r-pill);
   background: var(--ar-panel-72);
@@ -218,10 +417,10 @@
   inset: 0;
   z-index: 6;
   display: grid;
-  place-items: center;
+  place-items: end center; /* below the pin that the arrow has become */
   padding: var(--gutter);
+  padding-bottom: calc(var(--safe-bottom) + var(--s-5));
   overflow: hidden;
-  background: var(--ar-dim);
 }
 .arrival[hidden] {
   display: none;

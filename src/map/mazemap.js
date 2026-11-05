@@ -77,7 +77,7 @@ export function useModernLights(Mazemap) {
  * Create a campus map in `container`.
  * Returns {map, destroy}. `onReady` fires when the map style has loaded.
  */
-export function createCampusMap(Mazemap, container, {onReady, onError} = {}) {
+export function createCampusMap(Mazemap, container, {onReady, onError, controls = true, options = {}} = {}) {
   const map = new Mazemap.Map({
     container,
     campuses: MAZEMAP.campusId,
@@ -89,10 +89,15 @@ export function createCampusMap(Mazemap, container, {onReady, onError} = {}) {
     scrollZoom: true,
     doubleClickZoom: true,
     touchZoomRotate: true,
+    ...options,
   })
 
   map.on('load', () => {
     try {
+      if (!controls) {
+        onReady?.(map)
+        return
+      }
       // Floor switcher, shown when an indoor building is in view.
       map.addControl(
         new Mazemap.ZLevelBarControl({className: 'mm-floor-bar', autoUpdate: true, maxHeight: 260}),

@@ -1,7 +1,7 @@
 // Turn-by-turn guidance, off-route detection and arrival. Pure logic: no GPS, no three.js.
 // Positions are distances along the route, from projecting the SLAM position onto it, so GPS
 // noise cannot reach them.
-import {findTurns, polylineLength} from '../geo/geo.js'
+import {findTurns, pointAt, polylineLength, projectOntoPolyline, toLocal} from '../geo/geo.js'
 
 export const GUIDE = {
   noticeDeg: 3, // smaller bends are drawing noise
@@ -14,6 +14,41 @@ export const GUIDE = {
   backtrackM: 10, // this far back before a passed corner, it is ahead again
   announceM: 30, // further off than this, say "continue straight"
   hapticM: 10,
+  nowM: 2, // this close, the turn is now
+  landmarkM: 30, // a place this close to a corner names it
+  pastAfterM: 3, // "Continue past" only names a place still this far ahead
+}
+
+// Names that read wrongly after "the": "Turn left at Scran", not "at the Scran".
+const NO_ARTICLE = new Set(['Campus Central', 'Andrew Stewart Hall', 'Airthrey Loch', 'Airthrey Castle', 'Scran', 'Umami', 'Starbucks'])
+
+/** "the Atrium", "the Bite", "Scran". */
+export function landmarkPhrase(name) {
+  if (NO_ARTICLE.has(name)) return name
+  return name.startsWith('The ') ? `the ${name.slice(4)}` : `the ${name}`
+}
+
+/** Places in the route frame, each measured from its centre and its entrance. */
+export function landmarksFrom(destinations, origin, excludeId = null) {
+  return destinations
+    .filter((d) => d.id !== excludeId)
+    .map((d) => ({name: d.name, points: [d, d.entrance].filter(Boolean).map((p) => toLocal(origin, p))}))
+}
+
+/** The name of the nearest place within withinM of a point, or null. */
+export function nearestLandmark(point, landmarks, withinM = GUIDE.landmarkM) {
+  let best = null
+  let bestM = withinM
+  for (const {name, points} of landmarks) {
+    for (const p of points) {
+      const d = Math.hypot(p.x - point.x, p.y - point.y)
+      if (d <= bestM) {
+        best = name
+        bestM = d
+      }
+    }
+  }
+  return best
 }
 
 /** left, right, slight-left, slight-right or straight. angle: degrees, > 0 for right. */
@@ -52,7 +87,7 @@ export function buildManoeuvres(route) {
     }
   }
   const manoeuvres = dropJogs(groups.filter((g) => Math.abs(g.angle) >= GUIDE.turnDeg))
-    .map((g) => ({s: (g.first + g.last) / 2, type: classifyTurn(g.angle), angle: g.angle}))
+    .map((g) => ({s: (g.first + g.last) / 2, type: classifyTurn(g.angle), angle: g.angle, first: g.first, last: g.last}))
   manoeuvres.push({s: polylineLength(route), type: 'arrive', angle: 0})
   return manoeuvres
 }
@@ -65,19 +100,46 @@ export function roundDistance(metres) {
 
 const TURN_WORDS = {left: 'Turn left', right: 'Turn right', 'slight-left': 'Bear left', 'slight-right': 'Bear right'}
 
-/** "Turn left in 12 m", "Continue straight 40 m", "Pathfoot entrance in 8 m". */
-export function instructionFor(manoeuvre, distanceM, arriveLabel = 'Destination') {
-  if (distanceM > GUIDE.announceM) return `Continue straight ${roundDistance(distanceM)}`
-  if (manoeuvre.type === 'arrive') return `${arriveLabel} in ${roundDistance(distanceM)}`
+/** "Turn left at the Atrium · 12 m", "Turn left in 12 m", "Continue past the Library · 40 m". */
+export function instructionFor(manoeuvre, distanceM, arriveLabel = 'Destination', past = null) {
+  const away = roundDistance(distanceM)
+  if (distanceM > GUIDE.announceM) return past ? `Continue past ${landmarkPhrase(past)} · ${away}` : `Continue straight ${away}`
+  if (manoeuvre.type === 'arrive') return `${arriveLabel} in ${away}`
   const words = TURN_WORDS[manoeuvre.type]
-  return distanceM < 2 ? `${words} now` : `${words} in ${roundDistance(distanceM)}`
+  const now = distanceM < GUIDE.nowM
+  if (manoeuvre.landmark) return `${words} at ${landmarkPhrase(manoeuvre.landmark)} · ${now ? 'now' : away}`
+  return now ? `${words} now` : `${words} in ${away}`
+}
+
+/** The icon name for what the user does next. */
+export function stepIcon(manoeuvre, distanceM) {
+  if (distanceM > GUIDE.announceM) return 'straight'
+  return manoeuvre.type === 'arrive' ? 'arrive' : manoeuvre.type
 }
 
 /** What to do next, for one route. Remembers progress, so jitter cannot skip or repeat a turn. */
-export function createGuidance(route, {arriveLabel = 'Destination'} = {}) {
+export function createGuidance(route, {arriveLabel = 'Destination', landmarks = []} = {}) {
   const manoeuvres = buildManoeuvres(route)
+  for (const m of manoeuvres) {
+    if (m.type !== 'arrive') m.landmark = nearestLandmark(pointAt(route, m.s), landmarks)
+  }
+  // Places along the way, for "Continue past...".
+  const beside = landmarks
+    .map((l) => {
+      const hits = l.points.map((p) => projectOntoPolyline(route, p))
+      const hit = hits.reduce((a, b) => (b.offset < a.offset ? b : a), hits[0])
+      return {name: l.name, s: hit?.s, offset: hit?.offset ?? Infinity}
+    })
+    .filter((l) => l.offset <= GUIDE.landmarkM)
+    .sort((a, b) => a.s - b.s)
   let index = 0
+  let lastIndex = 0
   const warned = new Set()
+  const reached = new Set()
+
+  function pastLandmark(userS, next) {
+    return beside.find((l) => l.s > userS + GUIDE.pastAfterM && l.s < next.s)?.name ?? null
+  }
 
   function getNextManoeuvre(userS) {
     while (index < manoeuvres.length - 1 && userS >= manoeuvres[index].s + GUIDE.passedM) index += 1
@@ -90,7 +152,39 @@ export function createGuidance(route, {arriveLabel = 'Destination'} = {}) {
     getNextManoeuvre,
     instruction(userS) {
       const next = getNextManoeuvre(userS)
-      return instructionFor(next, Math.max(0, next.s - userS), arriveLabel)
+      const distanceM = Math.max(0, next.s - userS)
+      return instructionFor(next, distanceM, arriveLabel, pastLandmark(userS, next))
+    },
+    /** The instruction card: {icon, text, distanceM}. */
+    step(userS) {
+      const next = getNextManoeuvre(userS)
+      const distanceM = Math.max(0, next.s - userS)
+      return {icon: stepIcon(next, distanceM), text: instructionFor(next, distanceM, arriveLabel, pastLandmark(userS, next)), distanceM}
+    },
+    /** Every step of the route, for the list: {icon, text, distanceM, done, current}. */
+    steps(userS) {
+      const nextIndex = manoeuvres.indexOf(getNextManoeuvre(userS))
+      return manoeuvres.map((m, i) => ({
+        icon: stepIcon(m, 0),
+        text: m.type === 'arrive' ? arriveLabel : m.landmark ? `${TURN_WORDS[m.type]} at ${landmarkPhrase(m.landmark)}` : TURN_WORDS[m.type],
+        distanceM: m.s - (i ? manoeuvres[i - 1].s : 0),
+        done: i < nextIndex,
+        current: i === nextIndex,
+      }))
+    },
+    /** True once per turn, as the user reaches it. */
+    turnIsNow(userS) {
+      const next = getNextManoeuvre(userS)
+      if (next.type === 'arrive' || reached.has(next) || next.s - userS > GUIDE.nowM) return false
+      reached.add(next)
+      return true
+    },
+    /** True once, on the moment a corner has been passed. */
+    turnPassed(userS) {
+      const i = manoeuvres.indexOf(getNextManoeuvre(userS))
+      const passed = i > lastIndex
+      lastIndex = i
+      return passed
     },
     /** True once per turn, as the user comes within 10 m of it. */
     turnIsClose(userS) {

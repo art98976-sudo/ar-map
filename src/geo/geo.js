@@ -46,6 +46,34 @@ export function polylineLength(pts) {
   return total
 }
 
+/** The point at distance s along a polyline, clamped to its ends. */
+export function pointAt(route, s) {
+  let walked = 0
+  for (let i = 1; i < route.length; i++) {
+    const a = route[i - 1]
+    const b = route[i]
+    const len = Math.hypot(b.x - a.x, b.y - a.y)
+    if (walked + len >= s) {
+      const t = len ? Math.max(0, (s - walked) / len) : 0
+      return {x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t}
+    }
+    walked += len
+  }
+  return route.at(-1)
+}
+
+/** The stretch of a polyline between distances from and to, as its own polyline. */
+export function polylineSlice(route, from, to) {
+  const out = [pointAt(route, from)]
+  let walked = 0
+  for (let i = 1; i < route.length; i++) {
+    walked += Math.hypot(route[i].x - route[i - 1].x, route[i].y - route[i - 1].y)
+    if (walked > from && walked < to) out.push(route[i])
+  }
+  out.push(pointAt(route, to))
+  return out
+}
+
 /** Drop points closer than `minGap` metres to the previous one (duplicate vertices). */
 export function dedupe(pts, minGap = 0.3) {
   const out = []

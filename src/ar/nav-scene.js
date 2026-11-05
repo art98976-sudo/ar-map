@@ -6,14 +6,15 @@
 //   geo root      --align---> SLAM world: rotated so its north matches real north (compass),
 //                             moved so the user's GPS position sits under the camera,
 //                             at ground height y = 0 (8th Wall absolute scale).
-import {dedupe, distanceM, projectOntoPolyline, simplify, toLocal} from '../geo/geo.js'
+import {dedupe, distanceM, pointAt, projectOntoPolyline, simplify, toLocal} from '../geo/geo.js'
 import {SNAP_TO_PATH_M} from '../nav/route.js'
 import {createArrowTrail, nextTurn, TRAIL} from '../arrows/trail.js'
 import {createGuideArrow} from '../arrows/guide-arrow.js'
 import {createDestinationPin} from '../arrows/pin.js'
 
+export {pointAt}
+
 const START_LOOK_AHEAD_M = 8
-const GUIDE_LOOK_AHEAD_M = 4
 
 /**
  * Yaw (radians, about +Y) that turns the route frame so that compass heading `headingDeg`
@@ -66,22 +67,6 @@ export function bearingAlong(route, s, aheadM = START_LOOK_AHEAD_M) {
   return (deg + 360) % 360
 }
 
-/** The point at distance s along a polyline, clamped to its ends. */
-export function pointAt(route, s) {
-  let walked = 0
-  for (let i = 1; i < route.length; i++) {
-    const a = route[i - 1]
-    const b = route[i]
-    const len = Math.hypot(b.x - a.x, b.y - a.y)
-    if (walked + len >= s) {
-      const t = len ? Math.max(0, (s - walked) / len) : 0
-      return {x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t}
-    }
-    walked += len
-  }
-  return route.at(-1)
-}
-
 const REALIGN_EASE_S = 0.5
 const MATCH_EASE_S = 1
 
@@ -122,9 +107,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
   let yaw = 0
   let ease = null
   let groundY = 0
-  let finished = false
   let entranceS = projectOntoPolyline(local, entranceLocal).s
-  const guideTarget = new THREE.Vector3()
   let last = {s: 0, offset: 0, remainingM: totalM, arrows: 0}
 
   /**
@@ -219,12 +202,11 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
     if (aligned) trail.reset(whereAmI().s)
   }
 
-  /** Arrived: no more arrows. The pin stays. */
+  /** Arrived: no more arrows. The big arrow becomes a pin, and the destination pin stays. */
   function finish() {
-    finished = true
     trail.mesh.visible = false
     trail.lane.visible = false
-    guide.mesh.visible = false
+    guide.arrive()
   }
 
   /** Lay the route on the ground: its height at the user, and its slope along the route. */
@@ -288,11 +270,6 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
     const pinWorld = pin.group.getWorldPosition(new THREE.Vector3())
     const toPinM = Math.hypot(pinWorld.x - tmp.x, pinWorld.z - tmp.z)
     pin.update(time, toPinM, camera)
-    if (!finished) {
-      const ahead = pointAt(local, p.s + GUIDE_LOOK_AHEAD_M)
-      geoRoot.localToWorld(guideTarget.set(ahead.x, 0, -ahead.y))
-      guide.update(dt, camera, guideTarget)
-    }
     const turn = nextTurn(trail.turns, p.s)
     last = {
       s: p.s,
@@ -318,10 +295,21 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
     setGround,
     routePosition,
     update,
+    /** The big arrow, every frame. relativeDeg: from where the user faces; null hides it. */
+    updateGuide: (dt, relativeDeg, ringFill = 0) => guide.update(dt, camera, relativeDeg, ringFill),
+    /** Show or hide what is drawn on the ground. Not until the direction is known. */
+    setVisible(show) {
+      geoRoot.visible = show
+    },
+    /** Fade the ground arrows out (0) or in (1). */
+    setChevronOpacity: (value) => trail.setOpacity(value),
     setRoute,
     finish,
     get route() {
       return local
+    },
+    get guide() {
+      return guide
     },
     get easing() {
       return ease != null

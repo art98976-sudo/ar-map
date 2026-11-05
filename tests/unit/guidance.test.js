@@ -213,21 +213,17 @@ describe('the 3D guide arrow', () => {
     expect(stepYaw(start, target, 0.05)).toBeGreaterThan(start)
     near(stepYaw(start, target, 1), start + (20 * Math.PI) / 180, 1e-9)
   })
-  it('floats low in front of the camera and points at the target', () => {
+  it('points ahead at 0°, and eases round to the right rather than snapping', () => {
     const camera = new THREE.PerspectiveCamera()
     camera.position.set(2, 1.5, 3)
     camera.lookAt(2, 1.5, -10)
     camera.updateMatrixWorld(true)
     const arrow = createGuideArrow(THREE, {color: 0x00ff00})
-    arrow.update(0.016, camera, {x: 2, z: -5})
-    near(arrow.mesh.position.x, 2, 1e-6)
-    near(arrow.mesh.position.z, 1.5, 1e-6)
-    expect(arrow.mesh.position.y).toBeLessThan(1.5)
+    arrow.update(0.016, camera, 0)
     near(arrow.yaw, 0, 1e-6) // -Z is straight ahead
-    // The route turns right: the arrow eases round, it does not snap.
-    arrow.update(0.1, camera, {x: 10, z: 3})
+    arrow.update(0.1, camera, 90)
     near(arrow.yaw, (-12 * Math.PI) / 180, 1e-6)
-    for (let i = 0; i < 20; i++) arrow.update(0.1, camera, {x: 10, z: 3})
+    for (let i = 0; i < 20; i++) arrow.update(0.1, camera, 90)
     near(arrow.yaw, -Math.PI / 2, 1e-6)
     arrow.dispose()
   })

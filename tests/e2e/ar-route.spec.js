@@ -39,6 +39,7 @@ test.describe('route and arrows', () => {
   })
 
   test('test mode: the engine runs and arrows are drawn on the route', async ({page}, testInfo) => {
+    test.setTimeout(180_000) // the whole AR screen, on a software GPU
     // Android profile: the 8th Wall engine only opens the camera on phones, not desktop browsers.
     test.skip(onlyOn('android-chrome')(testInfo))
     const errors = []
@@ -50,9 +51,9 @@ test.describe('route and arrows', () => {
     // The test browser has no compass: the Start tap is enough.
     await page.getByRole('button', {name: 'Start', exact: true}).click({timeout: 30_000})
     await expect(page.locator('[data-stat="phase"]')).toHaveText('ready', {timeout: 30_000})
-    await expect(page.getByRole('heading', {name: "Stand on the path and face the way you'll walk"})).toBeHidden()
-    // ?debug=1: the live overlay with its minimap.
-    await expect(page.locator('[data-minimap]')).toBeVisible()
+    await expect(page.getByRole('heading', {name: 'Stand on the path and tap Start'})).toBeHidden()
+    await expect(page.locator('[data-compass-map]')).toBeVisible()
+    // ?debug=1: the live overlay.
     await expect(page.locator('[data-live="segment"]')).toHaveText(/^\d+°$/, {timeout: 10_000})
     await expect(page.locator('[data-live="look"]')).toHaveText(/^\d+°$/)
     await page.getByRole('button', {name: 'Show debug panel'}).click()
@@ -64,8 +65,21 @@ test.describe('route and arrows', () => {
     await expect(panel.locator('[data-stat="source"]')).toHaveText(/mazemap|footpaths|direct/)
     await expect(panel.locator('[data-stat="turn"]')).toHaveText(/^(left|right|slight-left|slight-right|arrive), \d+ m$/)
     await expect(panel.locator('[data-stat="source"]')).toHaveText(/, \d+ points$/)
-    await expect(page.locator('[data-guidance]')).toHaveText(/^(Continue straight \d+ m|(Turn|Bear) (left|right) (in \d+ m|now)|.* in \d+ m)$/)
+    await expect(page.locator('[data-guidance]')).toHaveText(/^(Continue (straight \d+ m|past .+ · \d+ m)|(Turn|Bear) (left|right) (in \d+ m|now|at .+ · (\d+ m|now))|.* in \d+ m)$/)
     await expect(panel.getByRole('button', {name: 'Recalibrate compass'})).toBeVisible()
+    // The card pulls down the list of steps, and the map opens to full screen and back.
+    await page.getByRole('button', {name: 'Hide debug panel'}).click()
+    await page.locator('[data-action="toggle-steps"]').click()
+    await expect(page.locator('[data-steps] li').first()).toBeVisible({timeout: 5_000})
+    await page.locator('[data-action="toggle-steps"]').click()
+    await expect(page.locator('[data-steps]')).toBeHidden()
+    await page.getByRole('button', {name: 'Expand map'}).click()
+    await expect(page.locator('[data-compass-map]')).toHaveClass(/is-expanded/)
+    // The map itself follows, not only its box: it must fill the screen.
+    const viewport = page.viewportSize()
+    await expect.poll(async () => (await page.locator('[data-map-canvas] canvas').first().boundingBox())?.height, {timeout: 10_000}).toBeGreaterThan(viewport.height - 2)
+    await page.getByRole('button', {name: 'Shrink map'}).click()
+    await expect(page.locator('[data-compass-map]')).not.toHaveClass(/is-expanded/)
     expect(errors).toEqual([])
   })
 
@@ -75,13 +89,13 @@ test.describe('route and arrows', () => {
     await page.goto('/#/locate?to=library')
     await page.getByRole('button', {name: 'Tap to start'}).click({timeout: 30_000})
     await expect(page.locator('[data-veil]')).toHaveClass(/is-hidden/, {timeout: 60_000})
-    await expect(page.getByRole('heading', {name: "Stand on the path and face the way you'll walk"})).toBeVisible({timeout: 15_000})
+    await expect(page.getByRole('heading', {name: 'Stand on the path and tap Start'})).toBeVisible({timeout: 15_000})
     await expect(page.locator('[data-start-direction]')).toHaveText(/^The route heads [a-z-]+ from here\.$/, {timeout: 10_000})
     // Headless Chrome sends no orientation events, and its fake camera never tracks.
     await expect(page.locator('[data-start-arrow]')).toBeHidden()
     await expect(page.getByRole('button', {name: 'Start', exact: true})).toBeDisabled()
-    // The minimap always shows. Without ?debug=1 nothing of the debug tools does.
-    await expect(page.locator('[data-minimap]')).toBeVisible()
+    // The map always shows. Without ?debug=1 nothing of the debug tools does.
+    await expect(page.locator('[data-compass-map]')).toBeVisible()
     await expect(page.getByRole('button', {name: 'Show debug panel'})).toHaveCount(0)
   })
 })

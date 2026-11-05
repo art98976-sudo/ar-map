@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import {requestCameraPermission} from '../../src/ar/permissions.js'
 import {startCompass, topEdgeHeading} from '../../src/ar/compass.js'
 import {alignmentYaw, bearingAlong, createNavScene, pointAt, rotateY, shortestTurn, snapToRoute} from '../../src/ar/nav-scene.js'
-import {chooseStartHeading, createArTrip} from '../../src/ar/trip.js'
+import {createArTrip} from '../../src/ar/trip.js'
 
 // The real pin draws its label on a 2D canvas, which the test DOM does not have.
 vi.mock('../../src/arrows/pin.js', async (original) => ({
@@ -83,7 +83,7 @@ describe('background alignment', () => {
 
   it('waits for the Start tap, and for tracking, before showing the arrows', () => {
     trip.onTick({dt: 0.25, time: 1000})
-    read(90)
+    read(20)
     trip.onTick({dt: 0.25, time: 1000.3})
     expect(phases).toEqual(['await-start'])
     expect(stats.canStart).toBe(false)
@@ -178,7 +178,7 @@ describe('background alignment', () => {
     expect(stats.trackingStalled).toBe(false)
   })
 
-  it('starts without any compass: the user facing the path is enough', () => {
+  it('starts without any compass, drawing nothing on the ground until walking shows the way', () => {
     vi.advanceTimersByTime(3100)
     trip.onTracking({status: 'NORMAL'})
     trip.onTick({dt: 0.25, time: 1000})
@@ -186,25 +186,59 @@ describe('background alignment', () => {
     expect(stats.routeBearingDeg).toBeCloseTo(0, 3)
     expect(trip.start()).toBe('ok')
     trip.onTick({dt: 0.25, time: 1000.3})
-    near(wrapped(stats.yawDeg), 0, 0.01)
+    expect(stats.directionKnown).toBe(false)
   })
 
-  it('a compass that wakes up after Start does not turn the route', () => {
+  it('a compass that wakes up after Start, before any walking, sets the direction', () => {
     vi.advanceTimersByTime(3100)
     trip.onTracking({status: 'NORMAL'})
     trip.onTick({dt: 0.016, time: 1000})
     trip.start()
-    run(8000, 70)
-    near(wrapped(stats.yawDeg), 0, 0.01)
+    run(1000, 40)
+    expect(stats.directionKnown).toBe(true)
+    near(Math.abs(wrapped(stats.yawDeg)), 40, 0.1)
   })
 
-  it('a steadily wrong compass does not undo the user facing the path', () => {
-    read(120)
+  it('facing away at Start: says which way to turn, and starts by itself within 30°', () => {
+    read(180)
     trip.onTracking({status: 'NORMAL'})
     trip.onTick({dt: 0.016, time: 1000})
-    trip.start()
-    run(8000, 120)
-    near(wrapped(stats.yawDeg), 0, 0.01)
+    expect(trip.start()).toBe('facing')
+    expect(phases).toEqual(['await-start', 'facing'])
+    run(300, 180)
+    expect(stats.turnPrompt).toBe('Turn around')
+    run(800, 100) // the route, north, is 100° anticlockwise from here
+    expect(stats.turnPrompt).toBe('Turn left')
+    run(800, 40) // 40° off: better, but not yet
+    expect(stats.phase).toBe('facing')
+    expect(stats.turnPrompt).toBe('Turn left')
+    run(800, 25)
+    expect(phases).toEqual(['await-start', 'facing', 'ready'])
+    expect(stats.turnPrompt).toBeNull()
+    expect(stats.directionKnown).toBe(true)
+    near(Math.abs(wrapped(stats.yawDeg)), 25, 8)
+  })
+
+  it('within 60° at Start: no prompt, and the compass decides the direction, not the camera', () => {
+    read(50)
+    trip.onTracking({status: 'NORMAL'})
+    trip.onTick({dt: 0.016, time: 1000})
+    expect(trip.start()).toBe('ok')
+    trip.onTick({dt: 0.25, time: 1000.3})
+    near(Math.abs(wrapped(stats.yawDeg)), 50, 0.1)
+  })
+
+  it('a poor compass at Start: draws nothing on the ground until it recovers', () => {
+    read(10, 40)
+    trip.onTracking({status: 'NORMAL'})
+    trip.onTick({dt: 0.016, time: 1000})
+    expect(trip.start()).toBe('ok')
+    run(300, 10, 40)
+    expect(stats.directionKnown).toBe(false)
+    expect(stats.compassPoor).toBe(true)
+    run(300, 10, 5) // the figure-8 worked
+    expect(stats.directionKnown).toBe(true)
+    expect(stats.compassPoor).toBe(false)
   })
 })
 
@@ -301,7 +335,7 @@ describe('map matching in the scene', () => {
     expect(snapToRoute(route, {x: 20, y: 20})).toEqual({x: 0, y: 20})
   })
 
-  it('walking with a compass 9° out, averaged in at Start, brings the arrows back onto the path', () => {
+  it('walking with a compass 9° out brings the arrows back onto the path', () => {
     vi.useFakeTimers()
     vi.setSystemTime(1_000_000)
     window.THREE = THREE
@@ -334,7 +368,7 @@ describe('map matching in the scene', () => {
     }
     expect(startOff).toBeLessThan(0.1)
     expect(stats.offRouteM).toBeLessThan(0.5)
-    near(Math.abs(stats.matchYawDeg), 4.5, 1) // Start averaged 0° (route) and 9° (compass)
+    near(Math.abs(stats.matchYawDeg), 9, 1) // the compass set the direction, 9° out
     expect(stats.matchResidualM).toBeLessThan(0.5)
     trip.stop()
     vi.useRealTimers()
@@ -343,15 +377,6 @@ describe('map matching in the scene', () => {
 })
 
 describe('the Start tap', () => {
-  it('uses the route bearing when the compass disagrees by more than 30°', () => {
-    expect(chooseStartHeading(10, 100)).toBe(10)
-    expect(chooseStartHeading(10, 41)).toBe(10)
-    expect(chooseStartHeading(10, null)).toBe(10)
-  })
-  it('averages with the compass when they agree, across north too', () => {
-    near(chooseStartHeading(10, 30), 20, 1e-9)
-    near(chooseStartHeading(350, 10) % 360, 0, 1e-9)
-  })
   it('reads the route direction over the next few metres, not one short segment', () => {
     const route = [{x: 0, y: 0}, {x: 1, y: 0}, {x: 1, y: 20}]
     near(bearingAlong(route, 0, 8), 8.1, 0.5) // 1 m east, then north: mostly north
@@ -553,9 +578,10 @@ describe('walking beats the compass', () => {
     trip.onTracking({status: 'NORMAL'})
     let i = 0
     let now = reading
+    let accuracy = extra.accuracy ?? 5
     const frame = () => {
       vi.advanceTimersByTime(50)
-      compass({webkitCompassHeading: now, webkitCompassAccuracy: 5})
+      compass({webkitCompassHeading: now, webkitCompassAccuracy: accuracy})
       trip.onTick({dt: 0.05, time: 1000 + i++ * 0.05})
     }
     frame()
@@ -568,16 +594,20 @@ describe('walking beats the compass', () => {
       }
     }
     return {
+      trip,
       box,
       frame,
       walk,
       scene,
+      setAccuracy(value) {
+        accuracy = value
+      },
       sidestep(metres) {
         camera.position.x += metres
         camera.updateMatrixWorld(true)
       },
-      faceNorth() {
-        now = 0
+      faceNorth(compassSays = 0) {
+        now = compassSays
         camera.lookAt(camera.position.x, camera.position.y, camera.position.z - 1)
         camera.updateMatrixWorld(true)
       },
@@ -589,22 +619,12 @@ describe('walking beats the compass', () => {
     }
   }
 
-  it('a compass 180° wrong at Start is ignored: the user faced the path', () => {
-    const t = startTrip(180)
-    for (let i = 0; i < 10; i++) t.frame()
-    t.walk(40)
-    expect(t.box.stats.matchFlipped).toBe(false)
-    expect(t.box.stats.offRouteM).toBeLessThan(0.5)
-    near(t.box.stats.remainingM, 111 - 40, 3)
-    t.done()
-  })
-
-  it('facing the wrong way at Start: the route turns round once the user has walked, and stays round', () => {
-    const t = startTrip(180, {lookZ: 1}) // faced south, so the route was laid out southwards
+  it('a compass that says north while the camera faces south: the route turns round once the user has walked, and stays round', () => {
+    const t = startTrip(0, {lookZ: 1}) // so the route was laid out southwards
     for (let i = 0; i < 10; i++) t.frame()
     expect(t.box.stats.locked).toBe(false)
-    t.faceNorth()
-    t.walk(45) // but walks north
+    t.faceNorth(180) // the compass is 180° out all along
+    t.walk(45) // and the user walks north
     expect(t.box.stats.locked).toBe(true)
     expect(t.box.stats.matchFlipped).toBe(true)
     expect(t.box.stats.offRouteM).toBeLessThan(0.5)
@@ -614,13 +634,75 @@ describe('walking beats the compass', () => {
     t.done()
   })
 
-  it('a compass 30° out is averaged in at Start, then corrected by walking, with no flip', () => {
+  it('a compass 30° out sets the direction, then walking corrects it, with no flip', () => {
     const t = startTrip(30)
     for (let i = 0; i < 10; i++) t.frame()
     t.walk(40)
     expect(t.box.stats.matchFlipped).toBe(false)
     expect(t.box.stats.offRouteM).toBeLessThan(0.5)
-    near(Math.abs(t.box.stats.matchYawDeg), 15, 2)
+    near(Math.abs(t.box.stats.matchYawDeg), 30, 2)
+    t.done()
+  })
+
+  it('a poor compass: walking 6 m shows the direction, then the ground is drawn along the walk', () => {
+    const t = startTrip(200, {accuracy: 40})
+    const root = t.scene.getObjectByName('geo-root')
+    for (let i = 0; i < 10; i++) t.frame()
+    expect(root.visible).toBe(false)
+    expect(t.box.stats.compassPoor).toBe(true)
+    t.walk(4)
+    expect(t.box.stats.directionKnown).toBe(false)
+    t.walk(4)
+    expect(t.box.stats.directionKnown).toBe(true)
+    expect(root.visible).toBe(true)
+    expect(t.box.stats.compassPoor).toBe(false) // walking settled it
+    for (let i = 0; i < 30; i++) t.frame()
+    expect(t.box.stats.offRouteM).toBeLessThan(1)
+    near(t.box.stats.debug.lookDeg, 0, 3) // the camera looks the way it walked: along the route
+    t.done()
+  })
+
+  it('a compass that goes poor fades the ground arrows out until walking has proved the placement', () => {
+    const t = startTrip(0)
+    const opacity = () => t.scene.getObjectByName('geo-root').children.find((c) => c.isInstancedMesh).material.uniforms.uOpacity.value
+    for (let i = 0; i < 10; i++) t.frame()
+    expect(opacity()).toBeGreaterThan(0.99)
+    t.setAccuracy(40)
+    for (let i = 0; i < 60; i++) t.frame()
+    expect(opacity()).toBeLessThan(0.05)
+    t.walk(30)
+    expect(t.box.stats.locked).toBe(true)
+    for (let i = 0; i < 60; i++) t.frame()
+    expect(opacity()).toBeGreaterThan(0.95)
+    t.done()
+  })
+
+  it('fills the ring and passes the corner as the user reaches a turn', () => {
+    const route = {...ROUTE, source: 'mazemap', points: [ORIGIN, {lat: ORIGIN.lat + 40 / 111_195, lng: ORIGIN.lng}, {lat: ORIGIN.lat + 40 / 111_195, lng: ORIGIN.lng + 60 / 62_000}]}
+    route.entrance = route.points.at(-1)
+    const passed = []
+    const now = []
+    const t = startTrip(0, {route, landmarks: [], onTurnPassed: () => passed.push(true), onTurnNow: () => now.push(true)})
+    for (let i = 0; i < 12; i++) t.frame()
+    expect(t.box.stats.ringFill).toBe(0)
+    t.walk(34)
+    near(t.box.stats.ringFill, 0.5, 0.1)
+    expect(passed).toHaveLength(0)
+    t.walk(4.5)
+    expect(now).toHaveLength(1)
+    t.done()
+  })
+
+  it('gives the map where to draw everything', () => {
+    const t = startTrip(30)
+    for (let i = 0; i < 10; i++) t.frame()
+    t.walk(10)
+    const state = t.trip.mapState()
+    expect(state.routeCoords).toEqual([[ORIGIN.lng, ORIGIN.lat], [ORIGIN.lng, ORIGIN.lat + 0.001]])
+    near(state.user.lat, ORIGIN.lat + 10 / 111_195, 2 / 111_195)
+    expect(state.leg.length).toBeGreaterThanOrEqual(2)
+    expect(state.approximate).toBe(true)
+    expect(state.headingDeg).not.toBeNull()
     t.done()
   })
 
@@ -628,7 +710,7 @@ describe('walking beats the compass', () => {
     const route = {...ROUTE, source: 'mazemap', points: [ORIGIN, {lat: ORIGIN.lat + 40 / 111_195, lng: ORIGIN.lng}, {lat: ORIGIN.lat + 40 / 111_195, lng: ORIGIN.lng + 60 / 62_000}]}
     route.entrance = route.points.at(-1)
     const ticks = []
-    const t = startTrip(0, {route, arriveLabel: 'Pathfoot entrance', onTurnClose: () => ticks.push(true)})
+    const t = startTrip(0, {route, landmarks: [], arriveLabel: 'Pathfoot entrance', onTurnClose: () => ticks.push(true)})
     for (let i = 0; i < 12; i++) t.frame()
     expect(t.box.stats.instruction).toBe('Continue straight 40 m')
     expect(t.box.stats.routePoints).toBe(3)
