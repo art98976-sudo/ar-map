@@ -271,6 +271,10 @@ export function createRouteMatcher(route) {
     get confident() {
       return confident
     },
+    /** The fit has been confident at least once this trip. */
+    get locked() {
+      return everConfident
+    },
     /** Walking proved the compass 90°+ wrong this trip, so the compass may no longer turn the route. */
     get flipped() {
       return flipped

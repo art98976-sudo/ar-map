@@ -1,9 +1,11 @@
-// One AR trip: place the route as soon as possible, then keep correcting it in the background.
+// One AR trip: the user stands on the path and taps Start, then the route keeps being corrected.
 //
 // Phases (reported through onPhase):
-//   'starting'    waiting for world tracking NORMAL and a first compass reading
-//   'ready'       route placed: arrows and pin visible
-//   'no-compass'  this phone gives no compass readings
+//   'await-start'  the camera is running: the user faces the way they will walk and taps Start
+//   'ready'        route placed: arrows and pin visible
+//
+// A compass can be 20-90° out near glass buildings, so the person facing the path decides the
+// direction at the start. The compass only refines that if the two agree within 30°.
 //
 // Once 'ready', a silent collector keeps averaging the compass while the phone is upright and
 // steady. Each completed 3 s window eases the route round if it has drifted by more than 5°.
@@ -14,12 +16,12 @@ import {createRouteMatcher} from './route-matcher.js'
 import {GPS, watchLocation} from '../geo/location.js'
 
 const UPRIGHT_MAX_TILT = 0.55 // |forward.y|: about 33° up or down from level
-const FIRST_HEADING_WINDOW_MS = 500 // the first alignment averages this much compass history
+const FIRST_HEADING_WINDOW_MS = 500 // the Start tap averages this much compass history
+const START_COMPASS_AGREE_DEG = 30 // further apart than this, trust the user facing the path
 const MIN_HORIZONTAL_LOOK = 0.2 // below this the camera looks almost straight up or down: no yaw
 const STEADY_MAX_DRIFT_DEG = 6 // the camera must stay this close to where the window started
 const REALIGN_MIN_DEG = 5 // smaller differences are compass noise: leave the route alone
 const REALIGN_MIN_MATCHED_DEG = 15 // with a confident map match, walking beats the compass
-const LOCK_AFTER_M = 6 // ask for a few steps until the matcher has had this much walking
 const MATCH_EVERY_S = 2
 const TRACKING_HINT_AFTER_S = 4 // show "Move your phone slowly" after this long without NORMAL
 const COMPASS_PILL_AFTER_MS = 10_000 // show the figure-8 pill after this long unsteady
@@ -30,6 +32,15 @@ const ARRIVED_FOR_S = 1 // ...for this long, so a correction easing past cannot 
 /** Compass-style bearing of a direction: degrees clockwise from north (or from SLAM -Z). */
 function bearing(east, north) {
   return (((Math.atan2(east, north) * 180) / Math.PI) % 360 + 360) % 360
+}
+
+/**
+ * The bearing the camera is taken to face at the Start tap: along the route, averaged with the
+ * compass only if they agree. routeDeg and compassDeg in degrees; compassDeg may be null.
+ */
+export function chooseStartHeading(routeDeg, compassDeg) {
+  if (compassDeg == null || Math.abs(angleDiff(routeDeg, compassDeg)) > START_COMPASS_AGREE_DEG) return routeDeg
+  return circularMean([routeDeg, compassDeg])
 }
 
 export function createArTrip({route, origin, destination, allowDesktop = false, debug = false, onPhase, onStats, onArrived}) {
@@ -44,6 +55,8 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
   let headingAccuracy = null
   let compassSource = null
   let beta = null
+  let compassBias = null // compass minus the placement at the start: steady error, not drift
+  let lastTime = null
   let recent = []
   let steadyAnchorDeg = null
   let unsteadySince = null
@@ -72,16 +85,12 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
       beta = tilt ?? null
       recent.push({heading: h, at: now})
       recent = recent.filter((r) => now - r.at <= FIRST_HEADING_WINDOW_MS)
-      // A compass that woke up late clears the "no compass" card.
-      if (phase === 'no-compass') setPhase('starting')
       const result = phase === 'ready' ? collect(h, accuracy, now) : null
       noteCompassQuality(result, accuracy, now)
     },
     onUnavailable: () => {
       if (heading != null) return
-      compassSource = 'none'
-      // Laptops have no compass: in desktop test mode, pretend we face north so the scene renders.
-      if (!allowDesktop) setPhase('no-compass')
+      compassSource = 'none' // not a problem: the user facing the path sets the direction
     },
   })
 
@@ -121,12 +130,31 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
     const r = calibrator.add(h, accuracy, now)
     if (r.status === 'done') {
       restartWindow()
-      // Once walking has shown the compass is badly wrong, it could only turn the route back.
-      // Compare with the turn walking has already applied: a compass that is steadily a few
-      // degrees out must not undo that turn every 3 s. Only new drift counts.
-      if (!matcher.flipped) nav.realign(r.heading - matcher.totalYawDeg, matcher.confident ? REALIGN_MIN_MATCHED_DEG : REALIGN_MIN_DEG)
+      realignFromCompass(r.heading)
     }
     return r.status === 'unsteady' ? 'unsteady' : 'ok'
+  }
+
+  function realignFromCompass(h) {
+    // Once walking has shown the compass is badly wrong, it could only turn the route back.
+    if (matcher.flipped) return
+    // A compass that only woke up after Start: remember its error, do not act on it.
+    if (compassBias == null) {
+      compassBias = angleDiff(cameraBearing() + matcher.totalYawDeg, h)
+      return
+    }
+    // Compare with the steady error at the start and the turn walking has applied: a compass
+    // that is steadily out must not undo them every 3 s. Only new drift counts.
+    nav.realign(h - compassBias - matcher.totalYawDeg, matcher.confident ? REALIGN_MIN_MATCHED_DEG : REALIGN_MIN_DEG)
+  }
+
+  /** Which way the camera faces in the route frame, degrees clockwise from north. */
+  function cameraBearing() {
+    const here = camera.position
+    const f = lookDirection()
+    const user = nav.worldToRoute({x: here.x, z: here.z})
+    const ahead = nav.worldToRoute({x: here.x + f.x, z: here.z + f.z})
+    return bearing(ahead.x - user.x, ahead.y - user.y)
   }
 
   function restartWindow() {
@@ -140,24 +168,33 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
     else if (result === 'ok' || phase !== 'ready' || Number.isFinite(accuracy)) unsteadySince = null
   }
 
-  function place(h) {
-    // Use the freshest good GPS fix for "where am I standing"; else the trip start.
-    const fix = lastFix && lastFix.accuracy <= GPS.goodAccuracyM ? lastFix : origin
+  /** The freshest good GPS fix for "where am I standing"; else the trip start. */
+  function bestFix() {
+    return lastFix && lastFix.accuracy <= GPS.goodAccuracyM ? lastFix : origin
+  }
+
+  function trackingReady() {
+    return tracking === 'NORMAL' || (allowDesktop && lastTime != null && lastTime - startedAt > DESKTOP_START_DELAY_S)
+  }
+
+  /**
+   * The Start tap: the user is on the path, facing the way they will walk.
+   * Returns 'ok', 'tracking' (world tracking not ready) or 'look' (phone pointing up or down).
+   */
+  function start() {
+    if (!nav) return 'tracking'
+    if (phase === 'ready') return 'ok'
+    if (!trackingReady()) return 'tracking'
+    const f = lookDirection()
+    if (Math.hypot(f.x, f.z) < MIN_HORIZONTAL_LOOK) return 'look'
+    const fix = bestFix()
+    const compass = heading == null ? null : recentHeading()
+    const h = chooseStartHeading(nav.startInfo(fix).bearingDeg, compass)
+    compassBias = compass == null ? null : angleDiff(h, compass)
     nav.align(h, fix)
     restartWindow()
     setPhase('ready', {heading: h})
-  }
-
-  /** The first alignment: needs tracking and a heading, nothing from the user. */
-  function tryToPlace(time) {
-    const trackingOk = tracking === 'NORMAL' || (allowDesktop && time - startedAt > DESKTOP_START_DELAY_S)
-    if (!trackingOk) return
-    if (heading == null) {
-      if (allowDesktop && compassSource === 'none') place(0)
-      return
-    }
-    const f = lookDirection()
-    if (Math.hypot(f.x, f.z) >= MIN_HORIZONTAL_LOOK) place(recentHeading())
+    return 'ok'
   }
 
   /** Keep the route on the path the user is really walking. Never while tracking is unsure. */
@@ -194,7 +231,7 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
     camera = cam
     nav = createNavScene({THREE, scene, camera, route, origin, name: destination.name})
     matcher = createRouteMatcher(nav.route)
-    if (phase !== 'no-compass') setPhase('starting')
+    setPhase('await-start')
   }
 
   function onTracking({status}) {
@@ -204,8 +241,8 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
   function onTick({dt, time}) {
     if (!nav) return
     startedAt ??= time
+    lastTime = time
     if (tracking === 'NORMAL' || lastNormalAt == null) lastNormalAt = time
-    if (phase !== 'ready') tryToPlace(time)
     if (phase === 'ready') runMatching(time)
     const s = nav.update(dt, time)
     if (phase === 'ready' && !arrived) {
@@ -239,7 +276,9 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
         matchYawDeg: matcher.totalYawDeg,
         matchResidualM: matcher.residualM,
         matchFlipped: matcher.flipped,
-        needsWalk: phase === 'ready' && matcher.everWalkedM < LOCK_AFTER_M,
+        locked: matcher.locked,
+        canStart: trackingReady(),
+        routeBearingDeg: phase === 'ready' ? null : nav.startInfo(bestFix()).bearingDeg,
         debug: debug ? debugData() : null,
         nextTurnM: nav.aligned ? (s.nextTurnM ?? null) : null,
         nextTurnDir: nav.aligned ? (s.nextTurnDir ?? null) : null,
@@ -258,8 +297,10 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
     recalibrate() {
       if (phase !== 'ready' || heading == null) return
       restartWindow()
+      compassBias = 0
       nav.realign(recentHeading())
     },
+    start,
     stop() {
       stopCompass()
       stopGps()

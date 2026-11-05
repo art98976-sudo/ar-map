@@ -11,6 +11,9 @@ import {SNAP_TO_PATH_M} from '../nav/route.js'
 import {createArrowTrail, nextTurn} from '../arrows/trail.js'
 import {createDestinationPin} from '../arrows/pin.js'
 
+const START_SNAP_M = 20 // at the Start tap, GPS this close means the user is ON the route
+const START_LOOK_AHEAD_M = 8
+
 /**
  * Yaw (radians, about +Y) that turns the route frame so that compass heading `headingDeg`
  * lines up with the camera's current forward direction.
@@ -50,6 +53,33 @@ export function snapToRoute(route, p, maxM = SNAP_TO_PATH_M) {
   return hit.offset <= maxM ? {x: hit.x, y: hit.y} : {x: p.x, y: p.y}
 }
 
+/**
+ * Compass bearing of the route from distance s along it, over the next few metres.
+ * A chord, because the first short segment of a real path can point anywhere.
+ */
+export function bearingAlong(route, s, aheadM = START_LOOK_AHEAD_M) {
+  const a = pointAt(route, s)
+  const b = pointAt(route, s + aheadM)
+  const deg = (Math.atan2(b.x - a.x, b.y - a.y) * 180) / Math.PI
+  return (deg + 360) % 360
+}
+
+/** The point at distance s along a polyline, clamped to its ends. */
+export function pointAt(route, s) {
+  let walked = 0
+  for (let i = 1; i < route.length; i++) {
+    const a = route[i - 1]
+    const b = route[i]
+    const len = Math.hypot(b.x - a.x, b.y - a.y)
+    if (walked + len >= s) {
+      const t = len ? Math.max(0, (s - walked) / len) : 0
+      return {x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t}
+    }
+    walked += len
+  }
+  return route.at(-1)
+}
+
 const REALIGN_EASE_S = 0.5
 const MATCH_EASE_S = 1
 
@@ -87,7 +117,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
   let last = {s: 0, offset: 0, remainingM: totalM, arrows: 0}
 
   /**
-   * Place the route. headingDeg: averaged compass heading of the camera right now.
+   * Place the route. headingDeg: the bearing the camera is taken to be facing right now.
    * userFix: best current GPS fix (where the user is standing), falls back to the origin.
    */
   function align(headingDeg, userFix = origin) {
@@ -95,7 +125,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
     camera.getWorldPosition(camPos)
     yaw = alignmentYaw({x: forward.x, z: forward.z}, headingDeg)
     // Where the user stands in the route frame (geo root coordinates: x east, z = -north).
-    const u = snapToRoute(local, toLocal(origin, userFix))
+    const u = snapToRoute(local, toLocal(origin, userFix), START_SNAP_M)
     const rotated = rotateY({x: u.x, z: -u.y}, yaw)
     geoRoot.rotation.set(0, yaw, 0)
     // Ground is y = 0 in 8th Wall absolute scale; put the user's position under the camera.
@@ -106,6 +136,12 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
     geoRoot.visible = true
     const s = whereAmI().s
     trail.reset(s)
+  }
+
+  /** Where a GPS fix falls on the route, and which way the route heads from there. */
+  function startInfo(userFix = origin) {
+    const hit = projectOntoPolyline(local, toLocal(origin, userFix))
+    return {s: hit.s, offset: hit.offset, bearingDeg: bearingAlong(local, hit.s)}
   }
 
   /**
@@ -198,6 +234,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
 
   return {
     align,
+    startInfo,
     realign,
     applyCorrection,
     worldToRoute,

@@ -117,7 +117,7 @@
   color: #ff994c;
 }
 
-/* ---------- Full card: only for a phone with no compass ---------- */
+/* ---------- Start card: stand on the path, face the way you'll walk ---------- */
 .ar-guide {
   position: absolute;
   left: 50%;
@@ -145,14 +145,21 @@
     transform: translate(-50%, -46%);
   }
 }
+.ar-guide[hidden] {
+  display: none;
+}
 .ar-guide__icon {
   display: grid;
   place-items: center;
   width: 56px;
   height: 56px;
   border-radius: 18px;
-  color: #3d2e00;
-  background: #f7d64c;
+  color: var(--white);
+  background: var(--green-02);
+  transition: transform 240ms var(--ease);
+}
+.ar-guide__icon[hidden] {
+  display: none;
 }
 .ar-guide__title {
   font-size: var(--fs-lg);

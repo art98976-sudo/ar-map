@@ -15,6 +15,12 @@ import {haptic, html, onAction, render} from '../dom.js'
 import {icon} from '../icons.js'
 
 const WALK_MPS = 1.3
+const COMPASS_POINTS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west']
+
+/** "north-east" for a bearing in degrees. */
+export function compassPoint(deg) {
+  return COMPASS_POINTS[Math.round((((deg % 360) + 360) % 360) / 45) % 8]
+}
 
 /** The one line on the AR screen: "Pathfoot · 120 m · 2 min". */
 export function tripPillText(name, metres) {
@@ -41,6 +47,7 @@ export function arScreen(root, {navigate, params}) {
     return
   }
   const device = parseUserAgent(navigator.userAgent, {maxTouchPoints: navigator.maxTouchPoints})
+  let wasLocked = false
   let trip = null
   let stopSession = null
   let wakeLock = null
@@ -50,6 +57,11 @@ export function arScreen(root, {navigate, params}) {
   const actions = {
     exit: () => navigate('/'),
     done: () => navigate('/'),
+    'start-walk': () => {
+      const result = trip?.start()
+      const note = root.querySelector('[data-start-note]')
+      if (note) note.hidden = result !== 'look'
+    },
     map: () => navigate(`/?to=${encodeURIComponent(destination.id)}`),
     retry: () => begin(),
     reload: () => window.location.reload(),
@@ -122,17 +134,16 @@ export function arScreen(root, {navigate, params}) {
           <div class="ar__hints">
           <p class="ar__hint" data-compass-pill role="status" hidden>Wave your phone in a figure-8</p>
           <p class="ar__hint" data-hint role="status" hidden>Move your phone slowly</p>
-          ${showDebug ? html`<p class="ar__hint" data-lock-hint role="status" hidden>Walk a few steps along the path to lock the arrows</p>` : ''}
+          <p class="ar__hint" data-lock-hint role="status" hidden>Walk a few steps to lock the arrows</p>
           ${route.source === 'direct' ? html`<p class="ar__hint" data-approx-hint role="status">Approximate route - check the 2D map</p>` : ''}
           </div>
 
-          <section class="ar-guide" data-guide aria-live="polite" hidden>
-            <span class="ar-guide__icon">${icon('alert', {size: 28})}</span>
-            <h1 class="ar-guide__title" tabindex="-1">No compass found</h1>
-            <p class="ar-guide__text">This phone does not share its compass with the browser, so the arrows cannot point the right way.</p>
-            <button class="btn btn--secondary btn--block" type="button" data-action="map" aria-label="View 2D map instead">
-              ${icon('map')}<span>View 2D map instead</span>
-            </button>
+          <section class="ar-guide" data-start aria-labelledby="start-title" hidden>
+            <span class="ar-guide__icon" data-start-arrow hidden>${icon('arrowUp', {size: 28})}</span>
+            <h1 class="ar-guide__title" id="start-title" tabindex="-1">Stand on the path and face the way you'll walk</h1>
+            <p class="ar-guide__text" data-start-direction></p>
+            <p class="ar-guide__text" data-start-note role="status" hidden>Hold your phone up, looking ahead.</p>
+            <button class="btn btn--primary btn--block" type="button" data-action="start-walk" aria-label="Start" disabled>Start</button>
           </section>
 
           <p class="ar-pill" data-trip-pill>${tripPillText(destination.name, route.lengthM)}</p>
@@ -186,10 +197,10 @@ export function arScreen(root, {navigate, params}) {
   }
 
   function onPhase(phase) {
-    const card = root.querySelector('[data-guide]')
+    const card = root.querySelector('[data-start]')
     if (!card) return
     setStat('phase', phase)
-    card.hidden = phase !== 'no-compass'
+    card.hidden = phase !== 'await-start'
     if (phase === 'ready') haptic([20, 60, 20])
   }
 
@@ -204,7 +215,10 @@ export function arScreen(root, {navigate, params}) {
     const pill = root.querySelector('[data-compass-pill]')
     if (pill) pill.hidden = !s.compassUnsteady
     const lock = root.querySelector('[data-lock-hint]')
-    if (lock) lock.hidden = !s.needsWalk
+    if (lock) lock.hidden = s.phase !== 'ready' || s.locked
+    if (s.locked && !wasLocked) haptic(18)
+    wasLocked = s.locked
+    paintStartCard(s)
     if (s.debug) paintLiveDebug(s)
     const fmt = (m) => (m == null ? '–' : formatDistance(m))
     setStat('gps', s.gpsAccuracy == null ? 'waiting…' : `±${Math.round(s.gpsAccuracy)} m`, s.gpsAccuracy != null && s.gpsAccuracy <= 20 ? 'ok' : 'warn')
@@ -222,6 +236,18 @@ export function arScreen(root, {navigate, params}) {
     setStat('height', `${s.cameraHeight.toFixed(2)} m`)
     const pillText = root.querySelector('[data-trip-pill]')
     if (pillText && s.phase === 'ready') pillText.textContent = tripPillText(destination.name, s.remainingM)
+  }
+
+  /** Which way the route goes from here: the arrow needs a compass, the words do not. */
+  function paintStartCard(s) {
+    const card = root.querySelector('[data-start]')
+    if (!card || card.hidden) return
+    card.querySelector('[data-action="start-walk"]').disabled = !s.canStart
+    if (s.routeBearingDeg == null) return
+    card.querySelector('[data-start-direction]').textContent = `The route heads ${compassPoint(s.routeBearingDeg)} from here.`
+    const arrow = card.querySelector('[data-start-arrow]')
+    arrow.hidden = s.heading == null
+    if (s.heading != null) arrow.style.transform = `rotate(${Math.round(s.routeBearingDeg - s.heading)}deg)`
   }
 
   function paintLiveDebug(s) {
