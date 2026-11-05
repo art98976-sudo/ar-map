@@ -16,6 +16,8 @@ import {createNavScene, gpsDistanceToEntrance} from './nav-scene.js'
 import {acceptHit, createGroundTracker, GROUND, HIT_TYPES, SCREEN_POINTS} from './ground.js'
 import {createRouteMatcher} from './route-matcher.js'
 import {GPS, watchLocation} from '../geo/location.js'
+import {createArrivalDetector, createGuidance, createOffRouteMonitor} from '../nav/guidance.js'
+import {planRoute} from '../nav/route.js'
 
 const UPRIGHT_MAX_TILT = 0.55 // |forward.y|: about 33° up or down from level
 const FIRST_HEADING_WINDOW_MS = 500 // the Start tap averages this much compass history
@@ -28,8 +30,8 @@ const MATCH_EVERY_S = 2
 const TRACKING_HINT_AFTER_S = 4 // show "Move your phone slowly" after this long without NORMAL
 const COMPASS_PILL_AFTER_MS = 10_000 // show the figure-8 pill after this long unsteady
 const DESKTOP_START_DELAY_S = 2 // a webcam on a desk never reports NORMAL tracking
-const ARRIVED_WITHIN_M = 8 // this close to the entrance...
-const ARRIVED_FOR_S = 1 // ...for this long, so a correction easing past cannot end the trip
+const REROUTE_FIX_M = 25 // only trust GPS this good to plan a new route from
+const INSTRUCTION_EVERY_S = 0.5
 const POINTS_PER_SAMPLE = 3
 
 /** Compass-style bearing of a direction: degrees clockwise from north (or from SLAM -Z). */
@@ -46,7 +48,20 @@ export function chooseStartHeading(routeDeg, compassDeg) {
   return circularMean([routeDeg, compassDeg])
 }
 
-export function createArTrip({route, origin, destination, allowDesktop = false, debug = false, onPhase, onStats, onArrived}) {
+export function createArTrip({
+  route: firstRoute,
+  origin,
+  destination,
+  allowDesktop = false,
+  debug = false,
+  arriveLabel = 'Destination',
+  plan = planRoute,
+  onPhase,
+  onStats,
+  onArrived,
+  onTurnClose,
+}) {
+  let route = firstRoute
   let phase = null
   let nav = null
   let camera = null
@@ -68,8 +83,15 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
   let statsTimer = 0
   let matcher = null
   let lastMatchAt = -Infinity
-  let nearEntranceFor = 0
   let arrived = false
+  const arrival = createArrivalDetector()
+  const offRoute = createOffRouteMonitor()
+  let guidance = null
+  let instruction = null
+  let instructionAt = -Infinity
+  let rerouting = false
+  let compassOff = false
+  let stopped = false
   let xr = null
   let lastGroundAt = -Infinity
   let nextPoint = 0
@@ -145,7 +167,7 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
 
   function realignFromCompass(h) {
     // Once walking has shown the compass is badly wrong, it could only turn the route back.
-    if (matcher.flipped) return
+    if (matcher.flipped || compassOff) return
     // A compass that only woke up after Start: remember its error, do not act on it.
     if (compassBias == null) {
       compassBias = angleDiff(cameraBearing() + matcher.totalYawDeg, h)
@@ -217,6 +239,29 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
     if (correction) nav.applyCorrection(correction)
   }
 
+  /** Plan again from where GPS says the user is, keeping the current placement. */
+  async function reroute() {
+    if (!lastFix || lastFix.accuracy > REROUTE_FIX_M) return
+    rerouting = true
+    try {
+      const next = await plan(lastFix, destination)
+      if (stopped || arrived || !nav || next.status !== 'ok') return
+      route = next
+      nav.setRoute(next)
+      // The walk so far no longer has a route to fit, so matching starts afresh. Its turn stays in
+      // the placement, so the compass has to keep allowing for it.
+      compassOff ||= matcher.flipped
+      if (compassBias != null) compassBias += matcher.totalYawDeg
+      matcher = createRouteMatcher(nav.route)
+      guidance = createGuidance(nav.route, {arriveLabel})
+      instructionAt = -Infinity
+    } catch (err) {
+      console.warn('[trip] reroute failed', err)
+    } finally {
+      rerouting = false
+    }
+  }
+
   /** Look for the real ground at a few spots in the lower half of the screen. */
   function sampleGround(time) {
     if (tracking !== 'NORMAL' || !xr?.XrController?.hitTest || time - lastGroundAt < GROUND.sampleEveryS) return
@@ -264,6 +309,7 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
     xr = XR8
     nav = createNavScene({THREE, scene, camera, route, origin, name: destination.name})
     matcher = createRouteMatcher(nav.route)
+    guidance = createGuidance(nav.route, {arriveLabel})
     setPhase('await-start')
   }
 
@@ -276,7 +322,7 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
     startedAt ??= time
     lastTime = time
     if (tracking === 'NORMAL' || lastNormalAt == null) lastNormalAt = time
-    if (phase === 'ready') {
+    if (phase === 'ready' && !arrived) {
       runMatching(time)
       sampleGround(time)
     }
@@ -286,10 +332,19 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
       nav.setGround(groundNow.height, groundNow.slope, s.s)
     }
     if (phase === 'ready' && !arrived) {
-      nearEntranceFor = s.toPinM != null && s.toPinM <= ARRIVED_WITHIN_M ? nearEntranceFor + dt : 0
-      if (nearEntranceFor >= ARRIVED_FOR_S) {
+      if (arrival.update(dt, s.remainingM, s.toPinM)) {
         arrived = true
+        instruction = null
+        nav.finish()
         onArrived?.()
+      } else {
+        if (time - instructionAt >= INSTRUCTION_EVERY_S) {
+          instructionAt = time
+          instruction = guidance.instruction(s.s)
+        }
+        if (guidance.turnIsClose(s.s)) onTurnClose?.()
+        // Only while SLAM knows where the user is, and not while already planning.
+        if (tracking === 'NORMAL' && !rerouting && offRoute.update(s.offset, time)) reroute()
       }
     }
     statsTimer += dt
@@ -321,6 +376,11 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
         matchResidualM: matcher.residualM,
         matchFlipped: matcher.flipped,
         locked: matcher.locked,
+        instruction,
+        rerouting,
+        nextManoeuvre: nav.aligned ? guidance.getNextManoeuvre(s.s) : null,
+        userS: nav.aligned ? s.s : null,
+        routePoints: route.points.length,
         canStart: trackingReady(),
         routeBearingDeg: phase === 'ready' ? null : nav.startInfo(bestFix()).bearingDeg,
         debug: debug ? debugData() : null,
@@ -346,6 +406,7 @@ export function createArTrip({route, origin, destination, allowDesktop = false, 
     },
     start,
     stop() {
+      stopped = true
       stopCompass()
       stopGps()
       nav?.dispose()

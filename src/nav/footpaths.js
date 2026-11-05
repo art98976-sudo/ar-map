@@ -19,13 +19,36 @@ export function buildGraph(data) {
     adj[b].push([a, cost])
     return {a, b, cost, length: m}
   })
-  return {origin, pts, adj, edges}
+  // The map data has isolated bits of path. Label each connected network, and find the biggest.
+  const component = new Array(pts.length).fill(-1)
+  const sizes = []
+  for (let i = 0; i < pts.length; i++) {
+    if (component[i] >= 0) continue
+    const id = sizes.length
+    let size = 0
+    const stack = [i]
+    component[i] = id
+    while (stack.length) {
+      const node = stack.pop()
+      size += 1
+      for (const [next] of adj[node]) {
+        if (component[next] < 0) {
+          component[next] = id
+          stack.push(next)
+        }
+      }
+    }
+    sizes.push(size)
+  }
+  const mainComponent = sizes.indexOf(Math.max(...sizes))
+  return {origin, pts, adj, edges, component, mainComponent}
 }
 
-/** Nearest point on any path to p (local metres). */
-function snap(graph, p) {
+/** Nearest point to p (local metres) on any path, or only on one connected network. */
+function snap(graph, p, onlyComponent = null) {
   let best = null
   for (const edge of graph.edges) {
+    if (onlyComponent != null && graph.component[edge.a] !== onlyComponent) continue
     const A = graph.pts[edge.a]
     const B = graph.pts[edge.b]
     const dx = B.x - A.x
@@ -50,7 +73,13 @@ export function routeOnFootpaths(graph, from, to) {
   const s = snap(graph, pFrom)
   const g = snap(graph, pTo)
   if (!s || !g) return null
+  const route = routeBetween(graph, pFrom, pTo, s, g)
+  if (route) return route
+  // One end landed on an isolated bit of path. Walk to the main network instead.
+  return routeBetween(graph, pFrom, pTo, snap(graph, pFrom, graph.mainComponent), snap(graph, pTo, graph.mainComponent))
+}
 
+function routeBetween(graph, pFrom, pTo, s, g) {
   // Both points on the same path segment: walk straight along it.
   let localPts
   if (s.edge === g.edge) {

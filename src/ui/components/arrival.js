@@ -26,8 +26,7 @@ export function showArrival(host, {name, reducedMotion = prefersReducedMotion()}
       ${reducedMotion ? '' : html`<div class="arrival__confetti" data-confetti aria-hidden="true">${confetti()}</div>`}
       <section class="arrival__card" role="dialog" aria-modal="true" aria-labelledby="arrival-title">
         <span class="arrival__icon">${icon('check', {size: 32})}</span>
-        <h1 class="arrival__title" id="arrival-title" tabindex="-1">You've arrived</h1>
-        <p class="arrival__name">${name}</p>
+        <h1 class="arrival__title" id="arrival-title" tabindex="-1">You've arrived at ${name}</h1>
         <button class="btn btn--primary btn--block" type="button" data-action="done" aria-label="Done">Done</button>
       </section>
     `,

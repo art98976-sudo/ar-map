@@ -9,10 +9,12 @@
 import {dedupe, distanceM, projectOntoPolyline, simplify, toLocal} from '../geo/geo.js'
 import {SNAP_TO_PATH_M} from '../nav/route.js'
 import {createArrowTrail, nextTurn, TRAIL} from '../arrows/trail.js'
+import {createGuideArrow} from '../arrows/guide-arrow.js'
 import {createDestinationPin} from '../arrows/pin.js'
 
 const START_SNAP_M = 20 // at the Start tap, GPS this close means the user is ON the route
 const START_LOOK_AHEAD_M = 8
+const GUIDE_LOOK_AHEAD_M = 4
 
 /**
  * Yaw (radians, about +Y) that turns the route frame so that compass heading `headingDeg`
@@ -93,21 +95,25 @@ const MATCH_EASE_S = 1
  * @param o.name   destination name for the pin label
  */
 export function createNavScene({THREE, scene, camera, route, origin, name}) {
-  const local = routeToLocal(origin, route.points)
-  const entranceLocal = toLocal(origin, route.entrance || route.points.at(-1))
-  const totalM = local.reduce((sum, p, i) => (i ? sum + Math.hypot(p.x - local[i - 1].x, p.y - local[i - 1].y) : 0), 0)
+  let local = routeToLocal(origin, route.points)
+  let entranceLocal = toLocal(origin, route.entrance || route.points.at(-1))
+  const lengthOf = (pts) => pts.reduce((sum, p, i) => (i ? sum + Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y) : 0), 0)
+  let totalM = lengthOf(local)
+  const guideColor = (r) => (r.source === 'direct' ? TRAIL.approxColor : TRAIL.color)
 
   const geoRoot = new THREE.Group()
   geoRoot.name = 'geo-root'
   geoRoot.visible = false
   scene.add(geoRoot)
 
-  const trail = createArrowTrail(THREE, local, {approximate: route.source === 'direct'})
+  let trail = createArrowTrail(THREE, local, {approximate: route.source === 'direct'})
   geoRoot.add(trail.lane)
   geoRoot.add(trail.mesh)
   const pin = createDestinationPin(THREE, {name})
   pin.group.position.set(entranceLocal.x, 0, -entranceLocal.y)
   geoRoot.add(pin.group)
+  const guide = createGuideArrow(THREE, {color: guideColor(route)})
+  scene.add(guide.mesh)
 
   const forward = new THREE.Vector3()
   const camPos = new THREE.Vector3()
@@ -116,7 +122,9 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
   let yaw = 0
   let ease = null
   let groundY = 0
-  const entranceS = projectOntoPolyline(local, entranceLocal).s
+  let finished = false
+  let entranceS = projectOntoPolyline(local, entranceLocal).s
+  const guideTarget = new THREE.Vector3()
   let last = {s: 0, offset: 0, remainingM: totalM, arrows: 0}
 
   /**
@@ -186,6 +194,31 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
     return true
   }
 
+  /** A new route, from a reroute. The placement stays, so the walk so far still lines up. */
+  function setRoute(next) {
+    geoRoot.remove(trail.lane)
+    geoRoot.remove(trail.mesh)
+    trail.dispose()
+    local = routeToLocal(origin, next.points)
+    entranceLocal = toLocal(origin, next.entrance || next.points.at(-1))
+    totalM = lengthOf(local)
+    entranceS = projectOntoPolyline(local, entranceLocal).s
+    trail = createArrowTrail(THREE, local, {approximate: next.source === 'direct'})
+    geoRoot.add(trail.lane)
+    geoRoot.add(trail.mesh)
+    pin.group.position.set(entranceLocal.x, pin.group.position.y, -entranceLocal.y)
+    guide.setColor(guideColor(next))
+    if (aligned) trail.reset(whereAmI().s)
+  }
+
+  /** Arrived: no more arrows. The pin stays. */
+  function finish() {
+    finished = true
+    trail.mesh.visible = false
+    trail.lane.visible = false
+    guide.mesh.visible = false
+  }
+
   /** Lay the route on the ground: its height at the user, and its slope along the route. */
   function setGround(height, slope, userS = last.s) {
     groundY = height
@@ -237,6 +270,11 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
     const pinWorld = pin.group.getWorldPosition(new THREE.Vector3())
     const toPinM = Math.hypot(pinWorld.x - tmp.x, pinWorld.z - tmp.z)
     pin.update(time, toPinM, camera)
+    if (!finished) {
+      const ahead = pointAt(local, p.s + GUIDE_LOOK_AHEAD_M)
+      geoRoot.localToWorld(guideTarget.set(ahead.x, 0, -ahead.y))
+      guide.update(dt, camera, guideTarget)
+    }
     const turn = nextTurn(trail.turns, p.s)
     last = {
       s: p.s,
@@ -259,7 +297,11 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
     setGround,
     routePosition,
     update,
-    route: local,
+    setRoute,
+    finish,
+    get route() {
+      return local
+    },
     get easing() {
       return ease != null
     },
@@ -269,11 +311,19 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
     get yawDeg() {
       return (yaw * 180) / Math.PI
     },
-    totalM,
-    turns: trail.turns.length,
-    arrowCount: trail.samples.length,
+    get totalM() {
+      return totalM
+    },
+    get turns() {
+      return trail.turns.length
+    },
+    get arrowCount() {
+      return trail.samples.length
+    },
     dispose() {
       scene.remove(geoRoot)
+      scene.remove(guide.mesh)
+      guide.dispose()
       trail.dispose()
       pin.dispose()
     },

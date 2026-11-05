@@ -543,11 +543,13 @@ describe('walking beats the compass', () => {
     Object.defineProperty(navigator, 'geolocation', {configurable: true, value: {watchPosition: () => 1, clearWatch: () => {}}})
     const add = vi.spyOn(window, 'addEventListener')
     const box = {stats: null}
+    if (extra.geolocation) Object.defineProperty(navigator, 'geolocation', {configurable: true, value: extra.geolocation})
     const trip = createArTrip({route: ROUTE, origin: ORIGIN, destination: {name: 'Library'}, debug: true, onStats: (s) => (box.stats = s), ...extra})
     const compass = add.mock.calls.find(([name]) => name === 'deviceorientation')[1]
     add.mockRestore()
     const camera = makeCamera(0, extra.lookZ ?? -1)
-    trip.onSceneReady({scene: new THREE.Scene(), camera})
+    const scene = new THREE.Scene()
+    trip.onSceneReady({scene, camera})
     trip.onTracking({status: 'NORMAL'})
     let i = 0
     let now = reading
@@ -569,6 +571,11 @@ describe('walking beats the compass', () => {
       box,
       frame,
       walk,
+      scene,
+      sidestep(metres) {
+        camera.position.x += metres
+        camera.updateMatrixWorld(true)
+      },
       faceNorth() {
         now = 0
         camera.lookAt(camera.position.x, camera.position.y, camera.position.z - 1)
@@ -614,6 +621,62 @@ describe('walking beats the compass', () => {
     expect(t.box.stats.matchFlipped).toBe(false)
     expect(t.box.stats.offRouteM).toBeLessThan(0.5)
     near(Math.abs(t.box.stats.matchYawDeg), 15, 2)
+    t.done()
+  })
+
+  it('tells the user what to do, and ticks before a turn', () => {
+    const route = {...ROUTE, source: 'mazemap', points: [ORIGIN, {lat: ORIGIN.lat + 40 / 111_195, lng: ORIGIN.lng}, {lat: ORIGIN.lat + 40 / 111_195, lng: ORIGIN.lng + 60 / 62_000}]}
+    route.entrance = route.points.at(-1)
+    const ticks = []
+    const t = startTrip(0, {route, arriveLabel: 'Pathfoot entrance', onTurnClose: () => ticks.push(true)})
+    for (let i = 0; i < 12; i++) t.frame()
+    expect(t.box.stats.instruction).toBe('Continue straight 40 m')
+    expect(t.box.stats.routePoints).toBe(3)
+    t.walk(28)
+    expect(t.box.stats.instruction).toMatch(/^Turn right in 1[0-3] m$/)
+    expect(ticks).toHaveLength(0)
+    t.walk(4)
+    expect(ticks).toHaveLength(1)
+    t.done()
+  })
+
+  it('off route for 5 s: plans again from good GPS, and puts the new route in place', async () => {
+    const newRoute = {status: 'ok', source: 'footpaths', lengthM: 80, entrance: ROUTE.entrance, points: [{lat: ORIGIN.lat, lng: ORIGIN.lng + 40 / 62_000}, ROUTE.entrance]}
+    const plan = vi.fn(async () => newRoute)
+    let onFix
+    const t = startTrip(0, {plan, geolocation: {watchPosition: (ok) => ((onFix = ok), 1), clearWatch: () => {}}})
+    onFix({coords: {latitude: ORIGIN.lat, longitude: ORIGIN.lng + 40 / 62_000, accuracy: 10}})
+    t.sidestep(40)
+    for (let i = 0; i < 4.5 / 0.05; i++) t.frame()
+    expect(plan).not.toHaveBeenCalled()
+    for (let i = 0; i < 1 / 0.05; i++) t.frame()
+    expect(plan).toHaveBeenCalledTimes(1)
+    expect(plan.mock.calls[0][0].accuracy).toBe(10)
+    await vi.advanceTimersByTimeAsync(0)
+    for (let i = 0; i < 12; i++) t.frame()
+    expect(t.box.stats.source).toBe('footpaths')
+    expect(t.box.stats.offRouteM).toBeLessThan(1) // the new route starts where GPS says the user is
+    expect(t.box.stats.rerouting).toBe(false)
+    t.done()
+  })
+
+  it('off route with only poor GPS: keeps the route, and does not plan from a bad fix', () => {
+    const plan = vi.fn()
+    let onFix
+    const t = startTrip(0, {plan, geolocation: {watchPosition: (ok) => ((onFix = ok), 1), clearWatch: () => {}}})
+    onFix({coords: {latitude: ORIGIN.lat, longitude: ORIGIN.lng, accuracy: 60}})
+    t.sidestep(40)
+    for (let i = 0; i < 8 / 0.05; i++) t.frame()
+    expect(plan).not.toHaveBeenCalled()
+    t.done()
+  })
+
+  it('stops the arrows on arrival', () => {
+    const t = startTrip(0)
+    for (let i = 0; i < 10; i++) t.frame()
+    t.walk(106)
+    const root = t.scene.getObjectByName('geo-root')
+    expect(root.children.filter((c) => c.isInstancedMesh).every((m) => m.visible === false)).toBe(true)
     t.done()
   })
 

@@ -22,6 +22,12 @@ export function compassPoint(deg) {
   return COMPASS_POINTS[Math.round((((deg % 360) + 360) % 360) / 45) % 8]
 }
 
+/** How the pill names the end of the walk: "Pathfoot entrance", but not "Bus Hub entrance". */
+export function arriveLabel({name, category}) {
+  const short = name.replace(/ Building$/, '')
+  return category === 'bus' || category === 'landmark' ? short : `${short} entrance`
+}
+
 /** The one line on the AR screen: "Pathfoot · 120 m · 2 min". */
 export function tripPillText(name, metres) {
   const minutes = Math.max(1, Math.round(metres / WALK_MPS / 60))
@@ -135,7 +141,9 @@ export function arScreen(root, {navigate, params}) {
           <p class="ar__hint" data-compass-pill role="status" hidden>Wave your phone in a figure-8</p>
           <p class="ar__hint" data-hint role="status" hidden>Move your phone slowly</p>
           <p class="ar__hint" data-lock-hint role="status" hidden>Walk a few steps to lock the arrows</p>
-          ${route.source === 'direct' ? html`<p class="ar__hint" data-approx-hint role="status">Approximate route - check the 2D map</p>` : ''}
+          <p class="ar__hint" data-reroute-hint role="status" hidden>Off route - finding a new route</p>
+          <p class="ar__hint" data-approx-hint role="status" ${route.source === 'direct' ? '' : 'hidden'}>Approximate route - check the 2D map</p>
+          <p class="ar__hint ar__hint--guide" data-guidance hidden></p>
           </div>
 
           <section class="ar-guide" data-start aria-labelledby="start-title" hidden>
@@ -179,7 +187,7 @@ export function arScreen(root, {navigate, params}) {
               <div class="stats__row"><dt>Off route</dt><dd data-stat="offroute">–</dd></div>
               <div class="stats__row"><dt>Route match</dt><dd data-stat="match">–</dd></div>
               <div class="stats__row"><dt>Match quality</dt><dd data-stat="quality">–</dd></div>
-              <div class="stats__row"><dt>Next turn</dt><dd data-stat="turn">–</dd></div>
+              <div class="stats__row"><dt>Next manoeuvre</dt><dd data-stat="turn">–</dd></div>
               <div class="stats__row"><dt>Arrows drawn</dt><dd data-stat="arrows">–</dd></div>
               <div class="stats__row"><dt>Camera height</dt><dd data-stat="height">–</dd></div>
               <div class="stats__row"><dt>Ground</dt><dd data-stat="ground">–</dd></div>
@@ -221,6 +229,15 @@ export function arScreen(root, {navigate, params}) {
     wasLocked = s.locked
     paintStartCard(s)
     if (s.debug) paintLiveDebug(s)
+    const guidance = root.querySelector('[data-guidance]')
+    if (guidance) {
+      guidance.hidden = !s.instruction
+      if (s.instruction && guidance.textContent !== s.instruction) guidance.textContent = s.instruction
+    }
+    const rerouteHint = root.querySelector('[data-reroute-hint]')
+    if (rerouteHint) rerouteHint.hidden = !s.rerouting
+    const approx = root.querySelector('[data-approx-hint]')
+    if (approx) approx.hidden = s.source !== 'direct'
     const fmt = (m) => (m == null ? '–' : formatDistance(m))
     setStat('gps', s.gpsAccuracy == null ? 'waiting…' : `±${Math.round(s.gpsAccuracy)} m`, s.gpsAccuracy != null && s.gpsAccuracy <= 20 ? 'ok' : 'warn')
     setStat(
@@ -232,7 +249,8 @@ export function arScreen(root, {navigate, params}) {
     setStat('offroute', s.offRouteM == null ? '–' : `${s.offRouteM.toFixed(1)} m`)
     setStat('match', `${s.matchOffsetM.toFixed(1)} m, ${s.matchYawDeg.toFixed(1)}°${s.matchFlipped ? ', flipped' : ''}`)
     setStat('quality', s.matchResidualM == null ? 'walk 8 m first' : `${s.matchResidualM.toFixed(2)} m`, s.matchResidualM != null && s.matchResidualM < 1 ? 'ok' : 'warn')
-    setStat('turn', s.nextTurnM == null ? 'none' : `${formatDistance(s.nextTurnM)} ${s.nextTurnDir}`)
+    setStat('turn', s.nextManoeuvre ? `${s.nextManoeuvre.type}, ${formatDistance(Math.max(0, s.nextManoeuvre.s - s.userS))}` : '–')
+    setStat('source', `${s.source}, ${s.routePoints} points`, s.source === 'direct' ? 'warn' : 'ok')
     setStat('arrows', `${s.arrows} of ${s.arrowTotal}`)
     setStat('height', `${s.cameraHeight.toFixed(2)} m`)
     if (s.groundHeight != null) {
@@ -378,7 +396,7 @@ export function arScreen(root, {navigate, params}) {
     const canvas = root.querySelector('[data-canvas]')
     const {createArTrip} = await import('../../ar/trip.js')
     if (disposed) return
-    trip = createArTrip({route, origin, destination, allowDesktop, debug: showDebug, onPhase, onStats, onArrived})
+    trip = createArTrip({route, origin, destination, allowDesktop, debug: showDebug, arriveLabel: arriveLabel(destination), onPhase, onStats, onArrived, onTurnClose: () => haptic(30)})
     stopSession = startSession(
       XR8,
       canvas,

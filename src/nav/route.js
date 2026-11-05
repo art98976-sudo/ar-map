@@ -3,7 +3,8 @@
 // Order of preference:
 //   1. MazeMap routing (the University's own campus paths), outdoors only
 //   2. Our OpenStreetMap footpath graph with A* (works offline once loaded)
-//   3. A straight line, clearly flagged, so the user still gets a direction
+//   3. MazeMap's route through a building, if that is all there is
+//   4. A straight line, clearly flagged, so the user still gets a direction
 import {MAZEMAP} from '../config.js'
 import {distanceM, fromLocal, projectOntoPolyline, toLocal} from '../geo/geo.js'
 import {loadCampusGraph, routeOnFootpaths} from './footpaths.js'
@@ -44,15 +45,21 @@ export function googleMapsWalkingUrl(dest) {
 export function parseMazeMapPath(json) {
   const feats = json?.path?.features || []
   const points = []
+  const outdoorPoints = [] // from the start up to the first door
   let indoor = false
   for (const f of feats) {
     if (f.properties?.buildingId != null) indoor = true
     for (const [lng, lat] of f.geometry?.coordinates || []) {
       const last = points.at(-1)
       if (!last || last.lat !== lat || last.lng !== lng) points.push({lat, lng})
+      if (!indoor) {
+        const lastOut = outdoorPoints.at(-1)
+        if (!lastOut || lastOut.lat !== lat || lastOut.lng !== lng) outdoorPoints.push({lat, lng})
+      }
     }
   }
-  return {points, indoor, lengthM: json?.pathMetrics?.distanceWalkingMeters ?? null}
+  const endsIndoor = feats.at(-1)?.properties?.buildingId != null
+  return {points, outdoorPoints, indoor, endsIndoor, lengthM: json?.pathMetrics?.distanceWalkingMeters ?? null}
 }
 
 async function mazemapRoute(from, to, {signal} = {}) {
@@ -120,16 +127,22 @@ function lengthOf(points) {
 export async function planRoute(from, dest, {mazemap = mazemapRoute, graph = loadCampusGraph} = {}) {
   if (!isOnCampus(from)) return {status: 'off-campus', distanceM: distanceM(from, MAZEMAP.center)}
   const to = entranceOf(dest)
-  const done = (points, source) => {
-    const pts = anchor(points, from, to)
+  const done = (points, source, target = to) => {
+    const pts = anchor(points, from, target)
     const lengthM = lengthOf(pts)
-    return {status: 'ok', points: pts, lengthM, minutes: walkingMinutes(lengthM), source, entrance: to}
+    console.info('[route]', source, pts.length, 'points')
+    return {status: 'ok', points: pts, lengthM, minutes: walkingMinutes(lengthM), source, entrance: target}
   }
 
-  // 1. MazeMap, but only if it stays outdoors.
+  // 1. MazeMap, as long as it stays outdoors. If it ends indoors (a room), walk to that door.
+  let throughBuilding = null
   try {
     const mm = await mazemap(from, to)
-    if (mm.points.length >= 2 && !mm.indoor) return done(mm.points, 'mazemap')
+    if (mm.points.length >= 2) {
+      if (!mm.indoor) return done(mm.points, 'mazemap')
+      if (mm.endsIndoor && mm.outdoorPoints.length >= 2) return done(mm.outdoorPoints, 'mazemap', mm.outdoorPoints.at(-1))
+      throughBuilding = mm.points
+    }
   } catch (err) {
     console.warn('[route] MazeMap routing failed, using campus footpaths', err?.message)
   }
@@ -143,7 +156,10 @@ export async function planRoute(from, dest, {mazemap = mazemapRoute, graph = loa
     console.warn('[route] footpath routing failed', err?.message)
   }
 
-  // 3. Straight line: still useful on open lawns, and the UI says it is approximate.
+  // 3. MazeMap's way through a building: GPS is poor indoors, but it is still a real way there.
+  if (throughBuilding) return done(throughBuilding, 'mazemap')
+
+  // 4. Straight line: still useful on open lawns, and the UI says it is approximate.
   return done([from, to], 'direct')
 }
 

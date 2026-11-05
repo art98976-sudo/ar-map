@@ -172,6 +172,12 @@
   margin-top: var(--s-2);
 }
 
+/* What to do next: the hint that matters most, at the bottom of the stack. */
+.ar__hint--guide {
+  padding: 12px 20px;
+  font-size: var(--fs-md);
+}
+
 /* ---------- The one pill ---------- */
 .ar-pill {
   position: absolute;
@@ -230,13 +236,10 @@
   color: var(--white);
 }
 .arrival__title {
+  margin-bottom: var(--s-3);
   font-size: var(--fs-xl);
   font-weight: 600;
   letter-spacing: -0.02em;
-}
-.arrival__name {
-  margin-bottom: var(--s-3);
-  color: var(--text-muted);
 }
 .arrival__confetti {
   position: absolute;
