@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest'
 import * as THREE from 'three'
-import {createArrowTrail, laneGeometryData, nextTurn, visibleWindowEnd} from '../../src/arrows/trail.js'
+import {createArrowTrail, laneGeometryData, nextTurn, visibleWindowEnd} from '../../src/ar/trail.js'
 import {TRAIL} from '../../src/config.js'
 
 // 30 m north, right turn, 30 m east, left turn, 30 m north.

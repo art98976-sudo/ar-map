@@ -1,9 +1,9 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import * as THREE from 'three'
-import {createArrowTrail} from '../../src/arrows/trail.js'
-import {pinScale} from '../../src/arrows/pin.js'
+import {createArrowTrail} from '../../src/ar/trail.js'
+import {pinScale} from '../../src/ar/pin.js'
 import {createArTrip} from '../../src/ar/trip.js'
-import {buildGraph, nearestOnPaths} from '../../src/nav/footpaths.js'
+import {buildGraph, nearestOnPaths} from '../../src/route/footpaths.js'
 import {
   addRecentStart,
   entrancesOf,
@@ -19,11 +19,11 @@ import {
   startFromPin,
   startFromPlace,
   startLabel,
-} from '../../src/nav/start-point.js'
+} from '../../src/route/start-point.js'
 import townPaths from '../../src/data/town-footpaths.json'
 import data from '../../src/data/destinations.json'
 
-vi.mock('../../src/arrows/pin.js', async (original) => ({
+vi.mock('../../src/ar/pin.js', async (original) => ({
   ...(await original()),
   createDestinationPin: (T) => ({group: new T.Group(), update: () => {}, dispose: () => {}}),
 }))

@@ -18,15 +18,15 @@
 // tests (ground.js) lay the route onto the real ground.
 import {circularMean, createCalibrator, isPoorAccuracy, startCompass} from './compass.js'
 import {angleDiff, fromLocal, pointAt, polylineSlice, toDeg, toLocal, wrap360} from '../geo/geo.js'
-import {DESTINATIONS} from '../nav/destinations.js'
-import {arrowTarget, arrowYawDeg, createRouteTracker, turnPrompt, walkingCorrection} from '../nav/compass-guide.js'
+import {DESTINATIONS} from '../map/destinations.js'
+import {arrowTarget, arrowYawDeg, createRouteTracker, turnPrompt, walkingCorrection} from '../route/compass-guide.js'
 import {createNavScene, gpsDistanceToEntrance} from './nav-scene.js'
 import {acceptHit, createGroundTracker, HIT_TYPES, SCREEN_POINTS} from './ground.js'
 import {createRouteMatcher} from './route-matcher.js'
 import {locationPermissionState, watchLocation} from '../geo/location.js'
-import {isManual} from '../nav/start-point.js'
-import {createArrivalDetector, createGuidance, createOffRouteMonitor, landmarksFrom} from '../nav/guidance.js'
-import {entranceOf, isOnCampus, planRoute} from '../nav/route.js'
+import {isManual} from '../route/start-point.js'
+import {createArrivalDetector, createGuidance, createOffRouteMonitor, landmarksFrom} from '../route/guidance.js'
+import {entranceOf, isOnCampus, planRoute} from '../route/route.js'
 import {COMPASS_GUIDE, GPS, GROUND, ROUTING, START, TRIP} from '../config.js'
 
 /** Compass-style bearing of a direction: degrees clockwise from north (or from SLAM -Z). */

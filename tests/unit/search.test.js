@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {describeDestination, editDistance, normalize, searchDestinations} from '../../src/nav/search.js'
+import {describeDestination, editDistance, normalize, searchDestinations} from '../../src/map/search.js'
 import {
   DESTINATIONS,
   POPULAR,
@@ -8,7 +8,7 @@ import {
   findDestination,
   getRecent,
   setCurrentDestination,
-} from '../../src/nav/destinations.js'
+} from '../../src/map/destinations.js'
 import {parseMazeMapResults} from '../../src/map/mazemap-search.js'
 
 const ids = (list) => list.map((d) => d.id)

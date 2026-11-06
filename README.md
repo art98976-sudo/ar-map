@@ -60,13 +60,12 @@ First time running e2e tests: `npx playwright install chromium webkit`.
 ```
 src/
   main.js            app start, screen registration
-  config.js          campus id, URLs, engine settings
-  ar/                device check, permissions, engine, compass, trip, AR scene
-  arrows/            arrow trail (InstancedMesh + shader) and destination pin
-  geo/               GPS location, GPS <-> metres maths
-  nav/               destinations, search, route planning, A*, footpaths
+  config.js          settings: campus id, URLs, tuning numbers, colours
+  ar/                device check, permissions, engine, compass, trip, AR scene, arrows, pin
+  geo/               GPS location, GPS <-> metres and angle maths
+  route/             route planning, A*, footpaths, guidance, start point
   data/              destinations.json (with entrances), footpaths.json
-  map/               MazeMap loader
+  map/               MazeMap loader, destinations, search
   ui/                router, DOM helpers, icons, toast, screens/
   styles/            design tokens (Stirling brand palette), components, screens
 public/

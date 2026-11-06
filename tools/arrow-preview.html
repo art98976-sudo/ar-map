@@ -36,8 +36,8 @@
       // Add ?at=<metres> to freeze the walker at that point (used for screenshots).
       // Add ?approx=1 to see the amber arrows of a straight-line fallback route.
       import * as THREE from 'three'
-      import {createArrowTrail} from '/src/arrows/trail.js'
-      import {createDestinationPin} from '/src/arrows/pin.js'
+      import {createArrowTrail} from '/src/ar/trail.js'
+      import {createDestinationPin} from '/src/ar/pin.js'
 
       const query = new URLSearchParams(location.search)
       const at = query.get('at')

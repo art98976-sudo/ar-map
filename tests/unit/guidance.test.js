@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest'
 import * as THREE from 'three'
-import {createGuideArrow, stepYaw} from '../../src/arrows/guide-arrow.js'
+import {createGuideArrow, stepYaw} from '../../src/ar/guide-arrow.js'
 import {
   buildManoeuvres,
   classifyTurn,
@@ -9,7 +9,7 @@ import {
   createOffRouteMonitor,
   instructionFor,
   roundDistance,
-} from '../../src/nav/guidance.js'
+} from '../../src/route/guidance.js'
 
 const near = (a, b, tol) => expect(Math.abs(a - b)).toBeLessThanOrEqual(tol)
 const types = (route) => buildManoeuvres(route).map((m) => m.type)

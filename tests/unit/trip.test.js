@@ -7,7 +7,7 @@ import {pointAt, shortestTurn} from '../../src/geo/geo.js'
 import {createArTrip} from '../../src/ar/trip.js'
 
 // The real pin draws its label on a 2D canvas, which the test DOM does not have.
-vi.mock('../../src/arrows/pin.js', async (original) => ({
+vi.mock('../../src/ar/pin.js', async (original) => ({
   ...(await original()),
   createDestinationPin: (T) => ({group: new T.Group(), update: () => {}, dispose: () => {}}),
 }))

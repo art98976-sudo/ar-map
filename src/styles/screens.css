@@ -444,7 +444,8 @@
 }
 
 /* ---------- Destination card ---------- */
-.dest-sheet {
+.dest-sheet,
+.pick-bar {
   position: absolute;
   left: 0;
   right: 0;
@@ -458,6 +459,8 @@
   border-radius: var(--r-lg) var(--r-lg) 0 0;
   background: var(--surface);
   box-shadow: 0 -10px 30px -10px var(--sheet-shadow);
+}
+.dest-sheet {
   animation: sheet-in var(--t-med) var(--ease);
 }
 .dest-sheet[hidden] {
@@ -639,21 +642,6 @@
 .start-option__text span {
   color: var(--text-muted);
   font-size: var(--fs-sm);
-}
-.pick-bar {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 5;
-  display: grid;
-  gap: var(--s-2);
-  max-width: 520px;
-  margin: 0 auto;
-  padding: var(--s-4) var(--s-4) calc(var(--safe-bottom) + var(--s-2));
-  border-radius: var(--r-lg) var(--r-lg) 0 0;
-  background: var(--surface);
-  box-shadow: 0 -10px 30px -10px var(--sheet-shadow);
 }
 .pick-bar[hidden] {
   display: none;

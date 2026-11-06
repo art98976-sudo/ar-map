@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'vitest'
 import * as THREE from 'three'
-import {arrowDrop, createGuideArrow} from '../../src/arrows/guide-arrow.js'
-import {createArrowTrail, visibleWindowEnd} from '../../src/arrows/trail.js'
+import {arrowDrop, createGuideArrow} from '../../src/ar/guide-arrow.js'
+import {createArrowTrail, visibleWindowEnd} from '../../src/ar/trail.js'
 import {
   arrowTarget,
   arrowYawDeg,
@@ -10,8 +10,8 @@ import {
   stepBearing,
   turnPrompt,
   walkingCorrection,
-} from '../../src/nav/compass-guide.js'
-import {buildManoeuvres, createGuidance, instructionFor, landmarkPhrase, landmarksFrom, nearestLandmark, spokenStep, stepIcon} from '../../src/nav/guidance.js'
+} from '../../src/route/compass-guide.js'
+import {buildManoeuvres, createGuidance, instructionFor, landmarkPhrase, landmarksFrom, nearestLandmark, spokenStep, stepIcon} from '../../src/route/guidance.js'
 import {mapCamera, viewKey} from '../../src/ui/components/compass-map.js'
 import {icon} from '../../src/ui/icons.js'
 import {COMPASS_GUIDE, COMPASS_MAP, TRAIL} from '../../src/config.js'

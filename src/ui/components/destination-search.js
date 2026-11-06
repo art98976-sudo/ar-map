@@ -1,8 +1,8 @@
 // Destination search box with autocomplete (WAI-ARIA combobox + listbox pattern).
 // Empty box: recent searches and popular places. Typing: our places first, then rooms
 // from the University MazeMap. Arrow keys, Enter and Escape work on a keyboard.
-import {DESTINATIONS, POPULAR, TOWN_PLACES, addRecent, clearRecent, getRecent} from '../../nav/destinations.js'
-import {describeDestination, searchDestinations} from '../../nav/search.js'
+import {DESTINATIONS, POPULAR, TOWN_PLACES, addRecent, clearRecent, getRecent} from '../../map/destinations.js'
+import {describeDestination, searchDestinations} from '../../map/search.js'
 import {searchMazeMap} from '../../map/mazemap-search.js'
 import {html, render} from '../dom.js'
 import {CATEGORY_ICON, icon} from '../icons.js'

@@ -3,7 +3,7 @@
 // No DOM and no map here, so this can move to a native app unchanged.
 import extraPlaces from '../data/start-places.json'
 import {bearingDeg, compassPoint, distanceM} from '../geo/geo.js'
-import {DESTINATIONS} from './destinations.js'
+import {DESTINATIONS} from '../map/destinations.js'
 import {landmarkPhrase} from './guidance.js'
 
 const START_KEY = 'welcomeAR.start.v1'

@@ -3,7 +3,7 @@
 // plain route picture instead: the arrow and the instructions carry on either way.
 import {COLOURS, COMPASS_MAP, MAZEMAP} from '../../config.js'
 import {createCampusMap, loadMazeMap} from '../../map/mazemap.js'
-import {stepBearing} from '../../nav/compass-guide.js'
+import {stepBearing} from '../../route/compass-guide.js'
 
 const ROUTE = 'trip-route'
 const LEG = 'trip-leg'

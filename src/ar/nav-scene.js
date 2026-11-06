@@ -7,9 +7,9 @@
 //                             moved so the user's GPS position sits under the camera,
 //                             at ground height y = 0 (8th Wall absolute scale).
 import {dedupe, distanceM, localBearing, pointAt, projectOntoPolyline, shortestTurn, simplify, toDeg, toLocal, toRad} from '../geo/geo.js'
-import {createArrowTrail, nextTurn} from '../arrows/trail.js'
-import {createGuideArrow} from '../arrows/guide-arrow.js'
-import {createDestinationPin} from '../arrows/pin.js'
+import {createArrowTrail, nextTurn} from './trail.js'
+import {createGuideArrow} from './guide-arrow.js'
+import {createDestinationPin} from './pin.js'
 import {NAV_SCENE, ROUTING, TRAIL} from '../config.js'
 
 /**

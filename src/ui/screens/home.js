@@ -7,10 +7,10 @@ import {showToast} from '../components/toast.js'
 import {deviceIssue} from '../../ar/device.js'
 import {startPermissionRequests} from '../../ar/permissions.js'
 import {locationPermissionState, readTripFix, watchLocation} from '../../geo/location.js'
-import {DESTINATIONS, findDestination, setCurrentDestination} from '../../nav/destinations.js'
-import {categoryLabel, MAP_FILTERS, matchesFilter} from '../../nav/filters.js'
-import {estimateWalkMinutes, planRoute} from '../../nav/route.js'
-import {loadTownGraph, nearestOnPaths} from '../../nav/footpaths.js'
+import {DESTINATIONS, findDestination, setCurrentDestination} from '../../map/destinations.js'
+import {categoryLabel, MAP_FILTERS, matchesFilter} from '../../map/filters.js'
+import {estimateWalkMinutes, planRoute} from '../../route/route.js'
+import {loadTownGraph, nearestOnPaths} from '../../route/footpaths.js'
 import {
   addRecentStart,
   clearRecentStarts,
@@ -26,8 +26,8 @@ import {
   startFromPin,
   startFromPlace,
   startLabel,
-} from '../../nav/start-point.js'
-import {describeDestination} from '../../nav/search.js'
+} from '../../route/start-point.js'
+import {describeDestination} from '../../map/search.js'
 import {html, onAction, render} from '../dom.js'
 import {CATEGORY_ICON, icon} from '../icons.js'
 import {APP, COLOURS, GPS, START} from '../../config.js'
