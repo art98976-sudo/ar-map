@@ -644,6 +644,15 @@ describe('walking beats the compass', () => {
     t.done()
   })
 
+  it('a compass 50° out, as far as Start lets through: walking still brings the route back', () => {
+    const t = startTrip(50)
+    for (let i = 0; i < 10; i++) t.frame()
+    t.walk(60)
+    expect(t.box.stats.offRouteM).toBeLessThan(0.5)
+    near(Math.abs(t.box.stats.matchYawDeg), 50, 3)
+    t.done()
+  })
+
   it('a poor compass: walking 6 m shows the direction, then the ground is drawn along the walk', () => {
     const t = startTrip(200, {accuracy: 40})
     const root = t.scene.getObjectByName('geo-root')

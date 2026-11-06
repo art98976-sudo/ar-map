@@ -70,7 +70,7 @@
   max-width: 100%;
   padding: 10px 16px;
   border-radius: var(--r-pill);
-  background: var(--glass);
+  background: var(--ar-panel-82); /* dark enough for 4.5:1 text against a white sky */
   -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
   box-shadow: inset 0 0 0 1px var(--glass-line);
@@ -171,6 +171,11 @@
 .ar-guide .btn {
   margin-top: var(--s-2);
 }
+.ar-guide .btn:disabled {
+  color: var(--white);
+  background: var(--on-dark-08);
+  box-shadow: inset 0 0 0 1px var(--on-dark-25);
+}
 
 /* ---------- Instruction card, and the list of steps it pulls down ---------- */
 .ar-steps {
@@ -215,6 +220,17 @@
   height: 44px;
   border-radius: 12px;
   background: var(--green-02);
+  transition:
+    background-color 160ms var(--ease),
+    color 160ms var(--ease);
+}
+/* A turn within 10 m: the one thing on the screen to look at. */
+.ar-steps[data-urgent='true'] .ar-steps__icon {
+  background: var(--white);
+  color: var(--green-02);
+}
+.ar-steps[data-urgent='true'] .ar-steps__card {
+  box-shadow: inset 0 0 0 2px var(--white);
 }
 .ar-steps__handle {
   position: absolute;
@@ -240,7 +256,8 @@
   list-style: none;
   touch-action: pan-y;
 }
-.ar-steps__list[hidden] {
+.ar-steps__list[hidden],
+.ar-steps__list:empty {
   display: none;
 }
 .ar-steps__item {
@@ -346,6 +363,38 @@
 }
 .ar-map__fallback {
   object-fit: contain;
+}
+.ar-map__status {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  padding: 6px 14px;
+  border-radius: var(--r-pill);
+  background: var(--ar-panel-82); /* readable on the dark ground and on pale map tiles */
+  color: var(--white);
+  font-size: var(--fs-sm);
+  transform: translateX(-50%);
+}
+.ar-map__status[hidden] {
+  display: none;
+}
+/* Says the map can be opened: the whole map is the button. */
+.ar-map__expand {
+  position: absolute;
+  top: var(--s-3);
+  right: var(--s-3);
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--ar-panel-82);
+  box-shadow: inset 0 0 0 1px var(--glass-line);
+  color: var(--white);
+}
+.ar-map.is-expanded .ar-map__expand {
+  top: auto;
+  bottom: calc(var(--safe-bottom) + 64px);
 }
 .ar-map__fallback[hidden] {
   display: none;

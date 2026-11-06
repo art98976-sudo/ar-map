@@ -1,5 +1,6 @@
 // Tiny hash router: #/ (the map), #/locate, #/ar.
 // Hash routes keep the phone's back button working and need no server config.
+import {focusScreen} from './dom.js'
 
 /**
  * A screen is a function (root, ctx) => cleanup | void.
@@ -42,14 +43,16 @@ export function createRouter({root, routes, fallback = '/'}) {
     window.scrollTo(0, 0)
     cleanup = screen(root, {navigate, params, path})
     // Move focus to the new screen's heading for screen-reader users.
-    root.querySelector('h1, [data-autofocus]')?.focus?.({preventScroll: true})
+    focusScreen(root)
   }
 
-  function navigate(path, {replace = false} = {}) {
+  /** `silent` changes the address only: the screen on show keeps itself in step with it. */
+  function navigate(path, {replace = false, silent = false} = {}) {
     const hash = `#${path}`
     if (replace) window.history.replaceState(null, '', hash)
     else if (window.location.hash !== hash) window.history.pushState(null, '', hash)
-    render()
+    if (silent) renderedHash = window.location.hash
+    else render()
   }
 
   // Back/forward fire popstate; typing a #/ address or tapping a #/ link fires hashchange

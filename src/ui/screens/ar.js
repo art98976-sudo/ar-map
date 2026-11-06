@@ -6,17 +6,19 @@
 import {permissionsAllowed} from '../../ar/permissions.js'
 import {parseUserAgent} from '../../ar/device.js'
 import {findDestination} from '../../nav/destinations.js'
+import {GUIDE, spokenStep} from '../../nav/guidance.js'
 import {readTripRoute} from '../../nav/route.js'
 import {readTripFix} from '../../geo/location.js'
 import {formatDistance} from '../../arrows/pin.js'
 import {showArrival} from '../components/arrival.js'
 import {drawMinimap} from '../components/ar-minimap.js'
 import {createCompassMap} from '../components/compass-map.js'
-import {haptic, html, onAction, render} from '../dom.js'
+import {focusScreen, haptic, html, onAction, render} from '../dom.js'
 import {icon} from '../icons.js'
 
 const WALK_MPS = 1.3
 const STEP_SWIPE_PX = 24
+const SWIPE_CLICK_MS = 500 // a mouse swipe also fires a click; a finger's does not
 const TURN_CHECK_MS = 700
 const PROMPT_ICON = {'Turn around': 'uturn', 'Turn left': 'left', 'Turn right': 'right'}
 const COMPASS_POINTS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west']
@@ -66,15 +68,15 @@ export function arScreen(root, {navigate, params}) {
   let compassMap = null
   let mapFailed = false
   let stepsOpen = false
-  let swiped = false
+  let swipedAt = -Infinity
   let shownIcon = null
   let shownSteps = null
+  let spoken = null
 
   const actions = {
     'toggle-map': () => toggleMap(),
     'toggle-steps': () => {
-      if (swiped) swiped = false
-      else toggleSteps(!stepsOpen)
+      if (performance.now() - swipedAt > SWIPE_CLICK_MS) toggleSteps(!stepsOpen)
     },
     exit: () => navigate('/'),
     done: () => navigate('/'),
@@ -100,6 +102,7 @@ export function arScreen(root, {navigate, params}) {
   function setView(fragment, state) {
     root.dataset.arState = state
     render(root, fragment)
+    focusScreen(root)
   }
 
   // ---------- loading ----------
@@ -135,13 +138,18 @@ export function arScreen(root, {navigate, params}) {
 
   // ---------- live ----------
   function showLive() {
+    mapFailed = false
+    stepsOpen = false
+    shownIcon = null
+    shownSteps = null
+    spoken = null
     setView(
       html`
-        <div class="ar">
+        <div class="ar" role="group" aria-label="AR camera view" tabindex="-1" data-autofocus>
           <canvas class="ar__canvas" data-canvas aria-label="Camera view"></canvas>
           <div class="ar__veil" data-veil>
             <span class="spinner" aria-hidden="true"></span>
-            <p data-veil-text>Waiting for the camera…</p>
+            <p data-veil-text role="status">Waiting for the camera…</p>
           </div>
           <header class="ar__top">
             <button class="icon-btn icon-btn--glass" data-action="exit" aria-label="Exit AR">${icon('close')}</button>
@@ -159,10 +167,11 @@ export function arScreen(root, {navigate, params}) {
           <div class="ar-steps" data-step-card hidden>
             <button class="ar-steps__card" type="button" data-action="toggle-steps" aria-expanded="false" aria-controls="ar-step-list" aria-label="Next step. Show all steps">
               <span class="ar-steps__icon" data-guidance-icon></span>
-              <span class="ar-steps__text" data-guidance aria-live="polite"></span>
+              <span class="ar-steps__text" data-guidance></span>
               <span class="ar-steps__handle" aria-hidden="true"></span>
             </button>
             <ol class="ar-steps__list" id="ar-step-list" data-steps hidden></ol>
+            <p class="sr-only" data-guidance-say role="status"></p>
           </div>
 
           <span class="ar-check" data-turn-check aria-hidden="true" hidden>${icon('check', {size: 44})}</span>
@@ -178,7 +187,10 @@ export function arScreen(root, {navigate, params}) {
           <section class="ar-map" data-compass-map aria-label="Map of the route">
             <div class="ar-map__canvas" data-map-canvas></div>
             <canvas class="ar-map__fallback" data-minimap width="320" height="320" aria-label="Plan of the route" hidden></canvas>
-            <button class="ar-map__tap" type="button" data-action="toggle-map" aria-label="Expand map" aria-expanded="false"></button>
+            <p class="ar-map__status" data-map-status role="status">Loading map…</p>
+            <button class="ar-map__tap" type="button" data-action="toggle-map" aria-label="Expand map" aria-expanded="false">
+              <span class="ar-map__expand" data-map-expand>${icon('expand', {size: 18})}</span>
+            </button>
             <p class="ar-pill" data-trip-pill>${tripPillText(destination.name, route.lengthM)}</p>
           </section>
 
@@ -187,7 +199,9 @@ export function arScreen(root, {navigate, params}) {
             <h1 class="ar-guide__title" data-start-title id="start-title" tabindex="-1">Stand on the path and tap Start</h1>
             <p class="ar-guide__text" data-start-direction></p>
             <p class="ar-guide__text" data-start-note role="status" hidden>Hold your phone up, looking ahead.</p>
-            <button class="btn btn--primary btn--block" type="button" data-action="start-walk" aria-label="Start" disabled>Start</button>
+            <button class="btn btn--primary btn--block" type="button" data-action="start-walk" disabled>
+              <span class="spinner spinner--sm" aria-hidden="true"></span><span data-start-label aria-live="polite">Getting ready…</span>
+            </button>
           </section>
 
           <div class="arrival" data-arrival hidden></div>
@@ -248,6 +262,7 @@ export function arScreen(root, {navigate, params}) {
     const expanded = host.classList.toggle('is-expanded')
     button.setAttribute('aria-expanded', String(expanded))
     button.setAttribute('aria-label', expanded ? 'Shrink map' : 'Expand map')
+    render(root.querySelector('[data-map-expand]'), icon(expanded ? 'shrink' : 'expand', {size: 18}))
     compassMap?.setExpanded(expanded)
   }
 
@@ -273,7 +288,7 @@ export function arScreen(root, {navigate, params}) {
       const moved = event.clientY - fromY
       fromY = null
       if (Math.abs(moved) < STEP_SWIPE_PX) return
-      swiped = true // the click that follows this pointerup is not a tap
+      swipedAt = performance.now()
       toggleSteps(moved > 0)
     })
     card.addEventListener('pointercancel', () => {
@@ -312,6 +327,13 @@ export function arScreen(root, {navigate, params}) {
     }
     const guidance = root.querySelector('[data-guidance]')
     if (guidance.textContent !== text) guidance.textContent = text
+    // A turn close by stands out, and the card says it aloud only when the step changes.
+    card.dataset.urgent = String(Boolean(s.step && s.step.icon !== 'straight' && s.step.distanceM <= GUIDE.hapticM))
+    const say = spokenStep(text)
+    if (say !== spoken) {
+      spoken = say
+      root.querySelector('[data-guidance-say]').textContent = say
+    }
     paintSteps(s.steps)
   }
 
@@ -331,7 +353,9 @@ export function arScreen(root, {navigate, params}) {
     const card = root.querySelector('[data-start]')
     if (!card) return
     setStat('phase', phase)
+    const wasHidden = card.hidden
     card.hidden = phase !== 'await-start'
+    if (wasHidden && !card.hidden) focusScreen(card)
     if (phase === 'ready') haptic([20, 60, 20])
   }
 
@@ -341,19 +365,12 @@ export function arScreen(root, {navigate, params}) {
   }
 
   function onStats(s) {
-    const hint = root.querySelector('[data-hint]')
-    if (hint) hint.hidden = !s.trackingStalled
-    const pill = root.querySelector('[data-compass-pill]')
-    if (pill) pill.hidden = !s.compassUnsteady && !s.compassPoor
-    const lock = root.querySelector('[data-lock-hint]')
-    if (lock) lock.hidden = s.phase !== 'ready' || s.locked
+    paintHints(s)
     if (s.locked && !wasLocked) haptic(18)
     wasLocked = s.locked
     paintStartCard(s)
     if (s.debug) paintLiveDebug(s)
     paintStepCard(s)
-    const rerouteHint = root.querySelector('[data-reroute-hint]')
-    if (rerouteHint) rerouteHint.hidden = !s.rerouting
     const approx = root.querySelector('[data-approx-hint]')
     if (approx) approx.hidden = s.source !== 'direct'
     const minimap = root.querySelector('[data-minimap]')
@@ -383,11 +400,34 @@ export function arScreen(root, {navigate, params}) {
     if (pillText && s.phase === 'ready') pillText.textContent = tripPillText(destination.name, s.remainingM)
   }
 
+  /** One thing to do at a time: only the most urgent of these shows. */
+  function paintHints(s) {
+    const wanted = [
+      ['[data-reroute-hint]', s.rerouting],
+      ['[data-compass-pill]', s.compassUnsteady || s.compassPoor],
+      ['[data-hint]', s.trackingStalled],
+      ['[data-lock-hint]', s.phase === 'ready' && !s.locked],
+    ].find(([, show]) => show)?.[0]
+    for (const name of ['[data-reroute-hint]', '[data-compass-pill]', '[data-hint]', '[data-lock-hint]']) {
+      const el = root.querySelector(name)
+      if (el) el.hidden = name !== wanted
+    }
+  }
+
+  function mapSettled() {
+    const status = root.querySelector('[data-map-status]')
+    if (status) status.hidden = true
+  }
+
   /** Which way the route goes from here: the arrow needs a compass, the words do not. */
   function paintStartCard(s) {
     const card = root.querySelector('[data-start]')
     if (!card || card.hidden) return
-    card.querySelector('[data-action="start-walk"]').disabled = !s.canStart
+    const start = card.querySelector('[data-action="start-walk"]')
+    if (start.disabled === Boolean(s.canStart)) {
+      start.disabled = !s.canStart
+      card.querySelector('[data-start-label]').textContent = s.canStart ? 'Start' : 'Getting ready…'
+    }
     if (s.routeBearingDeg == null) return
     const far = s.startGapM > 25
     card.querySelector('[data-start-title]').textContent = far ? 'Walk to the path first' : 'Stand on the path and tap Start'
@@ -527,8 +567,15 @@ export function arScreen(root, {navigate, params}) {
     wireStepSwipe()
     compassMap = createCompassMap(root.querySelector('[data-map-canvas]'), {
       getState: () => trip?.mapState() ?? null,
+      onReady: () => {
+        mapFailed = false
+        mapSettled()
+        const fallback = root.querySelector('[data-minimap]')
+        if (fallback) fallback.hidden = true
+      },
       onFailed: () => {
         mapFailed = true
+        mapSettled()
         const fallback = root.querySelector('[data-minimap]')
         if (fallback) fallback.hidden = false
       },

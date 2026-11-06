@@ -21,7 +21,7 @@ export const MATCH = {
   maxStepM: 3, // per update
   maxStepDeg: 10,
   maxTotalM: 20, // over the whole trip
-  maxTotalDeg: 45,
+  maxTotalDeg: 75, // more than the 60° Start allows, plus some drift, or a bad compass stays uncorrected
   confidentResidualM: 1,
   cornerArmM: 4, // a turn in the walk needs this much straight walking either side
   cornerMinDeg: 35, // same as a turn in the route (findTurns)

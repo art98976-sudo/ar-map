@@ -34,6 +34,47 @@ test.describe('destination search', () => {
     await expect(card.getByRole('button', {name: 'Walk here in AR'})).toBeVisible()
   })
 
+  test('the back button closes the sheet and stays on the map', async ({page}) => {
+    const sheet = await openSearch(page)
+    await page.goBack()
+    await expect(sheet).toBeHidden()
+    const opener = page.getByRole('button', {name: 'Where do you want to go?'})
+    await expect(opener).toBeVisible()
+    await expect(opener).toBeFocused()
+  })
+
+  test('an open sheet shuts the map off from focus, and closing returns focus to its button', async ({page}) => {
+    const sheet = await openSearch(page)
+    await expect(page.locator('[data-map]')).toHaveAttribute('inert', '')
+    await expect(page.locator('.map-home__top')).toHaveAttribute('inert', '')
+    await sheet.getByRole('button', {name: 'Close search'}).click()
+    await expect(sheet).toBeHidden()
+    await expect(page.locator('[data-map]')).not.toHaveAttribute('inert', '')
+    await expect(page.getByRole('button', {name: 'Where do you want to go?'})).toBeFocused()
+  })
+
+  test('closing a sheet leaves no entry behind for the back button to reopen', async ({page}) => {
+    const sheet = await openSearch(page)
+    const before = await page.evaluate(() => window.history.state)
+    await sheet.getByRole('button', {name: 'Close search'}).click()
+    await expect(sheet).toBeHidden()
+    await expect.poll(() => page.evaluate(() => window.history.state)).toBeNull()
+    expect(before).toEqual({sheet: 'search'})
+  })
+
+  test('picking a place names it in the address, focuses its card and survives a reload', async ({page}) => {
+    const sheet = await openSearch(page)
+    await sheet.getByRole('button', {name: 'Pathfoot Building'}).click()
+    await expect(sheet).toBeHidden()
+    const heading = page.locator('[data-card]').getByRole('heading', {name: 'Pathfoot Building'})
+    await expect(heading).toBeFocused()
+    await expect(page).toHaveURL(/#\/\?to=pathfoot$/)
+    await page.reload()
+    await expect(heading).toBeVisible()
+    await page.locator('[data-card]').getByRole('button', {name: 'Close'}).click()
+    await expect(page).toHaveURL(/#\/$/)
+  })
+
   test('aliases work: "gym" finds the Sports Centre, "bus" the Bus Hub', async ({page}) => {
     const sheet = await openSearch(page)
     const box = sheet.getByRole('combobox')

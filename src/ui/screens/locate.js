@@ -22,7 +22,7 @@ import {googleMapsWalkingUrl, planRoute, saveTripRoute} from '../../nav/route.js
 import {formatDistance} from '../../arrows/pin.js'
 import {findDestination} from '../../nav/destinations.js'
 import {showToast} from '../components/toast.js'
-import {haptic, html, onAction, render} from '../dom.js'
+import {focusScreen, haptic, html, onAction, render} from '../dom.js'
 import {CATEGORY_ICON, icon} from '../icons.js'
 
 const CONTINUE_DELAY_MS = 900
@@ -48,6 +48,7 @@ export function locateScreen(root, {navigate, params}) {
   function setView(fragment, state) {
     root.dataset.locateState = state
     render(root, fragment)
+    focusScreen(root)
   }
 
   const destinationCard = () => html`

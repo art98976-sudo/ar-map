@@ -87,20 +87,74 @@ export function homeScreen(root, {navigate, params}) {
   const search = createDestinationSearch(root.querySelector('[data-search]'), {
     label: 'Search for a destination',
     onSelect: (dest) => {
-      closeSheets()
+      closeSheets({restoreFocus: false})
       select(dest)
+      card.querySelector('.dest-sheet__name')?.focus({preventScroll: true})
     },
   })
 
-  function closeSheets() {
-    searchSheet.hidden = true
-    infoSheet.hidden = true
+  // ---------- full-height sheets ----------
+  // Each open sheet is one history entry, so the phone's back button closes it.
+  const SHEETS = {
+    search: {element: searchSheet, opener: 'open-search'},
+    info: {element: infoSheet, opener: 'open-info'},
+  }
+  const behindSheets = [root.querySelector('[data-map]'), root.querySelector('.map-home__top'), card, overlay]
+  let shownSheet = null
+
+  function showSheet(name) {
+    shownSheet = name
+    for (const [key, sheet] of Object.entries(SHEETS)) sheet.element.hidden = key !== name
+    behindSheets.forEach((el) => el.toggleAttribute('inert', true))
   }
 
+  function hideSheet({restoreFocus = true} = {}) {
+    if (!shownSheet) return
+    const opener = root.querySelector(`[data-action="${SHEETS[shownSheet].opener}"]`)
+    shownSheet = null
+    for (const sheet of Object.values(SHEETS)) sheet.element.hidden = true
+    behindSheets.forEach((el) => el.toggleAttribute('inert', false))
+    if (restoreFocus) opener?.focus({preventScroll: true})
+  }
+
+  function openSheet(name) {
+    showSheet(name)
+    window.history.pushState({sheet: name}, '')
+  }
+
+  function closeSheets(options) {
+    if (!shownSheet) return
+    hideSheet(options)
+    if (window.history.state?.sheet) window.history.back()
+  }
+
+  const onHistory = () => {
+    const wanted = window.history.state?.sheet ?? null
+    if (wanted !== shownSheet) {
+      if (wanted) showSheet(wanted)
+      else hideSheet()
+    }
+    keepAddressInStep()
+  }
+  window.addEventListener('popstate', onHistory)
+
   // ---------- the chosen place ----------
+  /** The address names the chosen place, so a reload or Back from the next screen keeps it. */
+  function keepAddressInStep() {
+    if (window.history.state?.sheet) return // waiting for the sheet's own history entry to go
+    const query = new URLSearchParams()
+    if (selected) query.set('to', selected.id)
+    if (forced) query.set('force', '1')
+    if (params.debug === '1') query.set('debug', '1')
+    const text = query.toString()
+    navigate(text ? `/?${text}` : '/', {replace: true, silent: true})
+  }
+
   function select(dest) {
     if (selected?.id !== dest.id) clearRoute()
     selected = dest
+    setCurrentDestination(dest) // a room from the search is not in our list: this finds it after a reload
+    keepAddressInStep()
     drawCard()
     markSelectedPin()
     flyToSelected()
@@ -109,6 +163,7 @@ export function homeScreen(root, {navigate, params}) {
   function unselect() {
     selected = null
     clearRoute()
+    keepAddressInStep()
     card.hidden = true
     markSelectedPin()
   }
@@ -130,7 +185,7 @@ export function homeScreen(root, {navigate, params}) {
         ${selected.photo ? html`<img class="dest-sheet__photo" src="${selected.photo}" alt="" loading="lazy" />` : ''}
         <div class="dest-sheet__head">
           <div class="dest-sheet__text">
-            <h2 class="dest-sheet__name">${selected.name}</h2>
+            <h2 class="dest-sheet__name" tabindex="-1">${selected.name}</h2>
             <p class="dest-sheet__meta">${room || categoryLabel(selected.category)}</p>
             <p class="dest-sheet__walk" data-walk>${icon('footsteps', {size: 16})}<span data-walk-text>${walkText()}</span></p>
           </div>
@@ -328,7 +383,7 @@ export function homeScreen(root, {navigate, params}) {
     render(
       overlay,
       html`
-        <div class="map-home__error">
+        <div class="map-home__error" role="alert">
           <span class="error-state__icon" data-tone="warn">${icon(offline ? 'wifiOff' : 'map', {size: 28})}</span>
           <h2>${offline ? 'You are offline' : 'The map could not load'}</h2>
           <p>${offline ? 'Connect to Wi-Fi or mobile data and try again.' : 'Check your connection and try again.'}</p>
@@ -375,17 +430,20 @@ export function homeScreen(root, {navigate, params}) {
   // ---------- actions ----------
   const off = onAction(root, {
     'open-search': () => {
-      searchSheet.hidden = false
+      openSheet('search')
       // Inside the tap, or iPhone will not open the keyboard.
       search.focus()
     },
     'open-info': () => {
-      infoSheet.hidden = false
+      openSheet('info')
       infoSheet.querySelector('#info-title').focus({preventScroll: true})
     },
     'close-sheets': () => closeSheets(),
     filter: (_, target) => setFilter(target.dataset.filter),
-    unselect: () => unselect(),
+    unselect: () => {
+      unselect()
+      root.querySelector('[data-action="open-search"]').focus({preventScroll: true}) // its button has gone
+    },
     retry: () => load(),
     route: () => toggleRoute(),
     walk: () => {
@@ -406,6 +464,8 @@ export function homeScreen(root, {navigate, params}) {
 
   drawCard()
   load()
+  // A reload keeps the history entry of a sheet that was open.
+  if (window.history.state?.sheet) showSheet(window.history.state.sheet)
   locationPermissionState().then((state) => {
     if (!disposed && state === 'granted' && !(fix?.accuracy <= GPS.goodAccuracyM)) ensureWatch()
   })
@@ -414,6 +474,7 @@ export function homeScreen(root, {navigate, params}) {
     disposed = true
     off()
     document.removeEventListener('keydown', onKey)
+    window.removeEventListener('popstate', onHistory)
     search.destroy()
     stopLocation()
     fixWaiters = []

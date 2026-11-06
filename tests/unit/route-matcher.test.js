@@ -138,8 +138,8 @@ describe('route matcher', () => {
     near(clampCorrection({dx: 0, dy: 0, yaw: -20 * DEG}).yaw, -10 * DEG, 1e-9)
   })
 
-  it('clamps the trip total to 20 m and 45°', () => {
-    const total = {dx: 19, dy: 0, yaw: 44 * DEG}
+  it('clamps the trip total to 20 m and 75°', () => {
+    const total = {dx: 19, dy: 0, yaw: 74 * DEG}
     const c = clampCorrection({dx: 3, dy: 0, yaw: 5 * DEG, pivot: {x: 0, y: 0}}, total)
     near(c.dx, 1, 1e-9)
     near(c.yaw, 1 * DEG, 1e-9)

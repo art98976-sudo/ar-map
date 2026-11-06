@@ -38,6 +38,12 @@ export function render(root, fragment) {
   return root
 }
 
+/** Move focus to a new view's heading, skipping hidden ones, so screen readers hear the change. */
+export function focusScreen(root) {
+  const target = [...root.querySelectorAll('h1, [data-autofocus]')].find((el) => !el.closest('[hidden]'))
+  target?.focus?.({preventScroll: true})
+}
+
 /** Wire click handlers by data-action name. Returns a cleanup function. */
 export function onAction(root, handlers) {
   const listener = (event) => {

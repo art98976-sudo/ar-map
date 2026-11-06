@@ -73,6 +73,18 @@ test.describe('route and arrows', () => {
     await expect(page.locator('[data-steps] li').first()).toBeVisible({timeout: 5_000})
     await page.locator('[data-action="toggle-steps"]').click()
     await expect(page.locator('[data-steps]')).toBeHidden()
+    // A finger swipe opens the list, and the tap after it still closes it.
+    const card = await page.locator('[data-action="toggle-steps"]').boundingBox()
+    const cdp = await page.context().newCDPSession(page)
+    const touch = (type, touchPoints) => cdp.send('Input.dispatchTouchEvent', {type, touchPoints})
+    const at = {x: card.x + card.width / 2, y: card.y + 20}
+    await touch('touchStart', [at])
+    for (const down of [15, 30, 45]) await touch('touchMove', [{...at, y: at.y + down}])
+    await touch('touchEnd', [])
+    await expect(page.locator('[data-steps] li').first()).toBeVisible({timeout: 5_000})
+    await page.waitForTimeout(600)
+    await page.touchscreen.tap(at.x, at.y)
+    await expect(page.locator('[data-steps]')).toBeHidden()
     await page.getByRole('button', {name: 'Expand map'}).click()
     await expect(page.locator('[data-compass-map]')).toHaveClass(/is-expanded/)
     // The map itself follows, not only its box: it must fill the screen.
@@ -93,7 +105,11 @@ test.describe('route and arrows', () => {
     await expect(page.locator('[data-start-direction]')).toHaveText(/^The route heads [a-z-]+ from here\.$/, {timeout: 10_000})
     // Headless Chrome sends no orientation events, and its fake camera never tracks.
     await expect(page.locator('[data-start-arrow]')).toBeHidden()
-    await expect(page.getByRole('button', {name: 'Start', exact: true})).toBeDisabled()
+    // Until then the button says so, and does not look ready to tap.
+    const waiting = page.getByRole('button', {name: 'Getting ready…', exact: true})
+    await expect(waiting).toBeDisabled()
+    await expect(waiting).not.toHaveCSS('background-image', /gradient/)
+    await expect(page.locator('[data-start-title]')).toBeFocused()
     // The map always shows. Without ?debug=1 nothing of the debug tools does.
     await expect(page.locator('[data-compass-map]')).toBeVisible()
     await expect(page.getByRole('button', {name: 'Show debug panel'})).toHaveCount(0)

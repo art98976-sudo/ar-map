@@ -111,6 +111,11 @@ export function instructionFor(manoeuvre, distanceM, arriveLabel = 'Destination'
   return now ? `${words} now` : `${words} in ${away}`
 }
 
+/** What to read aloud: the step without its distance, so a screen reader speaks once per step. */
+export function spokenStep(text) {
+  return text.replace(/\s*(·|in)?\s*(now|[\d.]+ (m|km))$/, '').trim()
+}
+
 /** The icon name for what the user does next. */
 export function stepIcon(manoeuvre, distanceM) {
   if (distanceM > GUIDE.announceM) return 'straight'

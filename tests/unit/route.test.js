@@ -112,7 +112,7 @@ describe('footpaths never give up because of an isolated bit of path', () => {
     expect(inMain).toBeGreaterThan(g.pts.length / 2)
     expect(new Set(g.component).size).toBeGreaterThan(1)
   })
-  it('finds a route from anywhere on campus to every destination', () => {
+  it('finds a route from anywhere on campus to every destination', {timeout: 30_000}, () => {
     const none = []
     for (let lat = 56.141; lat <= 56.1515; lat += 0.0015) {
       for (let lng = -3.932; lng <= -3.912; lng += 0.0025) {

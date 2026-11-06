@@ -54,6 +54,18 @@
 .btn--secondary:active {
   background: var(--green-tint-press);
 }
+.btn--primary:disabled {
+  color: var(--text-muted);
+  background: var(--grey-a10);
+}
+.btn:disabled {
+  cursor: default;
+  box-shadow: none;
+  transform: none;
+}
+.btn:not(:disabled) > .spinner {
+  display: none; /* a waiting button shows its spinner only while it waits */
+}
 .btn--ghost {
   --btn-h: var(--tap);
   color: var(--text-muted);

@@ -1,5 +1,5 @@
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {esc, html, render} from '../../src/ui/dom.js'
+import {esc, focusScreen, html, render} from '../../src/ui/dom.js'
 import {
   markPermissionsAllowed,
   permissionsAllowed,
@@ -89,6 +89,28 @@ describe('router', () => {
     expect(root.textContent).toBe('Map 2')
     expect(cleanup).toHaveBeenCalledOnce()
     expect(root.dataset.screen).toBe('map')
+  })
+
+  it('changes only the address on a silent navigate, and does not redraw on the way back to it', () => {
+    const root = document.createElement('div')
+    const home = vi.fn((el) => {
+      el.innerHTML = '<h1>Home</h1>'
+    })
+    const router = createRouter({root, routes: {'/': home}})
+    router.start()
+    router.navigate('/?to=library', {replace: true, silent: true})
+    expect(window.location.hash).toBe('#/?to=library')
+    window.dispatchEvent(new Event('popstate'))
+    expect(home).toHaveBeenCalledOnce()
+  })
+
+  it('focuses the first heading that is not hidden', () => {
+    const root = document.createElement('div')
+    root.innerHTML = '<section hidden><h1 tabindex="-1" id="a">Hidden</h1></section><h1 tabindex="-1" id="b">Shown</h1>'
+    document.body.append(root)
+    focusScreen(root)
+    expect(document.activeElement?.id).toBe('b')
+    root.remove()
   })
 
   it('falls back to home for unknown paths', () => {

@@ -12,7 +12,7 @@ import {
   turnPrompt,
   walkingCorrection,
 } from '../../src/nav/compass-guide.js'
-import {buildManoeuvres, createGuidance, instructionFor, landmarkPhrase, landmarksFrom, nearestLandmark, stepIcon} from '../../src/nav/guidance.js'
+import {buildManoeuvres, createGuidance, instructionFor, landmarkPhrase, landmarksFrom, nearestLandmark, spokenStep, stepIcon} from '../../src/nav/guidance.js'
 import {COMPASS_MAP, mapCamera} from '../../src/ui/components/compass-map.js'
 import {icon} from '../../src/ui/icons.js'
 
@@ -204,6 +204,16 @@ describe('the step list and turn events', () => {
       if (guidance.turnIsNow(s)) log.push(['now', s])
     }
     expect(log).toEqual([['close', 30], ['now', 38], ['passed', 42]])
+  })
+  it('reads a step aloud without the distance, so it is spoken once', () => {
+    expect(spokenStep('Turn left at the Atrium · 12 m')).toBe('Turn left at the Atrium')
+    expect(spokenStep('Turn left at the Atrium · now')).toBe('Turn left at the Atrium')
+    expect(spokenStep('Turn left in 12 m')).toBe('Turn left')
+    expect(spokenStep('Turn left now')).toBe('Turn left')
+    expect(spokenStep('Continue straight 1.2 km')).toBe('Continue straight')
+    expect(spokenStep('Continue past the Library · 40 m')).toBe('Continue past the Library')
+    expect(spokenStep('Pathfoot entrance in 8 m')).toBe('Pathfoot entrance')
+    expect(spokenStep('Turn around')).toBe('Turn around')
   })
   it('has an icon for everything the card can show', () => {
     const types = ['left', 'right', 'slight-left', 'slight-right', 'arrive', 'straight', 'uturn']

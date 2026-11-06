@@ -30,6 +30,17 @@ const failingGps = (code) => {
 }
 
 test.describe('location step', () => {
+  test('a screen that arrives later takes focus, so a screen reader hears it', async ({page}, testInfo) => {
+    test.skip(onlyOn('desktop-chrome', 'android-chrome')(testInfo)) // the iPhone case is under "motion denied"
+    await page.addInitScript(() => {
+      navigator.permissions.query = async () => ({state: 'denied', addEventListener() {}, removeEventListener() {}})
+    })
+    await page.goto('/#/locate?to=library&force=1')
+    const heading = page.getByRole('heading', {name: 'Location access is off'})
+    await expect(heading).toBeVisible({timeout: 15_000})
+    await expect(heading).toBeFocused()
+  })
+
   test('the trip goes map → card → location → camera, with no screen to tap through', async ({page}, testInfo) => {
     test.skip(onlyOn('android-chrome', 'iphone-safari')(testInfo))
     if (testInfo.project.name === 'iphone-safari') {

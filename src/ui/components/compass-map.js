@@ -1,6 +1,7 @@
 // The live map under the camera: MazeMap with the trip route, always turned so the way the user
 // faces is up, like a car's sat nav. If MazeMap cannot load, onFailed lets the screen draw its
 // plain route picture instead: the arrow and the instructions carry on either way.
+import {MAZEMAP} from '../../config.js'
 import {createCampusMap, loadMazeMap} from '../../map/mazemap.js'
 import {stepBearing} from '../../nav/compass-guide.js'
 
@@ -43,9 +44,10 @@ function markerElement(className, text = '') {
 /**
  * @param host element the map fills
  * @param o.getState () => the trip's mapState(), or null before it is ready
- * @param o.onFailed MazeMap could not load
+ * @param o.onReady the map has drawn
+ * @param o.onFailed MazeMap could not load, or has not drawn in time
  */
-export function createCompassMap(host, {getState, onFailed}) {
+export function createCompassMap(host, {getState, onReady, onFailed}) {
   let instance = null
   let mapReady = false
   let stopped = false
@@ -59,6 +61,7 @@ export function createCompassMap(host, {getState, onFailed}) {
   let dest = null
   let turn = null
   let shownTurn = null
+  let failTimer = 0
   // The host grows and shrinks over a CSS transition: follow it, so the map always fills it.
   const resize = typeof ResizeObserver === 'function' ? new ResizeObserver(() => instance?.map.resize()) : null
   resize?.observe(host)
@@ -130,12 +133,18 @@ export function createCompassMap(host, {getState, onFailed}) {
         options: {interactive: false, zoom: COMPASS_MAP.zoom, pitch: COMPASS_MAP.pitch, fadeDuration: 0},
         onReady: () => {
           mapReady = true
+          clearTimeout(failTimer)
+          if (!stopped) onReady?.()
         },
         onError: (err) => {
           if (!mapReady) console.warn('[compass-map] map error', err)
         },
       })
       frame = requestAnimationFrame(loop)
+      // The script can load and its map tiles still never arrive.
+      failTimer = setTimeout(() => {
+        if (!stopped && !mapReady) onFailed?.()
+      }, MAZEMAP.loadTimeoutMs)
     })
     .catch((err) => {
       console.warn('[compass-map] could not load', err)
@@ -154,6 +163,7 @@ export function createCompassMap(host, {getState, onFailed}) {
     },
     destroy() {
       stopped = true
+      clearTimeout(failTimer)
       resize?.disconnect()
       cancelAnimationFrame(frame)
       instance?.destroy()

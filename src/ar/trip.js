@@ -35,6 +35,7 @@ const TRACKING_HINT_AFTER_S = 4 // show "Move your phone slowly" after this long
 const COMPASS_PILL_AFTER_MS = 10_000 // show the figure-8 pill after this long unsteady
 const DESKTOP_START_DELAY_S = 2 // a webcam on a desk never reports NORMAL tracking
 const REROUTE_FIX_M = 25 // only trust GPS this good to plan a new route from
+const COMPASS_STALE_MS = 2000 // no reading for this long: the compass has stopped
 const INSTRUCTION_EVERY_S = 0.5
 const POINTS_PER_SAMPLE = 3
 
@@ -219,9 +220,14 @@ export function createArTrip({
     return heading != null && !isPoorAccuracy(headingAccuracy, COMPASS_GUIDE.poorAccuracyDeg)
   }
 
+  function compassStale() {
+    const newest = recent.at(-1)
+    return !newest || Date.now() - newest.at > COMPASS_STALE_MS
+  }
+
   /** Which way the user faces for the arrow and the map: walking has the last word once it has spoken. */
   function guideHeading() {
-    if (directionKnown && (compassOff || matcher.locked)) return cameraBearing()
+    if (directionKnown && (compassOff || matcher.locked || compassStale())) return cameraBearing()
     if (heading != null) return recentHeading()
     return directionKnown ? cameraBearing() : null
   }
@@ -274,7 +280,7 @@ export function createArTrip({
 
   /** Waiting for the user to turn towards the route. A compass that goes poor stops the wait. */
   function watchFacing() {
-    if (!compassUsable()) return beginGuidance(null)
+    if (!compassUsable() || compassStale()) return beginGuidance(null)
     const h = recentHeading()
     facingYaw = arrowYawDeg(nav.startInfo(bestFix()).bearingDeg, h)
     if (Math.abs(facingYaw) <= COMPASS_GUIDE.facingOkDeg) beginGuidance(h)
@@ -320,7 +326,8 @@ export function createArTrip({
       nav.setRoute(next)
       routeVersion += 1
       legCache = null
-      tracker = createRouteTracker(nav.route, nav.startInfo(lastFix).s)
+      startS = nav.startInfo(lastFix).s
+      tracker = createRouteTracker(nav.route, startS)
       // The walk so far no longer has a route to fit, so matching starts afresh. Its turn stays in
       // the placement, so the compass has to keep allowing for it.
       compassOff ||= matcher.flipped

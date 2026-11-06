@@ -317,6 +317,7 @@ test.describe('AR session', () => {
     await page.goto('/#/ar?to=library')
     await page.getByRole('button', {name: 'Tap to start'}).click()
     await expect(page.getByRole('heading', {name: 'Motion access is off'})).toBeVisible()
+    await expect(page.getByRole('heading', {name: 'Motion access is off'})).toBeFocused()
     await expect(page.getByText('Tap Allow when Safari asks about motion.')).toBeVisible()
     await page.getByRole('button', {name: 'View 2D map instead'}).click()
     await expect(page.getByRole('button', {name: 'Where do you want to go?'})).toBeVisible()
