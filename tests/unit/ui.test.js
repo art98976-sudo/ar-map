@@ -9,7 +9,7 @@ import {
   takePendingPermissions,
 } from '../../src/ar/permissions.js'
 import {createRouter} from '../../src/ui/router.js'
-import {errorCopy} from '../../src/ui/screens/ar.js'
+import {errorCopy} from '../../src/ui/screens/ar-errors.js'
 
 describe('html escaping', () => {
   it('escapes interpolated text', () => {
