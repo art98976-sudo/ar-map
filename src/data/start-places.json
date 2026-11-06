@@ -1,0 +1,85 @@
+{
+  "_source": "OpenStreetMap contributors (ODbL). Places to start from, in addition to destinations.json.",
+  "places": [
+    {
+      "id": "start-juniper-court",
+      "name": "Juniper Court",
+      "category": "living",
+      "building": "Juniper Court",
+      "lat": 56.149012,
+      "lng": -3.917484
+    },
+    {
+      "id": "start-muirhead-house",
+      "name": "Muirhead House",
+      "category": "living",
+      "building": "Muirhead House",
+      "lat": 56.149071,
+      "lng": -3.91882
+    },
+    {
+      "id": "start-h-h-donnelly-house",
+      "name": "H.H Donnelly House",
+      "category": "living",
+      "building": "H.H Donnelly House",
+      "lat": 56.149046,
+      "lng": -3.921914
+    },
+    {
+      "id": "start-polwarth-house",
+      "name": "Polwarth House",
+      "category": "living",
+      "building": "Polwarth House",
+      "lat": 56.148866,
+      "lng": -3.920282
+    },
+    {
+      "id": "start-fraser-of-allander-house",
+      "name": "Fraser of Allander House",
+      "category": "living",
+      "building": "Fraser of Allander House",
+      "lat": 56.148513,
+      "lng": -3.921188
+    },
+    {
+      "id": "start-alexander-court",
+      "name": "Alexander Court",
+      "category": "living",
+      "building": "Alexander Court",
+      "lat": 56.1488,
+      "lng": -3.907848
+    },
+    {
+      "id": "start-pendreich-way",
+      "name": "Pendreich Way",
+      "category": "living",
+      "building": "Pendreich Way",
+      "lat": 56.149883,
+      "lng": -3.92329
+    },
+    {
+      "id": "start-beech-court",
+      "name": "Beech Court",
+      "category": "living",
+      "building": "Beech Court",
+      "lat": 56.148357,
+      "lng": -3.919566
+    },
+    {
+      "id": "start-main-car-park",
+      "name": "Main Car Park",
+      "category": "parking",
+      "building": null,
+      "lat": 56.140772,
+      "lng": -3.926741
+    },
+    {
+      "id": "start-willow-court",
+      "name": "Willow Court",
+      "category": "living",
+      "building": "Willow Court",
+      "lat": 56.149195,
+      "lng": -3.920364
+    }
+  ]
+}

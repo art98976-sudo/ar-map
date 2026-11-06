@@ -14,8 +14,17 @@ let instances = 0
 /**
  * @param {HTMLElement} host
  * @param {{onSelect: (dest) => void, placeholder?: string, label?: string}} options
+ * @param options.places the list to search. searchRooms: also ask the campus map for rooms.
+ * @param options.recent {get, add, clear} for the "Recent" list.
  */
-export function createDestinationSearch(host, {onSelect, placeholder, label = 'Search destinations'}) {
+export function createDestinationSearch(host, {
+  onSelect,
+  placeholder,
+  label = 'Search destinations',
+  places = DESTINATIONS,
+  searchRooms = true,
+  recent: recentStore = {get: getRecent, add: addRecent, clear: clearRecent},
+}) {
   const uid = `ds${++instances}`
   let query = ''
   let local = []
@@ -86,7 +95,7 @@ export function createDestinationSearch(host, {onSelect, placeholder, label = 'S
     const hasQuery = query.trim().length > 0
     clearBtn.hidden = !hasQuery
     if (!hasQuery) {
-      options = getRecent()
+      options = recentStore.get()
       const recent = options
       render(
         panel,
@@ -169,12 +178,12 @@ export function createDestinationSearch(host, {onSelect, placeholder, label = 'S
 
   // ---------- behaviour ----------
   function runSearch() {
-    local = searchDestinations(DESTINATIONS, query, {popular: POPULAR_IDS, limit: 6})
+    local = searchDestinations(places, query, {popular: POPULAR_IDS, limit: searchRooms ? 6 : 12})
     active = -1
     clearTimeout(timer)
     controller?.abort()
     const q = query.trim()
-    if (q.length < 2) {
+    if (q.length < 2 || !searchRooms) {
       rooms = {state: 'idle', items: []}
       draw()
       return
@@ -199,7 +208,7 @@ export function createDestinationSearch(host, {onSelect, placeholder, label = 'S
 
   function choose(dest) {
     if (!dest) return
-    addRecent(dest)
+    recentStore.add(dest)
     input.blur()
     onSelect(dest)
   }
@@ -241,7 +250,7 @@ export function createDestinationSearch(host, {onSelect, placeholder, label = 'S
     const chip = e.target.closest('[data-popular]')
     if (chip) return choose(DESTINATIONS.find((d) => d.id === chip.dataset.popular))
     if (e.target.closest('[data-clear-recent]')) {
-      clearRecent()
+      recentStore.clear()
       draw()
       input.focus()
     } else if (e.target.closest('[data-clear]')) {

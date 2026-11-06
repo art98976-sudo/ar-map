@@ -5,6 +5,9 @@
 //   'facing'       facing more than 60° off the route: turn until within 30°, then guidance starts
 //   'ready'        route placed: guidance running
 //
+// A chosen start (a door or a pin) is where the user stands: motion tracking runs from there, GPS is
+// ignored until the user switches to it, and a door's stored heading replaces the compass.
+//
 // The compass decides the direction, not which way the user happens to face. A compass can be
 // 20-90° out near glass buildings, so with a poor one (or none) nothing is drawn on the ground
 // until 6 m of walking has shown the direction. Map matching then corrects whatever is left.
@@ -20,7 +23,8 @@ import {arrowTarget, arrowYawDeg, COMPASS_GUIDE, createRouteTracker, turnPrompt,
 import {createNavScene, gpsDistanceToEntrance} from './nav-scene.js'
 import {acceptHit, createGroundTracker, GROUND, HIT_TYPES, SCREEN_POINTS} from './ground.js'
 import {createRouteMatcher} from './route-matcher.js'
-import {GPS, watchLocation} from '../geo/location.js'
+import {GPS, locationPermissionState, watchLocation} from '../geo/location.js'
+import {isManual, START} from '../nav/start-point.js'
 import {createArrivalDetector, createGuidance, createOffRouteMonitor, landmarksFrom} from '../nav/guidance.js'
 import {entranceOf, isOnCampus, planRoute, SNAP_TO_PATH_M} from '../nav/route.js'
 
@@ -37,6 +41,15 @@ const DESKTOP_START_DELAY_S = 2 // a webcam on a desk never reports NORMAL track
 const REROUTE_FIX_M = 25 // only trust GPS this good to plan a new route from
 const COMPASS_STALE_MS = 2000 // no reading for this long: the compass has stopped
 const CAMPUS_FIXES = 2 // fixes in a row inside the boundary, so one stray fix cannot cross it
+const AUTO_START_S = 1 // let the compass speak before a trip starts by itself
+const AUTO_START_EVERY_S = 0.5
+const LIVE_FIXES = 3 // good GPS this many times running: offer to switch to it
+const REPICK_FOR_S = 20 // how long to offer choosing the start again, after going off route
+const CAMPUS_CHECK_EVERY_S = 1
+const EDGE_AHEAD_M = 8 // the backup arrow appears when this far along the route is off screen
+const EDGE_MIN_AHEAD_M = 5 // nearer than this, the point is below the screen when all is well
+const EDGE_AFTER_S = 1 // not for a moment's glance away
+const EDGE_LOST_AFTER_S = 1 // nor for a moment's lost tracking
 const INSTRUCTION_EVERY_S = 0.5
 const POINTS_PER_SAMPLE = 3
 
@@ -56,6 +69,9 @@ export function createArTrip({
   arriveLabel = 'Destination',
   plan = planRoute,
   landmarks = landmarksFrom(DESTINATIONS, origin, destination.id),
+  startPoint = null,
+  autoStart = false,
+  reducedMotion = false,
   onPhase,
   onStats,
   onArrived,
@@ -85,6 +101,14 @@ export function createArTrip({
   let ringFill = 0
   let routeVersion = 0
   let legCache = null
+  let manual = isManual(startPoint)
+  let liveFixes = 0
+  let repickUntil = -Infinity
+  let startBlocked = false
+  let autoStartAt = -Infinity
+  let campusCheckAt = -Infinity
+  let edge = null
+  let edgeSince = null
   let cameFromOutside = !isOnCampus(origin)
   let fixesOnCampus = 0
   let lastTime = null
@@ -137,12 +161,23 @@ export function createArTrip({
     },
   })
 
-  const stopGps = watchLocation({
-    onFix: (pos) => {
-      lastFix = {lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy}
-    },
-    onError: () => {}, // the location step already handled permissions; keep the last fix
-  })
+  let stopGps = () => {}
+  const startGps = () => {
+    stopGps = watchLocation({
+      onFix: (pos) => {
+        lastFix = {lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy}
+        liveFixes = lastFix.accuracy <= START.liveGpsM ? liveFixes + 1 : 0
+      },
+      onError: () => {}, // the location step already handled permissions; keep the last fix
+    })
+  }
+  // A chosen start never asks for location. If the phone already allows it, GPS may be offered later.
+  if (!manual) startGps()
+  else {
+    locationPermissionState().then((state) => {
+      if (state === 'granted' && !stopped) startGps()
+    })
+  }
 
   function lookDirection() {
     return camera.getWorldDirection(new THREE.Vector3())
@@ -213,6 +248,7 @@ export function createArTrip({
 
   /** The freshest good GPS fix for "where am I standing"; else the trip start. */
   function bestFix() {
+    if (manual) return origin
     return lastFix && lastFix.accuracy <= GPS.goodAccuracyM ? lastFix : origin
   }
 
@@ -268,6 +304,12 @@ export function createArTrip({
     const fix = bestFix()
     const startInfo = nav.startInfo(fix)
     if (startInfo.offset > SNAP_TO_PATH_M) return 'path'
+    // Standing at a door with it behind you: the stored heading beats a compass beside a building.
+    if (manual && Number.isFinite(startPoint.headingDeg)) {
+      compassOff = true
+      beginGuidance(startPoint.headingDeg)
+      return 'ok'
+    }
     if (!compassUsable()) {
       beginGuidance(null)
       return 'ok'
@@ -319,18 +361,24 @@ export function createArTrip({
     if (correction?.flipped) tracker.set(startS + matcher.everWalkedM)
   }
 
-  /** Plan again from where GPS says the user is, keeping the current placement. */
+  /** Where motion tracking says the user is, as a GPS point. */
+  function trackedPosition() {
+    return fromLocal(origin, nav.worldToRoute({x: camera.position.x, z: camera.position.z}))
+  }
+
+  /** Plan again from where the user is, keeping the current placement. */
   async function reroute() {
-    if (!lastFix || lastFix.accuracy > REROUTE_FIX_M) return
+    const from = manual ? trackedPosition() : lastFix
+    if (!from || (!manual && from.accuracy > REROUTE_FIX_M)) return
     rerouting = true
     try {
-      const next = await plan(lastFix, destination)
+      const next = await plan(from, destination)
       if (stopped || arrived || !nav || next.status !== 'ok') return
       route = next
       nav.setRoute(next)
       routeVersion += 1
       legCache = null
-      startS = nav.startInfo(lastFix).s
+      startS = nav.startInfo(from).s
       tracker = createRouteTracker(nav.route, startS)
       // The walk so far no longer has a route to fit, so matching starts afresh. Its turn stays in
       // the placement, so the compass has to keep allowing for it.
@@ -354,6 +402,32 @@ export function createArTrip({
     cameFromOutside = false
     onEnterCampus?.()
     if (!rerouting && !arrived && isOnCampus(entranceOf(destination))) reroute()
+  }
+
+  /** The small arrow at the bottom of the screen: tracking is lost, or the path is out of view. */
+  function updateEdge(time, s) {
+    edge = null
+    if (phase !== 'ready' || arrived || !directionKnown) {
+      edgeSince = null
+      return
+    }
+    const next = guidance.getNextManoeuvre(s)
+    const corner = next.type === 'arrive' ? Infinity : (next.first ?? next.s) - s
+    const ahead = Math.max(EDGE_MIN_AHEAD_M, Math.min(EDGE_AHEAD_M, corner))
+    const view = nav.routeToWorld(pointAt(nav.route, s + ahead)).applyMatrix4(camera.matrixWorldInverse)
+    const front = view.z < 0
+    const screen = view.clone().applyMatrix4(camera.projectionMatrix)
+    const inView = front && Math.abs(screen.x) <= 1 && Math.abs(screen.y) <= 1
+    const lost = tracking !== 'NORMAL' && time - lastNormalAt >= EDGE_LOST_AFTER_S
+    if (inView && !lost) {
+      edgeSince = null
+      return
+    }
+    edgeSince ??= time
+    if (!lost && time - edgeSince < EDGE_AFTER_S) return
+    const h = guideHeading()
+    if (h == null) return
+    edge = {yawDeg: arrowYawDeg(arrowTarget(nav.route, guidance.manoeuvres, next, s).bearingDeg, h)}
   }
 
   /** Look for the real ground at a few spots in the lower half of the screen. */
@@ -455,7 +529,7 @@ export function createArTrip({
     THREE = window.THREE
     camera = cam
     xr = XR8
-    nav = createNavScene({THREE, scene, camera, route, origin, name: destination.name})
+    nav = createNavScene({THREE, scene, camera, route, origin, name: destination.name, reducedMotion})
     matcher = createRouteMatcher(nav.route)
     guidance = createGuidance(nav.route, {arriveLabel, landmarks})
     setPhase('await-start')
@@ -470,6 +544,11 @@ export function createArTrip({
     startedAt ??= time
     lastTime = time
     if (tracking === 'NORMAL' || lastNormalAt == null) lastNormalAt = time
+    // A trip from GPS starts by itself: there is nothing to line up, and nothing to tap.
+    if (autoStart && !manual && phase === 'await-start' && time - startedAt >= AUTO_START_S && time >= autoStartAt) {
+      autoStartAt = time + AUTO_START_EVERY_S
+      startBlocked = start() === 'path'
+    }
     if (phase === 'facing') watchFacing()
     if (phase === 'ready' && !arrived) {
       // A compass that recovers before walking has shown the way: use it, from where the user is.
@@ -487,7 +566,12 @@ export function createArTrip({
       nav.setGround(groundNow.height, groundNow.slope, s.s)
       nav.setChevronOpacity(placementTrusted() ? 1 : 0)
       if (tracking === 'NORMAL') tracker.walk(camera.position, directionKnown ? nav.worldToRoute : null)
-      if (lastFix && lastFix !== fedFix) {
+      if (manual) {
+        if (directionKnown && time >= campusCheckAt) {
+          campusCheckAt = time + CAMPUS_CHECK_EVERY_S
+          noteCampus({...trackedPosition(), accuracy: 0})
+        }
+      } else if (lastFix && lastFix !== fedFix) {
         fedFix = lastFix
         tracker.fix(toLocal(origin, lastFix), lastFix.accuracy)
         noteCampus(lastFix)
@@ -511,10 +595,14 @@ export function createArTrip({
         if (guidance.turnIsClose(routeS)) onTurnClose?.()
         if (guidance.turnIsNow(routeS)) onTurnNow?.()
         // Only while SLAM knows where the user is, and not while already planning.
-        if (directionKnown && tracking === 'NORMAL' && !rerouting && offRoute.update(s.offset, time)) reroute()
+        if (directionKnown && tracking === 'NORMAL' && !rerouting && offRoute.update(s.offset, time)) {
+          if (manual) repickUntil = time + REPICK_FOR_S
+          reroute()
+        }
       }
     }
     updateArrow(dt, routeS)
+    updateEdge(time, routeS)
     statsTimer += dt
     if (statsTimer >= 0.25) {
       statsTimer = 0
@@ -525,6 +613,11 @@ export function createArTrip({
         compassUnsteady: unsteadySince != null && Date.now() - unsteadySince > COMPASS_PILL_AFTER_MS,
         compassPoor: compassPoor() && !placementTrusted(),
         directionKnown,
+        manual,
+        startBlocked,
+        edge,
+        repick: manual && !arrived && time < repickUntil,
+        liveAvailable: manual && !arrived && phase === 'ready' && liveFixes >= LIVE_FIXES,
         turnPrompt: phase === 'facing' ? turnPrompt(facingYaw, 0) : null,
         step: phase === 'ready' && !arrived ? guidance.step(routeS) : null,
         steps: phase === 'ready' ? guidance.steps(routeS) : null,
@@ -584,6 +677,15 @@ export function createArTrip({
       nav.realign(recentHeading())
     },
     start,
+    /** A chosen start, and GPS has become good: follow GPS from here on. */
+    switchToLive() {
+      if (!manual || !lastFix) return
+      manual = false
+      liveFixes = 0
+      repickUntil = -Infinity
+      fedFix = null
+      if (phase === 'ready' && !rerouting) reroute()
+    },
     stop() {
       stopped = true
       stopCompass()

@@ -80,10 +80,10 @@ function startSharedWatch() {
  * The one tap. Call first thing in a click handler, before any `await`: all three requests
  * start here, synchronously, so iPhone shows its prompts. Returns what settlePermissions needs.
  */
-export function startPermissionRequests() {
+export function startPermissionRequests({gps: wantGps = true} = {}) {
   const motion = requestMotionPermission()
   const camera = requestCameraPermission()
-  const gps = startSharedWatch()
+  const gps = wantGps ? startSharedWatch() : null // a chosen start needs no location prompt
   motion.then((answer) => {
     if (answer !== 'denied') markPermissionsAllowed()
   })

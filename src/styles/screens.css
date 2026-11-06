@@ -551,3 +551,137 @@
   line-height: 1.12;
   letter-spacing: -0.022em;
 }
+
+/* ---------- Starting point: From row, the sheet, and picking on the map ---------- */
+.route-from {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.route-from__row {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--s-2);
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 var(--s-3);
+  border: 1px solid var(--grey-a10);
+  border-radius: var(--r-md);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.route-from__label {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+.route-from__value {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.route-prompt {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.route-prompt[hidden],
+.dest-sheet__link[hidden] {
+  display: none;
+}
+.start-options,
+.start-doors {
+  display: grid;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-4);
+}
+.start-doors[hidden] {
+  display: none;
+}
+.start-doors__title {
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+.start-option {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  width: 100%;
+  min-height: 60px;
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--grey-a10);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.start-option__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--green-tint-press);
+  color: var(--green-02);
+}
+.start-option__text {
+  display: grid;
+  min-width: 0;
+}
+.start-option__text span {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.pick-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  display: grid;
+  gap: var(--s-2);
+  max-width: 520px;
+  margin: 0 auto;
+  padding: var(--s-4) var(--s-4) calc(var(--safe-bottom) + var(--s-2));
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: var(--surface);
+  box-shadow: 0 -10px 30px -10px var(--sheet-shadow);
+}
+.pick-bar[hidden] {
+  display: none;
+}
+.pick-bar__text {
+  font-weight: 600;
+}
+.map-home[data-picking] .map-pin {
+  opacity: 0.45;
+  pointer-events: none;
+}
+.map-home[data-picking] .map-home__top {
+  display: none;
+}
+.map-pick-pin {
+  color: var(--green-02);
+  filter: drop-shadow(0 2px 4px var(--sheet-shadow));
+  cursor: grab;
+}
+.map-start {
+  width: 18px;
+  height: 18px;
+  border: 3px solid var(--white);
+  border-radius: 50%;
+  background: var(--green-02);
+  box-shadow: 0 1px 5px var(--sheet-shadow);
+}
+.arrival__place {
+  margin-bottom: var(--s-3);
+  color: var(--text-muted);
+}

@@ -342,14 +342,15 @@ describe('reading the direction from walking', () => {
   })
 })
 
-describe('short ground arrows', () => {
+describe('ground arrows', () => {
   const route = [{x: 0, y: 0}, {x: 0, y: 30}, {x: 30, y: 30}, {x: 30, y: 60}]
   const turns = [{s: 30, angle: 90}, {s: 60, angle: -90}]
-  it('reach no more than 8 m ahead', () => {
-    expect(TRAIL.aheadM).toBe(8)
-    expect(visibleWindowEnd(turns, 0)).toBe(8)
-    expect(visibleWindowEnd([], 40)).toBe(48)
-    expect(visibleWindowEnd(turns, 35)).toBe(43)
+  it('reach no more than 30 m ahead', () => {
+    expect(TRAIL.aheadM).toBe(30)
+    expect(TRAIL.spacingM).toBe(2)
+    expect(visibleWindowEnd(turns, 0)).toBe(30)
+    expect(visibleWindowEnd([], 40)).toBe(70)
+    expect(visibleWindowEnd([{s: 100, angle: 90}], 35)).toBe(65)
   })
   it('stop at the next corner when that is closer', () => {
     expect(visibleWindowEnd(turns, 25)).toBe(30)
@@ -360,7 +361,7 @@ describe('short ground arrows', () => {
     for (let s = 0; s < 29; s += 0.25) {
       const end = visibleWindowEnd(turns, s)
       expect(end).toBeLessThanOrEqual(30)
-      expect(end - s).toBeLessThanOrEqual(8)
+      expect(end - s).toBeLessThanOrEqual(30)
     }
   })
   it('after walking round the corner, the next leg eases in without overshooting', () => {
@@ -369,9 +370,9 @@ describe('short ground arrows', () => {
     expect(trail.windowEnd).toBe(30)
     for (let i = 0; i < 40; i++) {
       trail.update(32, 0.1, i)
-      expect(trail.windowEnd).toBeLessThanOrEqual(40 + 1e-6)
+      expect(trail.windowEnd).toBeLessThanOrEqual(60 + 1e-6)
     }
-    near(trail.windowEnd, 40, 0.5)
+    near(trail.windowEnd, 60, 0.5)
     trail.dispose()
   })
   it('fade out, and come back', () => {

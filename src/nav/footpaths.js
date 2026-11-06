@@ -116,6 +116,12 @@ function routeBetween(graph, pFrom, pTo, s, g) {
   }
 }
 
+/** The nearest walkable point to a GPS point: {lat, lng, offsetM}. */
+export function nearestOnPaths(graph, p) {
+  const hit = snap(graph, toLocal(graph.origin, p), graph.mainComponent)
+  return hit ? {...fromLocal(graph.origin, {x: hit.x, y: hit.y}), offsetM: hit.d} : null
+}
+
 let townGraphPromise = null
 /** Load and build the Stirling-wide graph once (about 290 kB gzipped, only for off-campus trips). */
 export function loadTownGraph() {

@@ -617,3 +617,43 @@
 .ar-debug .stats dd {
   font-size: var(--fs-sm);
 }
+
+/* ---------- Backup arrow: the path is out of view, or tracking is lost ---------- */
+.ar-edge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.ar-edge[hidden] {
+  display: none;
+}
+.ar-edge__arrow {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--green-02);
+  transition: transform 200ms linear;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ar-edge__arrow {
+    transition: none;
+  }
+}
+
+/* Hints are see-through to touch. These two are buttons. */
+.ar__hint--action {
+  min-height: 44px;
+  border: 0;
+  color: var(--white);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.ar__hint--action[hidden] {
+  display: none;
+}

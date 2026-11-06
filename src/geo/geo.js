@@ -23,6 +23,13 @@ export function bearingDeg(a, b) {
   return (deg(Math.atan2(y, x)) + 360) % 360
 }
 
+const COMPASS_POINTS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west']
+
+/** "north-east" for a bearing in degrees. */
+export function compassPoint(degrees) {
+  return COMPASS_POINTS[Math.round((((degrees % 360) + 360) % 360) / 45) % 8]
+}
+
 /** GPS point -> metres east/north of `origin`. */
 export function toLocal(origin, p) {
   return {

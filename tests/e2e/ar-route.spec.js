@@ -64,10 +64,9 @@ test.describe('route and arrows', () => {
     await page.goto('/#/locate?to=cottrell&force=1&debug=1')
     await page.getByRole('button', {name: 'Tap to start'}).click({timeout: 30_000})
     await expect(page.locator('[data-stat="camera"]')).toHaveText('Working', {timeout: 60_000})
-    // The test browser has no compass: the Start tap is enough.
-    await page.getByRole('button', {name: 'Start', exact: true}).click({timeout: 30_000})
+    // A trip from GPS starts by itself, with nothing to tap.
     await expect(page.locator('[data-stat="phase"]')).toHaveText('ready', {timeout: 30_000})
-    await expect(page.getByRole('heading', {name: 'Stand on the path and tap Start'})).toBeHidden()
+    await expect(page.locator('[data-start]')).toBeHidden()
     await expect(page.locator('[data-compass-map]')).toBeVisible()
     // ?debug=1: the live overlay.
     await expect(page.locator('[data-live="segment"]')).toHaveText(/^\d+°$/, {timeout: 10_000})
@@ -111,21 +110,15 @@ test.describe('route and arrows', () => {
     expect(errors).toEqual([])
   })
 
-  test('the Start card waits for tracking and says which way the route goes, compass or not', async ({page}, testInfo) => {
+  test('from GPS there is no card to tap, only a small indicator until tracking is ready', async ({page}, testInfo) => {
     test.skip(onlyOn('android-chrome')(testInfo))
     await page.addInitScript(FAKE_REAR_CAMERA)
     await page.goto('/#/locate?to=library')
     await page.getByRole('button', {name: 'Tap to start'}).click({timeout: 30_000})
     await expect(page.locator('[data-veil]')).toHaveClass(/is-hidden/, {timeout: 60_000})
-    await expect(page.getByRole('heading', {name: 'Stand on the path and tap Start'})).toBeVisible({timeout: 15_000})
-    await expect(page.locator('[data-start-direction]')).toHaveText(/^The route heads [a-z-]+ from here\.$/, {timeout: 10_000})
-    // Headless Chrome sends no orientation events, and its fake camera never tracks.
-    await expect(page.locator('[data-start-arrow]')).toBeHidden()
-    // Until then the button says so, and does not look ready to tap.
-    const waiting = page.getByRole('button', {name: 'Getting ready…', exact: true})
-    await expect(waiting).toBeDisabled()
-    await expect(waiting).not.toHaveCSS('background-image', /gradient/)
-    await expect(page.locator('[data-start-title]')).toBeFocused()
+    // Headless Chrome's fake camera never tracks.
+    await expect(page.locator('[data-locating]')).toHaveText('Locating you…', {timeout: 15_000})
+    await expect(page.locator('[data-start]')).toBeHidden()
     // The map always shows. Without ?debug=1 nothing of the debug tools does.
     await expect(page.locator('[data-compass-map]')).toBeVisible()
     await expect(page.getByRole('button', {name: 'Show debug panel'})).toHaveCount(0)

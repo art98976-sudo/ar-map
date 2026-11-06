@@ -280,7 +280,7 @@ test.describe('AR session', () => {
     await mapReady(page)
     await tapPin(page, 'cottrell')
     await page.getByRole('button', {name: 'Walk here in AR'}).click()
-    await expect(page.getByRole('progressbar', {name: 'Loading AR'})).toBeVisible({timeout: 15_000})
+    // The engine was fetched while the card was showing, so there may be no loading screen at all.
     await expect(page.locator('canvas[data-canvas]')).toBeVisible({timeout: 60_000})
     await expect(page.locator('[data-veil]')).toHaveClass(/is-hidden/, {timeout: 60_000})
     await expect(page.locator('[data-trip-pill]')).toHaveText(/^Cottrell · \d+ m · \d+ min$/)
@@ -302,8 +302,7 @@ test.describe('AR session', () => {
     await context.setGeolocation({latitude: 56.144904, longitude: -3.920317, accuracy: 5})
     await page.goto('/#/locate?to=cottrell&force=1')
     await page.getByRole('button', {name: 'Tap to start'}).click({timeout: 30_000})
-    await page.getByRole('button', {name: 'Start', exact: true}).click({timeout: 60_000})
-    await expect(page.getByRole('heading', {name: "You've arrived"})).toBeVisible({timeout: 30_000})
+    await expect(page.getByRole('heading', {name: "You've arrived"})).toBeVisible({timeout: 90_000})
     await page.getByRole('button', {name: 'Done'}).click()
     await expect(page.getByRole('button', {name: 'Where do you want to go?'})).toBeVisible()
   })

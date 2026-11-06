@@ -78,8 +78,9 @@ const MATCH_EASE_S = 1
  * @param o.route  {points: [{lat,lng}], lengthM, entrance}
  * @param o.origin {lat,lng} trip start (route frame origin)
  * @param o.name   destination name for the pin label
+ * @param o.reducedMotion no flow, pulse or bobbing
  */
-export function createNavScene({THREE, scene, camera, route, origin, name}) {
+export function createNavScene({THREE, scene, camera, route, origin, name, reducedMotion = false}) {
   let local = routeToLocal(origin, route.points)
   let entranceLocal = toLocal(origin, route.entrance || route.points.at(-1))
   const lengthOf = (pts) => pts.reduce((sum, p, i) => (i ? sum + Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y) : 0), 0)
@@ -91,7 +92,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
   geoRoot.visible = false
   scene.add(geoRoot)
 
-  let trail = createArrowTrail(THREE, local, {approximate: route.source === 'direct'})
+  let trail = createArrowTrail(THREE, local, {approximate: route.source === 'direct', reducedMotion})
   geoRoot.add(trail.lane)
   geoRoot.add(trail.mesh)
   const pin = createDestinationPin(THREE, {name})
@@ -194,7 +195,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
     entranceLocal = toLocal(origin, next.entrance || next.points.at(-1))
     totalM = lengthOf(local)
     entranceS = projectOntoPolyline(local, entranceLocal).s
-    trail = createArrowTrail(THREE, local, {approximate: next.source === 'direct'})
+    trail = createArrowTrail(THREE, local, {approximate: next.source === 'direct', reducedMotion})
     geoRoot.add(trail.lane)
     geoRoot.add(trail.mesh)
     pin.group.position.set(entranceLocal.x, pin.group.position.y, -entranceLocal.y)
@@ -269,7 +270,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
     camera.getWorldPosition(tmp)
     const pinWorld = pin.group.getWorldPosition(new THREE.Vector3())
     const toPinM = Math.hypot(pinWorld.x - tmp.x, pinWorld.z - tmp.z)
-    pin.update(time, toPinM, camera)
+    pin.update(reducedMotion ? 0 : time, toPinM, camera)
     const turn = nextTurn(trail.turns, p.s)
     last = {
       s: p.s,
@@ -292,6 +293,8 @@ export function createNavScene({THREE, scene, camera, route, origin, name}) {
     realign,
     applyCorrection,
     worldToRoute,
+    /** Route frame {x, y} -> a new world position on the ground. */
+    routeToWorld: ({x, y}) => geoRoot.localToWorld(new THREE.Vector3(x, 0, -y)),
     setGround,
     routePosition,
     update,

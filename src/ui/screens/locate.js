@@ -19,6 +19,7 @@ import {
 } from '../../ar/permissions.js'
 import {errorCopy} from './ar.js'
 import {googleMapsWalkingUrl, planRoute, saveTripRoute} from '../../nav/route.js'
+import {getStart, isManual, START, startLabel} from '../../nav/start-point.js'
 import {formatDistance} from '../../arrows/pin.js'
 import {findDestination} from '../../nav/destinations.js'
 import {showToast} from '../components/toast.js'
@@ -44,6 +45,8 @@ export function locateScreen(root, {navigate, params}) {
   let tick = null
   let continueTimer = null
   let disposed = false
+  const startPoint = getStart()
+  const manualStart = isManual(startPoint)
 
   function setView(fragment, state) {
     root.dataset.locateState = state
@@ -99,6 +102,12 @@ export function locateScreen(root, {navigate, params}) {
               <div class="gps-meter__track" aria-hidden="true"><span class="gps-meter__fill" data-fill></span></div>
               <p class="gps-meter__hint">Needs ±${GPS.goodAccuracyM} m or better</p>
             </div>
+            <div class="locate-card__indoors" data-choose-start hidden>
+              <p>${icon('info', {size: 20})}<span><strong>We can't find you precisely.</strong> Choose your starting point instead.</span></p>
+              <button class="btn btn--primary btn--block" type="button" data-action="choose-start">
+                ${icon('pin')}<span>Choose starting point</span>
+              </button>
+            </div>
             <div class="locate-card__indoors" data-indoors hidden>
               <p>${icon('info', {size: 20})}<span><strong>You may be indoors.</strong> GPS needs a clear view of the sky. Step outside, or use the 2D map.</span></p>
               <button class="btn btn--secondary btn--block" type="button" data-action="map" aria-label="View 2D map instead">
@@ -119,6 +128,7 @@ export function locateScreen(root, {navigate, params}) {
     const title = root.querySelector('[data-title]')
     const body = root.querySelector('[data-body]')
     root.querySelector('[data-indoors]').hidden = !s.indoors
+    root.querySelector('[data-choose-start]').hidden = !(s.indoors || (s.status === 'weak' && s.accuracy > START.weakGpsM))
 
     if (s.status === 'searching') return
     const acc = Math.round(s.accuracy)
@@ -165,7 +175,7 @@ export function locateScreen(root, {navigate, params}) {
         stop()
         return showOffCampus(route.distanceM)
       }
-      saveTripRoute({...route, destinationId: destination.id, origin: fix, plannedAt: Date.now()})
+      saveTripRoute({...route, destinationId: destination.id, origin: fix, start: manualStart ? startPoint : null, plannedAt: Date.now()})
       if (body) body.textContent = `${formatDistance(route.lengthM)} walk, about ${route.minutes} min. Opening the camera…`
       continueTimer = setTimeout(() => {
         if (!disposed) navigate(`/ar?${nextQuery}`, {replace: true})
@@ -202,6 +212,15 @@ export function locateScreen(root, {navigate, params}) {
   }
 
   function start(title, body) {
+    if (manualStart) {
+      stop()
+      tapWatch?.stop()
+      tapWatch = null
+      showWaiting('Planning your walking route…', `From ${startLabel(startPoint)}.`)
+      root.querySelector('[data-meter]').hidden = true
+      planTrip(startPoint)
+      return
+    }
     stop()
     showWaiting(title, body)
     gate = createFixGate()
@@ -258,6 +277,9 @@ export function locateScreen(root, {navigate, params}) {
             <button class="btn btn--primary btn--lg btn--block" type="button" data-action="${copy.primary.action}" aria-label="${copy.primary.label}">
               ${icon('refresh')}<span>${copy.primary.label}</span>
             </button>
+            <button class="btn btn--secondary btn--lg btn--block" type="button" data-action="choose-start">
+              ${icon('pin')}<span>Choose starting point</span>
+            </button>
             <button class="btn btn--secondary btn--lg btn--block" type="button" data-action="map" aria-label="View 2D map instead">
               ${icon('map')}<span>View 2D map instead</span>
             </button>
@@ -298,6 +320,7 @@ export function locateScreen(root, {navigate, params}) {
     retry: () => start(),
     reload: () => window.location.reload(),
     map: () => navigate(`/?to=${encodeURIComponent(destination.id)}`),
+    'choose-start': () => navigate(`/?${new URLSearchParams({...Object.fromEntries(nextQuery), start: 'pick'})}`),
     copy: async () => {
       const url = window.location.href.split('#')[0]
       try {
@@ -312,7 +335,7 @@ export function locateScreen(root, {navigate, params}) {
   const issue = deviceIssue(params.force === '1')
   const pending = takePendingPermissions()
   if (issue) {
-    pending?.gps.stop()
+    pending?.gps?.stop()
     showUnsupported(issue)
   } else if (pending) {
     // The usual way in: the tap on a destination has already asked.
@@ -321,7 +344,7 @@ export function locateScreen(root, {navigate, params}) {
     // A reload or a direct link. Explain a block first; otherwise ask for a tap only if needed.
     locationPermissionState().then((state) => {
       if (disposed) return
-      if (state === 'denied') showError('denied')
+      if (state === 'denied' && !manualStart) showError('denied')
       else if (permissionsAllowed()) start()
       else showTapToStart()
     })

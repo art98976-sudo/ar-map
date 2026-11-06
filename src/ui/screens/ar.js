@@ -7,10 +7,12 @@ import {permissionsAllowed} from '../../ar/permissions.js'
 import {parseUserAgent} from '../../ar/device.js'
 import {findDestination} from '../../nav/destinations.js'
 import {GUIDE, spokenStep} from '../../nav/guidance.js'
+import {compassPoint} from '../../geo/geo.js'
+import {GPS_START, isManual, setStart, standHereText} from '../../nav/start-point.js'
 import {readTripRoute} from '../../nav/route.js'
 import {readTripFix} from '../../geo/location.js'
 import {formatDistance} from '../../arrows/pin.js'
-import {showArrival} from '../components/arrival.js'
+import {prefersReducedMotion, showArrival} from '../components/arrival.js'
 import {showToast} from '../components/toast.js'
 import {drawMinimap} from '../components/ar-minimap.js'
 import {createCompassMap} from '../components/compass-map.js'
@@ -22,12 +24,7 @@ const STEP_SWIPE_PX = 24
 const SWIPE_CLICK_MS = 500 // a mouse swipe also fires a click; a finger's does not
 const TURN_CHECK_MS = 700
 const PROMPT_ICON = {'Turn around': 'uturn', 'Turn left': 'left', 'Turn right': 'right'}
-const COMPASS_POINTS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west']
-
-/** "north-east" for a bearing in degrees. */
-export function compassPoint(deg) {
-  return COMPASS_POINTS[Math.round((((deg % 360) + 360) % 360) / 45) % 8]
-}
+export {compassPoint}
 
 /** How the pill names the end of the walk: "Pathfoot entrance", but not "Bus Hub entrance". */
 export function arriveLabel({name, category}) {
@@ -53,7 +50,10 @@ export function arScreen(root, {navigate, params}) {
   }
   // The walking route and the one permission tap happen on the location screen. Without them, go back.
   const route = readTripRoute()
-  const origin = readTripFix() || route?.origin
+  const tripStart = route?.start ?? null
+  const manualStart = isManual(tripStart)
+  // A chosen start is where the user stands, whatever an old GPS fix says.
+  const origin = manualStart ? route.origin : readTripFix() || route?.origin
   if (!route || route.destinationId !== destination.id || !origin || !permissionsAllowed()) {
     const debugQuery = params.debug === '1' ? '&debug=1' : ''
     queueMicrotask(() => navigate(`/locate?to=${encodeURIComponent(destination.id)}${allowDesktop ? '&force=1' : ''}${debugQuery}`, {replace: true}))
@@ -78,6 +78,11 @@ export function arScreen(root, {navigate, params}) {
     'toggle-map': () => toggleMap(),
     'toggle-steps': () => {
       if (performance.now() - swipedAt > SWIPE_CLICK_MS) toggleSteps(!stepsOpen)
+    },
+    repick: () => navigate(`/?${new URLSearchParams({to: destination.id, start: 'pick', ...(allowDesktop ? {force: '1'} : {})})}`),
+    'go-live': () => {
+      setStart(GPS_START)
+      trip?.switchToLive()
     },
     exit: () => navigate('/'),
     done: () => navigate('/'),
@@ -179,8 +184,13 @@ export function arScreen(root, {navigate, params}) {
 
           <div class="ar__hints">
           <p class="ar__hint" data-compass-pill role="status" hidden>Wave your phone in a figure-8</p>
-          <p class="ar__hint" data-hint role="status" hidden>Move your phone slowly</p>
-          <p class="ar__hint" data-lock-hint role="status" hidden>Walk a few steps to lock the arrows</p>
+          <p class="ar__hint ar-edge" data-edge role="status" hidden>
+            <span class="ar-edge__arrow" data-edge-arrow>${icon('arrowUp', {size: 22})}</span>
+            <span>Point your phone towards the path</span>
+          </p>
+          <p class="ar__hint" data-locating role="status" hidden>Locating you…</p>
+          <button class="ar__hint ar__hint--action" type="button" data-action="go-live" hidden>Switch to live location?</button>
+          <button class="ar__hint ar__hint--action" type="button" data-action="repick" hidden>Off route? Choose your start again</button>
           <p class="ar__hint" data-reroute-hint role="status" hidden>Off route - finding a new route</p>
           <p class="ar__hint" data-approx-hint role="status" ${route.source === 'direct' ? '' : 'hidden'}>Approximate route - check the 2D map</p>
           </div>
@@ -197,7 +207,7 @@ export function arScreen(root, {navigate, params}) {
 
           <section class="ar-guide" data-start aria-labelledby="start-title" hidden>
             <span class="ar-guide__icon" data-start-arrow hidden>${icon('arrowUp', {size: 28})}</span>
-            <h1 class="ar-guide__title" data-start-title id="start-title" tabindex="-1">Stand on the path and tap Start</h1>
+            <h1 class="ar-guide__title" data-start-title id="start-title" tabindex="-1">${manualStart ? standHereText(tripStart) : 'Walk to the path first'}</h1>
             <p class="ar-guide__text" data-start-direction></p>
             <p class="ar-guide__text" data-start-note role="status" hidden>Hold your phone up, looking ahead.</p>
             <button class="btn btn--primary btn--block" type="button" data-action="start-walk" disabled>
@@ -355,7 +365,7 @@ export function arScreen(root, {navigate, params}) {
     if (!card) return
     setStat('phase', phase)
     const wasHidden = card.hidden
-    card.hidden = phase !== 'await-start'
+    card.hidden = phase !== 'await-start' || !manualStart // a trip from GPS starts by itself
     if (wasHidden && !card.hidden) focusScreen(card)
     if (phase === 'ready') haptic([20, 60, 20])
   }
@@ -405,14 +415,19 @@ export function arScreen(root, {navigate, params}) {
   function paintHints(s) {
     const wanted = [
       ['[data-reroute-hint]', s.rerouting],
+      ['[data-edge]', s.edge],
       ['[data-compass-pill]', s.compassUnsteady || s.compassPoor],
-      ['[data-hint]', s.trackingStalled],
-      ['[data-lock-hint]', s.phase === 'ready' && !s.locked],
+      ['[data-locating]', !s.manual && !s.startBlocked && (s.phase === 'await-start' || (s.phase === 'ready' && !s.directionKnown))],
     ].find(([, show]) => show)?.[0]
-    for (const name of ['[data-reroute-hint]', '[data-compass-pill]', '[data-hint]', '[data-lock-hint]']) {
+    for (const name of ['[data-reroute-hint]', '[data-edge]', '[data-compass-pill]', '[data-locating]']) {
       const el = root.querySelector(name)
       if (el) el.hidden = name !== wanted
     }
+    if (s.edge) root.querySelector('[data-edge-arrow]').style.transform = `rotate(${Math.round(s.edge.yawDeg)}deg)`
+    const live = root.querySelector('[data-action="go-live"]')
+    if (live) live.hidden = !s.liveAvailable
+    const repick = root.querySelector('[data-action="repick"]')
+    if (repick) repick.hidden = !s.repick
   }
 
   function mapSettled() {
@@ -423,13 +438,16 @@ export function arScreen(root, {navigate, params}) {
   /** Which way the route goes from here: the arrow needs a compass, the words do not. */
   function paintStartCard(s) {
     const card = root.querySelector('[data-start]')
-    if (!card || card.hidden) return
+    if (!card) return
+    // A trip from GPS only shows this if the user is too far from any path to place the route.
+    if (!manualStart) card.hidden = !(s.phase === 'await-start' && s.startBlocked)
+    if (card.hidden) return
     const start = card.querySelector('[data-action="start-walk"]')
     if (start.disabled === Boolean(s.canStart)) {
       start.disabled = !s.canStart
       card.querySelector('[data-start-label]').textContent = s.canStart ? 'Start' : 'Getting ready…'
     }
-    if (s.routeBearingDeg == null) return
+    if (s.routeBearingDeg == null || manualStart) return
     const far = s.startGapM > 25
     card.querySelector('[data-start-title]').textContent = far ? 'Walk to the path first' : 'Stand on the path and tap Start'
     card.querySelector('[data-start-direction]').textContent = far
@@ -564,7 +582,7 @@ export function arScreen(root, {navigate, params}) {
     const canvas = root.querySelector('[data-canvas]')
     const {createArTrip} = await import('../../ar/trip.js')
     if (disposed) return
-    trip = createArTrip({route, origin, destination, allowDesktop, debug: showDebug, arriveLabel: arriveLabel(destination), onPhase, onStats, onArrived, onTurnClose: () => haptic(30), onTurnNow: () => haptic([30, 50, 30]), onTurnPassed: showTurnCheck, onEnterCampus: () => showToast('Welcome to campus', {tone: 'success'})})
+    trip = createArTrip({route, origin, destination, allowDesktop, debug: showDebug, arriveLabel: arriveLabel(destination), onPhase, onStats, onArrived, onTurnClose: () => haptic(30), onTurnNow: () => haptic([30, 50, 30]), onTurnPassed: showTurnCheck, startPoint: tripStart, autoStart: !manualStart, reducedMotion: prefersReducedMotion(), onEnterCampus: () => showToast('Welcome to campus', {tone: 'success'})})
     wireStepSwipe()
     compassMap = createCompassMap(root.querySelector('[data-map-canvas]'), {
       getState: () => trip?.mapState() ?? null,

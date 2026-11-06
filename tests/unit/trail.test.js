@@ -11,15 +11,15 @@ describe('visible window', () => {
     expect(visibleWindowEnd(turns, 25)).toBe(30)
     expect(visibleWindowEnd(turns, 55)).toBe(60)
   })
-  it('never looks further ahead than the 8 m limit', () => {
+  it('never looks further ahead than the 30 m limit', () => {
     expect(visibleWindowEnd(turns, 0)).toBe(TRAIL.aheadM)
-    expect(visibleWindowEnd(turns, 20)).toBe(28)
+    expect(visibleWindowEnd([{s: 100, angle: 90}], 20)).toBe(50)
     expect(visibleWindowEnd([], 40)).toBe(40 + TRAIL.aheadM)
   })
   it('moves on to the next turn once the user has passed a corner', () => {
     expect(nextTurn(turns, 30.5).s).toBe(30)
     expect(nextTurn(turns, 31.5).s).toBe(60)
-    expect(visibleWindowEnd(turns, 40)).toBe(48)
+    expect(visibleWindowEnd(turns, 40)).toBe(60)
     expect(nextTurn(turns, 61.5)).toBeNull()
   })
 })
@@ -61,7 +61,7 @@ describe('arrow trail', () => {
     near(trail.mesh.material.uniforms.uAheadEnd.value, 30)
     // Walk past the corner: the end eases out, it does not jump.
     trail.reset(34)
-    expect(trail.windowEnd).toBe(42)
+    expect(trail.windowEnd).toBe(60)
     trail.reset(25)
     for (let i = 0; i < 3; i++) trail.update(36, 0.1, 2 + i)
     expect(trail.windowEnd).toBeGreaterThan(30)
@@ -71,9 +71,9 @@ describe('arrow trail', () => {
   it('marks corner arrows left or right', () => {
     const trail = createArrowTrail(THREE, ROUTE)
     const aTurn = trail.mesh.geometry.getAttribute('aTurn').array
-    expect(aTurn[30]).toBe(1)
-    expect(aTurn[60]).toBe(-1)
-    expect(aTurn[10]).toBe(0)
+    expect(aTurn[15]).toBe(1) // one arrow every 2 m
+    expect(aTurn[30]).toBe(-1)
+    expect(aTurn[5]).toBe(0)
   })
 
   it('draws green normally and amber for an approximate route', () => {

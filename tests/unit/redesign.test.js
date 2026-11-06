@@ -67,7 +67,8 @@ describe('arrival', () => {
     host.hidden = true
     showArrival(host, {name: 'Library', reducedMotion: false})
     expect(host.hidden).toBe(false)
-    expect(host.querySelector('h1').textContent).toBe("You've arrived at Library")
+    expect(host.querySelector('h1').textContent).toBe("You've arrived 🎉")
+    expect(host.querySelector('.arrival__place').textContent).toBe('Library')
     expect(document.activeElement).toBe(host.querySelector('[data-action="done"]'))
     expect(host.querySelectorAll('.confetti').length).toBeGreaterThan(0)
     host.remove()
@@ -77,7 +78,7 @@ describe('arrival', () => {
     document.body.append(host)
     showArrival(host, {name: 'Library', reducedMotion: true})
     expect(host.querySelector('[data-confetti]')).toBeNull()
-    expect(host.querySelector('h1').textContent).toBe("You've arrived at Library")
+    expect(host.querySelector('h1').textContent).toBe("You've arrived 🎉")
     host.remove()
   })
   it('reads the reduced-motion setting', () => {

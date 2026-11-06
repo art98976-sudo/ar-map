@@ -34,6 +34,7 @@ const CATEGORY_LABEL = {
   bus: 'Bus stop',
   room: 'Room',
   town: 'In Stirling',
+  parking: 'Car park',
 }
 
 export function categoryLabel(category) {
