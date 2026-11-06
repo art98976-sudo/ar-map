@@ -459,6 +459,100 @@
         "via": "OpenStreetMap node 4060143184",
         "confirmed": false
       }
+    },
+    {
+      "id": "stirling-station",
+      "name": "Stirling Train Station",
+      "aliases": [
+        "railway station",
+        "train",
+        "rail",
+        "scotrail",
+        "station"
+      ],
+      "category": "town",
+      "area": "town",
+      "building": null,
+      "floor": null,
+      "lat": 56.119651,
+      "lng": -3.934296,
+      "description": "Trains to Glasgow, Edinburgh and the north.",
+      "entrance": {
+        "lat": 56.119999,
+        "lng": -3.934793,
+        "via": "nearest path to the station in OpenStreetMap, station forecourt",
+        "confirmed": false
+      }
+    },
+    {
+      "id": "stirling-bus-station",
+      "name": "Stirling Bus Station",
+      "aliases": [
+        "coach",
+        "citylink",
+        "goosecroft",
+        "buses"
+      ],
+      "category": "town",
+      "area": "town",
+      "building": null,
+      "floor": null,
+      "lat": 56.118322,
+      "lng": -3.934208,
+      "description": "Local and long-distance buses, on Goosecroft Road.",
+      "entrance": {
+        "lat": 56.118363,
+        "lng": -3.934779,
+        "via": "nearest walkable point in OpenStreetMap, Goosecroft Road",
+        "confirmed": false
+      }
+    },
+    {
+      "id": "city-centre",
+      "name": "City Centre",
+      "aliases": [
+        "town centre",
+        "town",
+        "shops",
+        "shopping",
+        "king street",
+        "thistles"
+      ],
+      "category": "town",
+      "area": "town",
+      "building": null,
+      "floor": null,
+      "lat": 56.117969,
+      "lng": -3.937595,
+      "description": "King Street, close to the shops and the Thistles.",
+      "entrance": {
+        "lat": 56.117969,
+        "lng": -3.937595,
+        "via": "OpenStreetMap, King Street",
+        "confirmed": false
+      }
+    },
+    {
+      "id": "stirling-castle",
+      "name": "Stirling Castle",
+      "aliases": [
+        "castle",
+        "old town",
+        "esplanade"
+      ],
+      "category": "town",
+      "area": "town",
+      "building": null,
+      "floor": null,
+      "lat": 56.1237,
+      "lng": -3.946,
+      "description": "The castle, at the top of the old town.",
+      "entrance": {
+        "lat": 56.123742,
+        "lng": -3.945533,
+        "via": "nearest road to the castle in OpenStreetMap",
+        "confirmed": false
+      }
     }
   ]
 }

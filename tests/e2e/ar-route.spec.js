@@ -22,7 +22,23 @@ test.describe('route and arrows', () => {
     await expect(page.locator('[data-trip-pill]')).toHaveText(/^Pathfoot · \d+ m · \d+ min$/, {timeout: 60_000})
   })
 
-  test('not on campus: offers Google Maps walking directions', async ({browser}, testInfo) => {
+  test('from the train station: plans a walk to Pathfoot across town', async ({browser}, testInfo) => {
+    test.skip(onlyOn('android-chrome')(testInfo))
+    test.setTimeout(180_000)
+    const ctx = await browser.newContext({
+      ...testInfo.project.use,
+      geolocation: {latitude: 56.119651, longitude: -3.934296, accuracy: 5},
+    })
+    const page = await ctx.newPage()
+    await page.addInitScript(FAKE_REAR_CAMERA)
+    await page.goto('/#/locate?to=pathfoot&force=1')
+    await page.getByRole('button', {name: 'Tap to start'}).click({timeout: 30_000})
+    await expect(page.locator('[data-trip-pill]')).toHaveText(/^Pathfoot · \d(\.\d)? ?k?m · \d+ min$/, {timeout: 60_000})
+    await expect(page.locator('[data-compass-map]')).toBeVisible()
+    await ctx.close()
+  })
+
+  test('outside Stirling: offers Google Maps walking directions', async ({browser}, testInfo) => {
     test.skip(onlyOn('desktop-chrome')(testInfo))
     const ctx = await browser.newContext({
       ...testInfo.project.use,
@@ -31,7 +47,7 @@ test.describe('route and arrows', () => {
     const page = await ctx.newPage()
     await page.goto('/#/locate?to=library&force=1')
     await page.getByRole('button', {name: 'Tap to start'}).click({timeout: 30_000})
-    await expect(page.getByRole('heading', {name: "You're not on campus yet"})).toBeVisible({timeout: 15_000})
+    await expect(page.getByRole('heading', {name: "You're outside Stirling"})).toBeVisible({timeout: 15_000})
     const link = page.getByRole('link', {name: 'Walking directions in Google Maps'})
     await expect(link).toHaveAttribute('href', /google\.com\/maps\/dir\/\?api=1&destination=56\.\d+,-3\.\d+&travelmode=walking/)
     await expect(page.getByRole('button', {name: 'View 2D map instead'})).toBeVisible()

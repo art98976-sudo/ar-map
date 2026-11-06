@@ -54,7 +54,7 @@ test.describe('the map home', () => {
     for (const name of ['Buildings', 'Library', 'Food', 'Bus', 'Sport']) {
       await expect(page.locator('.map-chips').getByRole('button', {name, exact: true})).toBeVisible()
     }
-    await expect(page.locator('.map-pin')).toHaveCount(20)
+    await expect(page.locator('.map-pin')).toHaveCount(24)
     await expect(page.getByRole('button', {name: 'Pathfoot Building'})).toBeAttached()
     expect(errors).toEqual([])
   })
@@ -80,7 +80,7 @@ test.describe('the map home', () => {
     await expect(page.locator('[data-pin="scran"]')).toBeVisible()
     await expect(page.locator('[data-pin="bus-hub"]')).toBeHidden()
     await chips.getByRole('button', {name: 'Food', exact: true}).click()
-    await expect(page.locator('.map-pin:not([hidden])')).toHaveCount(20)
+    await expect(page.locator('.map-pin:not([hidden])')).toHaveCount(24)
   })
 
   test('the ⓘ button opens about, privacy, the disclaimer and licences', async ({page}) => {

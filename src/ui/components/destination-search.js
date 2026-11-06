@@ -1,7 +1,7 @@
 // Destination search box with autocomplete (WAI-ARIA combobox + listbox pattern).
 // Empty box: recent searches and popular places. Typing: our places first, then rooms
 // from the University MazeMap. Arrow keys, Enter and Escape work on a keyboard.
-import {DESTINATIONS, POPULAR, addRecent, clearRecent, getRecent} from '../../nav/destinations.js'
+import {DESTINATIONS, POPULAR, TOWN_PLACES, addRecent, clearRecent, getRecent} from '../../nav/destinations.js'
 import {describeDestination, searchDestinations} from '../../nav/search.js'
 import {searchMazeMap} from '../../map/mazemap-search.js'
 import {html, render} from '../dom.js'
@@ -111,6 +111,18 @@ export function createDestinationSearch(host, {onSelect, placeholder, label = 'S
                 (d) => html`
                   <button type="button" class="chip-btn" data-popular="${d.id}" aria-label="${d.name}">
                     ${icon(CATEGORY_ICON[d.category] || 'pin', {size: 16})}<span>${d.name}</span>
+                  </button>
+                `,
+              )}
+            </div>
+          </section>
+          <section class="dsearch__section" aria-labelledby="${uid}-town">
+            <h2 id="${uid}-town" class="dsearch__title">${icon('pin', {size: 16})}In Stirling</h2>
+            <div class="chips">
+              ${TOWN_PLACES.map(
+                (d) => html`
+                  <button type="button" class="chip-btn" data-popular="${d.id}" aria-label="${d.name}">
+                    ${icon('pin', {size: 16})}<span>${d.name}</span>
                   </button>
                 `,
               )}
@@ -227,7 +239,7 @@ export function createDestinationSearch(host, {onSelect, placeholder, label = 'S
     const option = e.target.closest('[data-index]')
     if (option) return choose(options[Number(option.dataset.index)])
     const chip = e.target.closest('[data-popular]')
-    if (chip) return choose(POPULAR.find((d) => d.id === chip.dataset.popular))
+    if (chip) return choose(DESTINATIONS.find((d) => d.id === chip.dataset.popular))
     if (e.target.closest('[data-clear-recent]')) {
       clearRecent()
       draw()

@@ -55,6 +55,7 @@ export const CATEGORY_ICON = {
   room: 'door',
   food: 'cup',
   bus: 'bus',
+  town: 'pin',
 }
 
 export function icon(name, {label, size = 24, className = ''} = {}) {

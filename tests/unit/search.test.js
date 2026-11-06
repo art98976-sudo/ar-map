@@ -77,16 +77,16 @@ describe('destination data', () => {
       'Campus Central',
     ])
   })
-  it('every place has an id, name, category and coordinates on campus', () => {
+  it('every place has an id, name, category and coordinates in Stirling', () => {
     const seen = new Set()
     for (const d of DESTINATIONS) {
       expect(d.id && d.name && d.category).toBeTruthy()
       expect(seen.has(d.id)).toBe(false)
       seen.add(d.id)
-      expect(d.lat).toBeGreaterThan(56.13)
-      expect(d.lat).toBeLessThan(56.16)
-      expect(d.lng).toBeGreaterThan(-3.94)
-      expect(d.lng).toBeLessThan(-3.9)
+      expect(d.lat).toBeGreaterThan(56.105)
+      expect(d.lat).toBeLessThan(56.165)
+      expect(d.lng).toBeGreaterThan(-3.975)
+      expect(d.lng).toBeLessThan(-3.89)
     }
   })
   it('describes a room with building and level', () => {

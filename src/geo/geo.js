@@ -39,6 +39,17 @@ export function fromLocal(origin, {x, y}) {
   }
 }
 
+/** Is {lat, lng} inside a closed ring of [lng, lat] points (GeoJSON order)? */
+export function pointInRing(p, ring) {
+  let inside = false
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i]
+    const [xj, yj] = ring[j]
+    if (yi > p.lat !== yj > p.lat && p.lng < ((xj - xi) * (p.lat - yi)) / (yj - yi) + xi) inside = !inside
+  }
+  return inside
+}
+
 /** Total length of a local polyline [{x, y}]. */
 export function polylineLength(pts) {
   let total = 0

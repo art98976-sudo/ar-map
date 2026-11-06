@@ -1,7 +1,9 @@
 import {describe, expect, it, vi} from 'vitest'
 import {distanceM} from '../../src/geo/geo.js'
 import {buildGraph, routeOnFootpaths} from '../../src/nav/footpaths.js'
-import {parseMazeMapPath, planRoute} from '../../src/nav/route.js'
+import {TOWN_BBOX} from '../../src/config.js'
+import {entranceOf, estimateWalkMinutes, isInStirling, isOnCampus, parseMazeMapPath, planRoute} from '../../src/nav/route.js'
+import townPaths from '../../src/data/town-footpaths.json'
 import footpaths from '../../src/data/footpaths.json'
 import data from '../../src/data/destinations.json'
 
@@ -116,7 +118,7 @@ describe('footpaths never give up because of an isolated bit of path', () => {
     const none = []
     for (let lat = 56.141; lat <= 56.1515; lat += 0.0015) {
       for (let lng = -3.932; lng <= -3.912; lng += 0.0025) {
-        for (const d of data.destinations) {
+        for (const d of data.destinations.filter((place) => place.area !== 'town')) {
           if (!routeOnFootpaths(g, {lat, lng}, d.entrance)) none.push(`${lat},${lng},${d.id}`)
         }
       }
@@ -127,5 +129,70 @@ describe('footpaths never give up because of an isolated bit of path', () => {
     const r = routeOnFootpaths(g, WALKWAY, pathfoot.entrance)
     expect(r.points.length).toBeGreaterThan(5)
     expect(r.lengthM).toBeGreaterThan(distanceM(WALKWAY, pathfoot.entrance))
+  })
+})
+
+describe('walking routes across Stirling', () => {
+  const town = buildGraph(townPaths)
+  const place = (id) => data.destinations.find((d) => d.id === id)
+  const station = place('stirling-station')
+  const neverMazemap = async () => {
+    throw new Error('MazeMap should not be asked')
+  }
+  const townGraph = async () => town
+  const noCampusGraph = async () => {
+    throw new Error('the campus graph should not be used')
+  }
+
+  it('the town file covers the area the app says it covers', () => {
+    expect(townPaths.bbox).toEqual(TOWN_BBOX)
+    expect(town.mainComponent).toBe(0)
+    expect(new Set(town.component).size).toBe(1)
+  })
+  it('knows the campus from the town', () => {
+    expect(isOnCampus(entranceOf(pathfoot))).toBe(true)
+    expect(isOnCampus(station)).toBe(false)
+    expect(isInStirling(station)).toBe(true)
+    expect(isInStirling({lat: 55.9533, lng: -3.1883})).toBe(false) // Edinburgh
+  })
+  it('every place is close to a path, in the town network', {timeout: 30_000}, () => {
+    for (const d of data.destinations) {
+      const r = routeOnFootpaths(town, station, entranceOf(d))
+      expect(r, d.id).not.toBeNull()
+      expect(r.snapEndM, d.id).toBeLessThan(120)
+    }
+  })
+  it('from the train station to Pathfoot: a real walk on paths, not MazeMap and not a straight line', async () => {
+    const r = await planRoute(station, pathfoot, {mazemap: neverMazemap, graph: noCampusGraph, townGraph})
+    expect(r.status).toBe('ok')
+    expect(r.source).toBe('footpaths')
+    expect(r.points.length).toBeGreaterThan(20)
+    const straight = distanceM(station, entranceOf(pathfoot))
+    expect(r.lengthM).toBeGreaterThan(straight)
+    expect(r.lengthM).toBeLessThan(straight * 1.8)
+  })
+  it('from campus to each place in town, and between them', async () => {
+    const towns = data.destinations.filter((d) => d.area === 'town')
+    expect(towns.map((d) => d.name)).toEqual(['Stirling Train Station', 'Stirling Bus Station', 'City Centre', 'Stirling Castle'])
+    for (const d of towns) {
+      const r = await planRoute(WALKWAY, d, {mazemap: neverMazemap, graph: noCampusGraph, townGraph})
+      expect(r.source, d.id).toBe('footpaths')
+    }
+    expect((await planRoute(station, place('stirling-castle'), {mazemap: neverMazemap, townGraph})).source).toBe('footpaths')
+  })
+  it('a trip wholly on campus still asks MazeMap first', async () => {
+    const mazemap = vi.fn(async () => parseMazeMapPath(response(feature([A, B, C, D, E]))))
+    const r = await planRoute(pt(A), pathfoot, {mazemap, graph: noCampusGraph, townGraph})
+    expect(mazemap).toHaveBeenCalled()
+    expect(r.source).toBe('mazemap')
+  })
+  it('with no graph at all, a town trip is flagged as a straight line', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const r = await planRoute(station, pathfoot, {townGraph: noCampusGraph})
+    expect(r.source).toBe('direct')
+    warn.mockRestore()
+  })
+  it('estimates a walking time from town', () => {
+    expect(estimateWalkMinutes(station, pathfoot)).toBeGreaterThan(30)
   })
 })

@@ -11,6 +11,7 @@ import {readTripRoute} from '../../nav/route.js'
 import {readTripFix} from '../../geo/location.js'
 import {formatDistance} from '../../arrows/pin.js'
 import {showArrival} from '../components/arrival.js'
+import {showToast} from '../components/toast.js'
 import {drawMinimap} from '../components/ar-minimap.js'
 import {createCompassMap} from '../components/compass-map.js'
 import {focusScreen, haptic, html, onAction, render} from '../dom.js'
@@ -31,7 +32,7 @@ export function compassPoint(deg) {
 /** How the pill names the end of the walk: "Pathfoot entrance", but not "Bus Hub entrance". */
 export function arriveLabel({name, category}) {
   const short = name.replace(/ Building$/, '')
-  return category === 'bus' || category === 'landmark' ? short : `${short} entrance`
+  return category === 'bus' || category === 'landmark' || category === 'town' ? short : `${short} entrance`
 }
 
 /** The one line on the AR screen: "Pathfoot · 120 m · 2 min". */
@@ -563,7 +564,7 @@ export function arScreen(root, {navigate, params}) {
     const canvas = root.querySelector('[data-canvas]')
     const {createArTrip} = await import('../../ar/trip.js')
     if (disposed) return
-    trip = createArTrip({route, origin, destination, allowDesktop, debug: showDebug, arriveLabel: arriveLabel(destination), onPhase, onStats, onArrived, onTurnClose: () => haptic(30), onTurnNow: () => haptic([30, 50, 30]), onTurnPassed: showTurnCheck})
+    trip = createArTrip({route, origin, destination, allowDesktop, debug: showDebug, arriveLabel: arriveLabel(destination), onPhase, onStats, onArrived, onTurnClose: () => haptic(30), onTurnNow: () => haptic([30, 50, 30]), onTurnPassed: showTurnCheck, onEnterCampus: () => showToast('Welcome to campus', {tone: 'success'})})
     wireStepSwipe()
     compassMap = createCompassMap(root.querySelector('[data-map-canvas]'), {
       getState: () => trip?.mapState() ?? null,

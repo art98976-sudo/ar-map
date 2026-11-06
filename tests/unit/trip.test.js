@@ -762,6 +762,34 @@ describe('walking beats the compass', () => {
     t.done()
   })
 
+  it('crossing on to campus: says welcome once, and plans again for a campus destination', async () => {
+    const outside = {lat: 56.13, lng: -3.92}
+    const route = {...ROUTE, source: 'footpaths', points: [outside, ROUTE.entrance]}
+    const plan = vi.fn(async () => ({status: 'ok', source: 'mazemap', lengthM: 50, entrance: ROUTE.entrance, points: [ORIGIN, ROUTE.entrance]}))
+    const welcome = vi.fn()
+    let onFix
+    const t = startTrip(0, {route, origin: outside, plan, onEnterCampus: welcome, destination: {name: 'Library', lat: ORIGIN.lat, lng: ORIGIN.lng}, geolocation: {watchPosition: (ok) => ((onFix = ok), 1), clearWatch: () => {}}})
+    const fix = (lat, lng) => {
+      onFix({coords: {latitude: lat, longitude: lng, accuracy: 8}})
+      t.frame()
+    }
+    fix(outside.lat, outside.lng)
+    expect(welcome).not.toHaveBeenCalled()
+    fix(ORIGIN.lat, ORIGIN.lng) // one stray fix does not cross the boundary
+    fix(outside.lat, outside.lng)
+    expect(welcome).not.toHaveBeenCalled()
+    fix(ORIGIN.lat, ORIGIN.lng)
+    fix(ORIGIN.lat + 0.00001, ORIGIN.lng)
+    expect(welcome).toHaveBeenCalledTimes(1)
+    expect(plan).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(0)
+    for (let i = 0; i < 6; i++) t.frame()
+    expect(t.box.stats.source).toBe('mazemap')
+    fix(ORIGIN.lat + 0.00002, ORIGIN.lng)
+    expect(welcome).toHaveBeenCalledTimes(1)
+    t.done()
+  })
+
   it('stops the arrows on arrival', () => {
     const t = startTrip(0)
     for (let i = 0; i < 10; i++) t.frame()

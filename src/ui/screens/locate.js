@@ -183,9 +183,9 @@ export function locateScreen(root, {navigate, params}) {
       html`
         <div class="page page--narrow page--center error-state">
           <span class="error-state__icon" data-tone="warn">${icon('map', {size: 32})}</span>
-          <h1 class="page__title" tabindex="-1">You're not on campus yet</h1>
+          <h1 class="page__title" tabindex="-1">You're outside Stirling</h1>
           <p class="page__lede">
-            You are about ${formatDistance(metres)} from the University. AR directions start once you are on campus.
+            You are about ${formatDistance(metres)} from the University. AR directions start once you are in Stirling.
           </p>
           <div class="error-state__actions">
             <a class="btn btn--primary btn--lg btn--block" aria-label="Walking directions in Google Maps" href="${googleMapsWalkingUrl(destination)}" target="_blank" rel="noopener">

@@ -1,15 +1,18 @@
 // Plans the outdoor walking route from the user's GPS position to a building entrance.
 //
 // Order of preference:
+// A trip wholly on campus:
 //   1. MazeMap routing (the University's own campus paths), outdoors only
-//   2. Our OpenStreetMap footpath graph with A* (works offline once loaded)
+//   2. Our OpenStreetMap campus footpath graph with A* (works offline once loaded)
 //   3. MazeMap's route through a building, if that is all there is
 //   4. A straight line, clearly flagged, so the user still gets a direction
-import {MAZEMAP} from '../config.js'
-import {distanceM, fromLocal, projectOntoPolyline, toLocal} from '../geo/geo.js'
-import {loadCampusGraph, routeOnFootpaths} from './footpaths.js'
+// A trip with either end off campus: the Stirling-wide OpenStreetMap graph, then the straight line.
+// The AR screen plans again as the user crosses on to campus, so MazeMap takes over from there.
+import campusBoundary from '../data/campus-boundary.json'
+import {MAZEMAP, TOWN_BBOX} from '../config.js'
+import {distanceM, fromLocal, pointInRing, projectOntoPolyline, toLocal} from '../geo/geo.js'
+import {loadCampusGraph, loadTownGraph, routeOnFootpaths} from './footpaths.js'
 
-export const CAMPUS_RADIUS_M = 3000
 const WALK_SPEED_MPS = 1.3 // about 4.7 km/h, a relaxed campus pace
 const ROUTE_KEY = 'welcomeAR.route.v1'
 export const SNAP_TO_PATH_M = 25 // GPS this close to a path means the user is ON that path
@@ -22,8 +25,15 @@ export function entranceOf(dest) {
   return e && Number.isFinite(e.lat) && Number.isFinite(e.lng) ? {lat: e.lat, lng: e.lng} : {lat: dest.lat, lng: dest.lng}
 }
 
+/** Inside the University's boundary. */
 export function isOnCampus(p) {
-  return distanceM(p, MAZEMAP.center) <= CAMPUS_RADIUS_M
+  return pointInRing(p, campusBoundary.geometry.coordinates[0])
+}
+
+/** Inside the area AR walking directions cover: all of Stirling and the campus. */
+export function isInStirling(p) {
+  const [south, west, north, east] = TOWN_BBOX
+  return p.lat >= south && p.lat <= north && p.lng >= west && p.lng <= east
 }
 
 export function walkingMinutes(metres) {
@@ -32,11 +42,11 @@ export function walkingMinutes(metres) {
 
 /** Rough walking time before a route is planned: paths are about 1.3 x the straight line. */
 export function estimateWalkMinutes(from, dest) {
-  if (!from || !isOnCampus(from)) return null
+  if (!from || !isInStirling(from)) return null
   return walkingMinutes(distanceM(from, entranceOf(dest)) * 1.3)
 }
 
-/** Google Maps walking directions (for people who are not on campus yet). */
+/** Google Maps walking directions (for people outside the area AR covers). */
 export function googleMapsWalkingUrl(dest) {
   const e = entranceOf(dest)
   return `https://www.google.com/maps/dir/?api=1&destination=${e.lat},${e.lng}&travelmode=walking`
@@ -119,9 +129,10 @@ function lengthOf(points) {
  *   {status: 'off-campus', distanceM}
  *   {status: 'ok', points: [{lat,lng}], lengthM, minutes, source: 'mazemap'|'footpaths'|'direct', entrance}
  */
-export async function planRoute(from, dest, {mazemap = mazemapRoute, graph = loadCampusGraph} = {}) {
-  if (!isOnCampus(from)) return {status: 'off-campus', distanceM: distanceM(from, MAZEMAP.center)}
+export async function planRoute(from, dest, {mazemap = mazemapRoute, graph = loadCampusGraph, townGraph = loadTownGraph} = {}) {
+  if (!isInStirling(from)) return {status: 'off-campus', distanceM: distanceM(from, MAZEMAP.center)}
   const to = entranceOf(dest)
+  const onCampus = isOnCampus(from) && isOnCampus(to)
   const done = (points, source, target = to) => {
     const pts = anchor(points, from, target)
     const lengthM = lengthOf(pts)
@@ -131,20 +142,22 @@ export async function planRoute(from, dest, {mazemap = mazemapRoute, graph = loa
 
   // 1. MazeMap, as long as it stays outdoors. If it ends indoors (a room), walk to that door.
   let throughBuilding = null
-  try {
-    const mm = await mazemap(from, to)
-    if (mm.points.length >= 2) {
-      if (!mm.indoor) return done(mm.points, 'mazemap')
-      if (mm.endsIndoor && mm.outdoorPoints.length >= 2) return done(mm.outdoorPoints, 'mazemap', mm.outdoorPoints.at(-1))
-      throughBuilding = mm.points
+  if (onCampus) {
+    try {
+      const mm = await mazemap(from, to)
+      if (mm.points.length >= 2) {
+        if (!mm.indoor) return done(mm.points, 'mazemap')
+        if (mm.endsIndoor && mm.outdoorPoints.length >= 2) return done(mm.outdoorPoints, 'mazemap', mm.outdoorPoints.at(-1))
+        throughBuilding = mm.points
+      }
+    } catch (err) {
+      console.warn('[route] MazeMap routing failed, using campus footpaths', err?.message)
     }
-  } catch (err) {
-    console.warn('[route] MazeMap routing failed, using campus footpaths', err?.message)
   }
 
   // 2. Our outdoor footpath graph.
   try {
-    const g = await graph()
+    const g = await (onCampus ? graph : townGraph)()
     const fp = routeOnFootpaths(g, from, to)
     if (fp && fp.points.length >= 2) return done(fp.points, 'footpaths')
   } catch (err) {

@@ -285,7 +285,7 @@ export function homeScreen(root, {navigate, params}) {
       if (disposed || request !== routeRequest) return
       if (route.status === 'off-campus') {
         setRouteLink('Show route on map')
-        return showToast('Routes start once you are on campus', {tone: 'warning'})
+        return showToast('Routes start once you are in Stirling', {tone: 'warning'})
       }
       drawRoute(route.points)
       setRouteLink('Hide route', true)

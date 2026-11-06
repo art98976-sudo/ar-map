@@ -33,6 +33,7 @@ const CATEGORY_LABEL = {
   food: 'Food and drink',
   bus: 'Bus stop',
   room: 'Room',
+  town: 'In Stirling',
 }
 
 export function categoryLabel(category) {

@@ -30,7 +30,7 @@ export function infoSheetContent() {
         <h3>Maps</h3>
         <p>Campus map, buildings and indoor floors: the University of Stirling MazeMap campus map, © MazeMap.</p>
         <p>
-          Backup walking paths and some places: © OpenStreetMap contributors, available under the
+          Walking routes in Stirling, backup paths on campus, the campus boundary and some places: © OpenStreetMap contributors, available under the
           <a class="link" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">Open Database Licence</a>.
         </p>
       </section>

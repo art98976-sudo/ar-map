@@ -13,7 +13,7 @@ import {
   walkingCorrection,
 } from '../../src/nav/compass-guide.js'
 import {buildManoeuvres, createGuidance, instructionFor, landmarkPhrase, landmarksFrom, nearestLandmark, spokenStep, stepIcon} from '../../src/nav/guidance.js'
-import {COMPASS_MAP, mapCamera} from '../../src/ui/components/compass-map.js'
+import {COMPASS_MAP, mapCamera, viewKey} from '../../src/ui/components/compass-map.js'
 import {icon} from '../../src/ui/icons.js'
 
 const near = (a, b, tol = 1e-6) => expect(Math.abs(a - b)).toBeLessThanOrEqual(tol)
@@ -251,6 +251,13 @@ describe('the heading-up map', () => {
     const {padding} = mapCamera({user, bearing: 0, height: 300})
     expect((padding.top + 300) / 2 / 300).toBeCloseTo(COMPASS_MAP.dotFromTop, 6)
     expect(padding.left).toBe(padding.right)
+  })
+  it('only counts as a new view when something has visibly moved', () => {
+    const view = (lat, bearing, height = 300, expanded = false) => viewKey(mapCamera({user: {lat, lng: -3.92}, bearing, height, expanded}))
+    expect(view(56.14, 10)).toBe(view(56.14, 10.01))
+    expect(view(56.14, 10)).not.toBe(view(56.14, 10.5))
+    expect(view(56.14, 10)).not.toBe(view(56.14001, 10))
+    expect(view(56.14, 10)).not.toBe(view(56.14, 10, 800, true))
   })
   it('shows more of the campus when expanded', () => {
     expect(mapCamera({user, bearing: 0, height: 800, expanded: true}).zoom).toBeLessThan(mapCamera({user, bearing: 0, height: 300}).zoom)

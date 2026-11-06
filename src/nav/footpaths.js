@@ -1,11 +1,11 @@
-// Outdoor walking routes on the OpenStreetMap campus footpath network (A*).
-// Used when MazeMap routing is unavailable, or when its route cuts through buildings
-// (GPS does not work indoors, so outdoor AR needs an outdoor path).
+// Outdoor walking routes on OpenStreetMap footpath networks (A*).
+// On campus, used when MazeMap routing is unavailable, or when its route cuts through buildings
+// (GPS does not work indoors, so outdoor AR needs an outdoor path). Off campus, the only router.
 import {aStar} from './astar.js'
 import {fromLocal, toLocal} from '../geo/geo.js'
 
 // Roads are walkable but we prefer proper footpaths when the detour is small.
-const COST = {path: 1, steps: 1.1, road: 1.2}
+const COST = {path: 1, steps: 1.1, road: 1.2, main: 1.5}
 
 /** Build a routable graph from footpaths.json data ({nodes: [[lat,lng]], edges: [[a,b,m,type]]}). */
 export function buildGraph(data) {
@@ -114,6 +114,13 @@ function routeBetween(graph, pFrom, pTo, s, g) {
     snapStartM: s.d,
     snapEndM: g.d,
   }
+}
+
+let townGraphPromise = null
+/** Load and build the Stirling-wide graph once (about 290 kB gzipped, only for off-campus trips). */
+export function loadTownGraph() {
+  townGraphPromise ||= import('../data/town-footpaths.json').then((m) => buildGraph(m.default))
+  return townGraphPromise
 }
 
 let graphPromise = null

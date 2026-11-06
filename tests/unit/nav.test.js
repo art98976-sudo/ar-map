@@ -105,7 +105,7 @@ describe('route planning', () => {
   const mmOk = async (from, to) => ({points: [from, {lat: 56.1454, lng: -3.92}, to], indoor: false, lengthM: 50})
 
   it('every destination has an entrance on campus', () => {
-    for (const d of data.destinations) {
+    for (const d of data.destinations.filter((place) => place.area !== 'town')) {
       const e = entranceOf(d)
       expect(isOnCampus(e)).toBe(true)
       expect(d.entrance.confirmed).toBe(false) // until checked on campus (ENTRANCES.md)
@@ -196,7 +196,7 @@ describe('route planning', () => {
     expect(r.points).toHaveLength(2)
   })
 
-  it('says "not on campus" when more than 3 km away, and links to Google Maps', async () => {
+  it('says "outside Stirling" beyond the area covered, and links to Google Maps', async () => {
     const edinburgh = {lat: 55.9533, lng: -3.1883}
     const r = await planRoute(edinburgh, library, {mazemap: mmOk})
     expect(r.status).toBe('off-campus')

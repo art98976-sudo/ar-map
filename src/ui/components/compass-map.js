@@ -34,6 +34,11 @@ export function mapCamera({user, bearing, height, expanded = false}) {
   }
 }
 
+/** Two views with the same key look the same: under 10 cm and a tenth of a degree apart. */
+export function viewKey({center: [lng, lat], bearing, zoom, padding}) {
+  return [lng.toFixed(6), lat.toFixed(6), bearing.toFixed(1), zoom, Math.round(padding.top)].join()
+}
+
 function markerElement(className, text = '') {
   const el = document.createElement('div')
   el.className = className
@@ -61,6 +66,7 @@ export function createCompassMap(host, {getState, onReady, onFailed}) {
   let dest = null
   let turn = null
   let shownTurn = null
+  let shownView = null
   let failTimer = 0
   // The host grows and shrinks over a CSS transition: follow it, so the map always fills it.
   const resize = typeof ResizeObserver === 'function' ? new ResizeObserver(() => instance?.map.resize()) : null
@@ -109,7 +115,13 @@ export function createCompassMap(host, {getState, onReady, onFailed}) {
     if (state.headingDeg != null) {
       bearing = bearing == null ? state.headingDeg : stepBearing(bearing, state.headingDeg, dt, COMPASS_MAP.maxTurnDegPerS)
     }
-    map.jumpTo(mapCamera({user: state.user, bearing: bearing ?? 0, height: host.clientHeight, expanded}))
+    // A redraw costs battery and starves the camera: only move the map when the view has changed.
+    const view = mapCamera({user: state.user, bearing: bearing ?? 0, height: host.clientHeight, expanded})
+    const key = viewKey(view)
+    if (key !== shownView) {
+      shownView = key
+      map.jumpTo(view)
+    }
   }
 
   function loop(now) {

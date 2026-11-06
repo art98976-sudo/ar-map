@@ -9,6 +9,10 @@ export const APP = {
   disclaimer: 'Student prototype – not an official University of Stirling service.',
 }
 
+// Where AR walking directions work: the area of src/data/town-footpaths.json
+// [south, west, north, east]. Keep in step with TOWN_BBOX in tools/build-footpaths.mjs.
+export const TOWN_BBOX = [56.105, -3.975, 56.165, -3.89]
+
 export const MAZEMAP = {
   // University of Stirling campus on MazeMap.
   campusId: 2058,

@@ -75,6 +75,16 @@ test.describe('destination search', () => {
     await expect(page).toHaveURL(/#\/$/)
   })
 
+  test('quick buttons take you to places in town', async ({page}) => {
+    const sheet = await openSearch(page)
+    for (const name of ['Stirling Train Station', 'Stirling Bus Station', 'City Centre', 'Stirling Castle']) {
+      await expect(sheet.getByRole('button', {name})).toBeVisible()
+    }
+    await sheet.getByRole('button', {name: 'Stirling Train Station'}).click()
+    await expect(page.locator('[data-card]').getByRole('heading', {name: 'Stirling Train Station'})).toBeVisible()
+    await expect(page).toHaveURL(/to=stirling-station/)
+  })
+
   test('aliases work: "gym" finds the Sports Centre, "bus" the Bus Hub', async ({page}) => {
     const sheet = await openSearch(page)
     const box = sheet.getByRole('combobox')

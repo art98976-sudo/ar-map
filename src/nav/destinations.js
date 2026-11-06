@@ -8,6 +8,7 @@ const MAX_RECENT = 6
 
 export const DESTINATIONS = data.destinations
 export const POPULAR = data.popularOrder.map((id) => DESTINATIONS.find((d) => d.id === id)).filter(Boolean)
+export const TOWN_PLACES = DESTINATIONS.filter((d) => d.area === 'town')
 
 function read(storage, key, fallback) {
   try {

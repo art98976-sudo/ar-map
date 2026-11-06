@@ -22,7 +22,7 @@ import {acceptHit, createGroundTracker, GROUND, HIT_TYPES, SCREEN_POINTS} from '
 import {createRouteMatcher} from './route-matcher.js'
 import {GPS, watchLocation} from '../geo/location.js'
 import {createArrivalDetector, createGuidance, createOffRouteMonitor, landmarksFrom} from '../nav/guidance.js'
-import {planRoute, SNAP_TO_PATH_M} from '../nav/route.js'
+import {entranceOf, isOnCampus, planRoute, SNAP_TO_PATH_M} from '../nav/route.js'
 
 const UPRIGHT_MAX_TILT = 0.55 // |forward.y|: about 33° up or down from level
 const FIRST_HEADING_WINDOW_MS = 500 // the Start tap averages this much compass history
@@ -36,6 +36,7 @@ const COMPASS_PILL_AFTER_MS = 10_000 // show the figure-8 pill after this long u
 const DESKTOP_START_DELAY_S = 2 // a webcam on a desk never reports NORMAL tracking
 const REROUTE_FIX_M = 25 // only trust GPS this good to plan a new route from
 const COMPASS_STALE_MS = 2000 // no reading for this long: the compass has stopped
+const CAMPUS_FIXES = 2 // fixes in a row inside the boundary, so one stray fix cannot cross it
 const INSTRUCTION_EVERY_S = 0.5
 const POINTS_PER_SAMPLE = 3
 
@@ -61,6 +62,7 @@ export function createArTrip({
   onTurnClose,
   onTurnNow,
   onTurnPassed,
+  onEnterCampus,
 }) {
   let route = firstRoute
   let phase = null
@@ -83,6 +85,8 @@ export function createArTrip({
   let ringFill = 0
   let routeVersion = 0
   let legCache = null
+  let cameFromOutside = !isOnCampus(origin)
+  let fixesOnCampus = 0
   let lastTime = null
   let recent = []
   let steadyAnchorDeg = null
@@ -342,6 +346,16 @@ export function createArTrip({
     }
   }
 
+  /** Crossing on to campus: say welcome, and let the campus route take over for a campus destination. */
+  function noteCampus(fix) {
+    if (!cameFromOutside || fix.accuracy > REROUTE_FIX_M) return
+    fixesOnCampus = isOnCampus(fix) ? fixesOnCampus + 1 : 0
+    if (fixesOnCampus < CAMPUS_FIXES) return
+    cameFromOutside = false
+    onEnterCampus?.()
+    if (!rerouting && !arrived && isOnCampus(entranceOf(destination))) reroute()
+  }
+
   /** Look for the real ground at a few spots in the lower half of the screen. */
   function sampleGround(time) {
     if (tracking !== 'NORMAL' || !xr?.XrController?.hitTest || time - lastGroundAt < GROUND.sampleEveryS) return
@@ -476,6 +490,7 @@ export function createArTrip({
       if (lastFix && lastFix !== fedFix) {
         fedFix = lastFix
         tracker.fix(toLocal(origin, lastFix), lastFix.accuracy)
+        noteCampus(lastFix)
       }
       tracker.tick(dt)
     }
