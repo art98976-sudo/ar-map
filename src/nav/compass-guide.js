@@ -2,18 +2,7 @@
 // Pure logic, no GPS, no three.js. Bearings are degrees clockwise from north. Route points are
 // the route frame's {x east, y north} metres, s is the distance along the route.
 import {angleDiff, localBearing, pointAt, polylineLength, polylineSlice, projectOntoPolyline, shortestTurn, wrap360} from '../geo/geo.js'
-
-export const COMPASS_GUIDE = {
-  blendM: 12, // the arrow starts curving into a turn this far before it
-  legAheadM: 5, // the current segment's direction is read over this much route...
-  nextLegM: 8, // ...and the next segment's over this much, after the corner
-  facingAwayDeg: 60, // further off the route than this at Start: turn first
-  facingOkDeg: 30, // and guidance starts once within this
-  aroundDeg: 135, // further off than this, "Turn around" says it better than left or right
-  poorAccuracyDeg: 25, // iPhone's webkitCompassAccuracy worse than this: do not rely on the compass
-  walkDirectionM: 6, // with no usable compass, walking this far shows which way the user faces
-  walkStraightRatio: 0.7, // straight-line over walked: a wandering walk shows no direction
-}
+import {COMPASS_GUIDE, TRACK} from '../config.js'
 
 function chordBearing(route, fromS, toS) {
   return localBearing(pointAt(route, fromS), pointAt(route, toS))
@@ -85,17 +74,6 @@ export function walkingCorrection(track, route, s, walkedM) {
   const b = pointAt(route, s)
   const yaw = shortestTurn(Math.atan2(last.y - first.y, last.x - first.x), Math.atan2(b.y - a.y, b.x - a.x))
   return {dx: b.x - last.x, dy: b.y - last.y, yaw, pivot: last}
-}
-
-const TRACK = {
-  minStepM: 0.25, // smaller moves are SLAM noise: a user standing still must not creep along
-  maxStepM: 5, // a bigger jump is SLAM recovering, not walking
-  sidewaysCos: 0.3, // walking across the route does not move the user along it
-  backwardsCos: -0.5,
-  goodAccuracyM: 20,
-  windowM: 15, // GPS can only move the user this far (plus its error) along the route
-  gainAt5M: 0.35, // SLAM carries the distance: each fix only nudges it, less if it is poor
-  easeS: 0.4,
 }
 
 /**

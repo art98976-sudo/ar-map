@@ -1,6 +1,5 @@
 import {describe, expect, it, vi} from 'vitest'
 import {
-  GPS,
   accuracyLevel,
   createFixGate,
   locationErrorCode,
@@ -10,6 +9,7 @@ import {
   watchLocation,
 } from '../../src/geo/location.js'
 import {locationErrorCopy} from '../../src/ui/screens/locate.js'
+import {GPS} from '../../src/config.js'
 
 const pos = (accuracy, lat = 56.1452, lng = -3.9201) => ({coords: {latitude: lat, longitude: lng, accuracy}, timestamp: 1})
 

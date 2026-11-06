@@ -2,25 +2,7 @@
 //
 // The engine's hit tests give points on real surfaces around the user. Along the route those are
 // fitted to a height at the user plus a slope. Pure maths: the hit tests themselves are in trip.js.
-
-export const GROUND = {
-  sampleEveryS: 0.15,
-  belowPhoneM: 0.3, // a hit must be at least this far below the phone
-  maxDistanceM: 14,
-  maxOffRouteM: 4,
-  maxHits: 160,
-  maxAgeS: 30,
-  recencyS: 10, // newer hits count for more: e^(-age / this)
-  minHits: 4,
-  outlierM: 0.35,
-  maxSlope: 0.18,
-  minSpanM: 3, // along the route, before believing any slope
-  nearUserM: 4, // hits this close teach the height of the phone above the ground
-  defaultEyeM: 1.45,
-  minEyeM: 0.8,
-  maxEyeM: 2.1,
-  easeS: 0.4,
-}
+import {GROUND} from '../config.js'
 
 export const HIT_TYPES = ['DETECTED_SURFACE', 'ESTIMATED_SURFACE', 'FEATURE_POINT']
 

@@ -1,15 +1,7 @@
 // GPS location for outdoor directions.
 // The decision logic (is this fix good enough? are we probably indoors?) is pure,
 // so it can be unit-tested; the browser API wrapper is a thin layer on top.
-
-export const GPS = {
-  // A fix must be at least this accurate (metres, 68% radius) before AR starts.
-  goodAccuracyM: 20,
-  // If we never reach a good fix for this long, the user is probably indoors.
-  indoorAfterMs: 30_000,
-  // How long one watchPosition attempt may wait before reporting a timeout.
-  timeoutMs: 20_000,
-}
+import {GPS} from '../config.js'
 
 /** 'good' (≤ 10 m), 'ok' (≤ 20 m) or 'weak' (worse). */
 export function accuracyLevel(accuracyM, goodAccuracyM = GPS.goodAccuracyM) {

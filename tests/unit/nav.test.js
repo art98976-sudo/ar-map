@@ -16,10 +16,11 @@ import {anchor, entranceOf, googleMapsWalkingUrl, isOnCampus, parseMazeMapPath, 
 import {angleDiff} from '../../src/geo/geo.js'
 import {cameraHeadingFromOrientation, circularMean, circularSpread, createCalibrator} from '../../src/ar/compass.js'
 import {alignmentYaw, rotateY, routeToLocal} from '../../src/ar/nav-scene.js'
-import {TRAIL, visibleCount} from '../../src/arrows/trail.js'
+import {visibleCount} from '../../src/arrows/trail.js'
 import {formatDistance} from '../../src/arrows/pin.js'
 import footpaths from '../../src/data/footpaths.json'
 import data from '../../src/data/destinations.json'
+import {TRAIL} from '../../src/config.js'
 
 const WALKWAY = {lat: 56.14525, lng: -3.9201} // between the Cottrell Building and the Atrium
 const near = (a, b, tol) => expect(Math.abs(a - b)).toBeLessThanOrEqual(tol)

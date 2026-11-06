@@ -1,5 +1,6 @@
 import {describe, expect, it} from 'vitest'
-import {clampCorrection, createRouteMatcher, detectTrackTurn, findCornerAnchor, fitTrackToRoute, MATCH, walkVsRoute} from '../../src/ar/route-matcher.js'
+import {clampCorrection, createRouteMatcher, detectTrackTurn, findCornerAnchor, fitTrackToRoute, walkVsRoute} from '../../src/ar/route-matcher.js'
+import {MATCH} from '../../src/config.js'
 
 const DEG = Math.PI / 180
 const near = (a, b, tol) => expect(Math.abs(a - b)).toBeLessThanOrEqual(tol)

@@ -9,15 +9,11 @@
 // A trip with either end off campus: the Stirling-wide OpenStreetMap graph, then the straight line.
 // The AR screen plans again as the user crosses on to campus, so MazeMap takes over from there.
 import campusBoundary from '../data/campus-boundary.json'
-import {MAZEMAP, TOWN_BBOX} from '../config.js'
+import {MAZEMAP, ROUTING, TOWN_BBOX} from '../config.js'
 import {distanceM, fromLocal, pointInRing, projectOntoPolyline, toLocal} from '../geo/geo.js'
 import {loadCampusGraph, loadTownGraph, routeOnFootpaths} from './footpaths.js'
 
-const WALK_SPEED_MPS = 1.3 // about 4.7 km/h, a relaxed campus pace
 const ROUTE_KEY = 'welcomeAR.route.v1'
-export const SNAP_TO_PATH_M = 25 // GPS this close to a path means the user is ON that path
-const ON_PATH_M = 0.5
-const ENTRANCE_APPEND_M = 3
 
 /** Where the walk should end: the main entrance if we know it, otherwise the place itself. */
 export function entranceOf(dest) {
@@ -37,7 +33,7 @@ export function isInStirling(p) {
 }
 
 export function walkingMinutes(metres) {
-  return Math.max(1, Math.round(metres / WALK_SPEED_MPS / 60))
+  return Math.max(1, Math.round(metres / ROUTING.walkSpeedMps / 60))
 }
 
 /** Rough walking time before a route is planned: paths are about 1.3 x the straight line. */
@@ -102,19 +98,19 @@ async function mazemapRoute(from, to, {signal} = {}) {
 export function anchor(points, from, to) {
   // A planner may have added its own leg from the raw fix. Measure from the real path.
   let path = points.slice()
-  if (path.length > 2 && distanceM(path[0], from) <= ON_PATH_M) path.shift()
-  if (path.length > 2 && distanceM(path.at(-1), to) <= ON_PATH_M) path.pop()
+  if (path.length > 2 && distanceM(path[0], from) <= ROUTING.onPathM) path.shift()
+  if (path.length > 2 && distanceM(path.at(-1), to) <= ROUTING.onPathM) path.pop()
   if (path.length < 2) return [from, to]
 
   const local = path.map((p) => toLocal(from, p))
   const start = projectOntoPolyline(local, {x: 0, y: 0})
-  if (start.offset > SNAP_TO_PATH_M) {
+  if (start.offset > ROUTING.snapToPathM) {
     path.unshift(from)
   } else if (start.s > 0) {
     path = [fromLocal(from, {x: start.x, y: start.y}), ...path.slice(start.segment + 1)]
   }
 
-  if (distanceM(path.at(-1), to) <= ENTRANCE_APPEND_M) return path
+  if (distanceM(path.at(-1), to) <= ROUTING.entranceAppendM) return path
   return [...path, to]
 }
 

@@ -7,13 +7,10 @@
 //                             moved so the user's GPS position sits under the camera,
 //                             at ground height y = 0 (8th Wall absolute scale).
 import {dedupe, distanceM, localBearing, pointAt, projectOntoPolyline, shortestTurn, simplify, toDeg, toLocal, toRad} from '../geo/geo.js'
-import {SNAP_TO_PATH_M} from '../nav/route.js'
-import {createArrowTrail, nextTurn, TRAIL} from '../arrows/trail.js'
+import {createArrowTrail, nextTurn} from '../arrows/trail.js'
 import {createGuideArrow} from '../arrows/guide-arrow.js'
 import {createDestinationPin} from '../arrows/pin.js'
-
-
-const START_LOOK_AHEAD_M = 8
+import {NAV_SCENE, ROUTING, TRAIL} from '../config.js'
 
 /**
  * Yaw (radians, about +Y) that turns the route frame so that compass heading `headingDeg`
@@ -53,12 +50,9 @@ export function snapToRoute(route, p) {
  * Compass bearing of the route from distance s along it, over the next few metres.
  * A chord, because the first short segment of a real path can point anywhere.
  */
-export function bearingAlong(route, s, aheadM = START_LOOK_AHEAD_M) {
+export function bearingAlong(route, s, aheadM = NAV_SCENE.startLookAheadM) {
   return localBearing(pointAt(route, s), pointAt(route, s + aheadM))
 }
-
-const REALIGN_EASE_S = 0.5
-const MATCH_EASE_S = 1
 
 /**
  * @param {object} o
@@ -132,7 +126,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name, reduc
       offset: hit.offset,
       bearingDeg: bearingAlong(local, hit.s),
       pathBearingDeg: localBearing(fix, hit),
-      onPath: hit.offset <= SNAP_TO_PATH_M,
+      onPath: hit.offset <= ROUTING.snapToPathM,
     }
   }
 
@@ -150,7 +144,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name, reduc
     camera.getWorldPosition(camPos)
     const pivot = geoRoot.worldToLocal(camPos.clone())
     const here = {x: pivot.x, z: pivot.z}
-    ease = {yaw, delta, t: 0, seconds: REALIGN_EASE_S, world: {x: camPos.x, z: camPos.z}, from: here, to: here}
+    ease = {yaw, delta, t: 0, seconds: NAV_SCENE.realignEaseS, world: {x: camPos.x, z: camPos.z}, from: here, to: here}
     return true
   }
 
@@ -167,7 +161,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name, reduc
       yaw,
       delta: -turn,
       t: 0,
-      seconds: MATCH_EASE_S,
+      seconds: NAV_SCENE.matchEaseS,
       world: {x: geoRoot.position.x + rotated.x, z: geoRoot.position.z + rotated.z},
       from,
       to: {x: pivot.x + dx, z: -(pivot.y + dy)},

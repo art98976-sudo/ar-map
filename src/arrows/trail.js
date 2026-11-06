@@ -9,28 +9,7 @@
 // Each frame the CPU only eases one number (how far along the route the user is), so the
 // arrows never jump.
 import {findTurns, resample, toDeg, toRad} from '../geo/geo.js'
-
-export const TRAIL = {
-  spacingM: 2,
-  aheadM: 30, // arrows are never drawn further ahead than this
-  fadeInM: 6, // they fade in over this much, as the user comes closer
-  turnDeg: 30, // a bend this sharp gets a corner arrow
-  behindM: 1.5, // arrows fade out this far behind the user
-  heightM: 0.01, // 1 cm above the ground so they never flicker into it
-  sizeM: 0.85, // chevron width
-  maxLiftM: 1.5, // the slope raises or lowers arrows ahead by at most this
-  laneWidthM: 1.1,
-  laneHeightM: 0.005,
-  fadeS: 0.5, // fading out when the compass is poor, and back in
-  turnPassedM: 1, // a corner counts as passed this far beyond it
-  windowEaseS: 0.6, // the next leg fades in rather than appearing all at once
-  turnScale: 1.6, // corner arrows are bigger
-  easeS: 0.3, // ~300 ms easing of the user's position along the route
-  color: 0x0a8a4a, // Stirling green, slightly lifted so it reads on grey paving
-  glow: 0xbfffcc,
-  approxColor: 0xe09a00, // amber: a straight-line fallback that may cross buildings
-  approxGlow: 0xffebaa,
-}
+import {TRAIL} from '../config.js'
 
 const vertexShader = /* glsl */ `
   attribute float aS;

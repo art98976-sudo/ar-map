@@ -19,38 +19,15 @@
 import {circularMean, createCalibrator, isPoorAccuracy, startCompass} from './compass.js'
 import {angleDiff, fromLocal, pointAt, polylineSlice, toDeg, toLocal, wrap360} from '../geo/geo.js'
 import {DESTINATIONS} from '../nav/destinations.js'
-import {arrowTarget, arrowYawDeg, COMPASS_GUIDE, createRouteTracker, turnPrompt, walkingCorrection} from '../nav/compass-guide.js'
+import {arrowTarget, arrowYawDeg, createRouteTracker, turnPrompt, walkingCorrection} from '../nav/compass-guide.js'
 import {createNavScene, gpsDistanceToEntrance} from './nav-scene.js'
-import {acceptHit, createGroundTracker, GROUND, HIT_TYPES, SCREEN_POINTS} from './ground.js'
+import {acceptHit, createGroundTracker, HIT_TYPES, SCREEN_POINTS} from './ground.js'
 import {createRouteMatcher} from './route-matcher.js'
-import {GPS, locationPermissionState, watchLocation} from '../geo/location.js'
-import {isManual, START} from '../nav/start-point.js'
+import {locationPermissionState, watchLocation} from '../geo/location.js'
+import {isManual} from '../nav/start-point.js'
 import {createArrivalDetector, createGuidance, createOffRouteMonitor, landmarksFrom} from '../nav/guidance.js'
-import {entranceOf, isOnCampus, planRoute, SNAP_TO_PATH_M} from '../nav/route.js'
-
-const UPRIGHT_MAX_TILT = 0.55 // |forward.y|: about 33° up or down from level
-const FIRST_HEADING_WINDOW_MS = 500 // the Start tap averages this much compass history
-const MIN_HORIZONTAL_LOOK = 0.2 // below this the camera looks almost straight up or down: no yaw
-const STEADY_MAX_DRIFT_DEG = 6 // the camera must stay this close to where the window started
-const REALIGN_MIN_DEG = 5 // smaller differences are compass noise: leave the route alone
-const REALIGN_MIN_MATCHED_DEG = 15 // with a confident map match, walking beats the compass
-const MATCH_EVERY_S = 2
-const COMPASS_PILL_AFTER_MS = 10_000 // show the figure-8 pill after this long unsteady
-const DESKTOP_START_DELAY_S = 2 // a webcam on a desk never reports NORMAL tracking
-const REROUTE_FIX_M = 25 // only trust GPS this good to plan a new route from
-const COMPASS_STALE_MS = 2000 // no reading for this long: the compass has stopped
-const CAMPUS_FIXES = 2 // fixes in a row inside the boundary, so one stray fix cannot cross it
-const AUTO_START_S = 1 // let the compass speak before a trip starts by itself
-const AUTO_START_EVERY_S = 0.5
-const LIVE_FIXES = 3 // good GPS this many times running: offer to switch to it
-const REPICK_FOR_S = 20 // how long to offer choosing the start again, after going off route
-const CAMPUS_CHECK_EVERY_S = 1
-const EDGE_AHEAD_M = 8 // the backup arrow appears when this far along the route is off screen
-const EDGE_MIN_AHEAD_M = 5 // nearer than this, the point is below the screen when all is well
-const EDGE_AFTER_S = 1 // not for a moment's glance away
-const EDGE_LOST_AFTER_S = 1 // nor for a moment's lost tracking
-const INSTRUCTION_EVERY_S = 0.5
-const POINTS_PER_SAMPLE = 3
+import {entranceOf, isOnCampus, planRoute} from '../nav/route.js'
+import {COMPASS_GUIDE, GPS, GROUND, ROUTING, START, TRIP} from '../config.js'
 
 /** Compass-style bearing of a direction: degrees clockwise from north (or from SLAM -Z). */
 function bearing(east, north) {
@@ -150,7 +127,7 @@ export function createArTrip({
       compassSource = source
       beta = tilt ?? null
       recent.push({heading: h, at: now})
-      recent = recent.filter((r) => now - r.at <= FIRST_HEADING_WINDOW_MS)
+      recent = recent.filter((r) => now - r.at <= TRIP.firstHeadingWindowMs)
       const result = phase === 'ready' ? collect(h, accuracy, now) : null
       noteCompassQuality(result, accuracy, now)
     },
@@ -185,7 +162,7 @@ export function createArTrip({
   /** Average heading of the last ~0.5 s, or the last reading if the compass paused. */
   function recentHeading() {
     const now = Date.now()
-    const fresh = recent.filter((r) => now - r.at <= FIRST_HEADING_WINDOW_MS)
+    const fresh = recent.filter((r) => now - r.at <= TRIP.firstHeadingWindowMs)
     return fresh.length ? circularMean(fresh.map((r) => r.heading)) : heading
   }
 
@@ -197,8 +174,8 @@ export function createArTrip({
     const f = lookDirection()
     const lookDeg = toDeg(Math.atan2(f.x, f.z))
     const held =
-      Math.abs(f.y) <= UPRIGHT_MAX_TILT &&
-      (steadyAnchorDeg == null || Math.abs(angleDiff(steadyAnchorDeg, lookDeg)) <= STEADY_MAX_DRIFT_DEG)
+      Math.abs(f.y) <= TRIP.uprightMaxTilt &&
+      (steadyAnchorDeg == null || Math.abs(angleDiff(steadyAnchorDeg, lookDeg)) <= TRIP.steadyMaxDriftDeg)
     if (!held) {
       restartWindow()
       return null
@@ -222,7 +199,7 @@ export function createArTrip({
     }
     // Compare with the steady error at the start and the turn walking has applied: a compass
     // that is steadily out must not undo them every 3 s. Only new drift counts.
-    nav.realign(h - compassBias - matcher.totalYawDeg, matcher.confident ? REALIGN_MIN_MATCHED_DEG : REALIGN_MIN_DEG)
+    nav.realign(h - compassBias - matcher.totalYawDeg, matcher.confident ? TRIP.realignMinMatchedDeg : TRIP.realignMinDeg)
   }
 
   /** Which way the camera faces in the route frame, degrees clockwise from north. */
@@ -252,7 +229,7 @@ export function createArTrip({
   }
 
   function trackingReady() {
-    return tracking === 'NORMAL' || (allowDesktop && lastTime != null && lastTime - startedAt > DESKTOP_START_DELAY_S)
+    return tracking === 'NORMAL' || (allowDesktop && lastTime != null && lastTime - startedAt > TRIP.desktopStartDelayS)
   }
 
   function compassUsable() {
@@ -261,7 +238,7 @@ export function createArTrip({
 
   function compassStale() {
     const newest = recent.at(-1)
-    return !newest || Date.now() - newest.at > COMPASS_STALE_MS
+    return !newest || Date.now() - newest.at > TRIP.compassStaleMs
   }
 
   /** Which way the user faces for the arrow and the map: walking has the last word once it has spoken. */
@@ -299,10 +276,10 @@ export function createArTrip({
     if (!trackingReady()) return 'tracking'
     const f = lookDirection()
     // A webcam in test mode reports no direction, so only a real phone can be asked to look up.
-    if (!allowDesktop && Math.hypot(f.x, f.z) < MIN_HORIZONTAL_LOOK) return 'look'
+    if (!allowDesktop && Math.hypot(f.x, f.z) < TRIP.minHorizontalLook) return 'look'
     const fix = bestFix()
     const startInfo = nav.startInfo(fix)
-    if (startInfo.offset > SNAP_TO_PATH_M) return 'path'
+    if (startInfo.offset > ROUTING.snapToPathM) return 'path'
     // Standing at a door with it behind you: the stored heading beats a compass beside a building.
     if (manual && Number.isFinite(startPoint.headingDeg)) {
       compassOff = true
@@ -352,7 +329,7 @@ export function createArTrip({
       }
       return
     }
-    if (time - lastMatchAt < MATCH_EVERY_S || !matcher.moving(time) || nav.easing) return
+    if (time - lastMatchAt < TRIP.matchEveryS || !matcher.moving(time) || nav.easing) return
     lastMatchAt = time
     const correction = matcher.update(nav.worldToRoute)
     if (correction) nav.applyCorrection(correction)
@@ -368,7 +345,7 @@ export function createArTrip({
   /** Plan again from where the user is, keeping the current placement. */
   async function reroute() {
     const from = manual ? trackedPosition() : lastFix
-    if (!from || (!manual && from.accuracy > REROUTE_FIX_M)) return
+    if (!from || (!manual && from.accuracy > TRIP.rerouteFixM)) return
     rerouting = true
     try {
       const next = await plan(from, destination)
@@ -395,9 +372,9 @@ export function createArTrip({
 
   /** Crossing on to campus: say welcome, and let the campus route take over for a campus destination. */
   function noteCampus(fix) {
-    if (!cameFromOutside || fix.accuracy > REROUTE_FIX_M) return
+    if (!cameFromOutside || fix.accuracy > TRIP.rerouteFixM) return
     fixesOnCampus = isOnCampus(fix) ? fixesOnCampus + 1 : 0
-    if (fixesOnCampus < CAMPUS_FIXES) return
+    if (fixesOnCampus < TRIP.campusFixes) return
     cameFromOutside = false
     onEnterCampus?.()
     if (!rerouting && !arrived && isOnCampus(entranceOf(destination))) reroute()
@@ -412,18 +389,18 @@ export function createArTrip({
     }
     const next = guidance.getNextManoeuvre(s)
     const corner = next.type === 'arrive' ? Infinity : (next.first ?? next.s) - s
-    const ahead = Math.max(EDGE_MIN_AHEAD_M, Math.min(EDGE_AHEAD_M, corner))
+    const ahead = Math.max(TRIP.edgeMinAheadM, Math.min(TRIP.edgeAheadM, corner))
     const view = nav.routeToWorld(pointAt(nav.route, s + ahead)).applyMatrix4(camera.matrixWorldInverse)
     const front = view.z < 0
     const screen = view.clone().applyMatrix4(camera.projectionMatrix)
     const inView = front && Math.abs(screen.x) <= 1 && Math.abs(screen.y) <= 1
-    const lost = tracking !== 'NORMAL' && time - lastNormalAt >= EDGE_LOST_AFTER_S
+    const lost = tracking !== 'NORMAL' && time - lastNormalAt >= TRIP.edgeLostAfterS
     if (inView && !lost) {
       edgeSince = null
       return
     }
     edgeSince ??= time
-    if (!lost && time - edgeSince < EDGE_AFTER_S) return
+    if (!lost && time - edgeSince < TRIP.edgeAfterS) return
     const h = guideHeading()
     if (h == null) return
     edge = {yawDeg: arrowYawDeg(arrowTarget(nav.route, guidance.manoeuvres, next, s).bearingDeg, h)}
@@ -433,7 +410,7 @@ export function createArTrip({
   function sampleGround(time) {
     if (tracking !== 'NORMAL' || !xr?.XrController?.hitTest || time - lastGroundAt < GROUND.sampleEveryS) return
     lastGroundAt = time
-    for (let i = 0; i < POINTS_PER_SAMPLE; i++) {
+    for (let i = 0; i < TRIP.pointsPerSample; i++) {
       const [x, y] = SCREEN_POINTS[nextPoint]
       nextPoint = (nextPoint + 1) % SCREEN_POINTS.length
       let hits
@@ -544,8 +521,8 @@ export function createArTrip({
     lastTime = time
     if (tracking === 'NORMAL' || lastNormalAt == null) lastNormalAt = time
     // A trip from GPS starts by itself: there is nothing to line up, and nothing to tap.
-    if (autoStart && !manual && phase === 'await-start' && time - startedAt >= AUTO_START_S && time >= autoStartAt) {
-      autoStartAt = time + AUTO_START_EVERY_S
+    if (autoStart && !manual && phase === 'await-start' && time - startedAt >= TRIP.autoStartS && time >= autoStartAt) {
+      autoStartAt = time + TRIP.autoStartEveryS
       startBlocked = start() === 'path'
     }
     if (phase === 'facing') watchFacing()
@@ -567,7 +544,7 @@ export function createArTrip({
       if (tracking === 'NORMAL') tracker.walk(camera.position, directionKnown ? nav.worldToRoute : null)
       if (manual) {
         if (directionKnown && time >= campusCheckAt) {
-          campusCheckAt = time + CAMPUS_CHECK_EVERY_S
+          campusCheckAt = time + TRIP.campusCheckEveryS
           noteCampus({...trackedPosition(), accuracy: 0})
         }
       } else if (lastFix && lastFix !== fedFix) {
@@ -586,7 +563,7 @@ export function createArTrip({
         nav.finish()
         onArrived?.()
       } else {
-        if (time - instructionAt >= INSTRUCTION_EVERY_S) {
+        if (time - instructionAt >= TRIP.instructionEveryS) {
           instructionAt = time
           instruction = guidance.instruction(routeS)
         }
@@ -595,7 +572,7 @@ export function createArTrip({
         if (guidance.turnIsNow(routeS)) onTurnNow?.()
         // Only while SLAM knows where the user is, and not while already planning.
         if (directionKnown && tracking === 'NORMAL' && !rerouting && offRoute.update(s.offset, time)) {
-          if (manual) repickUntil = time + REPICK_FOR_S
+          if (manual) repickUntil = time + TRIP.repickForS
           reroute()
         }
       }
@@ -608,14 +585,14 @@ export function createArTrip({
       onStats?.({
         phase,
         tracking,
-        compassUnsteady: unsteadySince != null && Date.now() - unsteadySince > COMPASS_PILL_AFTER_MS,
+        compassUnsteady: unsteadySince != null && Date.now() - unsteadySince > TRIP.compassPillAfterMs,
         compassPoor: compassPoor() && !placementTrusted(),
         directionKnown,
         manual,
         startBlocked,
         edge,
         repick: manual && !arrived && time < repickUntil,
-        liveAvailable: manual && !arrived && phase === 'ready' && liveFixes >= LIVE_FIXES,
+        liveAvailable: manual && !arrived && phase === 'ready' && liveFixes >= TRIP.liveFixes,
         turnPrompt: phase === 'facing' ? turnPrompt(facingYaw, 0) : null,
         step: phase === 'ready' && !arrived ? guidance.step(routeS) : null,
         steps: phase === 'ready' ? guidance.steps(routeS) : null,

@@ -8,34 +8,7 @@
 // Pure maths, no three.js. Corrections are in the route frame: x = east, y = north, angles
 // counter-clockwise, applied as p' = R(yaw)(p - pivot) + pivot + (dx, dy).
 import {findTurns, projectOntoPolyline, shortestTurn, toDeg, toRad} from '../geo/geo.js'
-
-export const MATCH = {
-  sampleEveryS: 0.5,
-  minStepM: 0.25, // ignore smaller moves, so a user standing still builds up no fake "walk"
-  trackM: 30, // keep this much of the walk
-  minWalkedM: 5, // no correction before this
-  gateM: 8, // samples further than this from the route are ignored by the fine fit
-  coarseM: 16, // with too few samples in the gate, line up by direction if the user is this close
-  iterations: 10,
-  minInliers: 6,
-  maxStepM: 3, // per update
-  maxStepDeg: 10,
-  maxTotalM: 20, // over the whole trip
-  maxTotalDeg: 75, // more than the 60° Start allows, plus some drift, or a bad compass stays uncorrected
-  confidentResidualM: 1,
-  cornerArmM: 4, // a turn in the walk needs this much straight walking either side
-  cornerMinDeg: 35, // same as a turn in the route (findTurns)
-  cornerAgreeDeg: 30, // the walk and the route turn by a similar angle...
-  cornerNearM: 12, // ...this close together
-  wrongWayDeg: 90, // walking further than this from the route direction: the alignment is flipped
-  wrongWayChecks: 2, // seen on this many updates in a row, so one stumble cannot flip the route
-  straightRatio: 0.7, // straight-line distance over distance walked, to read a walking direction
-  maxSpeedMps: 5, // faster than this is a SLAM jump, not walking: start the track again
-  movingWithinS: 1.5,
-  ignoreM: 0.02, // smaller corrections are not worth moving the arrows for
-  ignoreDeg: 0.05,
-}
-
+import {MATCH} from '../config.js'
 
 function transform(p, {dx, dy, yaw}, pivot) {
   const c = Math.cos(yaw)

@@ -6,7 +6,7 @@
 import {permissionsAllowed} from '../../ar/permissions.js'
 import {parseUserAgent} from '../../ar/device.js'
 import {findDestination} from '../../nav/destinations.js'
-import {GUIDE, spokenStep} from '../../nav/guidance.js'
+import {spokenStep} from '../../nav/guidance.js'
 import {compassPoint} from '../../geo/geo.js'
 import {GPS_START, isManual, setStart, standHereText} from '../../nav/start-point.js'
 import {readTripRoute} from '../../nav/route.js'
@@ -18,8 +18,8 @@ import {drawMinimap} from '../components/ar-minimap.js'
 import {createCompassMap} from '../components/compass-map.js'
 import {focusScreen, haptic, html, onAction, render} from '../dom.js'
 import {icon} from '../icons.js'
+import {GUIDE, ROUTING} from '../../config.js'
 
-const WALK_MPS = 1.3
 const STEP_SWIPE_PX = 24
 const SWIPE_CLICK_MS = 500 // a mouse swipe also fires a click; a finger's does not
 const TURN_CHECK_MS = 700
@@ -33,7 +33,7 @@ export function arriveLabel({name, category}) {
 
 /** The one line on the AR screen: "Pathfoot · 120 m · 2 min". */
 export function tripPillText(name, metres) {
-  const minutes = Math.max(1, Math.round(metres / WALK_MPS / 60))
+  const minutes = Math.max(1, Math.round(metres / ROUTING.walkSpeedMps / 60))
   return `${name.replace(/ Building$/, '')} · ${formatDistance(metres)} · ${minutes} min`
 }
 

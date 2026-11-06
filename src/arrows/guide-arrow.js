@@ -2,23 +2,12 @@
 // flat and tilted towards the user. It turns to the way to walk. A ring around it fills as a corner
 // comes up, and on arrival it becomes a pin.
 import {angleDiff, shortestTurn, toDeg, toRad} from '../geo/geo.js'
+import {GUIDE_ARROW} from '../config.js'
 
-const MAX_TURN_DEG_PER_S = 120
-const AHEAD_M = 2
-const BELOW_M = 0.4
-// A level phone would put it behind the map on the lower part of the screen, so it rides up a little.
-const MIN_BELOW_M = 0.2
-const MAX_BELOW_M = 0.6
 const TILT_RAD = toRad(20)
-const SCALE = 0.8 // the ring just fits the width of a portrait camera view at 2 m
-const MIN_LOOK = 0.2 // below this the camera looks straight up or down: keep the last direction
-const RING_SEGMENTS = 64
-const RING_INNER_M = 0.62
-const RING_OUTER_M = 0.7
-const DEPTH_M = 0.05
 
 /** Turn from `current` towards `target` (radians), the short way, at no more than maxDegPerS. */
-export function stepYaw(current, target, dt, maxDegPerS = MAX_TURN_DEG_PER_S) {
+export function stepYaw(current, target, dt, maxDegPerS = GUIDE_ARROW.maxTurnDegPerS) {
   const diff = shortestTurn(current, target)
   const max = toRad(maxDegPerS * dt)
   return current + Math.max(-max, Math.min(max, diff))
@@ -26,7 +15,7 @@ export function stepYaw(current, target, dt, maxDegPerS = MAX_TURN_DEG_PER_S) {
 
 /** How far below the eye the arrow sits, following the phone's tilt within limits. forwardY: look direction's y. */
 export function arrowDrop(forwardY) {
-  return Math.max(MIN_BELOW_M, Math.min(MAX_BELOW_M, BELOW_M + (-forwardY * AHEAD_M - BELOW_M) * 0.5))
+  return Math.max(GUIDE_ARROW.minBelowM, Math.min(GUIDE_ARROW.maxBelowM, GUIDE_ARROW.belowM + (-forwardY * GUIDE_ARROW.aheadM - GUIDE_ARROW.belowM) * 0.5))
 }
 
 /** @param o.color three.js colour number */
@@ -41,7 +30,7 @@ export function createGuideArrow(THREE, {color}) {
   shape.lineTo(-0.16, 0.02)
   shape.lineTo(-0.42, 0.02)
   shape.closePath()
-  const geometry = new THREE.ExtrudeGeometry(shape, {depth: DEPTH_M, bevelEnabled: false})
+  const geometry = new THREE.ExtrudeGeometry(shape, {depth: GUIDE_ARROW.depthM, bevelEnabled: false})
   geometry.rotateX(-Math.PI / 2)
   // Lit faces would need lights in the scene: a brighter top and a darker edge read as solid.
   const top = new THREE.MeshBasicMaterial({color})
@@ -49,7 +38,7 @@ export function createGuideArrow(THREE, {color}) {
   edge.color.multiplyScalar(0.45)
   const arrow = new THREE.Mesh(geometry, [top, edge])
 
-  const ringGeometry = new THREE.RingGeometry(RING_INNER_M, RING_OUTER_M, RING_SEGMENTS, 1, Math.PI / 2)
+  const ringGeometry = new THREE.RingGeometry(GUIDE_ARROW.ringInnerM, GUIDE_ARROW.ringOuterM, GUIDE_ARROW.ringSegments, 1, Math.PI / 2)
   ringGeometry.rotateX(-Math.PI / 2)
   const ringMaterial = new THREE.MeshBasicMaterial({color: 0xffffff, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthTest: false})
   const ring = new THREE.Mesh(ringGeometry, ringMaterial)
@@ -70,7 +59,7 @@ export function createGuideArrow(THREE, {color}) {
   const root = new THREE.Group()
   const plate = new THREE.Group()
   plate.rotation.x = TILT_RAD
-  plate.scale.setScalar(SCALE)
+  plate.scale.setScalar(GUIDE_ARROW.scale)
   plate.add(arrow, ring)
   root.add(plate, pin)
   root.renderOrder = 20
@@ -108,11 +97,11 @@ export function createGuideArrow(THREE, {color}) {
       camera.getWorldPosition(at)
       camera.getWorldDirection(forward)
       const flat = Math.hypot(forward.x, forward.z)
-      if (flat >= MIN_LOOK) {
+      if (flat >= GUIDE_ARROW.minLook) {
         look.x = forward.x / flat
         look.z = forward.z / flat
       }
-      root.position.set(at.x + look.x * AHEAD_M, at.y - arrowDrop(forward.y), at.z + look.z * AHEAD_M)
+      root.position.set(at.x + look.x * GUIDE_ARROW.aheadM, at.y - arrowDrop(forward.y), at.z + look.z * GUIDE_ARROW.aheadM)
       const lookYaw = Math.atan2(-look.x, -look.z)
       root.rotation.y = lookYaw
       if (arrived) {
@@ -130,7 +119,7 @@ export function createGuideArrow(THREE, {color}) {
       arrow.rotation.y = yaw - lookYaw
       const fill = Math.max(0, Math.min(1, ringFill))
       ring.visible = fill > 0
-      ringGeometry.setDrawRange(0, Math.round(fill * RING_SEGMENTS) * 6)
+      ringGeometry.setDrawRange(0, Math.round(fill * GUIDE_ARROW.ringSegments) * 6)
       root.visible = true
     },
     /** The walk is over: the arrow becomes a pin. */

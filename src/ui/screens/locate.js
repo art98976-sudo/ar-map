@@ -4,7 +4,6 @@
 //         or error (denied, location off, timeout, unsupported), each with what to do next.
 //         tap: after a reload the iPhone has forgotten motion, so one small button asks again.
 import {
-  GPS,
   createFixGate,
   locationPermissionState,
   saveTripFix,
@@ -19,12 +18,13 @@ import {
 } from '../../ar/permissions.js'
 import {errorCopy} from './ar.js'
 import {googleMapsWalkingUrl, planRoute, saveTripRoute} from '../../nav/route.js'
-import {getStart, isManual, START, startLabel} from '../../nav/start-point.js'
+import {getStart, isManual, startLabel} from '../../nav/start-point.js'
 import {formatDistance} from '../../arrows/pin.js'
 import {findDestination} from '../../nav/destinations.js'
 import {showToast} from '../components/toast.js'
 import {focusScreen, haptic, html, onAction, render} from '../dom.js'
 import {CATEGORY_ICON, icon} from '../icons.js'
+import {GPS, START} from '../../config.js'
 
 const CONTINUE_DELAY_MS = 900
 

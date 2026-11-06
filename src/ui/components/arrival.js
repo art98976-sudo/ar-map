@@ -1,9 +1,9 @@
 // "You've arrived": shown over the camera at the entrance, with a short burst of confetti.
 import {haptic, html, render} from '../dom.js'
 import {icon} from '../icons.js'
+import {COLOURS} from '../../config.js'
 
 const PIECES = 40
-const COLOURS = ['#006938', '#76b72a', '#9fcc69', '#ffffff', '#edab00']
 
 export function prefersReducedMotion(win = window) {
   return win.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
@@ -14,7 +14,7 @@ function confetti() {
     const left = (i * 97) % 100 // spread evenly without clumping
     const delay = ((i * 37) % 60) / 100
     const drift = ((i * 53) % 80) - 40
-    return html`<span class="confetti" style="left: ${left}%; --delay: ${delay}s; --drift: ${drift}px; background: ${COLOURS[i % COLOURS.length]}"></span>`
+    return html`<span class="confetti" style="left: ${left}%; --delay: ${delay}s; --drift: ${drift}px; background: ${COLOURS.confetti[i % COLOURS.confetti.length]}"></span>`
   })
 }
 

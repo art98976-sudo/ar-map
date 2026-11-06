@@ -6,7 +6,7 @@ import {infoSheetContent} from '../components/info-sheet.js'
 import {showToast} from '../components/toast.js'
 import {deviceIssue} from '../../ar/device.js'
 import {startPermissionRequests} from '../../ar/permissions.js'
-import {GPS, locationPermissionState, readTripFix, watchLocation} from '../../geo/location.js'
+import {locationPermissionState, readTripFix, watchLocation} from '../../geo/location.js'
 import {DESTINATIONS, findDestination, setCurrentDestination} from '../../nav/destinations.js'
 import {categoryLabel, MAP_FILTERS, matchesFilter} from '../../nav/filters.js'
 import {estimateWalkMinutes, planRoute} from '../../nav/route.js'
@@ -22,7 +22,6 @@ import {
   placeById,
   PLACE_LIST,
   setStart,
-  START,
   startAsDestination,
   startFromPin,
   startFromPlace,
@@ -31,10 +30,9 @@ import {
 import {describeDestination} from '../../nav/search.js'
 import {html, onAction, render} from '../dom.js'
 import {CATEGORY_ICON, icon} from '../icons.js'
-import {APP} from '../../config.js'
+import {APP, COLOURS, GPS, START} from '../../config.js'
 
 const ROUTE_ID = 'walking-route'
-const BRAND_GREEN = '#006938'
 const GOOD_ENOUGH_FIX_M = 50 // enough for a walking time; stop the GPS after this to save battery
 
 export function homeScreen(root, {navigate, params}) {
@@ -493,7 +491,7 @@ export function homeScreen(root, {navigate, params}) {
       type: 'line',
       source: ROUTE_ID,
       layout: {'line-cap': 'round', 'line-join': 'round'},
-      paint: {'line-color': BRAND_GREEN, 'line-width': 6, 'line-opacity': 0.9},
+      paint: {'line-color': COLOURS.brandGreen, 'line-width': 6, 'line-opacity': 0.9},
     })
     const bounds = coordinates.reduce((b, c) => b.extend(c), new Mazemap.mapboxgl.LngLatBounds(coordinates[0], coordinates[0]))
     map.fitBounds(bounds, {padding: {top: 150, bottom: card.offsetHeight + 40, left: 40, right: 40}, maxZoom: 18})

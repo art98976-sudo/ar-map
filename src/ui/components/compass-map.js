@@ -1,23 +1,12 @@
 // The live map under the camera: MazeMap with the trip route, always turned so the way the user
 // faces is up, like a car's sat nav. If MazeMap cannot load, onFailed lets the screen draw its
 // plain route picture instead: the arrow and the instructions carry on either way.
-import {MAZEMAP} from '../../config.js'
+import {COLOURS, COMPASS_MAP, MAZEMAP} from '../../config.js'
 import {createCampusMap, loadMazeMap} from '../../map/mazemap.js'
 import {stepBearing} from '../../nav/compass-guide.js'
 
-export const COMPASS_MAP = {
-  pitch: 45,
-  zoom: 18.4,
-  zoomExpanded: 17.6,
-  maxTurnDegPerS: 90,
-  frameMs: 50,
-  dotFromTop: 0.72, // the user's dot sits this far down the map
-}
 const ROUTE = 'trip-route'
 const LEG = 'trip-leg'
-const GREEN = '#0a8a4a'
-const LEG_GREEN = '#37e07f'
-const AMBER = '#e09a00'
 
 const line = (coordinates) => ({type: 'Feature', properties: {}, geometry: {type: 'LineString', coordinates}})
 
@@ -73,7 +62,7 @@ export function createCompassMap(host, {getState, onReady, onFailed}) {
   resize?.observe(host)
 
   function drawRoute(map, Marker, state) {
-    const color = state.approximate ? AMBER : GREEN
+    const color = state.approximate ? COLOURS.amber : COLOURS.routeGreen
     const data = line(state.routeCoords)
     if (map.getSource(ROUTE)) {
       map.getSource(ROUTE).setData(data)
@@ -83,7 +72,7 @@ export function createCompassMap(host, {getState, onReady, onFailed}) {
       map.addSource(LEG, {type: 'geojson', data: line(state.leg)})
       const layout = {'line-cap': 'round', 'line-join': 'round'}
       map.addLayer({id: ROUTE, type: 'line', source: ROUTE, layout, paint: {'line-color': color, 'line-width': 9, 'line-opacity': 0.9}})
-      map.addLayer({id: LEG, type: 'line', source: LEG, layout, paint: {'line-color': state.approximate ? AMBER : LEG_GREEN, 'line-width': 7}})
+      map.addLayer({id: LEG, type: 'line', source: LEG, layout, paint: {'line-color': state.approximate ? COLOURS.amber : COLOURS.legGreen, 'line-width': 7}})
     }
     dest ??= new Marker({element: markerElement('ar-map__pin')}).setLngLat(state.entrance).addTo(map)
     dest.setLngLat(state.entrance)

@@ -1,20 +1,20 @@
 import {describe, expect, it} from 'vitest'
 import * as THREE from 'three'
 import {arrowDrop, createGuideArrow} from '../../src/arrows/guide-arrow.js'
-import {createArrowTrail, TRAIL, visibleWindowEnd} from '../../src/arrows/trail.js'
+import {createArrowTrail, visibleWindowEnd} from '../../src/arrows/trail.js'
 import {
   arrowTarget,
   arrowYawDeg,
   blendBearing,
-  COMPASS_GUIDE,
   createRouteTracker,
   stepBearing,
   turnPrompt,
   walkingCorrection,
 } from '../../src/nav/compass-guide.js'
 import {buildManoeuvres, createGuidance, instructionFor, landmarkPhrase, landmarksFrom, nearestLandmark, spokenStep, stepIcon} from '../../src/nav/guidance.js'
-import {COMPASS_MAP, mapCamera, viewKey} from '../../src/ui/components/compass-map.js'
+import {mapCamera, viewKey} from '../../src/ui/components/compass-map.js'
 import {icon} from '../../src/ui/icons.js'
+import {COMPASS_GUIDE, COMPASS_MAP, TRAIL} from '../../src/config.js'
 
 const near = (a, b, tol = 1e-6) => expect(Math.abs(a - b)).toBeLessThanOrEqual(tol)
 const nearAngle = (a, b, tol = 1e-6) => expect(Math.abs((((a - b + 540) % 360) + 360) % 360 - 180)).toBeLessThanOrEqual(tol)

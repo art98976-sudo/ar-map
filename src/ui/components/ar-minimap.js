@@ -2,6 +2,7 @@
 // If the arrow here points away from where the phone really faces, the alignment is wrong.
 
 import {toRad} from '../../geo/geo.js'
+import {COLOURS} from '../../config.js'
 
 /** Scale and centre a set of route-frame points {x east, y north} into a square canvas. */
 function fitToBox(points, size, padding = 14) {
@@ -46,12 +47,12 @@ export function drawMinimap(canvas, {route, user, headingDeg = 0, nextTurn = nul
     ctx.lineJoin = 'round'
     ctx.stroke()
   }
-  line(route, '#76b72a', 6)
-  line(track, '#ffffff', 3)
+  line(route, COLOURS.lightGreen, 6)
+  line(track, COLOURS.white, 3)
 
   // Route start, so its direction can be read at a glance.
   const start = rotate(route[0])
-  ctx.fillStyle = '#76b72a'
+  ctx.fillStyle = COLOURS.lightGreen
   ctx.beginPath()
   ctx.arc(start.x, start.y, 7, 0, Math.PI * 2)
   ctx.fill()
@@ -60,12 +61,12 @@ export function drawMinimap(canvas, {route, user, headingDeg = 0, nextTurn = nul
   const at = rotate(user)
   if (nextTurn) {
     const turn = rotate(nextTurn)
-    ctx.fillStyle = '#f7d64c'
+    ctx.fillStyle = COLOURS.debugYellow
     ctx.beginPath()
     ctx.arc(turn.x, turn.y, 5, 0, Math.PI * 2)
     ctx.fill()
   }
-  ctx.fillStyle = '#f7d64c'
+  ctx.fillStyle = COLOURS.debugYellow
   ctx.beginPath()
   ctx.arc(at.x, at.y, 8, 0, Math.PI * 2)
   ctx.fill()

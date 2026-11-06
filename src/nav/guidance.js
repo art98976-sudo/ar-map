@@ -2,22 +2,7 @@
 // Positions are distances along the route, from projecting the SLAM position onto it, so GPS
 // noise cannot reach them.
 import {findTurns, pointAt, polylineLength, projectOntoPolyline, toLocal} from '../geo/geo.js'
-
-export const GUIDE = {
-  noticeDeg: 3, // smaller bends are drawing noise
-  turnDeg: 25, // a group of bends must add up to this to be a manoeuvre
-  fullTurnDeg: 45, // below this it is only a "slight" turn
-  groupGapM: 8, // bends the same way this close together are one turn
-  groupSpanM: 30, // ...but a long sweep is not one corner
-  jogM: 3, // two opposite bends this close that cancel out are a sidestep in the path, not turns
-  passedM: 2, // a corner counts as passed this far beyond it
-  backtrackM: 10, // this far back before a passed corner, it is ahead again
-  announceM: 30, // further off than this, say "continue straight"
-  hapticM: 10,
-  nowM: 2, // this close, the turn is now
-  landmarkM: 30, // a place this close to a corner names it
-  pastAfterM: 3, // "Continue past" only names a place still this far ahead
-}
+import {ARRIVAL, GUIDE, OFF_ROUTE} from '../config.js'
 
 // Names that read wrongly after "the": "Turn left at Scran", not "at the Scran".
 const NO_ARTICLE = new Set(['Campus Central', 'Andrew Stewart Hall', 'Airthrey Loch', 'Airthrey Castle', 'Scran', 'Umami', 'Starbucks'])
@@ -205,7 +190,7 @@ export function createGuidance(route, {arriveLabel = 'Destination', landmarks = 
  * Over offM for forS means off route: reroute. Back within backM before that cancels it. At most
  * one reroute per cooldownS. update() returns true on the moment a reroute should start.
  */
-export function createOffRouteMonitor({offM = 15, backM = 8, forS = 5, cooldownS = 20} = {}) {
+export function createOffRouteMonitor({offM, backM, forS, cooldownS} = OFF_ROUTE) {
   let since = null
   let lastFiredAt = -Infinity
   return {
@@ -224,7 +209,7 @@ export function createOffRouteMonitor({offM = 15, backM = 8, forS = 5, cooldownS
  * Arrived: within remainingM along the route, or pinM in a straight line from the entrance, for a
  * moment, so a correction easing past cannot end the trip. update() is true once only.
  */
-export function createArrivalDetector({remainingM = 8, pinM = 6, forS = 1} = {}) {
+export function createArrivalDetector({remainingM, pinM, forS} = ARRIVAL) {
   let held = 0
   let done = false
   return {

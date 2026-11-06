@@ -1,5 +1,6 @@
 import {describe, expect, it} from 'vitest'
-import {acceptHit, createGroundTracker, fitGround, GROUND} from '../../src/ar/ground.js'
+import {acceptHit, createGroundTracker, fitGround} from '../../src/ar/ground.js'
+import {GROUND} from '../../src/config.js'
 
 const near = (a, b, tol) => expect(Math.abs(a - b)).toBeLessThanOrEqual(tol)
 const hitsOn = (height, slope, from = -2, to = 12) => {

@@ -11,11 +11,6 @@ const RECENT_KEY = 'welcomeAR.startRecent.v1'
 const MAX_RECENT = 5
 const MIN_DOOR_M = 3 // a door closer to the place's centre than this says nothing about direction
 
-export const START = {
-  weakGpsM: 25, // GPS worse than this: suggest choosing a start instead
-  liveGpsM: 15, // GPS this good, a few times running: offer to switch back to it
-}
-
 export const GPS_START = Object.freeze({type: 'gps'})
 export const PLACE_LIST = [...DESTINATIONS, ...extraPlaces.places]
 const OUTDOOR = new Set(['bus', 'landmark', 'town', 'parking'])

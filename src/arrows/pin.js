@@ -1,12 +1,7 @@
 // Destination marker at the entrance: a tall pin, slowly bobbing and turning, with a label under it
 // ("Library · 120 m") and a pulsing ring on the ground. It is drawn on top of everything, and grows
 // with distance, so it can be seen from far away and never becomes tiny.
-
-const GREEN = 0x006938
-const LIGHT_GREEN = 0x76b72a
-const GROW_FROM_M = 25 // further than this the pin keeps its size on screen
-const MAX_DRAWN_M = 600 // the camera stops drawing far away: a further pin comes this close instead
-const ON_TOP = 30
+import {PIN} from '../config.js'
 
 /** Label drawn on a canvas (crisp text, re-drawn only when the distance changes). */
 function makeLabel(THREE) {
@@ -18,7 +13,7 @@ function makeLabel(THREE) {
   texture.colorSpace = THREE.SRGBColorSpace
   // fog: false keeps the label crisp in scenes with fog (the arrow preview tool).
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({map: texture, transparent: true, depthTest: false, fog: false}))
-  sprite.renderOrder = ON_TOP + 1
+  sprite.renderOrder = PIN.onTop + 1
   sprite.scale.set(3.6, 1.125, 1) // metres
   let last = ''
 
@@ -64,7 +59,7 @@ export function formatDistance(m) {
 
 /** How much bigger the pin is drawn at a distance. */
 export function pinScale(distanceM) {
-  return Math.max(1, (distanceM || 0) / GROW_FROM_M)
+  return Math.max(1, (distanceM || 0) / PIN.growFromM)
 }
 
 export function createDestinationPin(THREE, {name}) {
@@ -72,15 +67,15 @@ export function createDestinationPin(THREE, {name}) {
   group.name = 'destination-pin'
   const tmp = new THREE.Vector3()
 
-  const glow = new THREE.MeshBasicMaterial({color: LIGHT_GREEN, transparent: true, opacity: 0.9, depthTest: false})
-  const solid = new THREE.MeshBasicMaterial({color: GREEN, depthTest: false})
+  const glow = new THREE.MeshBasicMaterial({color: PIN.lightGreen, transparent: true, opacity: 0.9, depthTest: false})
+  const solid = new THREE.MeshBasicMaterial({color: PIN.green, depthTest: false})
   const floating = new THREE.Group()
   group.add(floating)
 
   // Pole
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 5, 16), glow)
   pole.position.y = 2.5
-  pole.renderOrder = ON_TOP
+  pole.renderOrder = PIN.onTop
   floating.add(pole)
 
   // Head: a classic map pin (sphere + cone), with a white dot.
@@ -93,7 +88,7 @@ export function createDestinationPin(THREE, {name}) {
   dot.position.z = 0.36
   head.add(ball, tip, dot)
   head.traverse((part) => {
-    part.renderOrder = part === dot ? ON_TOP + 1 : ON_TOP
+    part.renderOrder = part === dot ? PIN.onTop + 1 : PIN.onTop
   })
   head.position.y = 5.6
   floating.add(head)
@@ -102,7 +97,7 @@ export function createDestinationPin(THREE, {name}) {
   const ringGeo = new THREE.RingGeometry(0.75, 0.95, 64)
   ringGeo.rotateX(-Math.PI / 2)
   const rings = [0, 0.5].map((offset) => {
-    const mat = new THREE.MeshBasicMaterial({color: LIGHT_GREEN, transparent: true, depthWrite: false})
+    const mat = new THREE.MeshBasicMaterial({color: PIN.lightGreen, transparent: true, depthWrite: false})
     const ring = new THREE.Mesh(ringGeo, mat)
     ring.position.y = 0.015
     ring.userData.offset = offset
@@ -112,7 +107,7 @@ export function createDestinationPin(THREE, {name}) {
   // A solid disc where to stand.
   const discGeo = new THREE.CircleGeometry(0.7, 48)
   discGeo.rotateX(-Math.PI / 2)
-  const disc = new THREE.Mesh(discGeo, new THREE.MeshBasicMaterial({color: GREEN, transparent: true, opacity: 0.45, depthWrite: false}))
+  const disc = new THREE.Mesh(discGeo, new THREE.MeshBasicMaterial({color: PIN.green, transparent: true, opacity: 0.45, depthWrite: false}))
   disc.position.y = 0.012
   group.add(disc)
 
@@ -135,15 +130,15 @@ export function createDestinationPin(THREE, {name}) {
       head.rotation.y = time * 0.6 // slow turn
       floating.scale.setScalar(pinScale(distanceM))
       // Past the camera's far limit, draw it nearer in the same direction, without its pole.
-      const tooFar = distanceM > MAX_DRAWN_M
+      const tooFar = distanceM > PIN.maxDrawnM
       pole.visible = !tooFar
       floating.position.set(0, 0, 0)
       if (tooFar && camera) {
         const p = camera.getWorldPosition(tmp)
         group.worldToLocal(p)
-        const pull = 1 - MAX_DRAWN_M / distanceM
+        const pull = 1 - PIN.maxDrawnM / distanceM
         floating.position.set(p.x * pull, 0, p.z * pull)
-        floating.scale.setScalar(pinScale(MAX_DRAWN_M))
+        floating.scale.setScalar(pinScale(PIN.maxDrawnM))
       }
       label.draw(name, distanceM == null ? '' : formatDistance(distanceM))
     },
