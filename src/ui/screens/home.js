@@ -1,16 +1,16 @@
 // Home is the campus map: pins, a search bar, category chips and a card for the chosen place.
 // #/?to=<id> opens with a place selected.
 import {createCampusMap, loadMazeMap} from '../../map/mazemap.js'
+import {clearRouteLine, drawRouteLine} from '../../map/route-line.js'
 import {createDestinationSearch} from '../components/destination-search.js'
-import {infoSheetContent} from '../components/info-sheet.js'
+import {createMapPicker} from '../components/map-picker.js'
+import {createMapPins} from '../components/map-pins.js'
 import {showToast} from '../components/toast.js'
 import {deviceIssue} from '../../ar/device.js'
 import {startPermissionRequests} from '../../ar/permissions.js'
-import {locationPermissionState, readTripFix, watchLocation} from '../../geo/location.js'
-import {DESTINATIONS, findDestination, setCurrentDestination} from '../../map/destinations.js'
-import {categoryLabel, MAP_FILTERS, matchesFilter} from '../../map/filters.js'
+import {createFixWatch, locationPermissionState, readTripFix} from '../../geo/location.js'
+import {findDestination, setCurrentDestination} from '../../map/destinations.js'
 import {estimateWalkMinutes, planRoute} from '../../route/route.js'
-import {loadTownGraph, nearestOnPaths} from '../../route/footpaths.js'
 import {
   addRecentStart,
   clearRecentStarts,
@@ -27,113 +27,27 @@ import {
   startFromPlace,
   startLabel,
 } from '../../route/start-point.js'
-import {describeDestination} from '../../map/search.js'
-import {html, onAction, render} from '../dom.js'
-import {CATEGORY_ICON, icon} from '../icons.js'
-import {APP, COLOURS, GPS, START} from '../../config.js'
-
-const ROUTE_ID = 'walking-route'
-const GOOD_ENOUGH_FIX_M = 50 // enough for a walking time; stop the GPS after this to save battery
+import {onAction, render} from '../dom.js'
+import {GPS, START} from '../../config.js'
+import {createSheets} from './home-sheets.js'
+import {doorList, homePage, mapError, mapLoading, placeCard} from './home-view.js'
 
 export function homeScreen(root, {navigate, params}) {
   const forced = params.force === '1'
   let instance = null
   let selected = findDestination(params.to)
-  let filter = null
-  let tempPin = null
-  const pins = new Map()
-  let fix = readTripFix()
-  let stopWatch = null
-  let fixWaiters = []
   let routeRequest = 0
   let disposed = false
-  let gpsTrouble = false
-  let watching = false
   let enginePrefetched = false
   let startMarker = null
-  let pick = null // while picking on the map: {marker, point}
 
-  render(
-    root,
-    html`
-      <div class="map-home">
-        <h1 class="sr-only" tabindex="-1">Campus map</h1>
-        <div class="map-home__map" data-map role="region" aria-label="University of Stirling campus map"></div>
-        <header class="map-home__top">
-          <div class="map-home__row">
-            <button class="map-search" type="button" data-action="open-search" aria-label="Where do you want to go?">
-              ${icon('search', {size: 20})}<span>Where do you want to go?</span>
-            </button>
-            <button class="icon-btn icon-btn--glass-light" type="button" data-action="open-info" aria-label="About and privacy">${icon('info')}</button>
-          </div>
-          <div class="map-chips" role="group" aria-label="Filter the map">
-            ${MAP_FILTERS.map(
-              (f) => html`
-                <button class="map-chip" type="button" data-action="filter" data-filter="${f.id}" aria-pressed="false">
-                  ${icon(f.icon, {size: 18})}<span>${f.label}</span>
-                </button>
-              `,
-            )}
-          </div>
-        </header>
-        <div class="map-home__overlay" data-overlay>
-          <span class="spinner spinner--dark" aria-hidden="true"></span>
-          <p>Loading the University map…</p>
-        </div>
-        <section class="dest-sheet" data-card hidden aria-live="polite" aria-label="Selected place"></section>
-
-        <section class="pick-bar" data-pick-bar aria-label="Pick your start on the map" hidden>
-          <p class="pick-bar__text" data-pick-text role="status">Tap the map or drag the pin to where you are.</p>
-          <button class="btn btn--primary btn--block" type="button" data-action="pick-confirm" disabled>Confirm start here</button>
-          <button class="btn btn--ghost" type="button" data-action="pick-cancel">Cancel</button>
-        </section>
-
-        <div class="sheet" data-start-sheet role="dialog" aria-modal="true" aria-labelledby="start-title" hidden>
-          <header class="sheet__bar">
-            <h2 class="sheet__title" id="start-title" tabindex="-1">Where are you starting from?</h2>
-            <button class="icon-btn" type="button" data-action="close-sheets" aria-label="Close starting point">${icon('close')}</button>
-          </header>
-          <div data-start-choices>
-            <div class="start-options">
-              <button class="start-option" type="button" data-action="start-gps">
-                <span class="start-option__icon">${icon('compass')}</span>
-                <span class="start-option__text"><strong>Current location</strong><span data-start-gps-text>Use GPS</span></span>
-              </button>
-              <button class="start-option" type="button" data-action="start-pick">
-                <span class="start-option__icon">${icon('map')}</span>
-                <span class="start-option__text"><strong>Pick on map</strong><span>Tap or drag a pin to where you are</span></span>
-              </button>
-            </div>
-            <div data-start-search></div>
-          </div>
-          <div class="start-doors" data-start-doors hidden></div>
-        </div>
-
-        <div class="sheet" data-search-sheet role="dialog" aria-modal="true" aria-labelledby="search-title" hidden>
-          <header class="sheet__bar">
-            <h2 class="sheet__title" id="search-title">Where do you want to go?</h2>
-            <button class="icon-btn" type="button" data-action="close-sheets" aria-label="Close search">${icon('close')}</button>
-          </header>
-          <div data-search></div>
-        </div>
-
-        <div class="sheet" data-info-sheet role="dialog" aria-modal="true" aria-labelledby="info-title" hidden>
-          <header class="sheet__bar sheet__bar--end">
-            <button class="icon-btn" type="button" data-action="close-sheets" aria-label="Close about">${icon('close')}</button>
-          </header>
-          ${infoSheetContent()}
-        </div>
-      </div>
-    `,
-  )
+  render(root, homePage())
 
   const overlay = root.querySelector('[data-overlay]')
   const card = root.querySelector('[data-card]')
   const searchSheet = root.querySelector('[data-search-sheet]')
   const infoSheet = root.querySelector('[data-info-sheet]')
-
   const startSheet = root.querySelector('[data-start-sheet]')
-  const pickBar = root.querySelector('[data-pick-bar]')
   const startSearch = createDestinationSearch(root.querySelector('[data-start-search]'), {
     label: 'Search for a starting point',
     placeholder: 'Building, entrance or place',
@@ -145,57 +59,36 @@ export function homeScreen(root, {navigate, params}) {
   const search = createDestinationSearch(root.querySelector('[data-search]'), {
     label: 'Search for a destination',
     onSelect: (dest) => {
-      closeSheets({restoreFocus: false})
+      sheets.close({restoreFocus: false})
       select(dest)
       card.querySelector('.dest-sheet__name')?.focus({preventScroll: true})
     },
   })
-
-  // ---------- full-height sheets ----------
-  // Each open sheet is one history entry, so the phone's back button closes it.
-  const SHEETS = {
-    search: {element: searchSheet, opener: 'open-search'},
-    info: {element: infoSheet, opener: 'open-info'},
-    start: {element: startSheet, opener: 'open-start'},
-  }
-  const behindSheets = [root.querySelector('[data-map]'), root.querySelector('.map-home__top'), card, overlay]
-  let shownSheet = null
-
-  function showSheet(name) {
-    shownSheet = name
-    for (const [key, sheet] of Object.entries(SHEETS)) sheet.element.hidden = key !== name
-    behindSheets.forEach((el) => el.toggleAttribute('inert', true))
-  }
-
-  function hideSheet({restoreFocus = true} = {}) {
-    if (!shownSheet) return
-    const opener = root.querySelector(`[data-action="${SHEETS[shownSheet].opener}"]`)
-    shownSheet = null
-    for (const sheet of Object.values(SHEETS)) sheet.element.hidden = true
-    behindSheets.forEach((el) => el.toggleAttribute('inert', false))
-    if (restoreFocus) opener?.focus({preventScroll: true})
-  }
-
-  function openSheet(name) {
-    showSheet(name)
-    window.history.pushState({sheet: name}, '')
-  }
-
-  function closeSheets(options) {
-    if (!shownSheet) return
-    hideSheet(options)
-    if (window.history.state?.sheet) window.history.back()
-  }
-
-  const onHistory = () => {
-    const wanted = window.history.state?.sheet ?? null
-    if (wanted !== shownSheet) {
-      if (wanted) showSheet(wanted)
-      else hideSheet()
-    }
-    keepAddressInStep()
-  }
-  window.addEventListener('popstate', onHistory)
+  const sheets = createSheets(
+    root,
+    {
+      search: {element: searchSheet, opener: 'open-search'},
+      info: {element: infoSheet, opener: 'open-info'},
+      start: {element: startSheet, opener: 'open-start'},
+    },
+    [root.querySelector('[data-map]'), root.querySelector('.map-home__top'), card, overlay],
+    keepAddressInStep,
+  )
+  const picker = createMapPicker(root.querySelector('[data-pick-bar]'))
+  const pins = createMapPins(root, {
+    getMap: () => instance?.map,
+    getSelected: () => selected,
+    canSelect: () => !picker.active,
+    onSelect: select,
+  })
+  // Location, only if the phone has already allowed it.
+  const fixWatch = createFixWatch(readTripFix(), {
+    onFix: () => {
+      refreshWalkText()
+      paintStart()
+    },
+    onTrouble: () => paintStart(),
+  })
 
   // ---------- the chosen place ----------
   /** The address names the chosen place, so a reload or Back from the next screen keeps it. */
@@ -215,7 +108,7 @@ export function homeScreen(root, {navigate, params}) {
     setCurrentDestination(dest) // a room from the search is not in our list: this finds it after a reload
     keepAddressInStep()
     drawCard()
-    markSelectedPin()
+    pins.markSelected()
     flyToSelected()
   }
 
@@ -224,34 +117,36 @@ export function homeScreen(root, {navigate, params}) {
     clearRoute()
     keepAddressInStep()
     card.hidden = true
-    markSelectedPin()
+    pins.markSelected()
   }
 
   function walkText() {
     const start = getStart()
-    const minutes = estimateWalkMinutes(isManual(start) ? start : fix, selected)
+    const minutes = estimateWalkMinutes(isManual(start) ? start : fixWatch.fix, selected)
     return minutes == null ? 'On campus' : `About ${minutes} min walk`
   }
 
   // ---------- the starting point ----------
   function gpsText() {
+    const {fix} = fixWatch
     if (fix) return `Current location · ±${Math.round(fix.accuracy)} m`
-    return watching ? 'Locating you…' : 'Current location'
+    return fixWatch.watching ? 'Locating you…' : 'Current location'
   }
 
   function paintStart() {
+    const {fix, trouble} = fixWatch
     const start = getStart()
     const manual = isManual(start)
     const text = root.querySelector('[data-start-text]')
     if (text) text.textContent = manual ? startLabel(start) : gpsText()
     const prompt = root.querySelector('[data-start-prompt]')
-    if (prompt) prompt.hidden = manual || !(gpsTrouble || fix?.accuracy > START.weakGpsM)
+    if (prompt) prompt.hidden = manual || !(trouble || fix?.accuracy > START.weakGpsM)
     const live = root.querySelector('[data-action="start-gps"][data-live]')
     if (live) live.hidden = !manual || !(fix?.accuracy <= START.liveGpsM)
     const row = root.querySelector('.route-from__row')
     row?.setAttribute('aria-label', `Starting point: ${manual ? startLabel(start) : gpsText()}. Change`)
     const sheetText = root.querySelector('[data-start-gps-text]')
-    if (sheetText) sheetText.textContent = fix ? `Accurate to ±${Math.round(fix.accuracy)} m` : gpsTrouble ? 'Not available right now' : 'Use GPS'
+    if (sheetText) sheetText.textContent = fix ? `Accurate to ±${Math.round(fix.accuracy)} m` : trouble ? 'Not available right now' : 'Use GPS'
     paintStartMarker()
   }
 
@@ -269,7 +164,7 @@ export function homeScreen(root, {navigate, params}) {
     setStart(start)
     clearRoute()
     setRouteLink('Show route on map')
-    closeSheets({restoreFocus: false})
+    sheets.close({restoreFocus: false})
     showDoors(null)
     paintStart()
     refreshWalkText()
@@ -289,25 +184,13 @@ export function homeScreen(root, {navigate, params}) {
     doors.hidden = !place
     if (!place) return
     doors.dataset.place = place.id
-    render(
-      doors,
-      html`
-        <h3 class="start-doors__title" tabindex="-1">Which entrance of ${place.name}?</h3>
-        ${entrancesOf(place).map(
-          (door) => html`
-            <button class="start-option" type="button" data-action="start-door" data-door="${door.id}">
-              <span class="start-option__icon">${icon('door')}</span>
-              <span class="start-option__text"><strong>${door.name}</strong></span>
-            </button>
-          `,
-        )}
-      `,
-    )
+    render(doors, doorList(place))
     doors.querySelector('h3').focus({preventScroll: true})
   }
 
   function swapEnds() {
     const start = getStart()
+    const {fix} = fixWatch
     if (!selected) return
     const here = isManual(start) ? startAsDestination(start) : fix && {id: 'your-location', name: 'Your location', category: 'landmark', building: '', floor: null, lat: fix.lat, lng: fix.lng}
     if (!here) return showToast('Still finding you. Choose a starting point to swap.', {tone: 'warning'})
@@ -319,47 +202,17 @@ export function homeScreen(root, {navigate, params}) {
   // ---------- pick on the map ----------
   function enterPick() {
     if (!instance?.map) return showToast('The map is still loading', {tone: 'warning'})
-    closeSheets({restoreFocus: false})
+    sheets.close({restoreFocus: false})
     showDoors(null)
     card.hidden = true
     root.querySelector('.map-home').dataset.picking = ''
-    pickBar.hidden = false
     const start = getStart()
     const c = instance.map.getCenter()
-    const from = isManual(start) ? start : fix || {lat: c.lat, lng: c.lng}
-    const element = document.createElement('div')
-    element.className = 'map-pick-pin'
-    render(element, icon('pin', {size: 36}))
-    const marker = new window.Mazemap.mapboxgl.Marker({element, draggable: true, anchor: 'bottom'}).setLngLat({lng: from.lng, lat: from.lat}).addTo(instance.map)
-    marker.on('dragend', () => snapPick(marker.getLngLat()))
-    pick = {marker, point: null}
-    snapPick({lat: from.lat, lng: from.lng})
-    pickBar.querySelector('[data-action="pick-confirm"]').focus({preventScroll: true})
-  }
-
-  /** The pin always ends up on a walkable path, so routing works from it. */
-  async function snapPick(p) {
-    const confirm = pickBar.querySelector('[data-action="pick-confirm"]')
-    const text = pickBar.querySelector('[data-pick-text]')
-    const current = pick
-    confirm.disabled = true
-    try {
-      const hit = nearestOnPaths(await loadTownGraph(), {lat: p.lat, lng: p.lng})
-      if (disposed || pick !== current || !hit) return
-      current.point = {lat: hit.lat, lng: hit.lng}
-      current.marker.setLngLat({lng: hit.lng, lat: hit.lat})
-      confirm.disabled = false
-      text.textContent = 'Moved to the nearest path. Tap the map or drag the pin to change it.'
-    } catch (err) {
-      console.warn('[home] could not snap the pin', err)
-      if (pick === current) text.textContent = 'Could not load the paths. Check your connection and try again.'
-    }
+    picker.enter(instance.map, isManual(start) ? start : fixWatch.fix || {lat: c.lat, lng: c.lng})
   }
 
   function leavePick() {
-    pick?.marker.remove()
-    pick = null
-    pickBar.hidden = true
+    picker.leave()
     delete root.querySelector('.map-home').dataset.picking
     drawCard()
   }
@@ -378,39 +231,7 @@ export function homeScreen(root, {navigate, params}) {
       card.hidden = true
       return
     }
-    const room = selected.category === 'room' ? describeDestination(selected) : ''
-    render(
-      card,
-      html`
-        ${selected.photo ? html`<img class="dest-sheet__photo" src="${selected.photo}" alt="" loading="lazy" />` : ''}
-        <div class="route-from">
-          <button class="route-from__row" type="button" data-action="open-start">
-            <span class="route-from__label">From</span>
-            <span class="route-from__value" data-start-text></span>
-            ${icon('chevronRight', {size: 18})}
-          </button>
-          <button class="icon-btn" type="button" data-action="swap" aria-label="Swap start and destination">${icon('swap', {size: 20})}</button>
-        </div>
-        <p class="route-prompt" data-start-prompt hidden>
-          We can't find you precisely.
-          <button class="dest-sheet__link" type="button" data-action="open-start">Choose your starting point instead</button>
-        </p>
-        <button class="dest-sheet__link" type="button" data-action="start-gps" data-live hidden>Switch to live location?</button>
-        <div class="dest-sheet__head">
-          <div class="dest-sheet__text">
-            <p class="route-from__label">To</p>
-            <h2 class="dest-sheet__name" tabindex="-1">${selected.name}</h2>
-            <p class="dest-sheet__meta">${room || categoryLabel(selected.category)}</p>
-            <p class="dest-sheet__walk" data-walk>${icon('footsteps', {size: 16})}<span data-walk-text>${walkText()}</span></p>
-          </div>
-          <button class="icon-btn" type="button" data-action="unselect" aria-label="Close">${icon('close', {size: 20})}</button>
-        </div>
-        <button class="btn btn--primary btn--block" type="button" data-action="walk" aria-label="Walk here in AR">
-          ${icon('camera')}<span>Walk here in AR</span>
-        </button>
-        <button class="dest-sheet__link" type="button" data-action="route" aria-expanded="false" data-route-link>Show route on map</button>
-      `,
-    )
+    render(card, placeCard(selected, walkText()))
     card.hidden = false
     paintStart()
     prefetchEngine()
@@ -423,55 +244,15 @@ export function homeScreen(root, {navigate, params}) {
 
   function openStartSheet() {
     showDoors(null)
-    openSheet('start')
+    sheets.open('start')
     paintStart()
     startSheet.querySelector('#start-title').focus({preventScroll: true})
-  }
-
-  // ---------- location, only if the phone has already allowed it ----------
-  function ensureWatch() {
-    if (stopWatch) return
-    watching = true
-    gpsTrouble = false
-    stopWatch = watchLocation({
-      onFix: (position) => {
-        const c = position.coords
-        fix = {lat: c.latitude, lng: c.longitude, accuracy: c.accuracy}
-        refreshWalkText()
-        paintStart()
-        fixWaiters.splice(0).forEach((w) => w.resolve(fix))
-        if (c.accuracy <= GOOD_ENOUGH_FIX_M) stopLocation()
-      },
-      onError: (code) => {
-        fixWaiters.splice(0).forEach((w) => w.reject(code))
-        gpsTrouble = true
-        stopLocation()
-        paintStart()
-      },
-    })
-  }
-
-  function stopLocation() {
-    stopWatch?.()
-    stopWatch = null
-    watching = false
-  }
-
-  function currentFix() {
-    if (fix) return Promise.resolve(fix)
-    return new Promise((resolve, reject) => {
-      fixWaiters.push({resolve, reject})
-      ensureWatch()
-    })
   }
 
   // ---------- route on the map ----------
   function clearRoute() {
     routeRequest += 1
-    const map = instance?.map
-    if (!map) return
-    if (map.getLayer?.(ROUTE_ID)) map.removeLayer(ROUTE_ID)
-    if (map.getSource?.(ROUTE_ID)) map.removeSource(ROUTE_ID)
+    if (instance?.map) clearRouteLine(instance.map)
   }
 
   function setRouteLink(text, expanded = false) {
@@ -479,22 +260,6 @@ export function homeScreen(root, {navigate, params}) {
     if (!link) return
     link.textContent = text
     link.setAttribute('aria-expanded', String(expanded))
-  }
-
-  function drawRoute(points) {
-    const map = instance.map
-    const Mazemap = window.Mazemap
-    const coordinates = points.map((p) => [p.lng, p.lat])
-    map.addSource(ROUTE_ID, {type: 'geojson', data: {type: 'Feature', properties: {}, geometry: {type: 'LineString', coordinates}}})
-    map.addLayer({
-      id: ROUTE_ID,
-      type: 'line',
-      source: ROUTE_ID,
-      layout: {'line-cap': 'round', 'line-join': 'round'},
-      paint: {'line-color': COLOURS.brandGreen, 'line-width': 6, 'line-opacity': 0.9},
-    })
-    const bounds = coordinates.reduce((b, c) => b.extend(c), new Mazemap.mapboxgl.LngLatBounds(coordinates[0], coordinates[0]))
-    map.fitBounds(bounds, {padding: {top: 150, bottom: card.offsetHeight + 40, left: 40, right: 40}, maxZoom: 18})
   }
 
   async function toggleRoute() {
@@ -510,14 +275,14 @@ export function homeScreen(root, {navigate, params}) {
     setRouteLink('Finding your route…')
     try {
       const start = getStart()
-      const from = isManual(start) ? start : await currentFix()
+      const from = isManual(start) ? start : await fixWatch.current()
       const route = await planRoute(from, dest)
       if (disposed || request !== routeRequest) return
       if (route.status === 'off-campus') {
         setRouteLink('Show route on map')
         return showToast('Routes start once you are in Stirling', {tone: 'warning'})
       }
-      drawRoute(route.points)
+      drawRouteLine(instance.map, route.points, card.offsetHeight + 40)
       setRouteLink('Hide route', true)
       root.querySelector('[data-walk-text]').textContent = `About ${route.minutes} min walk`
       if (route.source === 'direct') showToast('Approximate route - no path found', {tone: 'warning'})
@@ -527,69 +292,6 @@ export function homeScreen(root, {navigate, params}) {
       setRouteLink('Show route on map')
       showToast(err === 'denied' ? 'Turn on location to see the route' : 'Could not plan a route. Try again.', {tone: 'warning'})
     }
-  }
-
-  // ---------- pins ----------
-  function makePin(dest) {
-    const Mazemap = window.Mazemap
-    const element = document.createElement('button')
-    element.type = 'button'
-    element.className = 'map-pin'
-    element.dataset.pin = dest.id
-    element.dataset.category = dest.category
-    element.setAttribute('aria-label', dest.name)
-    render(element, html`<span class="map-pin__dot">${icon(CATEGORY_ICON[dest.category] || 'pin', {size: 18})}</span>`)
-    element.addEventListener('click', (event) => {
-      event.stopPropagation()
-      if (!pick) select(dest)
-    })
-    const marker = new Mazemap.mapboxgl.Marker({element}).setLngLat({lng: dest.lng, lat: dest.lat}).addTo(instance.map)
-    // The map library labels markers as images; these are buttons.
-    element.setAttribute('role', 'button')
-    return marker
-  }
-
-  function addPins() {
-    for (const dest of DESTINATIONS) pins.set(dest.id, makePin(dest))
-    applyFilter()
-  }
-
-  function applyFilter() {
-    for (const dest of DESTINATIONS) {
-      const el = pins.get(dest.id)?.getElement()
-      if (el) el.hidden = !matchesFilter(dest, filter)
-    }
-    markSelectedPin()
-  }
-
-  function markSelectedPin() {
-    tempPin?.remove()
-    tempPin = null
-    // A room from the search has no permanent pin.
-    if (selected && !pins.has(selected.id) && instance?.map && pins.size && Number.isFinite(selected.lat)) tempPin = makePin(selected)
-    root.querySelectorAll('.map-pin').forEach((el) => {
-      const on = el.dataset.pin === selected?.id
-      el.classList.toggle('is-selected', on)
-      if (on) el.hidden = false
-    })
-  }
-
-  function setFilter(next) {
-    filter = filter === next ? null : next
-    root.querySelectorAll('[data-filter]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.filter === filter)))
-    applyFilter()
-    fitToFilter()
-  }
-
-  function fitToFilter() {
-    const map = instance?.map
-    const Mazemap = window.Mazemap
-    if (!map || !filter) return
-    const shown = DESTINATIONS.filter((d) => matchesFilter(d, filter))
-    if (!shown.length) return
-    const first = [shown[0].lng, shown[0].lat]
-    const bounds = shown.reduce((b, d) => b.extend([d.lng, d.lat]), new Mazemap.mapboxgl.LngLatBounds(first, first))
-    map.fitBounds(bounds, {padding: {top: 170, bottom: 80, left: 50, right: 50}, maxZoom: 16.5})
   }
 
   function flyToSelected() {
@@ -608,32 +310,12 @@ export function homeScreen(root, {navigate, params}) {
   // ---------- map loading ----------
   function showMapError(err) {
     if (disposed) return
-    const offline = err?.code === 'offline' || navigator.onLine === false
     overlay.hidden = false
-    render(
-      overlay,
-      html`
-        <div class="map-home__error" role="alert">
-          <span class="error-state__icon" data-tone="warn">${icon(offline ? 'wifiOff' : 'map', {size: 28})}</span>
-          <h2>${offline ? 'You are offline' : 'The map could not load'}</h2>
-          <p>${offline ? 'Connect to Wi-Fi or mobile data and try again.' : 'Check your connection and try again.'}</p>
-          <button class="btn btn--primary btn--block" type="button" data-action="retry" aria-label="Try again">
-            ${icon('refresh')}<span>Try again</span>
-          </button>
-          <a class="btn btn--secondary btn--block" aria-label="Open the full campus map" href="${APP.campusMapUrl}" target="_blank" rel="noopener">
-            ${icon('external')}<span>Open the full campus map</span>
-          </a>
-        </div>
-      `,
-    )
+    render(overlay, mapError(err?.code === 'offline' || navigator.onLine === false))
   }
 
   async function load() {
-    render(
-      overlay,
-      html`<span class="spinner spinner--dark" aria-hidden="true"></span>
-        <p>Loading the University map…</p>`,
-    )
+    render(overlay, mapLoading())
     overlay.hidden = false
     try {
       const Mazemap = await loadMazeMap()
@@ -644,12 +326,10 @@ export function homeScreen(root, {navigate, params}) {
         onReady: () => {
           if (disposed) return
           overlay.hidden = true
-          addPins()
+          pins.addAll()
           instance.map.on('click', (event) => {
-            if (pick) {
-              pick.marker.setLngLat(event.lngLat)
-              snapPick(event.lngLat)
-            } else if (selected) unselect()
+            if (picker.active) picker.moveTo(event.lngLat)
+            else if (selected) unselect()
           })
           flyToSelected()
           paintStartMarker()
@@ -665,7 +345,7 @@ export function homeScreen(root, {navigate, params}) {
   // ---------- actions ----------
   const off = onAction(root, {
     'open-search': () => {
-      openSheet('search')
+      sheets.open('search')
       // Inside the tap, or iPhone will not open the keyboard.
       search.focus()
     },
@@ -673,7 +353,7 @@ export function homeScreen(root, {navigate, params}) {
     'start-gps': () => {
       useStart(GPS_START)
       locationPermissionState().then((state) => {
-        if (!disposed && state === 'granted') ensureWatch()
+        if (!disposed && state === 'granted') fixWatch.ensure()
       })
     },
     'start-pick': () => enterPick(),
@@ -684,18 +364,18 @@ export function homeScreen(root, {navigate, params}) {
     },
     swap: () => swapEnds(),
     'pick-confirm': () => {
-      if (!pick?.point) return
-      const start = startFromPin(pick.point)
+      if (!picker.point) return
+      const start = startFromPin(picker.point)
       leavePick()
       useStart(start)
     },
     'pick-cancel': () => leavePick(),
     'open-info': () => {
-      openSheet('info')
+      sheets.open('info')
       infoSheet.querySelector('#info-title').focus({preventScroll: true})
     },
-    'close-sheets': () => closeSheets(),
-    filter: (_, target) => setFilter(target.dataset.filter),
+    'close-sheets': () => sheets.close(),
+    filter: (_, target) => pins.setFilter(target.dataset.filter),
     unselect: () => {
       unselect()
       root.querySelector('[data-action="open-search"]').focus({preventScroll: true}) // its button has gone
@@ -714,30 +394,29 @@ export function homeScreen(root, {navigate, params}) {
   })
 
   const onKey = (event) => {
-    if (event.key === 'Escape') closeSheets()
+    if (event.key === 'Escape') sheets.close()
   }
   document.addEventListener('keydown', onKey)
 
   drawCard()
   load()
   // A reload keeps the history entry of a sheet that was open.
-  if (window.history.state?.sheet) showSheet(window.history.state.sheet)
+  if (window.history.state?.sheet) sheets.show(window.history.state.sheet)
   locationPermissionState().then((state) => {
-    if (!disposed && state === 'granted' && !(fix?.accuracy <= GPS.goodAccuracyM)) ensureWatch()
+    if (!disposed && state === 'granted' && !(fixWatch.fix?.accuracy <= GPS.goodAccuracyM)) fixWatch.ensure()
   })
 
   return () => {
     disposed = true
     off()
     document.removeEventListener('keydown', onKey)
-    window.removeEventListener('popstate', onHistory)
+    sheets.destroy()
     search.destroy()
     startSearch.destroy()
-    pick?.marker.remove()
+    if (picker.active) picker.leave()
     startMarker?.remove()
-    stopLocation()
-    fixWaiters = []
-    tempPin?.remove()
+    fixWatch.destroy()
+    pins.destroy()
     instance?.destroy()
   }
 }

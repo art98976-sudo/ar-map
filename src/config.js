@@ -204,6 +204,8 @@ export const GPS = {
   indoorAfterMs: 30_000,
   // How long one watchPosition attempt may wait before reporting a timeout.
   timeoutMs: 20_000,
+  // Enough for a walking time: the home screen stops the GPS after this, to save battery.
+  goodEnoughFixM: 50,
 }
 
 export const START = {

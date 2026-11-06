@@ -111,3 +111,67 @@ export function readTripFix(storage = globalThis.sessionStorage) {
     return null
   }
 }
+
+/**
+ * The home screen's quiet location: the last fix, and whoever is waiting for one.
+ * It stops by itself once a fix is good enough for a walking time, to save battery.
+ */
+export function createFixWatch(firstFix, {onFix, onTrouble}) {
+  let fix = firstFix
+  let stopWatch = null
+  let waiters = []
+  let watching = false
+  let trouble = false
+
+  function stop() {
+    stopWatch?.()
+    stopWatch = null
+    watching = false
+  }
+
+  function ensure() {
+    if (stopWatch) return
+    watching = true
+    trouble = false
+    stopWatch = watchLocation({
+      onFix: (position) => {
+        const c = position.coords
+        fix = {lat: c.latitude, lng: c.longitude, accuracy: c.accuracy}
+        onFix()
+        waiters.splice(0).forEach((w) => w.resolve(fix))
+        if (c.accuracy <= GPS.goodEnoughFixM) stop()
+      },
+      onError: (code) => {
+        waiters.splice(0).forEach((w) => w.reject(code))
+        trouble = true
+        stop()
+        onTrouble()
+      },
+    })
+  }
+
+  return {
+    get fix() {
+      return fix
+    },
+    get watching() {
+      return watching
+    },
+    get trouble() {
+      return trouble
+    },
+    ensure,
+    /** The fix, once there is one. */
+    current() {
+      if (fix) return Promise.resolve(fix)
+      return new Promise((resolve, reject) => {
+        waiters.push({resolve, reject})
+        ensure()
+      })
+    },
+    destroy() {
+      stop()
+      waiters = []
+    },
+  }
+}
