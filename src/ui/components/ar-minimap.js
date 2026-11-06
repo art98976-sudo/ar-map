@@ -1,8 +1,10 @@
 // Debug minimap: the route, the walked track, the user and where the camera looks, north up.
 // If the arrow here points away from where the phone really faces, the alignment is wrong.
 
+import {toRad} from '../../geo/geo.js'
+
 /** Scale and centre a set of route-frame points {x east, y north} into a square canvas. */
-export function fitToBox(points, size, padding = 14) {
+function fitToBox(points, size, padding = 14) {
   const xs = points.map((p) => p.x)
   const ys = points.map((p) => p.y)
   const minX = Math.min(...xs)
@@ -22,7 +24,7 @@ export function drawMinimap(canvas, {route, user, headingDeg = 0, nextTurn = nul
   const size = canvas.width
   const toPx = fitToBox([...route, user, ...track], size)
   const centre = toPx(user)
-  const heading = (headingDeg * Math.PI) / 180
+  const heading = toRad(headingDeg)
   const rotate = (p) => {
     const q = toPx(p)
     const x = q.x - centre.x

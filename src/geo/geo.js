@@ -5,44 +5,52 @@
 // millimetres, which is far below GPS error, so we keep the maths simple.
 
 const R = 6371008.8 // mean Earth radius, metres
-const rad = (d) => (d * Math.PI) / 180
-const deg = (r) => (r * 180) / Math.PI
+export const toRad = (degrees) => (degrees * Math.PI) / 180
+export const toDeg = (radians) => (radians * 180) / Math.PI
+/** Any angle in degrees -> 0..360. */
+export const wrap360 = (degrees) => ((degrees % 360) + 360) % 360
+/** Smallest signed difference b - a in degrees (-180..180). */
+export const angleDiff = (a, b) => wrap360(b - a + 180) - 180
+/** Smallest signed turn (radians, -PI..PI) from `from` to `to`. */
+export const shortestTurn = (from, to) => Math.atan2(Math.sin(to - from), Math.cos(to - from))
+/** Compass bearing from local point a to b, degrees clockwise from north (0..360). */
+export const localBearing = (a, b) => wrap360(toDeg(Math.atan2(b.x - a.x, b.y - a.y)))
 
 /** Great-circle distance in metres between {lat, lng} points. */
 export function distanceM(a, b) {
-  const dLat = rad(b.lat - a.lat)
-  const dLng = rad(b.lng - a.lng)
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2
+  const dLat = toRad(b.lat - a.lat)
+  const dLng = toRad(b.lng - a.lng)
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)))
 }
 
 /** Compass bearing from a to b, degrees clockwise from north (0..360). */
 export function bearingDeg(a, b) {
-  const y = Math.sin(rad(b.lng - a.lng)) * Math.cos(rad(b.lat))
-  const x = Math.cos(rad(a.lat)) * Math.sin(rad(b.lat)) - Math.sin(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.cos(rad(b.lng - a.lng))
-  return (deg(Math.atan2(y, x)) + 360) % 360
+  const y = Math.sin(toRad(b.lng - a.lng)) * Math.cos(toRad(b.lat))
+  const x = Math.cos(toRad(a.lat)) * Math.sin(toRad(b.lat)) - Math.sin(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.cos(toRad(b.lng - a.lng))
+  return wrap360(toDeg(Math.atan2(y, x)))
 }
 
 const COMPASS_POINTS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west']
 
 /** "north-east" for a bearing in degrees. */
 export function compassPoint(degrees) {
-  return COMPASS_POINTS[Math.round((((degrees % 360) + 360) % 360) / 45) % 8]
+  return COMPASS_POINTS[Math.round(wrap360(degrees) / 45) % 8]
 }
 
 /** GPS point -> metres east/north of `origin`. */
 export function toLocal(origin, p) {
   return {
-    x: rad(p.lng - origin.lng) * R * Math.cos(rad(origin.lat)),
-    y: rad(p.lat - origin.lat) * R,
+    x: toRad(p.lng - origin.lng) * R * Math.cos(toRad(origin.lat)),
+    y: toRad(p.lat - origin.lat) * R,
   }
 }
 
 /** Metres east/north of `origin` -> GPS point. */
 export function fromLocal(origin, {x, y}) {
   return {
-    lat: origin.lat + deg(y / R),
-    lng: origin.lng + deg(x / (R * Math.cos(rad(origin.lat)))),
+    lat: origin.lat + toDeg(y / R),
+    lng: origin.lng + toDeg(x / (R * Math.cos(toRad(origin.lat)))),
   }
 }
 
@@ -116,7 +124,7 @@ export function resample(pts, step = 1) {
     const b = pts[i]
     const len = Math.hypot(b.x - a.x, b.y - a.y)
     if (len === 0) continue
-    const heading = (deg(Math.atan2(b.x - a.x, b.y - a.y)) + 360) % 360
+    const heading = localBearing(a, b)
     while (next <= s + len) {
       const t = (next - s) / len
       out.push({x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, s: next, heading})
@@ -165,8 +173,7 @@ export function findTurns(pts, minAngle = 35) {
     s += Math.hypot(b.x - a.x, b.y - a.y)
     const h1 = Math.atan2(b.x - a.x, b.y - a.y)
     const h2 = Math.atan2(c.x - b.x, c.y - b.y)
-    let d = deg(h2 - h1)
-    d = ((d + 540) % 360) - 180
+    const d = angleDiff(0, toDeg(h2 - h1))
     if (Math.abs(d) >= minAngle) turns.push({index: i, s, x: b.x, y: b.y, angle: d})
   }
   return turns

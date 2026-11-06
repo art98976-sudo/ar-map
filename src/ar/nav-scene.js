@@ -6,13 +6,12 @@
 //   geo root      --align---> SLAM world: rotated so its north matches real north (compass),
 //                             moved so the user's GPS position sits under the camera,
 //                             at ground height y = 0 (8th Wall absolute scale).
-import {dedupe, distanceM, pointAt, projectOntoPolyline, simplify, toLocal} from '../geo/geo.js'
+import {dedupe, distanceM, localBearing, pointAt, projectOntoPolyline, shortestTurn, simplify, toDeg, toLocal, toRad} from '../geo/geo.js'
 import {SNAP_TO_PATH_M} from '../nav/route.js'
 import {createArrowTrail, nextTurn, TRAIL} from '../arrows/trail.js'
 import {createGuideArrow} from '../arrows/guide-arrow.js'
 import {createDestinationPin} from '../arrows/pin.js'
 
-export {pointAt}
 
 const START_LOOK_AHEAD_M = 8
 
@@ -22,16 +21,11 @@ const START_LOOK_AHEAD_M = 8
  * cameraForward: {x, z} of the camera's look direction in SLAM world space.
  */
 export function alignmentYaw(cameraForward, headingDeg) {
-  const h = (headingDeg * Math.PI) / 180
+  const h = toRad(headingDeg)
   // A direction with compass heading h in the geo root is (sin h, -cos h) in (x, z).
   const geoAngle = Math.atan2(Math.sin(h), -Math.cos(h))
   const camAngle = Math.atan2(cameraForward.x, cameraForward.z)
   return camAngle - geoAngle
-}
-
-/** Smallest signed turn (radians, -PI..PI) from yaw `from` to yaw `to`. */
-export function shortestTurn(from, to) {
-  return Math.atan2(Math.sin(to - from), Math.cos(to - from))
 }
 
 /** Rotate a geo-root point (x, z) by yaw about +Y, the same way three.js does. */
@@ -50,8 +44,7 @@ export function routeToLocal(origin, points) {
 }
 
 /** Near the route, the user is ON it: GPS error should not put them beside it. */
-export function snapToRoute(route, p, maxM = SNAP_TO_PATH_M) {
-  void maxM
+export function snapToRoute(route, p) {
   const hit = projectOntoPolyline(route, p)
   return {x: hit.x, y: hit.y}
 }
@@ -61,10 +54,7 @@ export function snapToRoute(route, p, maxM = SNAP_TO_PATH_M) {
  * A chord, because the first short segment of a real path can point anywhere.
  */
 export function bearingAlong(route, s, aheadM = START_LOOK_AHEAD_M) {
-  const a = pointAt(route, s)
-  const b = pointAt(route, s + aheadM)
-  const deg = (Math.atan2(b.x - a.x, b.y - a.y) * 180) / Math.PI
-  return (deg + 360) % 360
+  return localBearing(pointAt(route, s), pointAt(route, s + aheadM))
 }
 
 const REALIGN_EASE_S = 0.5
@@ -137,12 +127,11 @@ export function createNavScene({THREE, scene, camera, route, origin, name, reduc
   function startInfo(userFix = origin) {
     const fix = toLocal(origin, userFix)
     const hit = projectOntoPolyline(local, fix)
-    const pathBearing = (Math.atan2(hit.x - fix.x, hit.y - fix.y) * 180) / Math.PI
     return {
       s: hit.s,
       offset: hit.offset,
       bearingDeg: bearingAlong(local, hit.s),
-      pathBearingDeg: (pathBearing + 360) % 360,
+      pathBearingDeg: localBearing(fix, hit),
       onPath: hit.offset <= SNAP_TO_PATH_M,
     }
   }
@@ -157,7 +146,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name, reduc
     if (!aligned || ease) return false
     camera.getWorldDirection(forward)
     const delta = shortestTurn(yaw, alignmentYaw({x: forward.x, z: forward.z}, headingDeg))
-    if (Math.abs(delta) <= (minDeg * Math.PI) / 180) return false
+    if (Math.abs(delta) <= toRad(minDeg)) return false
     camera.getWorldPosition(camPos)
     const pivot = geoRoot.worldToLocal(camPos.clone())
     const here = {x: pivot.x, z: pivot.z}
@@ -321,7 +310,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name, reduc
       return aligned
     },
     get yawDeg() {
-      return (yaw * 180) / Math.PI
+      return toDeg(yaw)
     },
     get totalM() {
       return totalM

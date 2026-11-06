@@ -16,8 +16,8 @@
 // steady. Each completed 3 s window eases the route round if it has drifted by more than 5°.
 // While walking, map matching (route-matcher.js) lays the walked track onto the route, and hit
 // tests (ground.js) lay the route onto the real ground.
-import {angleDiff, circularMean, createCalibrator, isPoorAccuracy, startCompass} from './compass.js'
-import {fromLocal, pointAt, polylineSlice, toLocal} from '../geo/geo.js'
+import {circularMean, createCalibrator, isPoorAccuracy, startCompass} from './compass.js'
+import {angleDiff, fromLocal, pointAt, polylineSlice, toDeg, toLocal, wrap360} from '../geo/geo.js'
 import {DESTINATIONS} from '../nav/destinations.js'
 import {arrowTarget, arrowYawDeg, COMPASS_GUIDE, createRouteTracker, turnPrompt, walkingCorrection} from '../nav/compass-guide.js'
 import {createNavScene, gpsDistanceToEntrance} from './nav-scene.js'
@@ -35,7 +35,6 @@ const STEADY_MAX_DRIFT_DEG = 6 // the camera must stay this close to where the w
 const REALIGN_MIN_DEG = 5 // smaller differences are compass noise: leave the route alone
 const REALIGN_MIN_MATCHED_DEG = 15 // with a confident map match, walking beats the compass
 const MATCH_EVERY_S = 2
-const TRACKING_HINT_AFTER_S = 4 // show "Move your phone slowly" after this long without NORMAL
 const COMPASS_PILL_AFTER_MS = 10_000 // show the figure-8 pill after this long unsteady
 const DESKTOP_START_DELAY_S = 2 // a webcam on a desk never reports NORMAL tracking
 const REROUTE_FIX_M = 25 // only trust GPS this good to plan a new route from
@@ -55,7 +54,7 @@ const POINTS_PER_SAMPLE = 3
 
 /** Compass-style bearing of a direction: degrees clockwise from north (or from SLAM -Z). */
 function bearing(east, north) {
-  return (((Math.atan2(east, north) * 180) / Math.PI) % 360 + 360) % 360
+  return wrap360(toDeg(Math.atan2(east, north)))
 }
 
 const toCoord = (p) => [p.lng, p.lat]
@@ -196,7 +195,7 @@ export function createArTrip({
    */
   function collect(h, accuracy, now) {
     const f = lookDirection()
-    const lookDeg = (Math.atan2(f.x, f.z) * 180) / Math.PI
+    const lookDeg = toDeg(Math.atan2(f.x, f.z))
     const held =
       Math.abs(f.y) <= UPRIGHT_MAX_TILT &&
       (steadyAnchorDeg == null || Math.abs(angleDiff(steadyAnchorDeg, lookDeg)) <= STEADY_MAX_DRIFT_DEG)
@@ -609,7 +608,6 @@ export function createArTrip({
       onStats?.({
         phase,
         tracking,
-        trackingStalled: time - lastNormalAt >= TRACKING_HINT_AFTER_S,
         compassUnsteady: unsteadySince != null && Date.now() - unsteadySince > COMPASS_PILL_AFTER_MS,
         compassPoor: compassPoor() && !placementTrusted(),
         directionKnown,

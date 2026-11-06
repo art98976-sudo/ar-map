@@ -24,7 +24,6 @@ const STEP_SWIPE_PX = 24
 const SWIPE_CLICK_MS = 500 // a mouse swipe also fires a click; a finger's does not
 const TURN_CHECK_MS = 700
 const PROMPT_ICON = {'Turn around': 'uturn', 'Turn left': 'left', 'Turn right': 'right'}
-export {compassPoint}
 
 /** How the pill names the end of the walk: "Pathfoot entrance", but not "Bus Hub entrance". */
 export function arriveLabel({name, category}) {

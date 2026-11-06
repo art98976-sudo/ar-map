@@ -8,7 +8,7 @@
 //   - "runway lights": a brighter pulse flows forward along the arrows
 // Each frame the CPU only eases one number (how far along the route the user is), so the
 // arrows never jump.
-import {findTurns, resample} from '../geo/geo.js'
+import {findTurns, resample, toDeg, toRad} from '../geo/geo.js'
 
 export const TRAIL = {
   spacingM: 2,
@@ -249,7 +249,7 @@ export function createArrowTrail(THREE, route, {approximate = false, reducedMoti
     // A corner arrow faces the way the user comes in, whichever side of the corner it falls.
     const heading = turn ? incomingHeading(route, turn) : p.heading
     // Compass heading h -> rotation about Y of -h (north is -Z, east is +X).
-    q.setFromAxisAngle(up, (-heading * Math.PI) / 180)
+    q.setFromAxisAngle(up, toRad(-heading))
     const k = turn ? TRAIL.turnScale : besideTurn ? 0 : 1
     scale.set(k, 1, k)
     pos.set(p.x, TRAIL.heightM, -p.y)
@@ -335,7 +335,7 @@ export function createArrowTrail(THREE, route, {approximate = false, reducedMoti
 function incomingHeading(route, turn) {
   const a = route[turn.index - 1]
   const b = route[turn.index]
-  return (Math.atan2(b.x - a.x, b.y - a.y) * 180) / Math.PI
+  return toDeg(Math.atan2(b.x - a.x, b.y - a.y))
 }
 
 /** Arrows inside the visible window (for the debug panel). aS is sorted ascending. */

@@ -1,7 +1,7 @@
 // "Map Compass" guidance: the maths behind the 3D arrow, the heading-up map and the dot on it.
 // Pure logic, no GPS, no three.js. Bearings are degrees clockwise from north. Route points are
 // the route frame's {x east, y north} metres, s is the distance along the route.
-import {pointAt, polylineLength, polylineSlice, projectOntoPolyline} from '../geo/geo.js'
+import {angleDiff, localBearing, pointAt, polylineLength, polylineSlice, projectOntoPolyline, shortestTurn, wrap360} from '../geo/geo.js'
 
 export const COMPASS_GUIDE = {
   blendM: 12, // the arrow starts curving into a turn this far before it
@@ -15,23 +15,18 @@ export const COMPASS_GUIDE = {
   walkStraightRatio: 0.7, // straight-line over walked: a wandering walk shows no direction
 }
 
-const wrap = (deg) => ((deg % 360) + 360) % 360
-const shortest = (from, to) => ((to - from + 540) % 360 + 360) % 360 - 180
-
 function chordBearing(route, fromS, toS) {
-  const a = pointAt(route, fromS)
-  const b = pointAt(route, toS)
-  return wrap((Math.atan2(b.x - a.x, b.y - a.y) * 180) / Math.PI)
+  return localBearing(pointAt(route, fromS), pointAt(route, toS))
 }
 
 /** How far the arrow turns from where the user faces: -180..180, > 0 to the right. */
 export function arrowYawDeg(segmentBearing, headingDeg) {
-  return shortest(headingDeg, segmentBearing)
+  return angleDiff(headingDeg, segmentBearing)
 }
 
 /** From bearing a to bearing b the short way. t: 0 is a, 1 is b. */
 export function blendBearing(a, b, t) {
-  return wrap(a + shortest(a, b) * Math.max(0, Math.min(1, t)))
+  return wrap360(a + angleDiff(a, b) * Math.max(0, Math.min(1, t)))
 }
 
 /** The route's direction at s, not looking past the corner ahead. */
@@ -73,7 +68,7 @@ export function turnPrompt(yawDeg, withinDeg = COMPASS_GUIDE.facingAwayDeg) {
 /** Ease a bearing towards a target, the short way, at no more than maxDegPerS. */
 export function stepBearing(current, target, dt, maxDegPerS = 90) {
   const max = maxDegPerS * dt
-  return wrap(current + Math.max(-max, Math.min(max, shortest(current, target))))
+  return wrap360(current + Math.max(-max, Math.min(max, angleDiff(current, target))))
 }
 
 /**
@@ -88,8 +83,8 @@ export function walkingCorrection(track, route, s, walkedM) {
   if (chordM < walkedM * COMPASS_GUIDE.walkStraightRatio) return null
   const a = pointAt(route, Math.max(0, s - chordM))
   const b = pointAt(route, s)
-  const yaw = Math.atan2(b.y - a.y, b.x - a.x) - Math.atan2(last.y - first.y, last.x - first.x)
-  return {dx: b.x - last.x, dy: b.y - last.y, yaw: Math.atan2(Math.sin(yaw), Math.cos(yaw)), pivot: last}
+  const yaw = shortestTurn(Math.atan2(last.y - first.y, last.x - first.x), Math.atan2(b.y - a.y, b.x - a.x))
+  return {dx: b.x - last.x, dy: b.y - last.y, yaw, pivot: last}
 }
 
 const TRACK = {

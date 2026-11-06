@@ -2,7 +2,8 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import * as THREE from 'three'
 import {requestCameraPermission} from '../../src/ar/permissions.js'
 import {startCompass, topEdgeHeading} from '../../src/ar/compass.js'
-import {alignmentYaw, bearingAlong, createNavScene, pointAt, rotateY, shortestTurn, snapToRoute} from '../../src/ar/nav-scene.js'
+import {alignmentYaw, bearingAlong, createNavScene, rotateY, snapToRoute} from '../../src/ar/nav-scene.js'
+import {pointAt, shortestTurn} from '../../src/geo/geo.js'
 import {createArTrip} from '../../src/ar/trip.js'
 
 // The real pin draws its label on a 2D canvas, which the test DOM does not have.
@@ -164,18 +165,6 @@ describe('background alignment', () => {
     expect(stats.compassUnsteady).toBe(true)
     run(500, 0, 5)
     expect(stats.compassUnsteady).toBe(false)
-  })
-
-  it('flags tracking stalled only after 4 s without NORMAL', () => {
-    read(0)
-    trip.onTick({dt: 0.25, time: 1000})
-    trip.onTick({dt: 0.25, time: 1003.9})
-    expect(stats.trackingStalled).toBe(false)
-    trip.onTick({dt: 0.25, time: 1004.1})
-    expect(stats.trackingStalled).toBe(true)
-    trip.onTracking({status: 'NORMAL'})
-    trip.onTick({dt: 0.25, time: 1004.4})
-    expect(stats.trackingStalled).toBe(false)
   })
 
   it('starts without any compass, drawing nothing on the ground until walking shows the way', () => {

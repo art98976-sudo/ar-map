@@ -52,7 +52,7 @@ function scoreText(text, query) {
 }
 
 /** Score a destination: name counts most, then aliases, then the building. */
-export function scoreDestination(dest, rawQuery) {
+function scoreDestination(dest, rawQuery) {
   const query = normalize(rawQuery)
   if (!query) return 0
   const name = scoreText(dest.name, query)

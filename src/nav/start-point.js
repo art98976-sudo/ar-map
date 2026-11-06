@@ -3,7 +3,7 @@
 // No DOM and no map here, so this can move to a native app unchanged.
 import extraPlaces from '../data/start-places.json'
 import {bearingDeg, compassPoint, distanceM} from '../geo/geo.js'
-import {DESTINATIONS, POPULAR} from './destinations.js'
+import {DESTINATIONS} from './destinations.js'
 import {landmarkPhrase} from './guidance.js'
 
 const START_KEY = 'welcomeAR.start.v1'
@@ -18,7 +18,6 @@ export const START = {
 
 export const GPS_START = Object.freeze({type: 'gps'})
 export const PLACE_LIST = [...DESTINATIONS, ...extraPlaces.places]
-export const POPULAR_STARTS = POPULAR
 const OUTDOOR = new Set(['bus', 'landmark', 'town', 'parking'])
 
 const read = (storage, key, fallback) => {

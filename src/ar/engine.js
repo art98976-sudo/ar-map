@@ -7,7 +7,7 @@ import {XR} from '../config.js'
 
 let loadPromise = null
 
-export class EngineError extends Error {
+class EngineError extends Error {
   constructor(code, message) {
     super(message)
     this.name = 'EngineError'

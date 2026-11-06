@@ -1,13 +1,15 @@
 // The one big 3D arrow: about 2 m in front of the camera and a little below eye level, lying almost
 // flat and tilted towards the user. It turns to the way to walk. A ring around it fills as a corner
 // comes up, and on arrival it becomes a pin.
+import {angleDiff, shortestTurn, toDeg, toRad} from '../geo/geo.js'
+
 const MAX_TURN_DEG_PER_S = 120
 const AHEAD_M = 2
 const BELOW_M = 0.4
 // A level phone would put it behind the map on the lower part of the screen, so it rides up a little.
 const MIN_BELOW_M = 0.2
 const MAX_BELOW_M = 0.6
-const TILT_RAD = (20 * Math.PI) / 180
+const TILT_RAD = toRad(20)
 const SCALE = 0.8 // the ring just fits the width of a portrait camera view at 2 m
 const MIN_LOOK = 0.2 // below this the camera looks straight up or down: keep the last direction
 const RING_SEGMENTS = 64
@@ -17,8 +19,8 @@ const DEPTH_M = 0.05
 
 /** Turn from `current` towards `target` (radians), the short way, at no more than maxDegPerS. */
 export function stepYaw(current, target, dt, maxDegPerS = MAX_TURN_DEG_PER_S) {
-  const diff = Math.atan2(Math.sin(target - current), Math.cos(target - current))
-  const max = (maxDegPerS * Math.PI * dt) / 180
+  const diff = shortestTurn(current, target)
+  const max = toRad(maxDegPerS * dt)
   return current + Math.max(-max, Math.min(max, diff))
 }
 
@@ -94,7 +96,7 @@ export function createGuideArrow(THREE, {color}) {
       return yaw
     },
     get relativeDeg() {
-      return yaw == null ? null : ((arrow.rotation.y * -180) / Math.PI + 540) % 360 - 180
+      return yaw == null ? null : angleDiff(0, toDeg(-arrow.rotation.y))
     },
     setColor(value) {
       top.color.set(value)
@@ -123,7 +125,7 @@ export function createGuideArrow(THREE, {color}) {
         root.visible = false
         return
       }
-      const want = lookYaw - (relativeDeg * Math.PI) / 180
+      const want = lookYaw - toRad(relativeDeg)
       yaw = yaw == null ? want : stepYaw(yaw, want, dt)
       arrow.rotation.y = yaw - lookYaw
       const fill = Math.max(0, Math.min(1, ringFill))

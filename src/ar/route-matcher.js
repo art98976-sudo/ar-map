@@ -7,7 +7,7 @@
 //
 // Pure maths, no three.js. Corrections are in the route frame: x = east, y = north, angles
 // counter-clockwise, applied as p' = R(yaw)(p - pivot) + pivot + (dx, dy).
-import {findTurns, projectOntoPolyline} from '../geo/geo.js'
+import {findTurns, projectOntoPolyline, shortestTurn, toDeg, toRad} from '../geo/geo.js'
 
 export const MATCH = {
   sampleEveryS: 0.5,
@@ -36,9 +36,6 @@ export const MATCH = {
   ignoreDeg: 0.05,
 }
 
-const DEG = Math.PI / 180
-
-const shortestTurn = (a) => Math.atan2(Math.sin(a), Math.cos(a))
 
 function transform(p, {dx, dy, yaw}, pivot) {
   const c = Math.cos(yaw)
@@ -105,7 +102,7 @@ export function walkVsRoute(track, route) {
   }
   const cx = last.x - first.x
   const cy = last.y - first.y
-  return {chordM: Math.hypot(cx, cy), turn: shortestTurn(Math.atan2(ty, tx) - Math.atan2(cy, cx))}
+  return {chordM: Math.hypot(cx, cy), turn: shortestTurn(Math.atan2(cy, cx), Math.atan2(ty, tx))}
 }
 
 /**
@@ -125,7 +122,7 @@ export function detectTrackTurn(track, armM = MATCH.cornerArmM, minDeg = MATCH.c
     if (along[i] - along[back] < armM || along[ahead] - along[i] < armM) continue
     const before = Math.atan2(track[i].x - track[back].x, track[i].y - track[back].y)
     const after = Math.atan2(track[ahead].x - track[i].x, track[ahead].y - track[i].y)
-    const angle = (shortestTurn(after - before) * 180) / Math.PI
+    const angle = toDeg(shortestTurn(before, after))
     if (Math.abs(angle) >= minDeg && (!best || Math.abs(angle) > Math.abs(best.angle))) best = {index: i, angle}
   }
   return best
@@ -186,8 +183,8 @@ export function fitTrackToRoute(track, route, {pivot = track.at(-1), gateM = MAT
 /** Limit one correction, per update and so that the trip total stays in bounds. */
 export function clampCorrection({dx, dy, yaw, pivot}, total = {dx: 0, dy: 0, yaw: 0}) {
   const clampAbs = (v, max) => Math.max(-max, Math.min(max, v))
-  let clampedYaw = clampAbs(yaw, MATCH.maxStepDeg * DEG)
-  clampedYaw = clampAbs(total.yaw + clampedYaw, MATCH.maxTotalDeg * DEG) - total.yaw
+  let clampedYaw = clampAbs(yaw, toRad(MATCH.maxStepDeg))
+  clampedYaw = clampAbs(total.yaw + clampedYaw, toRad(MATCH.maxTotalDeg)) - total.yaw
 
   let scale = Math.min(1, MATCH.maxStepM / (Math.hypot(dx, dy) || 1))
   const next = Math.hypot(total.dx + dx * scale, total.dy + dy * scale)
@@ -281,7 +278,7 @@ export function createRouteMatcher(route) {
         !everConfident &&
         direction.chordM >= MATCH.minWalkedM &&
         direction.chordM >= walked * MATCH.straightRatio &&
-        Math.abs(direction.turn) > MATCH.wrongWayDeg * DEG
+        Math.abs(direction.turn) > toRad(MATCH.wrongWayDeg)
       wrongWayCount = wrongWay ? wrongWayCount + 1 : 0
       if (wrongWay) {
         confident = false
@@ -301,7 +298,7 @@ export function createRouteMatcher(route) {
       residual = after.residual
       confident = residual != null && residual < MATCH.confidentResidualM && after.matchedM >= MATCH.minWalkedM
       if (confident) everConfident = true
-      if (Math.hypot(correction.dx, correction.dy) < MATCH.ignoreM && Math.abs(correction.yaw) < MATCH.ignoreDeg * DEG) return null
+      if (Math.hypot(correction.dx, correction.dy) < MATCH.ignoreM && Math.abs(correction.yaw) < toRad(MATCH.ignoreDeg)) return null
       total.dx += correction.dx
       total.dy += correction.dy
       total.yaw += correction.yaw
@@ -335,7 +332,7 @@ export function createRouteMatcher(route) {
       return Math.hypot(total.dx, total.dy)
     },
     get totalYawDeg() {
-      return total.yaw / DEG
+      return toDeg(total.yaw)
     },
   }
 }

@@ -48,12 +48,10 @@
   --teal-02: #005e63;
   /* Brand: neutrals and text */
   --neutral-01: #d1d1c9;
-  --neutral-03: #5f6350;
   --grey: #3a3c39;
   --paper: #f1f1ef;
   --white: #ffffff;
   /* Status */
-  --ok: #76b72a;
   --warn: #edab00; /* 02 Yellow */
   --bad: #d9541a; /* 02 Orange */
 
@@ -75,7 +73,6 @@
   --ar-panel-70: rgba(8, 20, 15, 0.7);
   --ar-panel-72: rgba(8, 20, 15, 0.72);
   --ar-panel-82: rgba(8, 20, 15, 0.82);
-  --ar-dim: rgba(3, 21, 16, 0.45);
   --on-dark-92: rgba(255, 255, 255, 0.92);
   --on-dark-85: rgba(255, 255, 255, 0.85);
   --on-dark-80: rgba(255, 255, 255, 0.8);
@@ -128,7 +125,6 @@
   --fs-md: 1.0625rem;
   --fs-lg: 1.25rem;
   --fs-xl: clamp(1.75rem, 6.4vw, 2.25rem);
-  --fs-hero: clamp(2.1rem, 9.4vw, 3rem);
 
   /* Space (4 px base) */
   --s-1: 4px;
@@ -138,11 +134,9 @@
   --s-5: 20px;
   --s-6: 24px;
   --s-8: 32px;
-  --s-10: 40px;
   --gutter: 20px;
 
   /* Shape and depth */
-  --r-sm: 12px;
   --r-md: 18px;
   --r-lg: 28px;
   --r-pill: 999px;

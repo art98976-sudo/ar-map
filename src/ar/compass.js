@@ -9,9 +9,7 @@
 //   Flat on its back the camera has no heading, so we use the top edge (360 - alpha).
 // Motion permission on iPhone is requested in the tap that starts AR (permissions.js).
 
-const rad = (d) => (d * Math.PI) / 180
-const deg = (r) => (r * 180) / Math.PI
-const wrap360 = (a) => ((a % 360) + 360) % 360
+import {toDeg, toRad, wrap360} from '../geo/geo.js'
 
 /**
  * Heading of the back camera from W3C device orientation angles (degrees).
@@ -21,18 +19,18 @@ const wrap360 = (a) => ((a % 360) + 360) % 360
  */
 export function cameraHeadingFromOrientation(alpha, beta, gamma) {
   if (![alpha, beta, gamma].every(Number.isFinite)) return null
-  const a = rad(alpha)
-  const b = rad(beta)
-  const g = rad(gamma)
+  const a = toRad(alpha)
+  const b = toRad(beta)
+  const g = toRad(gamma)
   // Third column of R, negated = camera direction in the earth frame.
   const east = -(Math.cos(a) * Math.sin(g) + Math.sin(a) * Math.sin(b) * Math.cos(g))
   const north = -(Math.sin(a) * Math.sin(g) - Math.cos(a) * Math.sin(b) * Math.cos(g))
   if (Math.hypot(east, north) < 0.15) return null // looking at the sky or the ground
-  return wrap360(deg(Math.atan2(east, north)))
+  return wrap360(toDeg(Math.atan2(east, north)))
 }
 
 /** How far the screen is turned: 0, 90, 180 or 270 degrees. */
-export function screenAngle(win = window) {
+function screenAngle(win = window) {
   const angle = win.screen?.orientation?.angle ?? win.orientation ?? 0
   return Number.isFinite(angle) ? wrap360(angle) : 0
 }
@@ -53,10 +51,10 @@ export function circularMean(angles) {
   let x = 0
   let y = 0
   for (const a of angles) {
-    x += Math.cos(rad(a))
-    y += Math.sin(rad(a))
+    x += Math.cos(toRad(a))
+    y += Math.sin(toRad(a))
   }
-  return wrap360(deg(Math.atan2(y, x)))
+  return wrap360(toDeg(Math.atan2(y, x)))
 }
 
 /** Spread of angles as a circular standard deviation in degrees (0 = all identical). */
@@ -65,16 +63,11 @@ export function circularSpread(angles) {
   let x = 0
   let y = 0
   for (const a of angles) {
-    x += Math.cos(rad(a))
-    y += Math.sin(rad(a))
+    x += Math.cos(toRad(a))
+    y += Math.sin(toRad(a))
   }
   const r = Math.min(1, Math.hypot(x, y) / angles.length)
-  return deg(Math.sqrt(-2 * Math.log(Math.max(r, 1e-9))))
-}
-
-/** Smallest signed difference b - a in degrees (-180..180). */
-export function angleDiff(a, b) {
-  return ((b - a + 540) % 360) - 180
+  return toDeg(Math.sqrt(-2 * Math.log(Math.max(r, 1e-9))))
 }
 
 /**

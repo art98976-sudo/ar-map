@@ -4,7 +4,7 @@ import {MAZEMAP} from '../config.js'
 
 let ready = null
 
-export class MapLoadError extends Error {
+class MapLoadError extends Error {
   constructor(code, message) {
     super(message)
     this.name = 'MapLoadError'
@@ -57,7 +57,7 @@ export function loadMazeMap() {
  * 'flat' light type, as the map engine recommends. If anything about it fails, fall back
  * to the original method so the map still draws.
  */
-export function useModernLights(Mazemap) {
+function useModernLights(Mazemap) {
   const proto = Mazemap?.Map?.prototype
   if (!proto || typeof proto.setLights !== 'function' || proto.setLight?.__welcomeAR) return
   const legacy = proto.setLight

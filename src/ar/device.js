@@ -59,7 +59,7 @@ export function parseUserAgent(ua, {maxTouchPoints = 0} = {}) {
 }
 
 /** Minimum versions where the 8th Wall engine runs reliably. */
-export const MIN_VERSION = {ios: 15, android: 9}
+const MIN_VERSION = {ios: 15, android: 9}
 
 /**
  * Decide whether AR can run.
@@ -137,7 +137,7 @@ export function deviceIssue(forced = false, env = readBrowserEnv()) {
 }
 
 /** Read the real browser environment. Kept separate so `checkDevice` stays testable. */
-export function readBrowserEnv(win = window) {
+function readBrowserEnv(win = window) {
   let hasWebGL = false
   try {
     const canvas = win.document.createElement('canvas')
