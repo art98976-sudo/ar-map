@@ -6,10 +6,9 @@
 //   geo root      --align---> SLAM world: rotated so its north matches real north (compass),
 //                             moved so the user's GPS position sits under the camera,
 //                             at ground height y = 0 (8th Wall absolute scale).
-import {dedupe, distanceM, localBearing, pointAt, projectOntoPolyline, shortestTurn, simplify, toDeg, toLocal, toRad} from '../geo/geo.js'
-import {createArrowTrail, nextTurn} from './trail.js'
+import {dedupe, distanceM, findTurns, localBearing, pointAt, projectOntoPolyline, shortestTurn, simplify, toDeg, toLocal, toRad} from '../geo/geo.js'
 import {createDestinationPin} from './pin.js'
-import {NAV_SCENE, ROUTING, TRAIL} from '../config.js'
+import {COLOURS, NAV_SCENE, PIN, ROUTING, TURNS} from '../config.js'
 
 /**
  * Yaw (radians, about +Y) that turns the route frame so that compass heading `headingDeg`
@@ -33,7 +32,7 @@ export function rotateY({x, z}, yaw) {
 
 /**
  * Route GPS points -> clean local metres (duplicates removed, GPS zig-zags smoothed).
- * The tolerance is small so corners are not cut. The trail then resamples this to 1 m.
+ * The tolerance is small so corners are not cut.
  */
 export function routeToLocal(origin, points) {
   return simplify(dedupe(points.map((p) => toLocal(origin, p)), 0.3), 0.25)
@@ -74,14 +73,12 @@ export function createNavScene({THREE, scene, camera, route, origin, name, reduc
   geoRoot.visible = false
   scene.add(geoRoot)
 
-  let trail = createArrowTrail(THREE, local, {approximate: route.source === 'direct', reducedMotion})
-  geoRoot.add(trail.lane)
-  geoRoot.add(trail.mesh)
+  let turns = findTurns(local, TURNS.minDeg)
   const pin = createDestinationPin(THREE, {name})
   pin.group.position.set(entranceLocal.x, 0, -entranceLocal.y)
   geoRoot.add(pin.group)
   // Debug: the floor as the app sees it, a faint 10 m grid under the user.
-  const floorGrid = new THREE.GridHelper(10, 20, TRAIL.color, TRAIL.color)
+  const floorGrid = new THREE.GridHelper(10, 20, COLOURS.arrowGreen, COLOURS.arrowGreen)
   floorGrid.material.transparent = true
   floorGrid.material.opacity = 0.35
   floorGrid.material.depthWrite = false
@@ -96,7 +93,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name, reduc
   let ease = null
   let groundY = 0
   let entranceS = projectOntoPolyline(local, entranceLocal).s
-  let last = {s: 0, offset: 0, remainingM: totalM, arrows: 0}
+  let last = {s: 0, offset: 0, remainingM: totalM}
 
   /**
    * Place the route. headingDeg: the bearing the camera is taken to be facing right now.
@@ -116,8 +113,6 @@ export function createNavScene({THREE, scene, camera, route, origin, name, reduc
     ease = null
     aligned = true
     geoRoot.visible = true
-    const s = whereAmI().s
-    trail.reset(s)
   }
 
   /** Where a GPS fix falls on the route, and which way the route heads from there. */
@@ -174,24 +169,12 @@ export function createNavScene({THREE, scene, camera, route, origin, name, reduc
 
   /** A new route, from a reroute. The placement stays, so the walk so far still lines up. */
   function setRoute(next) {
-    geoRoot.remove(trail.lane)
-    geoRoot.remove(trail.mesh)
-    trail.dispose()
     local = routeToLocal(origin, next.points)
     entranceLocal = toLocal(origin, next.entrance || next.points.at(-1))
     totalM = lengthOf(local)
     entranceS = projectOntoPolyline(local, entranceLocal).s
-    trail = createArrowTrail(THREE, local, {approximate: next.source === 'direct', reducedMotion})
-    geoRoot.add(trail.lane)
-    geoRoot.add(trail.mesh)
+    turns = findTurns(local, TURNS.minDeg)
     pin.group.position.set(entranceLocal.x, pin.group.position.y, -entranceLocal.y)
-    if (aligned) trail.reset(whereAmI().s)
-  }
-
-  /** Arrived: no more chevrons. The destination pin stays. */
-  function finish() {
-    trail.mesh.visible = false
-    trail.lane.visible = false
   }
 
   /** Lay the route on the ground: its height at the user, and its slope along the route. */
@@ -199,8 +182,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name, reduc
     groundY = height
     geoRoot.position.y = height
     geoRoot.updateMatrixWorld(true)
-    trail.setSlope(slope)
-    pin.group.position.y = Math.max(-TRAIL.maxLiftM, Math.min(TRAIL.maxLiftM, (entranceS - userS) * slope))
+    pin.group.position.y = Math.max(-PIN.maxLiftM, Math.min(PIN.maxLiftM, (entranceS - userS) * slope))
   }
 
   /** How far along the route a world point is, and how far off to the side. */
@@ -253,19 +235,17 @@ export function createNavScene({THREE, scene, camera, route, origin, name, reduc
     if (!aligned) return last
     stepEase(dt)
     const p = whereAmI()
-    const arrows = trail.update(p.s, dt, time)
     // Straight-line distance from the camera to the entrance (what the pin shows).
     camera.getWorldPosition(tmp)
     const pinWorld = pin.group.getWorldPosition(new THREE.Vector3())
     const toPinM = Math.hypot(pinWorld.x - tmp.x, pinWorld.z - tmp.z)
     pin.update(reducedMotion ? 0 : time, toPinM, camera)
-    const turn = nextTurn(trail.turns, p.s)
+    const turn = nextTurn(turns, p.s)
     last = {
       s: p.s,
       offset: p.offset,
       remainingM: Math.max(0, totalM - p.s),
       toPinM,
-      arrows,
       nextTurnM: turn ? Math.max(0, turn.s - p.s) : null,
       nextTurnDir: turn ? (turn.angle > 0 ? 'right' : 'left') : null,
     }
@@ -277,7 +257,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name, reduc
     startInfo,
     userRoutePoint,
     routePointForFix,
-    nextTurnAt: (s = whereAmI().s) => nextTurn(trail.turns, s),
+    nextTurnAt: (s = whereAmI().s) => nextTurn(turns, s),
     realign,
     applyCorrection,
     worldToRoute,
@@ -294,10 +274,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name, reduc
     setVisible(show) {
       geoRoot.visible = show
     },
-    /** Fade the ground arrows out (0) or in (1). */
-    setChevronOpacity: (value) => trail.setOpacity(value),
     setRoute,
-    finish,
     get route() {
       return local
     },
@@ -314,20 +291,21 @@ export function createNavScene({THREE, scene, camera, route, origin, name, reduc
       return totalM
     },
     get turns() {
-      return trail.turns.length
-    },
-    get arrowCount() {
-      return trail.samples.length
+      return turns.length
     },
     dispose() {
       scene.remove(geoRoot)
       scene.remove(floorGrid)
       floorGrid.geometry.dispose()
       floorGrid.material.dispose()
-      trail.dispose()
       pin.dispose()
     },
   }
+}
+
+/** The next corner the user has not passed yet, or null. turns: sorted by s. */
+export function nextTurn(turns, s) {
+  return turns.find((t) => t.s + TURNS.passedM > s) ?? null
 }
 
 /** Distance from a GPS fix to the route's entrance (for the debug panel). */

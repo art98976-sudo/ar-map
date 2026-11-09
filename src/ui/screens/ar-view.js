@@ -24,6 +24,8 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
       <span class="spinner" aria-hidden="true"></span>
       <p data-veil-text role="status">Waiting for the camera…</p>
     </div>
+    <div class="floor-arrows" data-floor-arrows aria-hidden="true"></div>
+
     <header class="ar__top">
       <button class="icon-btn icon-btn--glass" data-action="exit" aria-label="Exit AR">${icon('close')}</button>
       ${showDebug
@@ -51,31 +53,14 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
 
     <div class="ar__hints">
     <p class="ar__hint" data-compass-pill role="status" hidden>Wave your phone in a figure-8</p>
-    <p class="ar__hint ar-edge" data-edge role="status" hidden>
-      <span class="ar-edge__arrow" data-edge-arrow>${icon('arrowUp', {size: 22})}</span>
-      <span>Point your phone towards the path</span>
-    </p>
     <p class="ar__hint" data-locating role="status" hidden>Locating you…</p>
     <button class="ar__hint ar__hint--action" type="button" data-action="go-live" hidden>Switch to live location?</button>
     <button class="ar__hint ar__hint--action" type="button" data-action="repick" hidden>Off route? Choose your start again</button>
     <p class="ar__hint" data-reroute-hint role="status" hidden>Off route - finding a new route</p>
     <p class="ar__hint" data-approx-hint role="status" ${routeSource === 'direct' ? '' : 'hidden'}>Approximate route - check the 2D map</p>
-    <p class="ar__hint" data-floor-hint role="status" hidden>Point phone at the floor</p>
-    <div class="ar-floor" data-floor-hud aria-hidden="true" hidden>
-      <svg class="ar-floor__arrow" data-floor-arrow viewBox="-6 -6 72 96">
-        <g class="ar-floor__glow">
-          <path d="M8 72 L30 56 L52 72" />
-          <path d="M8 50 L30 34 L52 50" />
-          <path d="M8 28 L30 12 L52 28" />
-        </g>
-        <g class="ar-floor__paint">
-          <path d="M8 72 L30 56 L52 72" />
-          <path d="M8 50 L30 34 L52 50" />
-          <path d="M8 28 L30 12 L52 28" />
-        </g>
-      </svg>
     </div>
-    </div>
+
+    <p class="ar-pill" data-trip-pill>${pillText}</p>
 
     <section class="ar-map" data-compass-map aria-label="Map of the route">
       <div class="ar-map__canvas" data-map-canvas></div>
@@ -84,7 +69,6 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
       <button class="ar-map__tap" type="button" data-action="toggle-map" aria-label="Expand map" aria-expanded="false">
         <span class="ar-map__expand" data-map-expand>${icon('expand', {size: 18})}</span>
       </button>
-      <p class="ar-pill" data-trip-pill>${pillText}</p>
     </section>
 
     <section class="ar-guide" data-start aria-labelledby="start-title" hidden>
@@ -128,7 +112,6 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
         <div class="stats__row"><dt>Route match</dt><dd data-stat="match">–</dd></div>
         <div class="stats__row"><dt>Match quality</dt><dd data-stat="quality">–</dd></div>
         <div class="stats__row"><dt>Next manoeuvre</dt><dd data-stat="turn">–</dd></div>
-        <div class="stats__row"><dt>Arrows drawn</dt><dd data-stat="arrows">–</dd></div>
         <div class="stats__row"><dt>Camera height</dt><dd data-stat="height">–</dd></div>
         <div class="stats__row"><dt>Ground</dt><dd data-stat="ground">–</dd></div>
         <div class="stats__row"><dt>Floor below phone</dt><dd data-stat="floor">–</dd></div>

@@ -74,7 +74,10 @@ test.describe('route and arrows', () => {
     await page.getByRole('button', {name: 'Show debug panel'}).click()
     const panel = page.getByRole('region', {name: 'Debug panel'})
     await expect(panel).toBeVisible()
-    await expect(panel.locator('[data-stat="arrows"]')).toHaveText(/^([1-9]\d*) of \d+$/, {timeout: 10_000})
+    // The way to walk: four big chevrons lying on the floor over the camera. They wait for a heading,
+    // which headless Chrome (no real compass) can be slow to give.
+    await expect(page.locator('[data-floor-arrows] [data-trail]')).toBeVisible({timeout: 30_000})
+    await expect(page.locator('[data-floor-arrows] .floor-arrows__chevron')).toHaveCount(4)
     await expect(panel.locator('[data-stat="gps"]')).toHaveText(/±\d+ m/)
     await expect(panel.locator('[data-stat="remaining"]')).toHaveText(/\d+ m/)
     await expect(panel.locator('[data-stat="source"]')).toHaveText(/mazemap|footpaths|direct/)
@@ -102,11 +105,18 @@ test.describe('route and arrows', () => {
     await expect(page.locator('[data-steps]')).toBeHidden()
     await page.getByRole('button', {name: 'Expand map'}).click()
     await expect(page.locator('[data-compass-map]')).toHaveClass(/is-expanded/)
-    // The map itself follows, not only its box: it must fill the screen.
+    // The map itself follows, not only its box: open, it is a sheet over about 55% of the screen.
     const viewport = page.viewportSize()
-    await expect.poll(async () => (await page.locator('[data-map-canvas] canvas').first().boundingBox())?.height, {timeout: 10_000}).toBeGreaterThan(viewport.height - 2)
+    const mapHeight = async () => (await page.locator('[data-map-canvas] canvas').first().boundingBox())?.height
+    await expect.poll(mapHeight, {timeout: 10_000}).toBeGreaterThan(viewport.height * 0.53)
+    expect(await mapHeight()).toBeLessThan(viewport.height * 0.57)
     await page.getByRole('button', {name: 'Shrink map'}).click()
     await expect(page.locator('[data-compass-map]')).not.toHaveClass(/is-expanded/)
+    // Closed, a small card in the bottom-left corner, about 38% wide and 22% high.
+    await expect.poll(mapHeight, {timeout: 10_000}).toBeLessThan(viewport.height * 0.24)
+    const mapCard = await page.locator('[data-compass-map]').boundingBox()
+    expect(mapCard.width).toBeLessThan(viewport.width * 0.4)
+    expect(mapCard.x).toBeLessThan(viewport.width * 0.1)
     expect(errors).toEqual([])
   })
 

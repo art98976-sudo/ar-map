@@ -1,7 +1,7 @@
 // AR screen. States, in order:
 //   loading  download the AR engine with a real progress bar
-//   live     camera feed + world tracking: the instruction card on top, chevrons on the floor, and the
-//            heading-up map below. The debug tools appear only with ?debug=1.
+//   live     full-screen camera + world tracking: the instruction card and trip pill on top, arrows on the
+//            floor over the camera, and a small heading-up map in the corner. The debug tools appear only with ?debug=1.
 //   error    camera denied, motion denied, offline, timeout or engine crash; each says what to do
 import {permissionsAllowed} from '../../ar/permissions.js'
 import {parseUserAgent} from '../../ar/device.js'
@@ -15,15 +15,18 @@ import {prefersReducedMotion, showArrival} from '../components/arrival.js'
 import {showToast} from '../components/toast.js'
 import {drawMinimap} from '../components/ar-minimap.js'
 import {createCompassMap} from '../components/compass-map.js'
+import {createFloorArrows} from '../components/floor-arrows.js'
 import {focusScreen, haptic, onAction, render} from '../dom.js'
 import {icon} from '../icons.js'
-import {GROUND, ROUTING} from '../../config.js'
+import {FLOOR_ARROWS, GROUND, ROUTING} from '../../config.js'
 import {paintDebugStats, paintLiveDebug, setStat as setDebugStat, toggleDebugPanel} from './ar-debug.js'
 import {errorCopy} from './ar-errors.js'
 import {createStepCard} from './ar-steps.js'
 import {errorView, liveView, loadingView} from './ar-view.js'
 
 const TURN_CHECK_MS = 700
+const MAP_SWIPE_PX = 40
+const SWIPE_CLICK_MS = 500 // a mouse swipe also fires a click; a finger's does not
 
 /** How the pill names the end of the walk: "Pathfoot entrance", but not "Bus Hub entrance". */
 export function arriveLabel({name, category}) {
@@ -67,11 +70,16 @@ export function arScreen(root, {navigate, params}) {
   let offAction = () => {}
   let compassMap = null
   let mapFailed = false
+  let floorArrows = null
+  let arrived = false
+  let mapSwipedAt = -Infinity
   const steps = createStepCard(root)
   const setStat = (name, text, tone) => setDebugStat(root, name, text, tone)
 
   const actions = {
-    'toggle-map': () => toggleMap(),
+    'toggle-map': () => {
+      if (performance.now() - mapSwipedAt > SWIPE_CLICK_MS) toggleMap()
+    },
     'toggle-steps': () => steps.tap(),
     repick: () => navigate(`/?${new URLSearchParams({to: destination.id, start: 'pick', ...(allowDesktop ? {force: '1'} : {})})}`),
     'go-live': () => {
@@ -130,6 +138,7 @@ export function arScreen(root, {navigate, params}) {
   // ---------- live ----------
   function showLive() {
     mapFailed = false
+    arrived = false
     steps.reset()
     setView(
       liveView({
@@ -151,6 +160,27 @@ export function arScreen(root, {navigate, params}) {
     button.setAttribute('aria-label', expanded ? 'Shrink map' : 'Expand map')
     render(root.querySelector('[data-map-expand]'), icon(expanded ? 'shrink' : 'expand', {size: 18}))
     compassMap?.setExpanded(expanded)
+  }
+
+  /** Swipe the open map down to put it away. A tap does the same. */
+  function wireMapSwipe() {
+    const tap = root.querySelector('[data-action="toggle-map"]')
+    if (!tap) return
+    let fromY = null
+    tap.addEventListener('pointerdown', (event) => {
+      fromY = event.clientY
+    })
+    tap.addEventListener('pointerup', (event) => {
+      if (fromY == null) return
+      const moved = event.clientY - fromY
+      fromY = null
+      if (moved < MAP_SWIPE_PX || !root.querySelector('[data-compass-map]')?.classList.contains('is-expanded')) return
+      mapSwipedAt = performance.now()
+      toggleMap()
+    })
+    tap.addEventListener('pointercancel', () => {
+      fromY = null
+    })
   }
 
   /** The quick green tick when a corner has been passed. */
@@ -176,12 +206,16 @@ export function arScreen(root, {navigate, params}) {
   }
 
   function onArrived() {
+    arrived = true
+    floorArrows?.setArrived(true)
     const host = root.querySelector('[data-arrival]')
     if (host) showArrival(host, {name: destination.name})
   }
 
   function onStats(s) {
     paintHints(s)
+    floorArrows?.setActive(s.phase === 'ready' || s.phase === 'facing')
+    floorArrows?.setArrived(arrived || (s.phase === 'ready' && s.remainingM <= FLOOR_ARROWS.arriveM))
     if (s.locked && !wasLocked) haptic(18)
     wasLocked = s.locked
     paintStartCard(s)
@@ -200,8 +234,6 @@ export function arScreen(root, {navigate, params}) {
   function paintHints(s) {
     const hints = [
       ['[data-reroute-hint]', s.rerouting],
-      ['[data-floor-hint]', s.lookingUp],
-      ['[data-edge]', s.edge],
       ['[data-compass-pill]', s.compassUnsteady || s.compassPoor],
       ['[data-locating]', !s.manual && !s.startBlocked && (s.phase === 'await-start' || (s.phase === 'ready' && !s.directionKnown))],
     ]
@@ -209,13 +241,6 @@ export function arScreen(root, {navigate, params}) {
     for (const [name] of hints) {
       const el = root.querySelector(name)
       if (el) el.hidden = name !== wanted
-    }
-    if (s.edge) root.querySelector('[data-edge-arrow]').style.transform = `rotate(${Math.round(s.edge.yawDeg)}deg)`
-    // Away from the floor, the chevrons show at the bottom of the screen instead: never in mid-air.
-    const hud = root.querySelector('[data-floor-hud]')
-    if (hud) {
-      hud.hidden = !s.floorHud
-      if (s.floorHud) hud.style.setProperty('--yaw', `${Math.round(s.floorHud.yawDeg)}deg`)
     }
     const live = root.querySelector('[data-action="go-live"]')
     if (live) live.hidden = !s.liveAvailable
@@ -320,6 +345,8 @@ export function arScreen(root, {navigate, params}) {
     if (disposed) return
     trip = createArTrip({route, origin, destination, allowDesktop, debug: showDebug, arriveLabel: arriveLabel(destination), onPhase, onStats, onArrived, onTurnClose: () => haptic(30), onTurnNow: () => haptic([30, 50, 30]), onTurnPassed: showTurnCheck, startPoint: tripStart, autoStart: !manualStart, reducedMotion: prefersReducedMotion(), onEnterCampus: () => showToast('Welcome to campus', {tone: 'success'})})
     steps.wireSwipe()
+    wireMapSwipe()
+    floorArrows = createFloorArrows(root.querySelector('[data-floor-arrows]'), {getDeg: () => trip?.guideDeg ?? null})
     compassMap = createCompassMap(root.querySelector('[data-map-canvas]'), {
       getState: () => trip?.mapState() ?? null,
       onReady: () => {
@@ -368,6 +395,8 @@ export function arScreen(root, {navigate, params}) {
   document.addEventListener('visibilitychange', onVisibility)
 
   function teardownSession() {
+    floorArrows?.destroy()
+    floorArrows = null
     compassMap?.destroy()
     compassMap = null
     trip?.stop()

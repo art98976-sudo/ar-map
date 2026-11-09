@@ -63,7 +63,6 @@ export function createArTrip({
   let THREE = null
   let tracking = 'LIMITED'
   let startedAt = null
-  let lastNormalAt = null
   let heading = null
   let headingAccuracy = null
   let compassSource = null
@@ -83,10 +82,7 @@ export function createArTrip({
   let startBlocked = false
   let autoStartAt = -Infinity
   let campusCheckAt = -Infinity
-  let edge = null
-  let floorHudDeg = null // which way to walk, for the chevrons at the bottom of the screen
-  let lookingUp = false // the camera looks level or up, at a wall rather than the floor
-  let edgeSince = null
+  let guideDeg = null // the way to walk from where the phone faces, > 0 to the right
   let cameFromOutside = !isOnCampus(origin)
   let fixesOnCampus = 0
   let lastTime = null
@@ -382,32 +378,6 @@ export function createArTrip({
     if (!rerouting && !arrived && isOnCampus(entranceOf(destination))) reroute()
   }
 
-  /** The small arrow at the bottom of the screen: tracking is lost, or the path is out of view. */
-  function updateEdge(time, s) {
-    edge = null
-    if (phase !== 'ready' || arrived || !directionKnown || lookingUp) {
-      edgeSince = null
-      return
-    }
-    const next = guidance.getNextManoeuvre(s)
-    const corner = next.type === 'arrive' ? Infinity : (next.first ?? next.s) - s
-    const ahead = Math.max(TRIP.edgeMinAheadM, Math.min(TRIP.edgeAheadM, corner))
-    const view = nav.routeToWorld(pointAt(nav.route, s + ahead)).applyMatrix4(camera.matrixWorldInverse)
-    const front = view.z < 0
-    const screen = view.clone().applyMatrix4(camera.projectionMatrix)
-    const inView = front && Math.abs(screen.x) <= 1 && Math.abs(screen.y) <= 1
-    const lost = tracking !== 'NORMAL' && time - lastNormalAt >= TRIP.edgeLostAfterS
-    if (inView && !lost) {
-      edgeSince = null
-      return
-    }
-    edgeSince ??= time
-    if (!lost && time - edgeSince < TRIP.edgeAfterS) return
-    const h = guideHeading()
-    if (h == null) return
-    edge = {yawDeg: arrowYawDeg(arrowTarget(nav.route, guidance.manoeuvres, next, s).bearingDeg, h)}
-  }
-
   /** Look for the real ground at a few spots in the lower half of the screen. */
   function sampleGround(time) {
     if (tracking !== 'NORMAL' || !xr?.XrController?.hitTest || time - lastGroundAt < GROUND.sampleEveryS) return
@@ -482,33 +452,21 @@ export function createArTrip({
     }
   }
 
-  /** Which way to walk from where the phone faces (> 0 to the right), for the chevrons at the bottom of the screen. */
+  /** Which way to walk from where the phone faces (> 0 to the right), for the arrows over the camera. */
   function updateArrow(s) {
-    floorHudDeg = null
+    guideDeg = null
     if (arrived) return
     if (phase === 'facing') {
-      floorHudDeg = facingYaw
+      guideDeg = facingYaw
       return
     }
     if (phase !== 'ready') return
     const h = guideHeading()
     const target = arrowTarget(nav.route, guidance.manoeuvres, guidance.getNextManoeuvre(s), s)
     ringFill = target.ringFill
-    if (h != null) floorHudDeg = arrowYawDeg(target.bearingDeg, h)
+    if (h != null) guideDeg = arrowYawDeg(target.bearingDeg, h)
   }
 
-  /** Level or up, the floor is out of view: the chevrons move to the bottom of the screen. */
-  function updateLook() {
-    const y = lookDirection().y
-    if (lookingUp ? y < TRIP.lookDownY : y > TRIP.lookUpY) lookingUp = !lookingUp
-  }
-
-  /** The chevrons at the bottom of the screen: looking away from the floor, or before the ground chevrons can be trusted. */
-  function floorHud() {
-    if (floorHudDeg == null) return null
-    const onFloor = phase === 'ready' && directionKnown && placementTrusted()
-    return lookingUp || !onFloor ? {yawDeg: floorHudDeg} : null
-  }
 
   function compassPoor() {
     return heading != null && isPoorAccuracy(headingAccuracy, COMPASS_GUIDE.poorAccuracyDeg)
@@ -538,7 +496,6 @@ export function createArTrip({
     if (!nav) return
     startedAt ??= time
     lastTime = time
-    if (tracking === 'NORMAL' || lastNormalAt == null) lastNormalAt = time
     // A trip from GPS starts by itself: there is nothing to line up, and nothing to tap.
     if (autoStart && !manual && phase === 'await-start' && time - startedAt >= TRIP.autoStartS && time >= autoStartAt) {
       autoStartAt = time + TRIP.autoStartEveryS
@@ -559,7 +516,6 @@ export function createArTrip({
     if (phase === 'ready') {
       groundNow = ground.update(dt, s.s, camera.position.y, time)
       nav.setGround(groundNow.height, groundNow.slope, s.s)
-      nav.setChevronOpacity(placementTrusted() ? 1 : 0)
       if (tracking === 'NORMAL') tracker.walk(camera.position, directionKnown ? nav.worldToRoute : null)
       if (manual) {
         if (directionKnown && time >= campusCheckAt) {
@@ -579,7 +535,6 @@ export function createArTrip({
       if (arrival.update(dt, remainingM, directionKnown ? s.toPinM : null)) {
         arrived = true
         instruction = null
-        nav.finish()
         onArrived?.()
       } else {
         if (time - instructionAt >= TRIP.instructionEveryS) {
@@ -596,9 +551,7 @@ export function createArTrip({
         }
       }
     }
-    updateLook()
     updateArrow(routeS)
-    updateEdge(time, routeS)
     statsTimer += dt
     if (statsTimer >= 0.25) {
       statsTimer = 0
@@ -610,9 +563,6 @@ export function createArTrip({
         directionKnown,
         manual,
         startBlocked,
-        edge,
-        floorHud: floorHud(),
-        lookingUp: lookingUp && !arrived && (phase === 'ready' || phase === 'facing'),
         repick: manual && !arrived && time < repickUntil,
         liveAvailable: manual && !arrived && phase === 'ready' && liveFixes >= TRIP.liveFixes,
         turnPrompt: phase === 'facing' ? turnPrompt(facingYaw, 0) : null,
@@ -629,8 +579,6 @@ export function createArTrip({
         remainingM: nav.aligned ? remainingM : route.lengthM,
         toPinM: s.toPinM ?? null,
         offRouteM: nav.aligned ? s.offset : null,
-        arrows: nav.aligned ? s.arrows : 0,
-        arrowTotal: nav.arrowCount,
         cameraHeight: camera.position.y,
         groundHeight: groundNow.height,
         groundSlope: groundNow.slope,
@@ -668,7 +616,11 @@ export function createArTrip({
     mapState,
     setFps: (value) => (fps = value),
     /** Debug panel: correct the route now from the latest readings, however small the error. */
-    /** Debug: show the floor the chevrons lie on as a faint grid. */
+    /** The way to walk from where the phone faces, > 0 to the right; null when unknown. Read every frame. */
+    get guideDeg() {
+      return guideDeg
+    },
+    /** Debug: show the tracked floor as a faint grid. */
     setFloorGrid(show) {
       nav?.setFloorGrid(show)
     },

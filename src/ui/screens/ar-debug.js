@@ -26,7 +26,6 @@ export function paintDebugStats(root, s) {
   stat('route-points', String(s.routePoints))
   stat('turns', String(s.turns))
   stat('start-gap', `${Math.round(s.startGapM)} m`)
-  stat('arrows', `${s.arrows} of ${s.arrowTotal}`)
   stat('height', `${s.cameraHeight.toFixed(2)} m`)
   if (s.floorEyeM != null) stat('floor', `${s.floorEyeM.toFixed(2)} m`)
   if (s.groundHeight != null) {

@@ -679,18 +679,17 @@ describe('walking beats the compass', () => {
     t.done()
   })
 
-  it('a compass that goes poor fades the ground arrows out until walking has proved the placement', () => {
+  it('a compass that goes poor asks for a figure-8, until walking has proved the placement', () => {
     const t = startTrip(0)
-    const opacity = () => t.scene.getObjectByName('geo-root').children.find((c) => c.isInstancedMesh).material.uniforms.uOpacity.value
     for (let i = 0; i < 10; i++) t.frame()
-    expect(opacity()).toBeGreaterThan(0.99)
+    expect(t.box.stats.compassPoor).toBe(false)
     t.setAccuracy(40)
     for (let i = 0; i < 60; i++) t.frame()
-    expect(opacity()).toBeLessThan(0.05)
+    expect(t.box.stats.compassPoor).toBe(true)
     t.walk(30)
     expect(t.box.stats.locked).toBe(true)
-    for (let i = 0; i < 60; i++) t.frame()
-    expect(opacity()).toBeGreaterThan(0.95)
+    for (let i = 0; i < 10; i++) t.frame()
+    expect(t.box.stats.compassPoor).toBe(false)
     t.done()
   })
 

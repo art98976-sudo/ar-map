@@ -161,6 +161,8 @@ export function createCompassMap(host, {getState, onReady, onFailed}) {
     },
     setExpanded(value) {
       expanded = value
+      // The card animates for 250 ms: draw the tiles for the new size once it has settled.
+      setTimeout(() => instance?.map.resize(), 260)
     },
     destroy() {
       stopped = true

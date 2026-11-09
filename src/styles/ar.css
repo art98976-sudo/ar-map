@@ -14,11 +14,13 @@
   user-select: none;
   -webkit-user-select: none;
 }
+/* The camera fills the whole screen, behind everything. */
 .ar__canvas {
   position: absolute;
   inset: 0;
   width: 100%;
-  height: 100%;
+  height: 100dvh;
+  object-fit: cover;
 }
 
 /* Covers the canvas until the first camera frame, so there is never a black flash. */
@@ -52,18 +54,23 @@
   gap: var(--s-3);
 }
 
-/* Small hints stack above the map, however many show and however they wrap. */
+/* Small hints stack above the arrows, however many show and however they wrap. */
 .ar__hints {
   position: absolute;
   left: 20px;
   right: 20px;
-  bottom: calc(38dvh + var(--s-3));
+  bottom: calc(var(--safe-bottom) + 46dvh);
+  transition: bottom 250ms var(--ease);
   z-index: 4;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--s-2);
   pointer-events: none;
+}
+/* With the map open as a sheet, they ride above it. */
+.ar:has(.ar-map.is-expanded) .ar__hints {
+  bottom: calc(55dvh + var(--s-3));
 }
 .ar__hint {
   width: max-content;
@@ -330,23 +337,33 @@
   }
 }
 
-/* ---------- The heading-up map: the bottom of the screen, or all of it ---------- */
+/* ---------- The heading-up map: a small card in the corner, or a sheet over half the screen ---------- */
 .ar-map {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: calc(env(safe-area-inset-left, 0px) + var(--s-3));
+  bottom: calc(var(--safe-bottom) + var(--s-3));
   z-index: 3;
-  height: 38dvh;
+  width: 38vw;
+  height: 22dvh;
   overflow: hidden;
-  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 16px;
   background: var(--camera-ground);
-  box-shadow: 0 -8px 28px var(--shadow-on-camera);
-  transition: height 240ms var(--ease);
+  box-shadow: 0 8px 24px var(--shadow-on-camera);
+  transition:
+    left 250ms var(--ease),
+    bottom 250ms var(--ease),
+    width 250ms var(--ease),
+    height 250ms var(--ease),
+    border-radius 250ms var(--ease);
 }
 .ar-map.is-expanded {
-  height: 100dvh;
-  border-radius: 0;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 55dvh;
+  border-width: 1px 0 0;
+  border-radius: 16px 16px 0 0;
 }
 @media (prefers-reduced-motion: reduce) {
   .ar-map {
@@ -392,10 +409,6 @@
   box-shadow: inset 0 0 0 1px var(--glass-line);
   color: var(--white);
 }
-.ar-map.is-expanded .ar-map__expand {
-  top: auto;
-  bottom: calc(var(--safe-bottom) + 64px);
-}
 .ar-map__fallback[hidden] {
   display: none;
 }
@@ -438,12 +451,12 @@
   font-weight: 700;
 }
 
-/* ---------- The trip pill, on the map ---------- */
+/* ---------- The trip pill: a banner at the top, under the instruction card ---------- */
 .ar-pill {
   position: absolute;
   left: 50%;
-  bottom: calc(var(--safe-bottom) + var(--s-3));
-  z-index: 3;
+  top: calc(var(--safe-top) + var(--s-3) + 76px);
+  z-index: 4;
   max-width: calc(100% - 2 * var(--s-4));
   padding: 8px 16px;
   pointer-events: none;
@@ -611,31 +624,6 @@
   font-size: var(--fs-sm);
 }
 
-/* ---------- Backup arrow: the path is out of view, or tracking is lost ---------- */
-.ar-edge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s-2);
-}
-.ar-edge[hidden] {
-  display: none;
-}
-.ar-edge__arrow {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--green-02);
-  transition: transform 200ms linear;
-}
-@media (prefers-reduced-motion: reduce) {
-  .ar-edge__arrow {
-    transition: none;
-  }
-}
-
 /* Hints are see-through to touch. These two are buttons. */
 .ar__hint--action {
   min-height: 44px;
@@ -651,72 +639,6 @@
   display: none;
 }
 
-/* Away from the floor: the chevrons at the bottom of the screen, laid back like paint on the ground,
-   turned towards the way to walk. They pulse one after another, about every 1.2 s. */
-.ar-floor {
-  --floor-green: #1db954;
-  width: 76px;
-  height: 92px;
-  perspective: 260px;
-}
-.ar-floor[hidden] {
-  display: none;
-}
-.ar-floor__arrow {
-  width: 100%;
-  height: 100%;
-  transform: rotateX(48deg) rotate(var(--yaw, 0deg));
-  transition: transform 0.25s linear;
-}
-.ar-floor__arrow path {
-  fill: none;
-  stroke: var(--floor-green);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  animation: floor-flow 1.2s ease-in-out infinite;
-}
-.ar-floor__paint path {
-  stroke-width: 9;
-}
-/* The soft outer glow: the same chevron, wider and faint, underneath. */
-.ar-floor__glow path {
-  stroke-width: 18;
-  stroke: #7dffb0;
-  animation-name: floor-glow;
-}
-.ar-floor__arrow path:nth-child(2) {
-  animation-delay: 0.2s;
-}
-.ar-floor__arrow path:nth-child(3) {
-  animation-delay: 0.4s;
-}
-/* The nearest chevron (first in each group) lights first, so the pulse runs away from the user. */
-@keyframes floor-flow {
-  0%,
-  100% {
-    opacity: 0.55;
-  }
-  30% {
-    opacity: 0.85;
-  }
-}
-@keyframes floor-glow {
-  0%,
-  100% {
-    opacity: 0.12;
-  }
-  30% {
-    opacity: 0.3;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .ar-floor__arrow {
-    transition: none;
-  }
-  .ar-floor__arrow path {
-    animation: none;
-  }
-}
 .ar-debug__floor {
   display: flex;
   flex-wrap: wrap;
@@ -727,4 +649,150 @@
 }
 .ar-debug__floor .btn[aria-pressed='true'] {
   box-shadow: inset 0 0 0 2px #1db954;
+}
+
+/* ---------- The way to walk: big chevrons lying on the ground, over the camera ---------- */
+.floor-arrows {
+  --arrow-green: #22c55e;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  height: 45dvh;
+  perspective: 600px;
+  perspective-origin: 50% -30%;
+  pointer-events: none;
+}
+/* The ground: a plane laid back 62°, turned by the way to walk. */
+.floor-arrows__ground {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--safe-bottom) + 2dvh);
+  height: 70dvh;
+  transform-origin: 50% 100%;
+  transform: rotateX(62deg);
+}
+.floor-arrows__trail {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 5dvh;
+  transform-origin: 50% 100%;
+  transform: rotateZ(var(--yaw, 0deg));
+}
+.floor-arrows__trail[hidden],
+.floor-arrows__turn[hidden],
+.floor-arrows__arrived[hidden] {
+  display: none;
+}
+/* Nearest first: 70% of the screen wide, then smaller and fainter into the distance. */
+.floor-arrows__chevron {
+  flex: none;
+  width: 70vw;
+  overflow: visible;
+  filter: drop-shadow(0 0 10px rgba(34, 197, 94, 0.75));
+}
+.floor-arrows__chevron[data-n='1'] {
+  width: 58vw;
+  opacity: 0.75;
+}
+.floor-arrows__chevron[data-n='2'] {
+  width: 48vw;
+  opacity: 0.55;
+}
+.floor-arrows__chevron[data-n='3'] {
+  width: 40vw;
+  opacity: 0.35;
+}
+.floor-arrows__chevron path,
+.floor-arrows__turn-head {
+  fill: var(--arrow-green);
+  fill-opacity: 0.85;
+  stroke: #fff;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+/* Each chevron lights up in turn, away from the user, once every 1.2 s. */
+.floor-arrows__chevron path {
+  animation: arrow-flow 1.2s ease-in-out infinite;
+}
+.floor-arrows__chevron[data-n='1'] path {
+  animation-delay: 0.3s;
+}
+.floor-arrows__chevron[data-n='2'] path {
+  animation-delay: 0.6s;
+}
+.floor-arrows__chevron[data-n='3'] path {
+  animation-delay: 0.9s;
+}
+@keyframes arrow-flow {
+  0%,
+  40%,
+  100% {
+    fill: var(--arrow-green);
+  }
+  15% {
+    fill: #86efac;
+  }
+}
+/* A big curved arrow, for turning round: mirrored for a left turn. */
+.floor-arrows__turn {
+  position: absolute;
+  left: 50%;
+  bottom: 4%;
+  width: 62vw;
+  overflow: visible;
+  filter: drop-shadow(0 0 10px rgba(34, 197, 94, 0.75));
+  transform: translateX(-50%) scaleX(var(--side, 1));
+}
+/* The 3px white outline: a white line 6px wider, under the green one. */
+.floor-arrows__turn-edge,
+.floor-arrows__turn-line {
+  fill: none;
+  stroke-linecap: round;
+}
+.floor-arrows__turn-edge {
+  stroke: #fff;
+  stroke-width: 28px;
+}
+.floor-arrows__turn-line {
+  stroke: var(--arrow-green);
+  stroke-width: 22px;
+}
+.floor-arrows__arrived {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + 26dvh);
+  display: grid;
+  justify-items: center;
+  gap: var(--s-2);
+  transform: translateX(-50%);
+}
+.floor-arrows__pin {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: var(--arrow-green);
+  color: #fff;
+  box-shadow: 0 0 18px rgba(34, 197, 94, 0.8);
+}
+.floor-arrows__arrived-text {
+  padding: 8px 16px;
+  border-radius: var(--r-pill);
+  background: var(--ar-panel-82);
+  font-weight: 600;
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .floor-arrows__chevron path {
+    animation: none;
+  }
 }

@@ -16,11 +16,9 @@ import {anchor, entranceOf, googleMapsWalkingUrl, isOnCampus, parseMazeMapPath, 
 import {angleDiff} from '../../src/geo/geo.js'
 import {cameraHeadingFromOrientation, circularMean, circularSpread, createCalibrator} from '../../src/ar/compass.js'
 import {alignmentYaw, rotateY, routeToLocal} from '../../src/ar/nav-scene.js'
-import {visibleCount} from '../../src/ar/trail.js'
 import {formatDistance} from '../../src/ar/pin.js'
 import footpaths from '../../src/data/footpaths.json'
 import data from '../../src/data/destinations.json'
-import {TRAIL} from '../../src/config.js'
 
 const WALKWAY = {lat: 56.14525, lng: -3.9201} // between the Cottrell Building and the Atrium
 const near = (a, b, tol) => expect(Math.abs(a - b)).toBeLessThanOrEqual(tol)
@@ -301,15 +299,7 @@ describe('AR alignment', () => {
   })
 })
 
-describe('arrow trail', () => {
-  it('shows the chevrons from 1.5 m to 8 m ahead', () => {
-    expect(TRAIL.aheadM).toBe(8)
-    expect(TRAIL.spacingM).toBe(1)
-    const aS = Float32Array.from({length: 100}, (_, i) => i)
-    expect(visibleCount(aS, 0)).toBe(6) // 2..7
-    expect(visibleCount(aS, 50)).toBe(6) // 52..57
-    expect(visibleCount(aS, 95)).toBe(3) // 97..99, the route ends
-  })
+describe('distances', () => {
   it('formats distances for people', () => {
     expect(formatDistance(4.2)).toBe('4 m')
     expect(formatDistance(123)).toBe('125 m')

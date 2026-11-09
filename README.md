@@ -27,9 +27,7 @@ The camera only works on `https://` links. Two ways:
    Needs `cloudflared` (`winget install Cloudflare.cloudflared`).
 2. **Vercel preview:** push your branch. Vercel builds it and posts a preview link on the commit in GitHub.
 
-**Arrow preview on a laptop:** `npm run dev`, then open <http://localhost:5173/tools/arrow-preview.html>. It walks an L-shaped route with the real arrow and pin code.
-
-**AR debug panel:** add `?debug=1` to the URL (before the `#`), to see a live overlay with a minimap of the route frame, then in AR tap **Debug** (top right) for GPS accuracy, compass heading, distance to the entrance, arrows drawn and fps.
+**AR debug panel:** add `?debug=1` to the URL (before the `#`), to see a live overlay with a minimap of the route frame, then in AR tap **Debug** (top right) for GPS accuracy, compass heading, distance to the entrance and fps.
 
 ## Scripts
 
@@ -72,7 +70,7 @@ public/
   brand/             University of Stirling logo (green and white)
   fonts/             General Sans (self-hosted)
 scripts/             engine copy, phone tunnel, icon generator
-tools/               find-entrances.mjs, build-footpaths.mjs, arrow-preview.html
+tools/               find-entrances.mjs, build-footpaths.mjs
 tests/unit/          Vitest
 tests/e2e/           Playwright
 ```

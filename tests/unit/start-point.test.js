@@ -1,6 +1,7 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import * as THREE from 'three'
-import {createArrowTrail} from '../../src/ar/trail.js'
+import {findTurns} from '../../src/geo/geo.js'
+import {TURNS} from '../../src/config.js'
 import {pinScale} from '../../src/ar/pin.js'
 import {createArTrip} from '../../src/ar/trip.js'
 import {buildGraph, nearestOnPaths} from '../../src/route/footpaths.js'
@@ -124,26 +125,13 @@ describe('the visuals', () => {
     expect(pinScale(100)).toBe(4)
     expect(pinScale(null)).toBe(1)
   })
-  it('reduced motion turns off the flow and the pulse', () => {
-    const route = [{x: 0, y: 0}, {x: 0, y: 30}, {x: 30, y: 30}]
-    const moving = createArrowTrail(THREE, route)
-    const still = createArrowTrail(THREE, route, {reducedMotion: true})
-    expect(moving.mesh.material.uniforms.uMotion.value).toBe(1)
-    expect(still.mesh.material.uniforms.uMotion.value).toBe(0)
-    moving.dispose()
-    still.dispose()
-  })
-  it('puts a corner arrow at a 30° bend, but not a 25° one', () => {
+  it('counts a 30° bend as a corner, but not a 25° one', () => {
     const bend = (deg) => {
       const r = (deg * Math.PI) / 180
       return [{x: 0, y: 0}, {x: 0, y: 30}, {x: Math.sin(r) * 30, y: 30 + Math.cos(r) * 30}]
     }
-    const sharp = createArrowTrail(THREE, bend(31))
-    const gentle = createArrowTrail(THREE, bend(25))
-    expect(sharp.turns).toHaveLength(1)
-    expect(gentle.turns).toHaveLength(0)
-    sharp.dispose()
-    gentle.dispose()
+    expect(findTurns(bend(31), TURNS.minDeg)).toHaveLength(1)
+    expect(findTurns(bend(25), TURNS.minDeg)).toHaveLength(0)
   })
 })
 
@@ -277,56 +265,18 @@ describe('a trip in AR', () => {
     near(plan.mock.calls[0][0].lng, ORIGIN.lng + 40 / 62_000, 0.0001)
     expect(box.stats.repick).toBe(true)
   })
-  it('the backup arrow: shows when the path is out of view, and hides when it is back', () => {
-    setup()
-    frames(5)
-    trip.start()
-    frames(30)
-    expect(box.stats.edge).toBeNull()
-    camera.lookAt(0, 0.9, 1) // turned round, still looking at the floor
-    camera.updateMatrixWorld(true)
-    frames(10)
-    expect(box.stats.edge).toBeNull() // a glance away is not enough
-    frames(30)
-    expect(box.stats.edge).not.toBeNull()
-    camera.lookAt(0, 1.5, -1)
-    camera.updateMatrixWorld(true)
-    frames(10)
-    expect(box.stats.edge).toBeNull()
-  })
-  it('the backup arrow: shows when tracking is lost, and hides when it returns', () => {
-    setup()
-    frames(5)
-    trip.start()
-    frames(10)
-    camera.lookAt(0, 0.9, -1) // looking at the floor ahead
-    camera.updateMatrixWorld(true)
-    trip.onTracking({status: 'LIMITED'})
-    frames(40)
-    expect(box.stats.edge).not.toBeNull()
-    near(box.stats.edge.yawDeg, 0, 1)
-    trip.onTracking({status: 'NORMAL'})
-    frames(10)
-    expect(box.stats.edge).toBeNull()
-  })
 
-  it('looking level at a wall: the chevrons move to the bottom of the screen, with a hint', () => {
+  it('gives the arrows the way to walk, from where the phone faces', () => {
     setup()
     frames(5)
+    expect(trip.guideDeg).toBeNull() // no walk yet
     trip.start()
-    frames(30) // the camera looks level
-    expect(box.stats.lookingUp).toBe(true)
-    expect(box.stats.floorHud).not.toBeNull()
-    near(box.stats.floorHud.yawDeg, 0, 1)
-    camera.lookAt(0, 0.9, -1) // down at the floor: the chevrons are on the ground instead
+    frames(30)
+    near(trip.guideDeg, 0, 1) // facing up the route
+    camera.lookAt(1, 1.5, 0) // turned to face east: the route is now to the left
     camera.updateMatrixWorld(true)
-    frames(10)
-    expect(box.stats.lookingUp).toBe(false)
-    expect(box.stats.floorHud).toBeNull()
-    camera.lookAt(0, 1.3, -1) // about 11° down: between the two limits, so it stays on the floor
-    camera.updateMatrixWorld(true)
-    frames(10)
-    expect(box.stats.lookingUp).toBe(false)
+    frames(30, 90)
+    near(trip.guideDeg, -90, 2)
   })
   it('lets the floor be moved up and down, and shows it as a grid', () => {
     setup()

@@ -1,6 +1,4 @@
 import {describe, expect, it} from 'vitest'
-import * as THREE from 'three'
-import {createArrowTrail} from '../../src/ar/trail.js'
 import {
   arrowTarget,
   arrowYawDeg,
@@ -277,17 +275,3 @@ describe('reading the direction from walking', () => {
   })
 })
 
-describe('ground arrows', () => {
-  const route = [{x: 0, y: 0}, {x: 0, y: 30}, {x: 30, y: 30}, {x: 30, y: 60}]
-  it('fade out, and come back', () => {
-    const trail = createArrowTrail(THREE, route)
-    trail.setOpacity(0)
-    for (let i = 0; i < 40; i++) trail.update(0, 0.1, i)
-    expect(trail.opacity).toBeLessThan(0.01)
-    expect(trail.lane.material.uniforms.uOpacity.value).toBe(trail.opacity)
-    trail.setOpacity(1)
-    for (let i = 0; i < 40; i++) trail.update(0, 0.1, i)
-    expect(trail.opacity).toBeGreaterThan(0.99)
-    trail.dispose()
-  })
-})

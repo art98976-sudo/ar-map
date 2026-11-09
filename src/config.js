@@ -32,30 +32,18 @@ export const XR = {
   maxPixelRatio: 2,
 }
 
-// The chevrons painted on the ground.
-export const TRAIL = {
-  spacingM: 1, // one chevron every metre
-  startM: 1.5, // the first one is this far ahead; nearer and behind the user, none
-  aheadM: 8, // none further ahead than this...
-  fadeM: 2, // ...fading out over the last 2 m
-  farScale: 0.6, // the furthest chevron is this much the size of the nearest
-  bendM: 2, // each chevron points the average way of the route this far either side, so they bend round a corner
-  flowS: 1.2, // each chevron pulses once every 1.2 s...
-  waveM: 6, // ...one after another towards the destination
-  paintOpacity: 0.85,
-  turnDeg: 30, // a bend this sharp counts as a corner
-  heightM: 0.01, // 1 cm above the ground so they never flicker into it
-  sizeM: 0.7, // chevron width
-  maxLiftM: 1.5, // the slope raises or lowers chevrons ahead by at most this
-  laneWidthM: 1.1,
-  laneHeightM: 0.005,
-  fadeS: 0.5, // fading out when the compass is poor, and back in
-  turnPassedM: 1, // a corner counts as passed this far beyond it
-  easeS: 0.3, // ~300 ms easing of the user's position along the route
-  color: 0x1db954,
-  glow: 0x7dffb0,
-  approxColor: 0xe09a00, // amber: a straight-line fallback that may cross buildings
-  approxGlow: 0xffebaa,
+// Corners along the route, for the guidance and the debug panel.
+export const TURNS = {
+  minDeg: 30, // a bend this sharp counts as a corner
+  passedM: 1, // a corner counts as passed this far beyond it
+}
+
+// The way-to-walk arrows drawn over the camera, lying on the ground at the bottom of the screen.
+export const FLOOR_ARROWS = {
+  easeS: 0.25, // smoothing of their turn, so the compass does not make them jitter
+  turnDeg: 100, // turning further than this: a curved turn arrow instead of the chevrons...
+  turnBackDeg: 85, // ...until back within this
+  arriveM: 10, // this close to the entrance: a pin and "You've arrived" instead
 }
 
 // The destination pin.
@@ -65,6 +53,7 @@ export const PIN = {
   growFromM: 25, // further than this the pin keeps its size on screen
   maxDrawnM: 600, // the camera stops drawing far away: a further pin comes this close instead
   onTop: 30,
+  maxLiftM: 1.5, // the slope of the ground raises or lowers the pin by at most this
 }
 
 export const GUIDE = {
@@ -179,12 +168,6 @@ export const TRIP = {
   liveFixes: 3, // good GPS this many times running: offer to switch to it
   repickForS: 20, // how long to offer choosing the start again, after going off route
   campusCheckEveryS: 1,
-  edgeAheadM: 8, // the backup arrow appears when this far along the route is off screen
-  edgeMinAheadM: 5, // nearer than this, the point is below the screen when all is well
-  edgeAfterS: 1, // not for a moment's glance away
-  edgeLostAfterS: 1, // nor for a moment's lost tracking
-  lookUpY: -0.17, // the camera looks this close to level (about 10° down) or higher: "Point phone at the floor"...
-  lookDownY: -0.27, // ...until it looks below about 16° down again
   instructionEveryS: 0.5,
   pointsPerSample: 3,
 }
@@ -244,6 +227,7 @@ export const COLOURS = {
   legGreen: '#37e07f',
   amber: '#e09a00',
   debugYellow: '#f7d64c',
+  arrowGreen: '#22c55e',
   white: '#ffffff',
   confetti: ['#006938', '#76b72a', '#9fcc69', '#ffffff', '#edab00'],
 }
