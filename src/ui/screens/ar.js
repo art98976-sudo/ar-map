@@ -1,6 +1,6 @@
 // AR screen. States, in order:
 //   loading  download the AR engine with a real progress bar
-//   live     camera feed + world tracking: the instruction card on top, the 3D arrow, and the
+//   live     camera feed + world tracking: the instruction card on top, chevrons on the floor, and the
 //            heading-up map below. The debug tools appear only with ?debug=1.
 //   error    camera denied, motion denied, offline, timeout or engine crash; each says what to do
 import {permissionsAllowed} from '../../ar/permissions.js'
@@ -17,7 +17,7 @@ import {drawMinimap} from '../components/ar-minimap.js'
 import {createCompassMap} from '../components/compass-map.js'
 import {focusScreen, haptic, onAction, render} from '../dom.js'
 import {icon} from '../icons.js'
-import {ROUTING} from '../../config.js'
+import {GROUND, ROUTING} from '../../config.js'
 import {paintDebugStats, paintLiveDebug, setStat as setDebugStat, toggleDebugPanel} from './ar-debug.js'
 import {errorCopy} from './ar-errors.js'
 import {createStepCard} from './ar-steps.js'
@@ -97,6 +97,13 @@ export function arScreen(root, {navigate, params}) {
       trip?.recalibrate()
       toggleDebugPanel(root, false)
     },
+    'floor-grid': (_, button) => {
+      const on = button.getAttribute('aria-pressed') !== 'true'
+      button.setAttribute('aria-pressed', String(on))
+      trip?.setFloorGrid(on)
+    },
+    'floor-down': () => setStat('floor', `${trip?.nudgeFloor(GROUND.eyeStepM).toFixed(2)} m`),
+    'floor-up': () => setStat('floor', `${trip?.nudgeFloor(-GROUND.eyeStepM).toFixed(2)} m`),
   }
 
   function setView(fragment, state) {
@@ -191,17 +198,25 @@ export function arScreen(root, {navigate, params}) {
 
   /** One thing to do at a time: only the most urgent of these shows. */
   function paintHints(s) {
-    const wanted = [
+    const hints = [
       ['[data-reroute-hint]', s.rerouting],
+      ['[data-floor-hint]', s.lookingUp],
       ['[data-edge]', s.edge],
       ['[data-compass-pill]', s.compassUnsteady || s.compassPoor],
       ['[data-locating]', !s.manual && !s.startBlocked && (s.phase === 'await-start' || (s.phase === 'ready' && !s.directionKnown))],
-    ].find(([, show]) => show)?.[0]
-    for (const name of ['[data-reroute-hint]', '[data-edge]', '[data-compass-pill]', '[data-locating]']) {
+    ]
+    const wanted = hints.find(([, show]) => show)?.[0]
+    for (const [name] of hints) {
       const el = root.querySelector(name)
       if (el) el.hidden = name !== wanted
     }
     if (s.edge) root.querySelector('[data-edge-arrow]').style.transform = `rotate(${Math.round(s.edge.yawDeg)}deg)`
+    // Away from the floor, the chevrons show at the bottom of the screen instead: never in mid-air.
+    const hud = root.querySelector('[data-floor-hud]')
+    if (hud) {
+      hud.hidden = !s.floorHud
+      if (s.floorHud) hud.style.setProperty('--yaw', `${Math.round(s.floorHud.yawDeg)}deg`)
+    }
     const live = root.querySelector('[data-action="go-live"]')
     if (live) live.hidden = !s.liveAvailable
     const repick = root.querySelector('[data-action="repick"]')

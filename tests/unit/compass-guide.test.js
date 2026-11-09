@@ -1,7 +1,6 @@
 import {describe, expect, it} from 'vitest'
 import * as THREE from 'three'
-import {arrowDrop, createGuideArrow} from '../../src/ar/guide-arrow.js'
-import {createArrowTrail, visibleWindowEnd} from '../../src/ar/trail.js'
+import {createArrowTrail} from '../../src/ar/trail.js'
 import {
   arrowTarget,
   arrowYawDeg,
@@ -14,7 +13,7 @@ import {
 import {buildManoeuvres, createGuidance, instructionFor, landmarkPhrase, landmarksFrom, nearestLandmark, spokenStep, stepIcon} from '../../src/route/guidance.js'
 import {mapCamera, viewKey} from '../../src/ui/components/compass-map.js'
 import {icon} from '../../src/ui/icons.js'
-import {COMPASS_GUIDE, COMPASS_MAP, TRAIL} from '../../src/config.js'
+import {COMPASS_GUIDE, COMPASS_MAP} from '../../src/config.js'
 
 const near = (a, b, tol = 1e-6) => expect(Math.abs(a - b)).toBeLessThanOrEqual(tol)
 const nearAngle = (a, b, tol = 1e-6) => expect(Math.abs((((a - b + 540) % 360) + 360) % 360 - 180)).toBeLessThanOrEqual(tol)
@@ -80,70 +79,6 @@ describe('blending into a turn from 12 m', () => {
   })
   it('at the very end of the route it keeps the last direction', () => {
     nearAngle(targetAt(rightTurn, 80).bearingDeg, 90, 0.01)
-  })
-})
-
-describe('the arrow in the scene', () => {
-  function setup() {
-    const camera = new THREE.PerspectiveCamera()
-    camera.position.set(2, 1.5, 3)
-    camera.lookAt(2, 1.5, -10)
-    camera.updateMatrixWorld(true)
-    return {camera, arrow: createGuideArrow(THREE, {color: 0x00ff00})}
-  }
-  it('floats 2 m ahead, below the eye, tilted 20° towards the user', () => {
-    const {camera, arrow} = setup()
-    arrow.update(0.016, camera, 0)
-    near(arrow.mesh.position.x, 2)
-    near(arrow.mesh.position.z, 1)
-    expect(arrow.mesh.position.y).toBeLessThan(1.5)
-    near(arrow.mesh.children[0].rotation.x, (20 * Math.PI) / 180)
-    near(arrow.relativeDeg, 0)
-    arrow.dispose()
-  })
-  it('sits about 0.4 m below the eye for a phone tilted down, and rides up for a level one', () => {
-    near(arrowDrop(-0.2), 0.4)
-    expect(arrowDrop(0)).toBeLessThan(0.4)
-    expect(arrowDrop(-0.5)).toBeLessThanOrEqual(0.6)
-  })
-  it('turns at no more than 120°/s, whichever way is shortest', () => {
-    const {camera, arrow} = setup()
-    arrow.update(0.016, camera, 0)
-    arrow.update(0.1, camera, 90)
-    near(arrow.relativeDeg, 12, 1e-6)
-    for (let i = 0; i < 20; i++) arrow.update(0.1, camera, 90)
-    near(arrow.relativeDeg, 90, 1e-6)
-    arrow.dispose()
-  })
-  it('stays pointing the same way in the world when the phone turns quickly', () => {
-    const {camera, arrow} = setup()
-    arrow.update(0.016, camera, 0)
-    const yaw = arrow.yaw
-    camera.lookAt(102, 1.5, 3) // the user turns to face east, and the route now lies to their left
-    camera.updateMatrixWorld(true)
-    arrow.update(0.016, camera, -90)
-    near(arrow.yaw, yaw, 1e-6)
-    arrow.dispose()
-  })
-  it('fills the ring as the corner comes up', () => {
-    const {camera, arrow} = setup()
-    arrow.update(0.016, camera, 0, 0)
-    expect(arrow.ring.visible).toBe(false)
-    arrow.update(0.016, camera, 0, 0.5)
-    expect(arrow.ring.visible).toBe(true)
-    expect(arrow.ring.geometry.drawRange.count).toBe(32 * 6)
-    arrow.dispose()
-  })
-  it('hides with no direction to show, and becomes a pin on arrival', () => {
-    const {camera, arrow} = setup()
-    arrow.update(0.016, camera, null)
-    expect(arrow.mesh.visible).toBe(false)
-    arrow.arrive()
-    arrow.update(0.016, camera, null)
-    expect(arrow.mesh.visible).toBe(true)
-    expect(arrow.arrow.visible).toBe(false)
-    expect(arrow.pin.visible).toBe(true)
-    arrow.dispose()
   })
 })
 
@@ -344,37 +279,6 @@ describe('reading the direction from walking', () => {
 
 describe('ground arrows', () => {
   const route = [{x: 0, y: 0}, {x: 0, y: 30}, {x: 30, y: 30}, {x: 30, y: 60}]
-  const turns = [{s: 30, angle: 90}, {s: 60, angle: -90}]
-  it('reach no more than 30 m ahead', () => {
-    expect(TRAIL.aheadM).toBe(30)
-    expect(TRAIL.spacingM).toBe(2)
-    expect(visibleWindowEnd(turns, 0)).toBe(30)
-    expect(visibleWindowEnd([], 40)).toBe(70)
-    expect(visibleWindowEnd([{s: 100, angle: 90}], 35)).toBe(65)
-  })
-  it('stop at the next corner when that is closer', () => {
-    expect(visibleWindowEnd(turns, 25)).toBe(30)
-    expect(visibleWindowEnd(turns, 29)).toBe(30)
-    expect(visibleWindowEnd(turns, 55)).toBe(60)
-  })
-  it('never show past the corner at any point on the walk', () => {
-    for (let s = 0; s < 29; s += 0.25) {
-      const end = visibleWindowEnd(turns, s)
-      expect(end).toBeLessThanOrEqual(30)
-      expect(end - s).toBeLessThanOrEqual(30)
-    }
-  })
-  it('after walking round the corner, the next leg eases in without overshooting', () => {
-    const trail = createArrowTrail(THREE, route)
-    trail.reset(25)
-    expect(trail.windowEnd).toBe(30)
-    for (let i = 0; i < 40; i++) {
-      trail.update(32, 0.1, i)
-      expect(trail.windowEnd).toBeLessThanOrEqual(60 + 1e-6)
-    }
-    near(trail.windowEnd, 60, 0.5)
-    trail.dispose()
-  })
   it('fade out, and come back', () => {
     const trail = createArrowTrail(THREE, route)
     trail.setOpacity(0)

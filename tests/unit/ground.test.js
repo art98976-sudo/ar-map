@@ -68,13 +68,13 @@ describe('the ground tracker', () => {
     for (let s = -2; s <= 12; s += 1) tracker.addHit(s, height + slope * s, camY, time)
   }
 
-  it('falls back to the phone height minus 1.45 m with no hits', () => {
+  it('falls back to the phone height minus 1.4 m with no hits', () => {
     const tracker = createGroundTracker()
     const out = tracker.update(0.016, 0, 1.5, 100)
-    near(out.height, 0.05, 1e-6)
+    near(out.height, 0.1, 1e-6)
     expect(out.slope).toBe(0)
     expect(out.source).toBe('eye')
-    near(tracker.fallback(1.5), 0.05, 1e-6)
+    near(tracker.fallback(1.5), 0.1, 1e-6)
   })
   it('learns the height of the phone from nearby hits, for later fallback', () => {
     const tracker = createGroundTracker()
@@ -108,5 +108,17 @@ describe('the ground tracker', () => {
     const tracker = createGroundTracker()
     for (let i = 0; i < GROUND.maxHits + 50; i++) tracker.addHit(i % 10, 0, 1.5, 100)
     expect(tracker.hitCount).toBe(GROUND.maxHits)
+  })
+})
+
+describe('adjusting the floor height', () => {
+  it('moves the assumed floor, within sensible limits', () => {
+    const tracker = createGroundTracker()
+    tracker.setEyeM(1.6)
+    near(tracker.fallback(1.5), -0.1, 1e-9)
+    tracker.setEyeM(5)
+    expect(tracker.eyeM).toBe(GROUND.maxEyeM)
+    tracker.setEyeM(0)
+    expect(tracker.eyeM).toBe(GROUND.minEyeM)
   })
 })

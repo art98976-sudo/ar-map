@@ -650,3 +650,81 @@
 .ar__hint--action[hidden] {
   display: none;
 }
+
+/* Away from the floor: the chevrons at the bottom of the screen, laid back like paint on the ground,
+   turned towards the way to walk. They pulse one after another, about every 1.2 s. */
+.ar-floor {
+  --floor-green: #1db954;
+  width: 76px;
+  height: 92px;
+  perspective: 260px;
+}
+.ar-floor[hidden] {
+  display: none;
+}
+.ar-floor__arrow {
+  width: 100%;
+  height: 100%;
+  transform: rotateX(48deg) rotate(var(--yaw, 0deg));
+  transition: transform 0.25s linear;
+}
+.ar-floor__arrow path {
+  fill: none;
+  stroke: var(--floor-green);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  animation: floor-flow 1.2s ease-in-out infinite;
+}
+.ar-floor__paint path {
+  stroke-width: 9;
+}
+/* The soft outer glow: the same chevron, wider and faint, underneath. */
+.ar-floor__glow path {
+  stroke-width: 18;
+  stroke: #7dffb0;
+  animation-name: floor-glow;
+}
+.ar-floor__arrow path:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.ar-floor__arrow path:nth-child(3) {
+  animation-delay: 0.4s;
+}
+/* The nearest chevron (first in each group) lights first, so the pulse runs away from the user. */
+@keyframes floor-flow {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  30% {
+    opacity: 0.85;
+  }
+}
+@keyframes floor-glow {
+  0%,
+  100% {
+    opacity: 0.12;
+  }
+  30% {
+    opacity: 0.3;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ar-floor__arrow {
+    transition: none;
+  }
+  .ar-floor__arrow path {
+    animation: none;
+  }
+}
+.ar-debug__floor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+.ar-debug__floor .btn {
+  flex: 1 1 auto;
+}
+.ar-debug__floor .btn[aria-pressed='true'] {
+  box-shadow: inset 0 0 0 2px #1db954;
+}

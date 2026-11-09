@@ -283,7 +283,7 @@ describe('a trip in AR', () => {
     trip.start()
     frames(30)
     expect(box.stats.edge).toBeNull()
-    camera.lookAt(0, 1.5, 1) // turned round
+    camera.lookAt(0, 0.9, 1) // turned round, still looking at the floor
     camera.updateMatrixWorld(true)
     frames(10)
     expect(box.stats.edge).toBeNull() // a glance away is not enough
@@ -299,6 +299,8 @@ describe('a trip in AR', () => {
     frames(5)
     trip.start()
     frames(10)
+    camera.lookAt(0, 0.9, -1) // looking at the floor ahead
+    camera.updateMatrixWorld(true)
     trip.onTracking({status: 'LIMITED'})
     frames(40)
     expect(box.stats.edge).not.toBeNull()
@@ -306,5 +308,35 @@ describe('a trip in AR', () => {
     trip.onTracking({status: 'NORMAL'})
     frames(10)
     expect(box.stats.edge).toBeNull()
+  })
+
+  it('looking level at a wall: the chevrons move to the bottom of the screen, with a hint', () => {
+    setup()
+    frames(5)
+    trip.start()
+    frames(30) // the camera looks level
+    expect(box.stats.lookingUp).toBe(true)
+    expect(box.stats.floorHud).not.toBeNull()
+    near(box.stats.floorHud.yawDeg, 0, 1)
+    camera.lookAt(0, 0.9, -1) // down at the floor: the chevrons are on the ground instead
+    camera.updateMatrixWorld(true)
+    frames(10)
+    expect(box.stats.lookingUp).toBe(false)
+    expect(box.stats.floorHud).toBeNull()
+    camera.lookAt(0, 1.3, -1) // about 11° down: between the two limits, so it stays on the floor
+    camera.updateMatrixWorld(true)
+    frames(10)
+    expect(box.stats.lookingUp).toBe(false)
+  })
+  it('lets the floor be moved up and down, and shows it as a grid', () => {
+    setup()
+    frames(5)
+    trip.start()
+    frames(5)
+    near(trip.nudgeFloor(0.05), 1.45, 1e-9)
+    near(trip.nudgeFloor(-0.1), 1.35, 1e-9)
+    frames(5)
+    near(box.stats.floorEyeM, 1.35, 1e-9)
+    expect(() => trip.setFloorGrid(true)).not.toThrow()
   })
 })

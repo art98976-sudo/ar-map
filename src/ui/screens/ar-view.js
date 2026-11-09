@@ -60,6 +60,21 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
     <button class="ar__hint ar__hint--action" type="button" data-action="repick" hidden>Off route? Choose your start again</button>
     <p class="ar__hint" data-reroute-hint role="status" hidden>Off route - finding a new route</p>
     <p class="ar__hint" data-approx-hint role="status" ${routeSource === 'direct' ? '' : 'hidden'}>Approximate route - check the 2D map</p>
+    <p class="ar__hint" data-floor-hint role="status" hidden>Point phone at the floor</p>
+    <div class="ar-floor" data-floor-hud aria-hidden="true" hidden>
+      <svg class="ar-floor__arrow" data-floor-arrow viewBox="-6 -6 72 96">
+        <g class="ar-floor__glow">
+          <path d="M8 72 L30 56 L52 72" />
+          <path d="M8 50 L30 34 L52 50" />
+          <path d="M8 28 L30 12 L52 28" />
+        </g>
+        <g class="ar-floor__paint">
+          <path d="M8 72 L30 56 L52 72" />
+          <path d="M8 50 L30 34 L52 50" />
+          <path d="M8 28 L30 12 L52 28" />
+        </g>
+      </svg>
+    </div>
     </div>
 
     <section class="ar-map" data-compass-map aria-label="Map of the route">
@@ -116,12 +131,18 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
         <div class="stats__row"><dt>Arrows drawn</dt><dd data-stat="arrows">–</dd></div>
         <div class="stats__row"><dt>Camera height</dt><dd data-stat="height">–</dd></div>
         <div class="stats__row"><dt>Ground</dt><dd data-stat="ground">–</dd></div>
+        <div class="stats__row"><dt>Floor below phone</dt><dd data-stat="floor">–</dd></div>
         <div class="stats__row"><dt>Route source</dt><dd data-stat="source">${routeSource}</dd></div>
         <div class="stats__row"><dt>Route points</dt><dd data-stat="route-points">–</dd></div>
         <div class="stats__row"><dt>Turns</dt><dd data-stat="turns">–</dd></div>
         <div class="stats__row"><dt>Start gap (GPS to path)</dt><dd data-stat="start-gap">–</dd></div>
         <div class="stats__row"><dt>Frame rate</dt><dd data-stat="fps">–</dd></div>
       </dl>
+      <div class="ar-debug__floor">
+        <button class="btn btn--secondary" type="button" data-action="floor-grid" aria-pressed="false">Floor grid</button>
+        <button class="btn btn--secondary" type="button" data-action="floor-down" aria-label="Floor 5 cm lower">Floor −5 cm</button>
+        <button class="btn btn--secondary" type="button" data-action="floor-up" aria-label="Floor 5 cm higher">Floor +5 cm</button>
+      </div>
       <button class="btn btn--secondary btn--block" type="button" data-action="recalibrate" aria-label="Recalibrate compass">
         ${icon('compass')}<span>Recalibrate compass</span>
       </button>

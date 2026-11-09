@@ -1,4 +1,4 @@
-// "Map Compass" guidance: the maths behind the 3D arrow, the heading-up map and the dot on it.
+// "Map Compass" guidance: the maths behind the way-to-walk direction, the heading-up map and the dot on it.
 // Pure logic, no GPS, no three.js. Bearings are degrees clockwise from north. Route points are
 // the route frame's {x east, y north} metres, s is the distance along the route.
 import {angleDiff, localBearing, pointAt, polylineLength, polylineSlice, projectOntoPolyline, shortestTurn, wrap360} from '../geo/geo.js'
@@ -34,7 +34,7 @@ function legAfter(route, turn, after) {
 }
 
 /**
- * Which way the 3D arrow should point at s: {bearingDeg, ringFill}.
+ * Which way to walk at s: {bearingDeg, ringFill}.
  * ringFill goes 0..1 over the last 12 m before a turn. next: the manoeuvre guidance says is next.
  */
 export function arrowTarget(route, manoeuvres, next, s) {

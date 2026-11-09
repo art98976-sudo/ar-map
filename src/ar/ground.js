@@ -133,6 +133,10 @@ export function createGroundTracker() {
     get eyeM() {
       return eye
     },
+    /** Set how far the floor is below the phone (debug). Ground hits near the user still correct it. */
+    setEyeM(m) {
+      eye = Math.max(GROUND.minEyeM, Math.min(GROUND.maxEyeM, m))
+    },
     get hitCount() {
       return hits.length
     },

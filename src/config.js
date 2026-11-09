@@ -32,41 +32,30 @@ export const XR = {
   maxPixelRatio: 2,
 }
 
+// The chevrons painted on the ground.
 export const TRAIL = {
-  spacingM: 2,
-  aheadM: 30, // arrows are never drawn further ahead than this
-  fadeInM: 6, // they fade in over this much, as the user comes closer
-  turnDeg: 30, // a bend this sharp gets a corner arrow
-  behindM: 1.5, // arrows fade out this far behind the user
+  spacingM: 1, // one chevron every metre
+  startM: 1.5, // the first one is this far ahead; nearer and behind the user, none
+  aheadM: 8, // none further ahead than this...
+  fadeM: 2, // ...fading out over the last 2 m
+  farScale: 0.6, // the furthest chevron is this much the size of the nearest
+  bendM: 2, // each chevron points the average way of the route this far either side, so they bend round a corner
+  flowS: 1.2, // each chevron pulses once every 1.2 s...
+  waveM: 6, // ...one after another towards the destination
+  paintOpacity: 0.85,
+  turnDeg: 30, // a bend this sharp counts as a corner
   heightM: 0.01, // 1 cm above the ground so they never flicker into it
-  sizeM: 0.85, // chevron width
-  maxLiftM: 1.5, // the slope raises or lowers arrows ahead by at most this
+  sizeM: 0.7, // chevron width
+  maxLiftM: 1.5, // the slope raises or lowers chevrons ahead by at most this
   laneWidthM: 1.1,
   laneHeightM: 0.005,
   fadeS: 0.5, // fading out when the compass is poor, and back in
   turnPassedM: 1, // a corner counts as passed this far beyond it
-  windowEaseS: 0.6, // the next leg fades in rather than appearing all at once
-  turnScale: 1.6, // corner arrows are bigger
   easeS: 0.3, // ~300 ms easing of the user's position along the route
-  color: 0x0a8a4a, // Stirling green, slightly lifted so it reads on grey paving
-  glow: 0xbfffcc,
+  color: 0x1db954,
+  glow: 0x7dffb0,
   approxColor: 0xe09a00, // amber: a straight-line fallback that may cross buildings
   approxGlow: 0xffebaa,
-}
-
-// The big 3D arrow.
-export const GUIDE_ARROW = {
-  maxTurnDegPerS: 120,
-  aheadM: 2,
-  belowM: 0.4, // A level phone would put it behind the map on the lower part of the screen, so it rides up a little.
-  minBelowM: 0.2,
-  maxBelowM: 0.6,
-  scale: 0.8, // the ring just fits the width of a portrait camera view at 2 m
-  minLook: 0.2, // below this the camera looks straight up or down: keep the last direction
-  ringSegments: 64,
-  ringInnerM: 0.62,
-  ringOuterM: 0.7,
-  depthM: 0.05,
 }
 
 // The destination pin.
@@ -157,7 +146,8 @@ export const GROUND = {
   maxSlope: 0.18,
   minSpanM: 3, // along the route, before believing any slope
   nearUserM: 4, // hits this close teach the height of the phone above the ground
-  defaultEyeM: 1.45,
+  defaultEyeM: 1.4, // with no floor found yet, the floor is this far below the phone (adjustable in debug)
+  eyeStepM: 0.05, // one tap of the debug floor buttons
   minEyeM: 0.8,
   maxEyeM: 2.1,
   easeS: 0.4,
@@ -193,6 +183,8 @@ export const TRIP = {
   edgeMinAheadM: 5, // nearer than this, the point is below the screen when all is well
   edgeAfterS: 1, // not for a moment's glance away
   edgeLostAfterS: 1, // nor for a moment's lost tracking
+  lookUpY: -0.17, // the camera looks this close to level (about 10° down) or higher: "Point phone at the floor"...
+  lookDownY: -0.27, // ...until it looks below about 16° down again
   instructionEveryS: 0.5,
   pointsPerSample: 3,
 }

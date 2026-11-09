@@ -302,13 +302,13 @@ describe('AR alignment', () => {
 })
 
 describe('arrow trail', () => {
-  it('shows up to 30 m ahead (and 1.5 m behind)', () => {
-    expect(TRAIL.aheadM).toBe(30)
-    expect(TRAIL.spacingM).toBe(2)
+  it('shows the chevrons from 1.5 m to 8 m ahead', () => {
+    expect(TRAIL.aheadM).toBe(8)
+    expect(TRAIL.spacingM).toBe(1)
     const aS = Float32Array.from({length: 100}, (_, i) => i)
-    expect(visibleCount(aS, 0)).toBe(30)
-    expect(visibleCount(aS, 50)).toBe(31) // 49..80
-    expect(visibleCount(aS, 95)).toBe(6) // 94..99, the route ends
+    expect(visibleCount(aS, 0)).toBe(6) // 2..7
+    expect(visibleCount(aS, 50)).toBe(6) // 52..57
+    expect(visibleCount(aS, 95)).toBe(3) // 97..99, the route ends
   })
   it('formats distances for people', () => {
     expect(formatDistance(4.2)).toBe('4 m')

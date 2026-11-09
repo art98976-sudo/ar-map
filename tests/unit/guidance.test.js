@@ -1,6 +1,4 @@
 import {describe, expect, it} from 'vitest'
-import * as THREE from 'three'
-import {createGuideArrow, stepYaw} from '../../src/ar/guide-arrow.js'
 import {
   buildManoeuvres,
   classifyTurn,
@@ -199,32 +197,5 @@ describe('arrival', () => {
     const arrival = createArrivalDetector()
     for (let i = 0; i < 5; i++) expect(arrival.update(0.1, 5, 100)).toBe(false)
     for (let i = 0; i < 100; i++) expect(arrival.update(0.1, 30, 30)).toBe(false)
-  })
-})
-
-describe('the 3D guide arrow', () => {
-  it('turns at no more than 120° a second', () => {
-    near(stepYaw(0, Math.PI / 2, 0.1), (12 * Math.PI) / 180, 1e-9)
-    near(stepYaw(0, -Math.PI / 2, 0.1), (-12 * Math.PI) / 180, 1e-9)
-  })
-  it('always takes the shortest turn, across the wrap', () => {
-    const start = (170 * Math.PI) / 180
-    const target = (-170 * Math.PI) / 180
-    expect(stepYaw(start, target, 0.05)).toBeGreaterThan(start)
-    near(stepYaw(start, target, 1), start + (20 * Math.PI) / 180, 1e-9)
-  })
-  it('points ahead at 0°, and eases round to the right rather than snapping', () => {
-    const camera = new THREE.PerspectiveCamera()
-    camera.position.set(2, 1.5, 3)
-    camera.lookAt(2, 1.5, -10)
-    camera.updateMatrixWorld(true)
-    const arrow = createGuideArrow(THREE, {color: 0x00ff00})
-    arrow.update(0.016, camera, 0)
-    near(arrow.yaw, 0, 1e-6) // -Z is straight ahead
-    arrow.update(0.1, camera, 90)
-    near(arrow.yaw, (-12 * Math.PI) / 180, 1e-6)
-    for (let i = 0; i < 20; i++) arrow.update(0.1, camera, 90)
-    near(arrow.yaw, -Math.PI / 2, 1e-6)
-    arrow.dispose()
   })
 })

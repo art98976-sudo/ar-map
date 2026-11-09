@@ -84,6 +84,8 @@ export function createArTrip({
   let autoStartAt = -Infinity
   let campusCheckAt = -Infinity
   let edge = null
+  let floorHudDeg = null // which way to walk, for the chevrons at the bottom of the screen
+  let lookingUp = false // the camera looks level or up, at a wall rather than the floor
   let edgeSince = null
   let cameFromOutside = !isOnCampus(origin)
   let fixesOnCampus = 0
@@ -383,7 +385,7 @@ export function createArTrip({
   /** The small arrow at the bottom of the screen: tracking is lost, or the path is out of view. */
   function updateEdge(time, s) {
     edge = null
-    if (phase !== 'ready' || arrived || !directionKnown) {
+    if (phase !== 'ready' || arrived || !directionKnown || lookingUp) {
       edgeSince = null
       return
     }
@@ -480,15 +482,32 @@ export function createArTrip({
     }
   }
 
-  /** The big arrow: the way to walk, measured from the way the user faces. */
-  function updateArrow(dt, s) {
-    if (arrived) return nav.updateGuide(dt, null)
-    if (phase === 'facing') return nav.updateGuide(dt, facingYaw)
-    if (phase !== 'ready') return nav.updateGuide(dt, null)
+  /** Which way to walk from where the phone faces (> 0 to the right), for the chevrons at the bottom of the screen. */
+  function updateArrow(s) {
+    floorHudDeg = null
+    if (arrived) return
+    if (phase === 'facing') {
+      floorHudDeg = facingYaw
+      return
+    }
+    if (phase !== 'ready') return
     const h = guideHeading()
     const target = arrowTarget(nav.route, guidance.manoeuvres, guidance.getNextManoeuvre(s), s)
     ringFill = target.ringFill
-    nav.updateGuide(dt, h == null ? null : arrowYawDeg(target.bearingDeg, h), ringFill)
+    if (h != null) floorHudDeg = arrowYawDeg(target.bearingDeg, h)
+  }
+
+  /** Level or up, the floor is out of view: the chevrons move to the bottom of the screen. */
+  function updateLook() {
+    const y = lookDirection().y
+    if (lookingUp ? y < TRIP.lookDownY : y > TRIP.lookUpY) lookingUp = !lookingUp
+  }
+
+  /** The chevrons at the bottom of the screen: looking away from the floor, or before the ground chevrons can be trusted. */
+  function floorHud() {
+    if (floorHudDeg == null) return null
+    const onFloor = phase === 'ready' && directionKnown && placementTrusted()
+    return lookingUp || !onFloor ? {yawDeg: floorHudDeg} : null
   }
 
   function compassPoor() {
@@ -577,7 +596,8 @@ export function createArTrip({
         }
       }
     }
-    updateArrow(dt, routeS)
+    updateLook()
+    updateArrow(routeS)
     updateEdge(time, routeS)
     statsTimer += dt
     if (statsTimer >= 0.25) {
@@ -591,6 +611,8 @@ export function createArTrip({
         manual,
         startBlocked,
         edge,
+        floorHud: floorHud(),
+        lookingUp: lookingUp && !arrived && (phase === 'ready' || phase === 'facing'),
         repick: manual && !arrived && time < repickUntil,
         liveAvailable: manual && !arrived && phase === 'ready' && liveFixes >= TRIP.liveFixes,
         turnPrompt: phase === 'facing' ? turnPrompt(facingYaw, 0) : null,
@@ -614,6 +636,7 @@ export function createArTrip({
         groundSlope: groundNow.slope,
         groundSource: groundNow.source,
         groundHits: ground.hitCount,
+        floorEyeM: ground.eyeM,
         yawDeg: nav.yawDeg,
         matchOffsetM: matcher.totalOffsetM,
         matchYawDeg: matcher.totalYawDeg,
@@ -645,6 +668,15 @@ export function createArTrip({
     mapState,
     setFps: (value) => (fps = value),
     /** Debug panel: correct the route now from the latest readings, however small the error. */
+    /** Debug: show the floor the chevrons lie on as a faint grid. */
+    setFloorGrid(show) {
+      nav?.setFloorGrid(show)
+    },
+    /** Debug: move the assumed floor up or down by deltaM. Returns the new height below the phone. */
+    nudgeFloor(deltaM) {
+      ground.setEyeM(ground.eyeM + deltaM)
+      return ground.eyeM
+    },
     recalibrate() {
       if (phase !== 'ready' || heading == null) return
       restartWindow()

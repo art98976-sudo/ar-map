@@ -231,6 +231,25 @@ describe('background alignment', () => {
   })
 })
 
+describe('nothing in mid-air', () => {
+  it('puts only the ground (route, chevrons, pin) and the debug floor grid in the scene', () => {
+    const scene = new THREE.Scene()
+    const camera = makeCamera()
+    const nav = createNavScene({THREE, scene, camera, route: ROUTE, origin: ORIGIN, name: 'Library'})
+    nav.align(0, ORIGIN)
+    expect(scene.children.map((c) => c.name || c.type).sort()).toEqual(['GridHelper', 'geo-root'])
+    const grid = scene.children.find((c) => c.type === 'GridHelper')
+    expect(grid.visible).toBe(false)
+    nav.setGround(-1.4, 0)
+    nav.setFloorGrid(true)
+    nav.update(0.016, 1)
+    expect(grid.visible).toBe(true)
+    near(grid.position.y, -1.4, 1e-9)
+    nav.dispose()
+    expect(scene.children).toHaveLength(0)
+  })
+})
+
 describe('nav scene realign', () => {
   const setup = (camera = makeCamera()) => {
     const nav = createNavScene({THREE, scene: new THREE.Scene(), camera, route: ROUTE, origin: ORIGIN, name: 'Library'})
@@ -449,10 +468,10 @@ describe('the arrows on the real ground', () => {
     }
   }
 
-  it('starts on the phone height minus 1.45 m, with no hits', () => {
+  it('starts on the phone height minus 1.4 m, with no hits', () => {
     const t = start(() => [])
     t.run(0.5)
-    near(t.root.position.y, 0.05, 0.001)
+    near(t.root.position.y, 0.1, 0.001)
     expect(t.box.stats.groundSource).toBe('eye')
     t.done()
   })
@@ -475,7 +494,7 @@ describe('the arrows on the real ground', () => {
   it('ignores a window or wall above the phone', () => {
     const t = start(() => [{position: {x: 0.5, y: 2.5, z: -3}}])
     t.run(2)
-    near(t.root.position.y, 0.05, 0.001)
+    near(t.root.position.y, 0.1, 0.001)
     expect(t.box.stats.groundHits).toBe(0)
     t.done()
   })

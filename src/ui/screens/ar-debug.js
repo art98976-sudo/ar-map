@@ -28,6 +28,7 @@ export function paintDebugStats(root, s) {
   stat('start-gap', `${Math.round(s.startGapM)} m`)
   stat('arrows', `${s.arrows} of ${s.arrowTotal}`)
   stat('height', `${s.cameraHeight.toFixed(2)} m`)
+  if (s.floorEyeM != null) stat('floor', `${s.floorEyeM.toFixed(2)} m`)
   if (s.groundHeight != null) {
     stat('ground', `${s.groundHeight.toFixed(2)} m, ${(s.groundSlope * 100).toFixed(0)}%, ${s.groundHits} hits (${s.groundSource})`, s.groundSource === 'hits' ? 'ok' : 'warn')
   }

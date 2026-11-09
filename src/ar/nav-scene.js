@@ -8,7 +8,6 @@
 //                             at ground height y = 0 (8th Wall absolute scale).
 import {dedupe, distanceM, localBearing, pointAt, projectOntoPolyline, shortestTurn, simplify, toDeg, toLocal, toRad} from '../geo/geo.js'
 import {createArrowTrail, nextTurn} from './trail.js'
-import {createGuideArrow} from './guide-arrow.js'
 import {createDestinationPin} from './pin.js'
 import {NAV_SCENE, ROUTING, TRAIL} from '../config.js'
 
@@ -69,7 +68,6 @@ export function createNavScene({THREE, scene, camera, route, origin, name, reduc
   let entranceLocal = toLocal(origin, route.entrance || route.points.at(-1))
   const lengthOf = (pts) => pts.reduce((sum, p, i) => (i ? sum + Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y) : 0), 0)
   let totalM = lengthOf(local)
-  const guideColor = (r) => (r.source === 'direct' ? TRAIL.approxColor : TRAIL.color)
 
   const geoRoot = new THREE.Group()
   geoRoot.name = 'geo-root'
@@ -82,8 +80,13 @@ export function createNavScene({THREE, scene, camera, route, origin, name, reduc
   const pin = createDestinationPin(THREE, {name})
   pin.group.position.set(entranceLocal.x, 0, -entranceLocal.y)
   geoRoot.add(pin.group)
-  const guide = createGuideArrow(THREE, {color: guideColor(route)})
-  scene.add(guide.mesh)
+  // Debug: the floor as the app sees it, a faint 10 m grid under the user.
+  const floorGrid = new THREE.GridHelper(10, 20, TRAIL.color, TRAIL.color)
+  floorGrid.material.transparent = true
+  floorGrid.material.opacity = 0.35
+  floorGrid.material.depthWrite = false
+  floorGrid.visible = false
+  scene.add(floorGrid)
 
   const forward = new THREE.Vector3()
   const camPos = new THREE.Vector3()
@@ -182,15 +185,13 @@ export function createNavScene({THREE, scene, camera, route, origin, name, reduc
     geoRoot.add(trail.lane)
     geoRoot.add(trail.mesh)
     pin.group.position.set(entranceLocal.x, pin.group.position.y, -entranceLocal.y)
-    guide.setColor(guideColor(next))
     if (aligned) trail.reset(whereAmI().s)
   }
 
-  /** Arrived: no more arrows. The big arrow becomes a pin, and the destination pin stays. */
+  /** Arrived: no more chevrons. The destination pin stays. */
   function finish() {
     trail.mesh.visible = false
     trail.lane.visible = false
-    guide.arrive()
   }
 
   /** Lay the route on the ground: its height at the user, and its slope along the route. */
@@ -245,6 +246,10 @@ export function createNavScene({THREE, scene, camera, route, origin, name, reduc
 
   /** Call every frame. Returns stats for the UI and the debug panel. */
   function update(dt, time) {
+    if (floorGrid.visible) {
+      camera.getWorldPosition(tmp)
+      floorGrid.position.set(tmp.x, groundY, tmp.z)
+    }
     if (!aligned) return last
     stepEase(dt)
     const p = whereAmI()
@@ -281,8 +286,10 @@ export function createNavScene({THREE, scene, camera, route, origin, name, reduc
     setGround,
     routePosition,
     update,
-    /** The big arrow, every frame. relativeDeg: from where the user faces; null hides it. */
-    updateGuide: (dt, relativeDeg, ringFill = 0) => guide.update(dt, camera, relativeDeg, ringFill),
+    /** Show the floor the chevrons lie on as a grid (debug). */
+    setFloorGrid(show) {
+      floorGrid.visible = show
+    },
     /** Show or hide what is drawn on the ground. Not until the direction is known. */
     setVisible(show) {
       geoRoot.visible = show
@@ -293,9 +300,6 @@ export function createNavScene({THREE, scene, camera, route, origin, name, reduc
     finish,
     get route() {
       return local
-    },
-    get guide() {
-      return guide
     },
     get easing() {
       return ease != null
@@ -317,8 +321,9 @@ export function createNavScene({THREE, scene, camera, route, origin, name, reduc
     },
     dispose() {
       scene.remove(geoRoot)
-      scene.remove(guide.mesh)
-      guide.dispose()
+      scene.remove(floorGrid)
+      floorGrid.geometry.dispose()
+      floorGrid.material.dispose()
       trail.dispose()
       pin.dispose()
     },
