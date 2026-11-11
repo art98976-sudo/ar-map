@@ -75,8 +75,15 @@ export function createNavScene({THREE, scene, camera, route, origin, name, reduc
 
   let turns = findTurns(local, TURNS.minDeg)
   const pin = createDestinationPin(THREE, {name})
-  pin.group.position.set(entranceLocal.x, 0, -entranceLocal.y)
+  // The pin stands at the entrance, or at the room itself once setMarker() knows where it is.
+  // Arrival is always judged at the entrance (entranceAnchor): a room can be indoors, upstairs.
+  let markerLocal = null
+  const pinAt = () => markerLocal ?? entranceLocal
+  pin.group.position.set(pinAt().x, 0, -pinAt().y)
   geoRoot.add(pin.group)
+  const entranceAnchor = new THREE.Object3D()
+  entranceAnchor.position.set(entranceLocal.x, 0, -entranceLocal.y)
+  geoRoot.add(entranceAnchor)
   // Debug: the floor as the app sees it, a faint 10 m grid under the user.
   const floorGrid = new THREE.GridHelper(10, 20, COLOURS.arrowGreen, COLOURS.arrowGreen)
   floorGrid.material.transparent = true
@@ -174,7 +181,14 @@ export function createNavScene({THREE, scene, camera, route, origin, name, reduc
     totalM = lengthOf(local)
     entranceS = projectOntoPolyline(local, entranceLocal).s
     turns = findTurns(local, TURNS.minDeg)
-    pin.group.position.set(entranceLocal.x, pin.group.position.y, -entranceLocal.y)
+    pin.group.position.set(pinAt().x, pin.group.position.y, -pinAt().y)
+    entranceAnchor.position.set(entranceLocal.x, 0, -entranceLocal.y)
+  }
+
+  /** Stand the pin at this {lat, lng} (the destination room), or back at the entrance with null. */
+  function setMarker(point) {
+    markerLocal = point ? toLocal(origin, point) : null
+    pin.group.position.set(pinAt().x, pin.group.position.y, -pinAt().y)
   }
 
   /** Lay the route on the ground: its height at the user, and its slope along the route. */
@@ -235,11 +249,12 @@ export function createNavScene({THREE, scene, camera, route, origin, name, reduc
     if (!aligned) return last
     stepEase(dt)
     const p = whereAmI()
-    // Straight-line distance from the camera to the entrance (what the pin shows).
+    // Straight-line distance from the camera to the entrance (arrival), and to the pin (its label).
     camera.getWorldPosition(tmp)
+    const entranceWorld = entranceAnchor.getWorldPosition(new THREE.Vector3())
+    const toPinM = Math.hypot(entranceWorld.x - tmp.x, entranceWorld.z - tmp.z)
     const pinWorld = pin.group.getWorldPosition(new THREE.Vector3())
-    const toPinM = Math.hypot(pinWorld.x - tmp.x, pinWorld.z - tmp.z)
-    pin.update(reducedMotion ? 0 : time, toPinM, camera)
+    pin.update(reducedMotion ? 0 : time, Math.hypot(pinWorld.x - tmp.x, pinWorld.z - tmp.z), camera)
     const turn = nextTurn(turns, p.s)
     last = {
       s: p.s,
@@ -275,6 +290,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name, reduc
       geoRoot.visible = show
     },
     setRoute,
+    setMarker,
     get route() {
       return local
     },

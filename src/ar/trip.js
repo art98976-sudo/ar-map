@@ -17,8 +17,9 @@
 // While walking, map matching (route-matcher.js) lays the walked track onto the route, and hit
 // tests (ground.js) lay the route onto the real ground.
 import {circularMean, createCalibrator, isPoorAccuracy, startCompass} from './compass.js'
-import {angleDiff, fromLocal, pointAt, polylineSlice, toDeg, toLocal, wrap360} from '../geo/geo.js'
+import {angleDiff, distanceM, fromLocal, pointAt, polylineSlice, toDeg, toLocal, wrap360} from '../geo/geo.js'
 import {DESTINATIONS} from '../map/destinations.js'
+import {getRoomCentre} from '../map/room-centres.js'
 import {arrowTarget, arrowYawDeg, createRouteTracker, turnPrompt, walkingCorrection} from '../route/compass-guide.js'
 import {createNavScene, gpsDistanceToEntrance} from './nav-scene.js'
 import {acceptHit, createGroundTracker, HIT_TYPES, SCREEN_POINTS} from './ground.js'
@@ -27,7 +28,7 @@ import {locationPermissionState, watchLocation} from '../geo/location.js'
 import {isManual} from '../route/start-point.js'
 import {createArrivalDetector, createGuidance, createOffRouteMonitor, landmarksFrom} from '../route/guidance.js'
 import {entranceOf, isOnCampus, planRoute} from '../route/route.js'
-import {COMPASS_GUIDE, GPS, GROUND, ROUTING, START, TRIP} from '../config.js'
+import {COMPASS_GUIDE, GPS, GROUND, PIN, ROUTING, START, TRIP} from '../config.js'
 
 /** Compass-style bearing of a direction: degrees clockwise from north (or from SLAM -Z). */
 function bearing(east, north) {
@@ -477,12 +478,26 @@ export function createArTrip({
     return matcher.locked || compassOff || !compassPoor()
   }
 
+  /**
+   * A room from MazeMap: stand the pin over the room itself, from the 3D campus model. Only the pin
+   * moves; the route and arrival stay at the entrance. A room far from the entrance is a data slip.
+   */
+  function placePinInRoom() {
+    if (!destination.mazemapPoi) return
+    getRoomCentre(destination.mazemapPoi).then((centre) => {
+      const entrance = route.entrance || route.points.at(-1)
+      if (!centre || !nav || distanceM(centre, entrance) > PIN.roomMaxM) return
+      nav.setMarker(centre)
+    })
+  }
+
   // ---------- engine hooks ----------
   function onSceneReady({scene, camera: cam, XR8}) {
     THREE = window.THREE
     camera = cam
     xr = XR8
     nav = createNavScene({THREE, scene, camera, route, origin, name: destination.name, reducedMotion})
+    placePinInRoom()
     matcher = createRouteMatcher(nav.route)
     guidance = createGuidance(nav.route, {arriveLabel, landmarks})
     setPhase('await-start')

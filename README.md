@@ -63,14 +63,15 @@ src/
   geo/               GPS location, GPS <-> metres and angle maths
   route/             route planning, A*, footpaths, guidance, start point
   data/              destinations.json (with entrances), footpaths.json
-  map/               MazeMap loader, destinations, search
+  map/               MazeMap loader, destinations, search, 3D campus model layer
   ui/                router, DOM helpers, icons, toast, screens/
   styles/            design tokens (Stirling brand palette), components, screens
 public/
   brand/             University of Stirling logo (green and white)
   fonts/             General Sans (self-hosted)
+  data/              stirling_campus.glb (3D campus), room-centres.json (built from it)
 scripts/             engine copy, phone tunnel, icon generator
-tools/               find-entrances.mjs, build-footpaths.mjs
+tools/               find-entrances.mjs, build-footpaths.mjs, build-room-centres.mjs
 tests/unit/          Vitest
 tests/e2e/           Playwright
 ```
@@ -94,6 +95,21 @@ Every push to a branch gets a preview URL.
 - **MazeMap:** © MazeMap.
 - **Backup footpaths:** © OpenStreetMap contributors, ODbL.
 - **Three.js, qrcode:** MIT. **General Sans:** ITF Free Font Licence.
+
+## 3D campus model
+
+The **3D** button on the map draws `public/data/stirling_campus.glb` over MazeMap (a Mapbox GL custom
+layer with three.js). It downloads only the first time 3D is turned on. It shows the floor chosen in
+MazeMap's floor bar, and colours the chosen room, found by its MazeMap poiId (the number at the end of
+each room mesh's name). Floor heights and door positions in the model are estimates, not surveyed.
+
+In AR, the destination pin stands over the room's centre when the destination is a MazeMap room.
+The route and arrival still use the entrance. The AR screen reads room centres from
+`public/data/room-centres.json`, so it never downloads the model. After replacing the model, run:
+
+```
+node tools/build-room-centres.mjs
+```
 
 ## Entrances
 

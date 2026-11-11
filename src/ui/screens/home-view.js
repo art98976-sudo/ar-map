@@ -16,6 +16,9 @@ export const homePage = () => html`
         <button class="map-search" type="button" data-action="open-search" aria-label="Where do you want to go?">
           ${icon('search', {size: 20})}<span>Where do you want to go?</span>
         </button>
+        <button class="icon-btn icon-btn--glass-light map-3d" type="button" data-action="toggle-3d" aria-pressed="false" aria-label="Show 3D buildings">
+          <span data-3d-label>3D</span><span class="spinner map-3d__spinner" data-3d-spinner aria-hidden="true" hidden></span>
+        </button>
         <button class="icon-btn icon-btn--glass-light" type="button" data-action="open-info" aria-label="About and privacy">${icon('info')}</button>
       </div>
       <div class="map-chips" role="group" aria-label="Filter the map">

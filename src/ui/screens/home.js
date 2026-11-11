@@ -40,6 +40,10 @@ export function homeScreen(root, {navigate, params}) {
   let disposed = false
   let enginePrefetched = false
   let startMarker = null
+  // The 3D campus model: loaded the first time 3D is turned on (it is a 6 MB download).
+  let model = null
+  let modelLoad = null
+  let show3d = false
 
   render(root, homePage())
 
@@ -110,6 +114,7 @@ export function homeScreen(root, {navigate, params}) {
     drawCard()
     pins.markSelected()
     flyToSelected()
+    highlightIn3d()
   }
 
   function unselect() {
@@ -118,6 +123,71 @@ export function homeScreen(root, {navigate, params}) {
     keepAddressInStep()
     card.hidden = true
     pins.markSelected()
+    model?.highlight(null)
+  }
+
+  // ---------- 3D buildings ----------
+  function paint3dButton(loading = false) {
+    const button = root.querySelector('[data-action="toggle-3d"]')
+    button.setAttribute('aria-pressed', String(show3d))
+    button.setAttribute('aria-label', show3d ? 'Hide 3D buildings' : 'Show 3D buildings')
+    button.toggleAttribute('aria-busy', loading)
+    button.querySelector('[data-3d-label]').hidden = loading
+    button.querySelector('[data-3d-spinner]').hidden = !loading
+    button.querySelector('[data-3d-label]').textContent = show3d ? '2D' : '3D'
+  }
+
+  function loadModel(map) {
+    modelLoad ??= import('../../map/campus-model.js')
+      .then(({createCampusModel}) => createCampusModel(map, window.Mazemap.mapboxgl))
+      .then((loaded) => {
+        if (disposed || instance?.map !== map) {
+          loaded.destroy()
+          return null
+        }
+        model = loaded
+        if (params.debug === '1') window.__campusModel = model // ?debug=1: inspect it from the console
+        return model
+      })
+      .catch((err) => {
+        modelLoad = null // let the next tap try again
+        throw err
+      })
+    return modelLoad
+  }
+
+  async function toggle3d() {
+    const map = instance?.map
+    if (!map) return
+    show3d = !show3d
+    if (!show3d) {
+      paint3dButton()
+      model?.setVisible(false)
+      map.easeTo({pitch: 0, duration: 600})
+      return
+    }
+    paint3dButton(!model)
+    try {
+      const loaded = await loadModel(map)
+      if (!loaded || disposed || !show3d) return
+      loaded.setVisible(true)
+      highlightIn3d()
+      map.easeTo({pitch: 50, duration: 800})
+    } catch (err) {
+      console.warn('[home] 3D model failed', err)
+      show3d = false
+      showToast('Could not load the 3D buildings. Try again.', {tone: 'warning'})
+    } finally {
+      if (!disposed) paint3dButton()
+    }
+  }
+
+  /** The chosen room, coloured in the model. A place from our list may not say its floor: the model does. */
+  function highlightIn3d() {
+    if (!model || !show3d) return
+    const level = model.highlight(selected?.mazemapPoi)
+    const map = instance?.map
+    if (level != null && selected?.floor == null && map?.getZLevel?.() !== level) map.setZLevel(level)
   }
 
   function walkText() {
@@ -320,6 +390,11 @@ export function homeScreen(root, {navigate, params}) {
     try {
       const Mazemap = await loadMazeMap()
       if (disposed) return
+      model?.destroy()
+      model = null
+      modelLoad = null
+      show3d = false
+      paint3dButton()
       instance?.destroy()
       pins.clear()
       instance = createCampusMap(Mazemap, root.querySelector('[data-map]'), {
@@ -381,6 +456,7 @@ export function homeScreen(root, {navigate, params}) {
       root.querySelector('[data-action="open-search"]').focus({preventScroll: true}) // its button has gone
     },
     retry: () => load(),
+    'toggle-3d': () => toggle3d(),
     route: () => toggleRoute(),
     walk: () => {
       // First, inside the tap: iPhone only shows the motion prompt here.
@@ -417,6 +493,7 @@ export function homeScreen(root, {navigate, params}) {
     startMarker?.remove()
     fixWatch.destroy()
     pins.destroy()
+    model?.destroy()
     instance?.destroy()
   }
 }

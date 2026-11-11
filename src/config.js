@@ -54,6 +54,7 @@ export const PIN = {
   maxDrawnM: 600, // the camera stops drawing far away: a further pin comes this close instead
   onTop: 30,
   maxLiftM: 1.5, // the slope of the ground raises or lowers the pin by at most this
+  roomMaxM: 80, // the pin moves to the room only if the room is this close to the entrance
 }
 
 export const GUIDE = {

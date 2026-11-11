@@ -281,6 +281,27 @@
   gap: var(--s-2);
   padding: 0 var(--s-3);
 }
+/* The 2D/3D switch for the campus model. */
+.map-3d {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+.map-3d[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--white);
+}
+.map-3d__spinner {
+  width: 20px;
+  height: 20px;
+  border-width: 2px;
+  border-color: var(--green-02-a16);
+  border-top-color: var(--green-02);
+}
+.map-3d__spinner[hidden],
+.map-3d [hidden] {
+  display: none;
+}
 .map-search {
   display: flex;
   flex: 1;

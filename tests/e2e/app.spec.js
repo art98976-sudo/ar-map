@@ -342,3 +342,32 @@ test.describe('AR session', () => {
     await expect(page.getByRole('button', {name: 'Try again'})).toBeVisible()
   })
 })
+
+test.describe('3D buildings', () => {
+  test('3D loads the campus model on demand, colours the chosen room, and 2D hides it', async ({page}, testInfo) => {
+    test.skip(onlyOn('desktop-chrome')(testInfo))
+    test.setTimeout(150_000)
+    const errors = watchErrors(page)
+    const glb = []
+    page.on('request', (r) => r.url().endsWith('/data/stirling_campus.glb') && glb.push(r.url()))
+    await page.goto('/#/?to=scran&debug=1')
+    await mapReady(page)
+    expect(glb).toHaveLength(0) // not downloaded until 3D is turned on
+    const button = page.getByRole('button', {name: 'Show 3D buildings'})
+    await button.click()
+    const hide = page.getByRole('button', {name: 'Hide 3D buildings'})
+    await expect(hide).toHaveAttribute('aria-pressed', 'true')
+    await expect(hide).toHaveText('2D', {timeout: 90_000})
+    await expect(hide).not.toHaveAttribute('aria-busy')
+    expect(glb).toHaveLength(1)
+    // Scran (Andrew Miller, level 2): its room is coloured, and the map moves to its floor.
+    await expect.poll(() => page.evaluate(() => window.__campusModel?.stats()), {timeout: 10_000}).toMatchObject({visible: true, highlighted: '1002096756', level: 2})
+    await page.getByRole('button', {name: 'Close', exact: true}).click()
+    await expect.poll(() => page.evaluate(() => window.__campusModel.stats().highlighted)).toBeNull()
+    await hide.click()
+    await expect(page.getByRole('button', {name: 'Show 3D buildings'})).toHaveText('3D')
+    expect(await page.evaluate(() => window.__campusModel.stats().visible)).toBe(false)
+    expect(glb).toHaveLength(1)
+    expect(errors).toEqual([])
+  })
+})
