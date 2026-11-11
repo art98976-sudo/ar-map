@@ -43,6 +43,8 @@ export function tripPillText(name, metres) {
 export function arScreen(root, {navigate, params}) {
   const allowDesktop = params.force === '1'
   const showDebug = params.debug === '1' || new URLSearchParams(window.location.search).get('debug') === '1'
+  // ?fieldtest=1: a readout, a once-a-second log and marker buttons for walking a route (ar-fieldtest.js).
+  const fieldTestOn = params.fieldtest === '1' || new URLSearchParams(window.location.search).get('fieldtest') === '1'
   // Every trip starts with a destination. Without one, go and pick it first.
   const destination = findDestination(params.to)
   if (!destination) {
@@ -57,7 +59,7 @@ export function arScreen(root, {navigate, params}) {
   // A chosen start is where the user stands, whatever an old GPS fix says.
   const origin = manualStart ? route.origin : readTripFix() || route?.origin
   if (!route || route.destinationId !== destination.id || !origin || !permissionsAllowed()) {
-    const debugQuery = params.debug === '1' ? '&debug=1' : ''
+    const debugQuery = (params.debug === '1' ? '&debug=1' : '') + (fieldTestOn ? '&fieldtest=1' : '')
     queueMicrotask(() => navigate(`/locate?to=${encodeURIComponent(destination.id)}${allowDesktop ? '&force=1' : ''}${debugQuery}`, {replace: true}))
     return
   }
@@ -68,6 +70,14 @@ export function arScreen(root, {navigate, params}) {
   let wakeLock = null
   let disposed = false
   let offAction = () => {}
+  let fieldTest = null
+  if (fieldTestOn) {
+    import('./ar-fieldtest.js').then(({createFieldTest}) => {
+      if (disposed) return
+      fieldTest = createFieldTest({haptic})
+      mountFieldTest()
+    })
+  }
   let compassMap = null
   let mapFailed = false
   let floorArrows = null
@@ -149,6 +159,13 @@ export function arScreen(root, {navigate, params}) {
       }),
       'live',
     )
+    mountFieldTest()
+  }
+
+  /** The field-test panel lives on the camera view, so it goes back on whenever that is drawn. */
+  function mountFieldTest() {
+    const host = root.querySelector('.ar')
+    if (fieldTest && host) fieldTest.mount(host)
   }
 
   function toggleMap() {
@@ -213,6 +230,7 @@ export function arScreen(root, {navigate, params}) {
   }
 
   function onStats(s) {
+    fieldTest?.update(s)
     paintHints(s)
     floorArrows?.setActive(s.phase === 'ready' || s.phase === 'facing')
     floorArrows?.setArrived(arrived || (s.phase === 'ready' && s.remainingM <= FLOOR_ARROWS.arriveM))
@@ -414,6 +432,7 @@ export function arScreen(root, {navigate, params}) {
 
   return () => {
     disposed = true
+    fieldTest?.destroy()
     document.removeEventListener('visibilitychange', onVisibility)
     teardownSession()
     offAction()

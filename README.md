@@ -27,6 +27,12 @@ The camera only works on `https://` links. Two ways:
    Needs `cloudflared` (`winget install Cloudflare.cloudflared`).
 2. **Vercel preview:** push your branch. Vercel builds it and posts a preview link on the commit in GitHub.
 
+**Field test:** add `fieldtest=1` to the address (for example `/#/?to=library&fieldtest=1`, then
+"Walk here in AR"). The AR screen shows GPS accuracy, compass heading, distance from and along the
+route and the arrow's bearing at the left, and three buttons at the right ("Arrow correct", "Arrow
+wrong", "At a turn") that mark the log. It records one row a second, kept on the phone only (it
+survives a reload). **Finish** shows a summary and copies the whole log as CSV.
+
 **AR debug panel:** add `?debug=1` to the URL (before the `#`), to see a live overlay with a minimap of the route frame, then in AR tap **Debug** (top right) for GPS accuracy, compass heading, distance to the entrance and fps.
 
 ## Scripts

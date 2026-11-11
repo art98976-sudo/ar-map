@@ -87,6 +87,7 @@ export function createArTrip({
   let guideDeg = null // the way to walk from where the phone faces, > 0 to the right
   let arrowLine = null // {from: the trip route it was built from, line: the route for arrow-direction.js}
   let arrowAlong = null // the arrow's last distance along the route, so it cannot slide back
+  let arrowBearingDeg = null // where the arrow points, degrees from north (for ?fieldtest=1)
   let cameFromOutside = !isOnCampus(origin)
   let fixesOnCampus = 0
   let lastTime = null
@@ -351,6 +352,13 @@ export function createArTrip({
     return fromLocal(origin, nav.worldToRoute({x: camera.position.x, z: camera.position.z}))
   }
 
+  /** Where motion tracking puts the user, once the route is placed (for ?fieldtest=1). */
+  function trackedLatLng() {
+    if (!nav?.aligned) return {trackedLat: null, trackedLng: null}
+    const p = trackedPosition()
+    return {trackedLat: p.lat, trackedLng: p.lng}
+  }
+
   /** Plan again from where the user is, keeping the current placement. */
   async function reroute() {
     const from = manual ? trackedPosition() : lastFix
@@ -477,6 +485,7 @@ export function createArTrip({
     ringFill = arrowTarget(nav.route, guidance.manoeuvres, guidance.getNextManoeuvre(s), s).ringFill
     // Where motion tracking puts the user (smooth, and kept on the route by GPS and walking).
     const target = arrowBearingFrom(trackedPosition())
+    arrowBearingDeg = target
     if (h != null && target != null) guideDeg = arrowYawDeg(target, h)
   }
 
@@ -612,6 +621,10 @@ export function createArTrip({
         headingAccuracy,
         compassSource,
         gpsAccuracy: lastFix?.accuracy ?? null,
+        gpsLat: lastFix?.lat ?? null,
+        gpsLng: lastFix?.lng ?? null,
+        ...trackedLatLng(),
+        arrowBearingDeg: phase === 'ready' && !arrived ? arrowBearingDeg : null,
         gpsToEntranceM: gpsDistanceToEntrance(lastFix, route),
          startGapM: nav.startInfo(bestFix()).offset,
          pathBearingDeg: nav.startInfo(bestFix()).pathBearingDeg,

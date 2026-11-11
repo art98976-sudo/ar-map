@@ -109,6 +109,7 @@ export function homeScreen(root, {navigate, params}) {
     if (forced) query.set('force', '1')
     if (params.debug === '1' || params.debug === 'align') query.set('debug', params.debug)
     if (params.simulate === '1') query.set('simulate', '1')
+    if (params.fieldtest === '1') query.set('fieldtest', '1')
     const text = query.toString()
     navigate(text ? `/?${text}` : '/', {replace: true, silent: true})
   }
@@ -530,6 +531,7 @@ export function homeScreen(root, {navigate, params}) {
       const next = new URLSearchParams({to: selected.id})
       if (forced) next.set('force', '1')
       if (params.debug === '1') next.set('debug', '1')
+      if (params.fieldtest === '1') next.set('fieldtest', '1')
       navigate(`/locate?${next}`)
     },
   })
