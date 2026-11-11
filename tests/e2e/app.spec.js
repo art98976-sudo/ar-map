@@ -403,3 +403,21 @@ test.describe('arrow test mode', () => {
     expect(errors).toEqual([])
   })
 })
+
+test.describe('model alignment check', () => {
+  test('?debug=align shows the model see-through, the origin, and click coordinates', async ({page}, testInfo) => {
+    test.skip(onlyOn('desktop-chrome')(testInfo))
+    test.setTimeout(150_000)
+    const errors = watchErrors(page)
+    await page.goto('/#/?debug=align')
+    await mapReady(page)
+    const panel = page.getByRole('region', {name: 'Model alignment check'})
+    await expect(panel).toBeVisible({timeout: 90_000})
+    await expect(page.getByRole('button', {name: 'Hide 3D buildings'})).toHaveAttribute('aria-pressed', 'true')
+    await expect(panel.getByLabel('Model')).toHaveValue('50')
+    await page.locator('[data-map] canvas').first().click({position: {x: 300, y: 500}})
+    await expect(panel.locator('[data-align-latlon]')).toHaveText(/^56\.\d+, -3\.\d+$/)
+    await expect(panel.locator('[data-align-metres]')).toHaveText(/^[\d.]+ m (east|west), [\d.]+ m (north|south)$/)
+    expect(errors).toEqual([])
+  })
+})

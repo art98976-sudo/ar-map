@@ -103,6 +103,10 @@ layer with three.js). It downloads only the first time 3D is turned on. It shows
 MazeMap's floor bar, and colours the chosen room, found by its MazeMap poiId (the number at the end of
 each room mesh's name). Floor heights and door positions in the model are estimates, not surveyed.
 
+**Alignment check:** open `/#/?debug=align`. The model is drawn at 50% over MazeMap's floor plan (a
+slider changes that), a red dot marks the model's origin (56.1455, -3.92), and clicking the map shows
+the point in lat/lon and in metres east/north of that origin.
+
 In AR, the destination pin stands over the room's centre when the destination is a MazeMap room.
 The route and arrival still use the entrance. The AR screen reads room centres from
 `public/data/room-centres.json`, so it never downloads the model. After replacing the model, run:

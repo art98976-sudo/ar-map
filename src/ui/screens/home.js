@@ -47,6 +47,9 @@ export function homeScreen(root, {navigate, params}) {
   // ?simulate=1 (before or after the #): a fake walk to the chosen place, to test the AR arrow.
   const simulate = params.simulate === '1' || new URLSearchParams(window.location.search).get('simulate') === '1'
   let sim = null
+  // ?debug=align: the model see-through over MazeMap, its origin, and click coordinates.
+  const debugAlign = params.debug === 'align' || new URLSearchParams(window.location.search).get('debug') === 'align'
+  let alignDebug = null
 
   render(root, homePage())
 
@@ -104,7 +107,7 @@ export function homeScreen(root, {navigate, params}) {
     const query = new URLSearchParams()
     if (selected) query.set('to', selected.id)
     if (forced) query.set('force', '1')
-    if (params.debug === '1') query.set('debug', '1')
+    if (params.debug === '1' || params.debug === 'align') query.set('debug', params.debug)
     if (params.simulate === '1') query.set('simulate', '1')
     const text = query.toString()
     navigate(text ? `/?${text}` : '/', {replace: true, silent: true})
@@ -156,6 +159,34 @@ export function homeScreen(root, {navigate, params}) {
     sim = null
   }
 
+  // ---------- ?debug=align: does the 3D model sit on MazeMap's floor plan? ----------
+  async function startAlignDebug() {
+    stopAlignDebug()
+    const map = instance?.map
+    if (!debugAlign || !map || disposed) return
+    show3d = true
+    paint3dButton(!model)
+    try {
+      const [loaded, {createAlignDebug}] = await Promise.all([loadModel(map), import('../../map/align-debug.js')])
+      if (!loaded || disposed || instance?.map !== map) return
+      loaded.setOpacity(0.5)
+      loaded.setVisible(true)
+      highlightIn3d()
+      paint3dButton()
+      alignDebug = createAlignDebug(map, {model: loaded, host: root})
+    } catch (err) {
+      console.warn('[home] alignment check could not load the model', err)
+      show3d = false
+      paint3dButton()
+      showToast('Could not load the 3D buildings. Try again.', {tone: 'warning'})
+    }
+  }
+
+  function stopAlignDebug() {
+    alignDebug?.destroy()
+    alignDebug = null
+  }
+
   // ---------- 3D buildings ----------
   function paint3dButton(loading = false) {
     const button = root.querySelector('[data-action="toggle-3d"]')
@@ -176,7 +207,7 @@ export function homeScreen(root, {navigate, params}) {
           return null
         }
         model = loaded
-        if (params.debug === '1') window.__campusModel = model // ?debug=1: inspect it from the console
+        if (params.debug === '1' || debugAlign) window.__campusModel = model // inspect it from the console
         return model
       })
       .catch((err) => {
@@ -421,6 +452,7 @@ export function homeScreen(root, {navigate, params}) {
       const Mazemap = await loadMazeMap()
       if (disposed) return
       stopSimulation()
+      stopAlignDebug()
       model?.destroy()
       model = null
       modelLoad = null
@@ -441,6 +473,7 @@ export function homeScreen(root, {navigate, params}) {
           paintStartMarker()
           if (params.start === 'pick' && selected) openStartSheet()
           startSimulation()
+          startAlignDebug()
         },
       })
     } catch (err) {
@@ -526,6 +559,7 @@ export function homeScreen(root, {navigate, params}) {
     fixWatch.destroy()
     pins.destroy()
     stopSimulation()
+    stopAlignDebug()
     model?.destroy()
     instance?.destroy()
   }

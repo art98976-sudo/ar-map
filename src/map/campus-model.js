@@ -211,6 +211,17 @@ export async function createCampusModel(map, mapboxgl) {
       map.triggerRepaint()
     },
     highlight,
+    /** 1: solid (normal). Less, to see MazeMap's floor plan through the model (?debug=align). */
+    setOpacity(value) {
+      const opacity = Math.max(0, Math.min(1, Number(value)))
+      for (const m of [...materials.values(), highlightMaterial]) {
+        m.transparent = opacity < 1
+        m.opacity = opacity
+        m.depthWrite = opacity >= 1 // see-through walls must not hide the floor behind them
+        m.needsUpdate = true
+      }
+      map.triggerRepaint()
+    },
     clearHighlight() {
       clearHighlight()
       map.triggerRepaint()

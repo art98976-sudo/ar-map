@@ -49,6 +49,20 @@ describe('campus model names', () => {
   })
 })
 
+describe('?debug=align click readout', () => {
+  it('gives metres east/north of the model origin', async () => {
+    const {describePoint} = await import('../../src/map/align-debug.js')
+    const origin = describePoint({lat: CAMPUS_ORIGIN.lat, lng: CAMPUS_ORIGIN.lng})
+    expect(origin.east).toBeCloseTo(0, 6)
+    expect(origin.north).toBeCloseTo(0, 6)
+    const p = modelToLatLng(-12.5, 40)
+    const d = describePoint({lat: p.lat, lng: p.lng})
+    expect(d.east).toBeCloseTo(-12.5, 3)
+    expect(d.north).toBeCloseTo(40, 3)
+    expect(d.fromOrigin).toBeCloseTo(Math.hypot(12.5, 40), 1)
+  })
+})
+
 describe('room centres from the model', () => {
   it('covers the rooms in the model', () => {
     expect(Object.keys(centres).length).toBeGreaterThan(2500)
