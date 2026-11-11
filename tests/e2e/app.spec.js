@@ -371,3 +371,35 @@ test.describe('3D buildings', () => {
     expect(errors).toEqual([])
   })
 })
+
+test.describe('arrow test mode', () => {
+  test('?simulate=1 walks a fake user along the route, the arrow turns, and the slider pushes them off it', async ({page}, testInfo) => {
+    test.skip(onlyOn('desktop-chrome')(testInfo))
+    test.setTimeout(150_000)
+    const errors = watchErrors(page)
+    await page.goto('/#/?to=pathfoot&simulate=1')
+    await mapReady(page)
+    const panel = page.getByRole('region', {name: 'Arrow test mode'})
+    await expect(panel.locator('[data-sim-status]')).toHaveText(/route, \d+ m/, {timeout: 60_000})
+    const readout = panel.locator('[data-sim-readout]')
+    const arrow = async () => Number((await readout.textContent()).match(/arrow (\d+)°/)?.[1])
+    await expect(readout).toHaveText(/Walked \d+ of \d+ m/)
+    await panel.getByRole('button', {name: 'Walking speed'}).click() // 4x
+    const bearings = new Set()
+    for (let i = 0; i < 12; i++) {
+      await page.waitForTimeout(1000)
+      bearings.add(Math.round((await arrow()) / 10))
+    }
+    expect(bearings.size).toBeGreaterThan(2) // it turned at the corners
+    await panel.getByRole('button', {name: 'Restart'}).click()
+    await panel.getByLabel('Off the route').fill('15')
+    await expect(panel.locator('[data-sim-offset-label]')).toHaveText('15 m')
+    const off = async () => Number((await readout.textContent()).match(/([\d.]+) m off it/)?.[1])
+    await expect.poll(off).toBeGreaterThan(2) // off the line, so the arrow aims back on to it
+    // Closing the place ends the test mode, and the address keeps it for the next place.
+    await page.getByRole('button', {name: 'Close', exact: true}).click()
+    await expect(panel).toHaveCount(0)
+    expect(page.url()).toContain('simulate=1')
+    expect(errors).toEqual([])
+  })
+})

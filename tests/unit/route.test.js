@@ -29,11 +29,13 @@ const C = [-3.9216, 56.146]
 const D = [-3.9218, 56.1462]
 const E = [-3.922, 56.1464]
 const pt = ([lng, lat]) => ({lat, lng})
+// A parsed MazeMap point also carries its floor level (0 outdoors).
+const onFloor = ([lng, lat], z = 0) => ({lat, lng, z})
 
 describe('parseMazeMapPath', () => {
   it('reads every coordinate in order, lat and lng the right way round, without repeats', () => {
     const r = parseMazeMapPath(response(feature([A, B]), feature([B, C, D])))
-    expect(r.points).toEqual([pt(A), pt(B), pt(C), pt(D)])
+    expect(r.points).toEqual([onFloor(A), onFloor(B), onFloor(C), onFloor(D)])
     expect(r.indoor).toBe(false)
     expect(r.endsIndoor).toBe(false)
     expect(r.lengthM).toBe(583)
@@ -42,7 +44,7 @@ describe('parseMazeMapPath', () => {
     const r = parseMazeMapPath(response(feature([A, B]), feature([B, C]), feature([C, D], 1009833, 1), feature([D, E], 1009833, 1)))
     expect(r.indoor).toBe(true)
     expect(r.endsIndoor).toBe(true)
-    expect(r.outdoorPoints).toEqual([pt(A), pt(B), pt(C)])
+    expect(r.outdoorPoints).toEqual([onFloor(A), onFloor(B), onFloor(C)])
     expect(r.points).toHaveLength(5)
   })
   it('knows a route through a building that comes out again does not end indoors', () => {
@@ -77,8 +79,8 @@ describe('planRoute', () => {
     const fallback = vi.fn(graph)
     const r = await planRoute(pt(A), pathfoot, {mazemap: mazemap(json), graph: fallback})
     expect(r.source).toBe('mazemap')
-    expect(r.points.at(-1)).toEqual(pt(C))
-    expect(r.entrance).toEqual(pt(C)) // the pin marks that door
+    expect(r.points.at(-1)).toEqual(onFloor(C))
+    expect(r.entrance).toEqual(onFloor(C)) // the pin marks that door
     expect(fallback).not.toHaveBeenCalled()
   })
   it('a route through a building: prefers the outdoor footpaths', async () => {

@@ -111,6 +111,27 @@ The route and arrival still use the entrance. The AR screen reads room centres f
 node tools/build-room-centres.mjs
 ```
 
+## Which way the AR arrow points
+
+[src/route/arrow-direction.js](src/route/arrow-direction.js) works it out in four small steps:
+
+1. `normaliseRoute(mazemapResponse)`: one ordered list of `{lat, lon, z}` points for the whole route.
+2. `progressOnRoute(route, user, previous)`: the user's position projected on to the nearest route
+   segment. Between updates it moves at most 5 m back and 25 m ahead, so GPS noise or another stretch
+   of the same route passing nearby cannot throw it.
+3. `lookAheadPoint(route, distanceAlong)`: the point 9 m further along the route (the destination
+   near the end).
+4. `arrowBearing(user, lookAheadPoint)`: degrees from north. On screen the arrow turns by this minus
+   the phone's heading.
+
+The arrow never points straight at the destination: it turns at each corner, and leads someone who
+has wandered off the path back on to it. In AR, "the user" is where motion tracking puts the phone.
+
+**Test it on a laptop:** open `/#/?to=pathfoot&simulate=1` (any place id works, or pick one from the
+search). A fake user walks the route at walking speed, from the starting point you chose, or a fixed
+point by the loch. The green arrow is what AR would show and the orange dot is the point 9 m ahead.
+The slider pushes the fake user up to 20 m off the route.
+
 ## Entrances
 
 Every destination has a suggested main entrance. They are **not confirmed yet**: see [ENTRANCES.md](ENTRANCES.md).

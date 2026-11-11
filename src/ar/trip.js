@@ -21,6 +21,7 @@ import {angleDiff, distanceM, fromLocal, pointAt, polylineSlice, toDeg, toLocal,
 import {DESTINATIONS} from '../map/destinations.js'
 import {getRoomCentre} from '../map/room-centres.js'
 import {arrowTarget, arrowYawDeg, createRouteTracker, turnPrompt, walkingCorrection} from '../route/compass-guide.js'
+import {arrowDirection, routeFromPoints} from '../route/arrow-direction.js'
 import {createNavScene, gpsDistanceToEntrance} from './nav-scene.js'
 import {acceptHit, createGroundTracker, HIT_TYPES, SCREEN_POINTS} from './ground.js'
 import {createRouteMatcher} from './route-matcher.js'
@@ -84,6 +85,8 @@ export function createArTrip({
   let autoStartAt = -Infinity
   let campusCheckAt = -Infinity
   let guideDeg = null // the way to walk from where the phone faces, > 0 to the right
+  let arrowLine = null // {from: the trip route it was built from, line: the route for arrow-direction.js}
+  let arrowAlong = null // the arrow's last distance along the route, so it cannot slide back
   let cameFromOutside = !isOnCampus(origin)
   let fixesOnCampus = 0
   let lastTime = null
@@ -261,6 +264,7 @@ export function createArTrip({
     startS = info.s
     restartWindow()
     facingYaw = null
+    arrowAlong = info.s // from here the arrow follows motion tracking, from where the walk starts
     setPhase('ready', {heading: headingDeg})
   }
 
@@ -290,7 +294,7 @@ export function createArTrip({
       return 'ok'
     }
     const h = recentHeading()
-    facingYaw = arrowYawDeg(startInfo.bearingDeg, h)
+    facingYaw = arrowYawDeg(arrowBearingFrom(placedAt(startInfo)) ?? startInfo.bearingDeg, h)
     if (turnPrompt(facingYaw)) {
       setPhase('facing')
       return 'facing'
@@ -303,8 +307,14 @@ export function createArTrip({
   function watchFacing() {
     if (!compassUsable() || compassStale()) return beginGuidance(null)
     const h = recentHeading()
-    facingYaw = arrowYawDeg(nav.startInfo(bestFix()).bearingDeg, h)
+    const info = nav.startInfo(bestFix())
+    facingYaw = arrowYawDeg(arrowBearingFrom(placedAt(info)) ?? info.bearingDeg, h)
     if (Math.abs(facingYaw) <= COMPASS_GUIDE.facingOkDeg) beginGuidance(h)
+  }
+
+  /** Where the route will put the user once placed: the GPS fix snapped on to it (nav.align). */
+  function placedAt(info) {
+    return fromLocal(origin, pointAt(nav.route, info.s))
   }
 
   /** The direction came from walking or a compass that recovered: now the ground can be drawn. */
@@ -355,6 +365,7 @@ export function createArTrip({
       legCache = null
       startS = nav.startInfo(from).s
       tracker = createRouteTracker(nav.route, startS)
+      arrowAlong = startS // the new route starts where the user is
       // The walk so far no longer has a route to fit, so matching starts afresh. Its turn stays in
       // the placement, so the compass has to keep allowing for it.
       compassOff ||= matcher.flipped
@@ -463,9 +474,22 @@ export function createArTrip({
     }
     if (phase !== 'ready') return
     const h = guideHeading()
-    const target = arrowTarget(nav.route, guidance.manoeuvres, guidance.getNextManoeuvre(s), s)
-    ringFill = target.ringFill
-    if (h != null) guideDeg = arrowYawDeg(target.bearingDeg, h)
+    ringFill = arrowTarget(nav.route, guidance.manoeuvres, guidance.getNextManoeuvre(s), s).ringFill
+    // Where motion tracking puts the user (smooth, and kept on the route by GPS and walking).
+    const target = arrowBearingFrom(trackedPosition())
+    if (h != null && target != null) guideDeg = arrowYawDeg(target, h)
+  }
+
+  /**
+   * Compass bearing from the user to the point 9 m further along the route (arrow-direction.js).
+   * Never straight at the destination: the arrow turns at corners and leads back on to the path.
+   */
+  function arrowBearingFrom(user) {
+    if (arrowLine?.from !== route) arrowLine = {from: route, line: routeFromPoints(route.points)}
+    const dir = arrowDirection(arrowLine.line, user, arrowAlong)
+    if (!dir) return null
+    arrowAlong = dir.progress.distanceAlong
+    return dir.bearingDeg
   }
 
 

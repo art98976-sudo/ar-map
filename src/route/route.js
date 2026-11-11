@@ -12,6 +12,7 @@ import campusBoundary from '../data/campus-boundary.json'
 import {MAZEMAP, ROUTING, TOWN_BBOX} from '../config.js'
 import {distanceM, fromLocal, pointInRing, projectOntoPolyline, toLocal} from '../geo/geo.js'
 import {loadCampusGraph, loadTownGraph, routeOnFootpaths} from './footpaths.js'
+import {normaliseRoute} from './arrow-direction.js'
 
 const ROUTE_KEY = 'welcomeAR.route.v1'
 
@@ -48,23 +49,19 @@ export function googleMapsWalkingUrl(dest) {
   return `https://www.google.com/maps/dir/?api=1&destination=${e.lat},${e.lng}&travelmode=walking`
 }
 
-/** Parse a MazeMap /routing/path response. Exported for tests. */
+/**
+ * Parse a MazeMap /routing/path response. Points keep their floor level z (0 outdoors).
+ * Exported for tests.
+ */
 export function parseMazeMapPath(json) {
   const feats = json?.path?.features || []
-  const points = []
-  const outdoorPoints = [] // from the start up to the first door
-  let indoor = false
-  for (const f of feats) {
-    if (f.properties?.buildingId != null) indoor = true
-    for (const [lng, lat] of f.geometry?.coordinates || []) {
-      const last = points.at(-1)
-      if (!last || last.lat !== lat || last.lng !== lng) points.push({lat, lng})
-      if (!indoor) {
-        const lastOut = outdoorPoints.at(-1)
-        if (!lastOut || lastOut.lat !== lat || lastOut.lng !== lng) outdoorPoints.push({lat, lng})
-      }
-    }
-  }
+  const toPoint = (p) => ({lat: p.lat, lng: p.lon, z: p.z})
+  const points = normaliseRoute(json).points.map(toPoint)
+  // From the start up to the first door: the stretches before any building.
+  const firstIndoor = feats.findIndex((f) => f.properties?.buildingId != null)
+  const outdoor = firstIndoor < 0 ? feats : feats.slice(0, firstIndoor)
+  const outdoorPoints = normaliseRoute({path: {features: outdoor}}).points.map(toPoint)
+  const indoor = firstIndoor >= 0
   const endsIndoor = feats.at(-1)?.properties?.buildingId != null
   return {points, outdoorPoints, indoor, endsIndoor, lengthM: json?.pathMetrics?.distanceWalkingMeters ?? null}
 }

@@ -44,6 +44,9 @@ export function homeScreen(root, {navigate, params}) {
   let model = null
   let modelLoad = null
   let show3d = false
+  // ?simulate=1 (before or after the #): a fake walk to the chosen place, to test the AR arrow.
+  const simulate = params.simulate === '1' || new URLSearchParams(window.location.search).get('simulate') === '1'
+  let sim = null
 
   render(root, homePage())
 
@@ -102,6 +105,7 @@ export function homeScreen(root, {navigate, params}) {
     if (selected) query.set('to', selected.id)
     if (forced) query.set('force', '1')
     if (params.debug === '1') query.set('debug', '1')
+    if (params.simulate === '1') query.set('simulate', '1')
     const text = query.toString()
     navigate(text ? `/?${text}` : '/', {replace: true, silent: true})
   }
@@ -115,6 +119,7 @@ export function homeScreen(root, {navigate, params}) {
     pins.markSelected()
     flyToSelected()
     highlightIn3d()
+    startSimulation()
   }
 
   function unselect() {
@@ -124,6 +129,31 @@ export function homeScreen(root, {navigate, params}) {
     card.hidden = true
     pins.markSelected()
     model?.highlight(null)
+    stopSimulation()
+  }
+
+  // ---------- ?simulate=1: test the AR arrow on a laptop ----------
+  function startSimulation() {
+    stopSimulation()
+    const map = instance?.map
+    if (!simulate || !map || disposed) return
+    if (!selected) {
+      showToast('Test mode: pick a place to watch a simulated walk to it')
+      return
+    }
+    const start = getStart()
+    const dest = selected
+    const token = {}
+    sim = token
+    import('../../map/simulate.js').then(({createSimulator, SIM_START}) => {
+      if (sim !== token || disposed || instance?.map !== map) return
+      sim = createSimulator(map, {from: isManual(start) ? {lat: start.lat, lng: start.lng} : SIM_START, dest, host: root})
+    })
+  }
+
+  function stopSimulation() {
+    sim?.destroy?.()
+    sim = null
   }
 
   // ---------- 3D buildings ----------
@@ -390,6 +420,7 @@ export function homeScreen(root, {navigate, params}) {
     try {
       const Mazemap = await loadMazeMap()
       if (disposed) return
+      stopSimulation()
       model?.destroy()
       model = null
       modelLoad = null
@@ -409,6 +440,7 @@ export function homeScreen(root, {navigate, params}) {
           flyToSelected()
           paintStartMarker()
           if (params.start === 'pick' && selected) openStartSheet()
+          startSimulation()
         },
       })
     } catch (err) {
@@ -493,6 +525,7 @@ export function homeScreen(root, {navigate, params}) {
     startMarker?.remove()
     fixWatch.destroy()
     pins.destroy()
+    stopSimulation()
     model?.destroy()
     instance?.destroy()
   }
