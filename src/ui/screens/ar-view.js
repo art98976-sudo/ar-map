@@ -41,6 +41,7 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
 
 
     <div class="ar__hints">
+    <p class="ar__hint" data-floor-hint role="status" hidden>Point your phone at the floor</p>
     <p class="ar__hint" data-compass-pill role="status" hidden>Wave your phone in a figure-8</p>
     <p class="ar__hint" data-locating role="status" hidden>Locating you…</p>
     <button class="ar__hint ar__hint--action" type="button" data-action="go-live" hidden>Switch to live location?</button>
@@ -70,6 +71,8 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
     </section>
 
     <div class="arrival" data-arrival hidden></div>
+
+    ${showDebug ? html`<p class="ar-status" data-ar-status aria-live="off">Starting…</p>` : ""}
 
     ${showDebug
       ? html`<section class="ar-live" data-live-debug aria-label="Live alignment">

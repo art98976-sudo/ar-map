@@ -29,7 +29,7 @@ import {isManual} from '../route/start-point.js'
 import {createGuidance, landmarksFrom} from '../route/guidance.js'
 import {createArrivalDetector, createConfidenceMonitor, createOffRouteMonitor} from '../route/trip-monitors.js'
 import {entranceOf, isOnCampus, planRoute} from '../route/route.js'
-import {COMPASS_GUIDE, GPS, GROUND, PIN, ROUTING, START, TRIP} from '../config.js'
+import {COMPASS_GUIDE, GPS, GROUND, GROUND_ARROWS, PIN, ROUTING, START, TRIP} from '../config.js'
 
 /** Compass-style bearing of a direction: degrees clockwise from north (or from SLAM -Z). */
 function bearing(east, north) {
@@ -99,6 +99,8 @@ export function createArTrip({
   let matcher = null
   let lastMatchAt = -Infinity
   let arrived = false
+  let trackingLostAt = null // when world tracking last stopped being NORMAL
+  let arrowsShown = false
   const arrival = createArrivalDetector()
   const offRoute = createOffRouteMonitor()
   // Is the position good enough to draw the arrow? Unreliable: arrows hidden, the 2D map instead.
@@ -525,7 +527,19 @@ export function createArTrip({
   }
 
   function onTracking({status}) {
+    if (status !== 'NORMAL' && tracking === 'NORMAL') trackingLostAt = lastTime
+    if (status === 'NORMAL') trackingLostAt = null
     tracking = status
+  }
+
+  /**
+   * Are the ground arrows drawn? As soon as the route is placed, and until tracking has been lost
+   * for more than GROUND_ARROWS.trackingLostS (a webcam in test mode never tracks: always drawn).
+   */
+  function arrowsWanted(time) {
+    if (phase !== 'ready' || arrived || !nav?.aligned) return false
+    if (allowDesktop || tracking === 'NORMAL') return true
+    return trackingLostAt != null && time - trackingLostAt <= GROUND_ARROWS.trackingLostS
   }
 
   function onTick({dt, time}) {
@@ -600,6 +614,9 @@ export function createArTrip({
       }
     }
     updateArrow()
+    // The chevrons on the floor: same pose s as the map dot, height from the ground estimate.
+    arrowsShown = arrowsWanted(time)
+    nav.updateArrows({userS: routeS, slope: groundNow.slope, show: arrowsShown, time})
     statsTimer += dt
     if (statsTimer >= 0.25) {
       const poseTurn = nav.aligned ? nav.nextTurnAt(routeS) : null
@@ -631,6 +648,12 @@ export function createArTrip({
         distanceFromRouteM: phase === 'ready' && pose.lateralOffsetM != null ? Math.abs(pose.lateralOffsetM) : null,
         lateralOffsetM: phase === 'ready' ? pose.lateralOffsetM : null,
         poseConfident: pose.confident,
+        aligned: Boolean(nav.aligned),
+        arrowsShown,
+        arrowsCreated: nav.arrowsCreated,
+        arrowsDrawn: nav.arrowsShown,
+        arrowsInView: arrowsShown ? nav.arrowsInView() : 0,
+        pointAtFloor: phase === 'ready' && !arrived && Boolean(nav.aligned) && !arrowsShown,
         offRouteForS: offRoute.offForS(time),
         rerouteWaitS: offRoute.waitS(time),
         gpsToEntranceM: gpsDistanceToEntrance(lastFix, route),

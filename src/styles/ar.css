@@ -464,3 +464,27 @@
 .ar-debug__floor .btn[aria-pressed='true'] {
   box-shadow: inset 0 0 0 2px #1db954;
 }
+
+/* ---------- ?debug=1: why the floor arrows are, or are not, there ---------- */
+.ar-status {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + 4px);
+  z-index: 6;
+  max-width: calc(100% - 16px);
+  margin: 0;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.66);
+  color: #fff;
+  font: 500 11px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: normal;
+  text-align: center;
+  width: max-content;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+/* With ?debug=1 the tracking chip takes the top row: the pill goes under it. */
+.ar__top:has([data-tracking-chip]) ~ .ar-pill {
+  top: calc(var(--safe-top) + var(--s-3) + 60px);
+}

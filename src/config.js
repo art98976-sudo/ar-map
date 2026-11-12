@@ -38,13 +38,28 @@ export const TURNS = {
   passedM: 1, // a corner counts as passed this far beyond it
 }
 
-// The way-to-walk arrows drawn over the camera, lying on the ground at the bottom of the screen.
-export const FLOOR_ARROWS = {
-  easeS: 0.25, // smoothing of their turn, so the compass does not make them jitter
-  turnDeg: 100, // turning further than this: a curved turn arrow instead of the chevrons...
-  turnBackDeg: 85, // ...until back within this
-  arriveM: 8, // this close to the entrance: a pin and "You have arrived" instead (= ARRIVAL.arriveM)
+// The way to walk: 3D chevrons lying on the real floor along the route (src/ar/ground-arrows.js).
+export const GROUND_ARROWS = {
+  spacingM: 1.2, // one chevron every this far along the route
+  aheadM: 18, // drawn this far ahead of the user
+  nearM: 0.6, // the first one at least this far ahead (not under the feet)
+  poolSize: 16, // aheadM / spacingM, plus one: made once, recycled as the user walks
+  widthM: 0.6,
+  depthM: 0.42, // tip to back: deep enough to read when seen along the floor
+  edgeM: 0.025, // the thin white edge all round
+  solidM: 4, // fully solid this close, fading to nothing by aheadM
+  cornerRadiusM: 1, // corners are rounded so the arrows bend through the turn
+  cornerSteps: 8,
+  minCornerDeg: 8, // smaller bends are left as they are
+  maxLiftM: 1.5, // the ground slope moves a chevron up or down by at most this
+  green: 0x22c55e,
+  pulseGreen: 0xb7f7cf,
+  pulseWavelengthM: 9, // a slow bright band travelling forward along the arrows...
+  pulsePeriodS: 3, // ...this often
+  renderOrder: 20, // over the camera image (depthTest off)
+  trackingLostS: 2, // tracking lost longer than this: hide them, "Point your phone at the floor"
 }
+
 
 // The destination pin.
 export const PIN = {

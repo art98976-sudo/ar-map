@@ -74,7 +74,10 @@ test.describe('route and arrows', () => {
     await page.getByRole('button', {name: 'Show debug panel'}).click()
     const panel = page.getByRole('region', {name: 'Debug panel'})
     await expect(panel).toBeVisible()
-    // No directions in words, no flat overlay arrows, no numbered turns: the way is drawn on the floor.
+    // The way is drawn on the floor: 3D chevrons in the AR scene. ?debug=1 says why they are there.
+    await expect(page.locator('[data-ar-status]')).toHaveText(/aligned yes · chevrons 16 made, 1[4-6] drawn · in view \d+/, {timeout: 30_000})
+    await expect(page.locator('[data-ar-status]')).toHaveText(/floor (hits|fallback)/)
+    // No directions in words, no flat overlay arrows, no numbered turns.
     for (const gone of ['[data-floor-arrows]', '[data-guidance]', '[data-steps]', '[data-start-direction]', '.ar-map__turn']) {
       await expect(page.locator(gone)).toHaveCount(0)
     }
@@ -87,6 +90,8 @@ test.describe('route and arrows', () => {
     await expect(panel.getByRole('button', {name: 'Recalibrate compass'})).toBeVisible()
     // The map opens to full screen and back.
     await page.getByRole('button', {name: 'Hide debug panel'}).click()
+    await page.waitForTimeout(500)
+    await page.screenshot({path: testInfo.outputPath('ground-chevrons.png')})
     // Kept: the close button and the trip pill ("Cottrell · 120 m · 2 min").
     await expect(page.getByRole('button', {name: 'Exit AR'})).toBeVisible()
     await expect(page.locator('[data-trip-pill]')).toHaveText(/^.+ · \d+(\.\d)? k?m · \d+ min$/)

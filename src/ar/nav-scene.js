@@ -8,6 +8,7 @@
 //                             at ground height y = 0 (8th Wall absolute scale).
 import {dedupe, distanceM, findTurns, localBearing, pointAt, projectOntoPolyline, shortestTurn, simplify, toDeg, toLocal, toRad} from '../geo/geo.js'
 import {createDestinationPin} from './pin.js'
+import {createGroundArrows} from './ground-arrows.js'
 import {COLOURS, NAV_SCENE, PIN, ROUTING, TURNS} from '../config.js'
 
 /**
@@ -84,6 +85,11 @@ export function createNavScene({THREE, scene, camera, route, origin, reducedMoti
   const entranceAnchor = new THREE.Object3D()
   entranceAnchor.position.set(entranceLocal.x, 0, -entranceLocal.y)
   geoRoot.add(entranceAnchor)
+  // The way to walk: chevrons on the floor, built from this same route polyline.
+  const arrows = createGroundArrows(THREE, {reducedMotion})
+  arrows.setRoute(local)
+  geoRoot.add(arrows.group)
+  let pinAllowed = true
   // Debug: the floor as the app sees it, a faint 10 m grid under the user.
   const floorGrid = new THREE.GridHelper(10, 20, COLOURS.arrowGreen, COLOURS.arrowGreen)
   floorGrid.material.transparent = true
@@ -181,6 +187,7 @@ export function createNavScene({THREE, scene, camera, route, origin, reducedMoti
     totalM = lengthOf(local)
     entranceS = projectOntoPolyline(local, entranceLocal).s
     turns = findTurns(local, TURNS.minDeg)
+    arrows.setRoute(local)
     pin.group.position.set(pinAt().x, pin.group.position.y, -pinAt().y)
     entranceAnchor.position.set(entranceLocal.x, 0, -entranceLocal.y)
   }
@@ -255,6 +262,7 @@ export function createNavScene({THREE, scene, camera, route, origin, reducedMoti
     const toPinM = Math.hypot(entranceWorld.x - tmp.x, entranceWorld.z - tmp.z)
     const pinWorld = pin.group.getWorldPosition(new THREE.Vector3())
     pin.update(reducedMotion ? 0 : time, Math.hypot(pinWorld.x - tmp.x, pinWorld.z - tmp.z))
+    if (!pinAllowed) pin.group.visible = false
     const turn = nextTurn(turns, p.s)
     last = {
       s: p.s,
@@ -285,9 +293,25 @@ export function createNavScene({THREE, scene, camera, route, origin, reducedMoti
     setFloorGrid(show) {
       floorGrid.visible = show
     },
-    /** Show or hide what is drawn on the ground. Not until the direction is known. */
+    /**
+     * Allow or hide the destination pin (not until the direction is known, and not while the
+     * position is unsure). The ground arrows have their own rule: see updateArrows().
+     */
     setVisible(show) {
-      geoRoot.visible = show
+      pinAllowed = show
+      if (!show) pin.group.visible = false
+    },
+    /** Lay the chevrons for this frame: userS from the pose, the ground slope, whether to show. */
+    updateArrows({userS, slope, show, time}) {
+      return arrows.update({userS, slope, show: show && aligned, time: reducedMotion ? 0 : time})
+    },
+    /** How many chevrons are inside the camera's view. */
+    arrowsInView: () => arrows.countInView(camera),
+    get arrowsCreated() {
+      return arrows.created
+    },
+    get arrowsShown() {
+      return arrows.active
     },
     setRoute,
     setMarker,
@@ -315,6 +339,7 @@ export function createNavScene({THREE, scene, camera, route, origin, reducedMoti
       floorGrid.geometry.dispose()
       floorGrid.material.dispose()
       pin.dispose()
+      arrows.dispose()
     },
   }
 }

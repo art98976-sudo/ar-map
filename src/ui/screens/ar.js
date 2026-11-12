@@ -221,6 +221,7 @@ export function arScreen(root, {navigate, params}) {
     const minimap = root.querySelector('[data-minimap]')
     if (minimap && mapFailed && s.minimap) drawMinimap(minimap, s.minimap)
     paintDebugStats(root, s)
+    paintStatusLine(s)
     const pillText = root.querySelector('[data-trip-pill]')
     if (pillText && s.phase === 'ready') pillText.textContent = tripPillText(destination.name, s.remainingM)
   }
@@ -240,9 +241,23 @@ export function arScreen(root, {navigate, params}) {
     }
   }
 
+  /** ?debug=1: one line saying why the floor arrows are, or are not, there. */
+  function paintStatusLine(s) {
+    const line = root.querySelector('[data-ar-status]')
+    if (!line) return
+    line.textContent = [
+      `Tracking ${s.tracking ?? '–'}`,
+      `floor ${s.groundSource === 'hits' ? 'hits' : 'fallback'}`,
+      `aligned ${s.aligned ? 'yes' : 'no'}`,
+      `chevrons ${s.arrowsCreated ?? 0} made, ${s.arrowsDrawn ?? 0} drawn`,
+      `in view ${s.arrowsInView ?? 0}`,
+    ].join(' · ')
+  }
+
   /** One thing to do at a time: only the most urgent of these shows. */
   function paintHints(s) {
     const hints = [
+      ['[data-floor-hint]', s.pointAtFloor],
       ['[data-position-hint]', s.positionUncertain],
       ['[data-reroute-hint]', s.rerouting],
       ['[data-compass-pill]', s.compassUnsteady || s.compassPoor],

@@ -599,6 +599,7 @@ describe('walking beats the compass', () => {
       frame,
       walk,
       scene,
+      camera,
       setAccuracy(value) {
         accuracy = value
       },
@@ -618,6 +619,32 @@ describe('walking beats the compass', () => {
       },
     }
   }
+
+  it('draws the floor chevrons inside geo-root at once, on the fallback floor, and hides them after 2 s of lost tracking', () => {
+    const t = startTrip(0)
+    for (let i = 0; i < 10; i++) t.frame()
+    const root = t.scene.getObjectByName('geo-root')
+    const arrows = t.scene.getObjectByName('ground-arrows')
+    expect(arrows.parent).toBe(root) // in the AR world, not over the screen
+    expect(arrows.visible).toBe(true)
+    expect(t.box.stats).toMatchObject({aligned: true, arrowsShown: true, arrowsCreated: 16, pointAtFloor: false, groundSource: 'eye'})
+    expect(t.box.stats.arrowsDrawn).toBeGreaterThanOrEqual(14)
+    // No floor hit yet: the floor is the phone's height minus 1.4 m, and nothing waits for a hit.
+    for (let i = 0; i < 40; i++) t.frame()
+    near(root.position.y, t.camera.position.y - 1.4, 0.05)
+    // Tracking lost: still drawn for 2 s, then hidden with "Point your phone at the floor".
+    t.trip.onTracking({status: 'LIMITED'})
+    for (let i = 0; i < 1.5 / 0.05; i++) t.frame()
+    expect(arrows.visible).toBe(true)
+    for (let i = 0; i < 1 / 0.05; i++) t.frame()
+    expect(arrows.visible).toBe(false)
+    for (let i = 0; i < 6; i++) t.frame()
+    expect(t.box.stats).toMatchObject({arrowsShown: false, pointAtFloor: true})
+    t.trip.onTracking({status: 'NORMAL'})
+    t.frame()
+    expect(arrows.visible).toBe(true)
+    t.done()
+  })
 
   it('a compass that says north while the camera faces south: the route turns round once the user has walked, and stays round', () => {
     const t = startTrip(0, {lookZ: 1}) // so the route was laid out southwards
@@ -653,17 +680,17 @@ describe('walking beats the compass', () => {
     t.done()
   })
 
-  it('a poor compass: walking 6 m shows the direction, then the ground is drawn along the walk', () => {
+  it('a poor compass: the floor arrows show at once, and walking 6 m sets the direction', () => {
     const t = startTrip(200, {accuracy: 40})
-    const root = t.scene.getObjectByName('geo-root')
+    const arrows = t.scene.getObjectByName('ground-arrows')
     for (let i = 0; i < 10; i++) t.frame()
-    expect(root.visible).toBe(false)
+    expect(arrows.visible).toBe(true) // shown as soon as the route is placed
     expect(t.box.stats.compassPoor).toBe(true)
     t.walk(4)
     expect(t.box.stats.directionKnown).toBe(false)
     t.walk(4)
     expect(t.box.stats.directionKnown).toBe(true)
-    expect(root.visible).toBe(true)
+    expect(arrows.visible).toBe(true)
     expect(t.box.stats.compassPoor).toBe(false) // walking settled it
     for (let i = 0; i < 30; i++) t.frame()
     expect(t.box.stats.offRouteM).toBeLessThan(1)
@@ -768,7 +795,7 @@ describe('walking beats the compass', () => {
   it('GPS worse than 20 m for 3 s hides the arrow and the ground route; 3 s of good GPS brings them back', () => {
     let onFix
     const t = startTrip(0, {geolocation: {watchPosition: (ok) => ((onFix = ok), 1), clearWatch: () => {}}})
-    const root = t.scene.getObjectByName('geo-root')
+    const arrows = t.scene.getObjectByName('ground-arrows')
     const fix = (accuracy) => onFix({coords: {latitude: ORIGIN.lat, longitude: ORIGIN.lng, accuracy}})
     fix(6)
     for (let i = 0; i < 20; i++) t.frame()
@@ -778,14 +805,14 @@ describe('walking beats the compass', () => {
     expect(t.box.stats.positionUncertain).toBe(false) // not yet: one bad stretch must last 3 s
     for (let i = 0; i < 0.4 / 0.05; i++) t.frame()
     expect(t.box.stats).toMatchObject({positionUncertain: true, positionReason: 'gps'})
-    expect(root.visible).toBe(false)
+    expect(arrows.visible).toBe(true) // the floor arrows hide only when tracking is lost
     expect(t.trip.guideDeg).toBeNull()
     fix(8)
     for (let i = 0; i < 2.8 / 0.05; i++) t.frame()
     expect(t.box.stats.positionUncertain).toBe(true)
     for (let i = 0; i < 0.6 / 0.05; i++) t.frame() // recovers at 3 s; stats go out every 0.25 s
     expect(t.box.stats.positionUncertain).toBe(false)
-    expect(root.visible).toBe(true)
+    expect(arrows.visible).toBe(true)
     expect(t.trip.guideDeg).not.toBeNull()
     t.done()
   })
