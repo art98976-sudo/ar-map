@@ -21,7 +21,7 @@ import {angleDiff, distanceM, fromLocal, pointAt, polylineSlice, toDeg, toLocal,
 import {DESTINATIONS} from '../map/destinations.js'
 import {getRoomCentre} from '../map/room-centres.js'
 import {arrowTarget, arrowYawDeg, createRouteTracker, turnPrompt, walkingCorrection} from '../route/compass-guide.js'
-import {arrowDirection, routeFromPoints} from '../route/arrow-direction.js'
+import {aimBearing, createNavPose, routeBearingAt} from '../route/nav-pose.js'
 import {createNavScene, gpsDistanceToEntrance} from './nav-scene.js'
 import {acceptHit, createGroundTracker, HIT_TYPES, SCREEN_POINTS} from './ground.js'
 import {createRouteMatcher} from './route-matcher.js'
@@ -86,9 +86,9 @@ export function createArTrip({
   let autoStartAt = -Infinity
   let campusCheckAt = -Infinity
   let guideDeg = null // the way to walk from where the phone faces, > 0 to the right
-  let arrowLine = null // {from: the trip route it was built from, line: the route for arrow-direction.js}
-  let arrowAlong = null // the arrow's last distance along the route, so it cannot slide back
   let arrowBearingDeg = null // where the arrow points, degrees from north (for ?fieldtest=1)
+  // The one pose the map dot, map rotation, arrow, instructions, distance left and off-route all read.
+  const navPose = createNavPose()
   let cameFromOutside = !isOnCampus(origin)
   let fixesOnCampus = 0
   let lastTime = null
@@ -107,7 +107,6 @@ export function createArTrip({
   const confidence = createConfidenceMonitor()
   let positionOk = true
   let confidenceNow = {reliable: true, reason: null, gpsBad: false, swingDeg: 0}
-  let arrowProgress = null // {distanceAlong, distanceFromRoute, segmentIndex} from arrow-direction.js
   let guidance = null
   let instruction = null
   let instructionAt = -Infinity
@@ -270,10 +269,10 @@ export function createArTrip({
     nav.setVisible(directionKnown)
     compassBias = headingDeg == null ? null : 0
     tracker = createRouteTracker(nav.route, info.s)
+    navPose.reset()
     startS = info.s
     restartWindow()
     facingYaw = null
-    arrowAlong = info.s // from here the arrow follows motion tracking, from where the walk starts
     setPhase('ready', {heading: headingDeg})
   }
 
@@ -303,7 +302,7 @@ export function createArTrip({
       return 'ok'
     }
     const h = recentHeading()
-    facingYaw = arrowYawDeg(arrowBearingFrom(placedAt(startInfo)) ?? startInfo.bearingDeg, h)
+    facingYaw = arrowYawDeg(routeBearingAt(nav.route, startInfo.s), h)
     if (turnPrompt(facingYaw)) {
       setPhase('facing')
       return 'facing'
@@ -317,13 +316,8 @@ export function createArTrip({
     if (!compassUsable() || compassStale()) return beginGuidance(null)
     const h = recentHeading()
     const info = nav.startInfo(bestFix())
-    facingYaw = arrowYawDeg(arrowBearingFrom(placedAt(info)) ?? info.bearingDeg, h)
+    facingYaw = arrowYawDeg(routeBearingAt(nav.route, info.s), h)
     if (Math.abs(facingYaw) <= COMPASS_GUIDE.facingOkDeg) beginGuidance(h)
-  }
-
-  /** Where the route will put the user once placed: the GPS fix snapped on to it (nav.align). */
-  function placedAt(info) {
-    return fromLocal(origin, pointAt(nav.route, info.s))
   }
 
   /** The direction came from walking or a compass that recovered: now the ground can be drawn. */
@@ -407,7 +401,6 @@ export function createArTrip({
       legCache = null
       startS = nav.startInfo(from).s
       tracker = createRouteTracker(nav.route, startS)
-      arrowAlong = startS // the new route starts where the user is
       // The walk so far no longer has a route to fit, so matching starts afresh. Its turn stays in
       // the placement, so the compass has to keep allowing for it.
       compassOff ||= matcher.flipped
@@ -475,27 +468,29 @@ export function createArTrip({
   function minimapData() {
     const fix = bestFix()
     const start = nav.startInfo(fix)
-    const user = nav.aligned ? nav.userRoutePoint() : nav.routePointForFix(fix)
+    const pose = navPose.current
+    const user = pose.shownS != null ? pointAt(nav.route, pose.shownS) : nav.routePointForFix(fix)
     return {
       route: nav.route,
       user,
-      headingDeg: heading ?? start.bearingDeg,
-      nextTurn: nav.nextTurnAt(nav.aligned ? undefined : start.s),
+      headingDeg: pose.headingDeg ?? heading ?? start.bearingDeg,
+      nextTurn: nav.nextTurnAt(pose.routeS ?? start.s),
     }
   }
 
   /** The heading-up map: where to draw everything, in lat/lng. Null until the scene is ready. */
   function mapState() {
     if (!nav) return null
-    const s = tracker ? tracker.shownS : nav.startInfo(bestFix()).s
-    const next = guidance.getNextManoeuvre(tracker ? tracker.s : s)
+    const pose = navPose.current
+    const s = pose.shownS ?? nav.startInfo(bestFix()).s
+    const next = guidance.getNextManoeuvre(pose.routeS ?? s)
     const key = `${Math.round(s)}:${next.s}`
     if (legCache?.key !== key) {
       legCache = {key, coords: polylineSlice(nav.route, s, next.s).map((p) => toCoord(fromLocal(origin, p)))}
     }
     const at = pointAt(nav.route, next.s)
     return {
-      headingDeg: guideHeading(),
+      headingDeg: pose.headingDeg ?? guideHeading(),
       user: fromLocal(origin, pointAt(nav.route, s)),
       leg: legCache.coords,
       routeCoords: route.points.map(toCoord),
@@ -507,7 +502,7 @@ export function createArTrip({
   }
 
   /** Which way to walk from where the phone faces (> 0 to the right), for the arrows over the camera. */
-  function updateArrow(s) {
+  function updateArrow() {
     guideDeg = null
     if (arrived) return
     if (phase === 'facing') {
@@ -515,28 +510,15 @@ export function createArTrip({
       return
     }
     if (phase !== 'ready') return
-    const h = guideHeading()
-    ringFill = arrowTarget(nav.route, guidance.manoeuvres, guidance.getNextManoeuvre(s), s).ringFill
-    // Where motion tracking puts the user (smooth, and kept on the route by GPS and walking).
-    const target = arrowBearingFrom(trackedPosition())
+    const pose = navPose.current
+    if (pose.routeS == null) return
+    ringFill = arrowTarget(nav.route, guidance.manoeuvres, guidance.getNextManoeuvre(pose.routeS), pose.routeS).ringFill
+    // From the pose: the same progress as the map dot, no second estimate.
+    const target = aimBearing(nav.route, pose)
     arrowBearingDeg = target
     if (!positionOk) return // not sure where the user is: no arrow, the 2D map leads
-    if (h != null && target != null) guideDeg = arrowYawDeg(target, h)
+    if (pose.headingDeg != null && target != null) guideDeg = arrowYawDeg(target, pose.headingDeg)
   }
-
-  /**
-   * Compass bearing from the user to the point 9 m further along the route (arrow-direction.js).
-   * Never straight at the destination: the arrow turns at corners and leads back on to the path.
-   */
-  function arrowBearingFrom(user) {
-    if (arrowLine?.from !== route) arrowLine = {from: route, line: routeFromPoints(route.points)}
-    const dir = arrowDirection(arrowLine.line, user, arrowAlong)
-    if (!dir) return null
-    arrowAlong = dir.progress.distanceAlong
-    arrowProgress = dir.progress
-    return dir.bearingDeg
-  }
-
 
   function compassPoor() {
     return heading != null && isPoorAccuracy(headingAccuracy, COMPASS_GUIDE.poorAccuracyDeg)
@@ -613,8 +595,18 @@ export function createArTrip({
         noteCampus(lastFix)
       }
       tracker.tick(dt)
+      // The one pose for this frame. Everything below, and the map and arrow, read only this.
+      navPose.update({
+        route: nav.route,
+        routeS: tracker.s,
+        shownS: tracker.shownS,
+        tracked: nav.aligned ? nav.worldToRoute({x: camera.position.x, z: camera.position.z}) : null,
+        headingDeg: guideHeading(),
+        confident: positionOk && directionKnown && (tracking === 'NORMAL' || allowDesktop),
+      })
     }
-    const routeS = tracker ? tracker.s : 0
+    const pose = navPose.current
+    const routeS = pose.routeS ?? 0
     const remainingM = tracker ? Math.max(0, tracker.totalM - routeS) : route.lengthM
     if (phase === 'ready' && !arrived) {
       if (arrival.update(dt, remainingM, directionKnown ? s.toPinM : null)) {
@@ -630,17 +622,18 @@ export function createArTrip({
         if (guidance.turnIsClose(routeS)) onTurnClose?.()
         if (guidance.turnIsNow(routeS)) onTurnNow?.()
         // Only while SLAM knows where the user is, and not while already planning.
-        // Measured as the arrow does (arrow-direction.js), and only from a position we trust.
-        const fromRoute = positionOk ? (arrowProgress?.distanceFromRoute ?? null) : null
+        // The pose's sideways offset, and only from a position we trust.
+        const fromRoute = pose.confident && pose.lateralOffsetM != null ? Math.abs(pose.lateralOffsetM) : null
         if (directionKnown && tracking === 'NORMAL' && !rerouting && offRoute.update(fromRoute, time)) {
           if (manual) repickUntil = time + TRIP.repickForS
           reroute()
         }
       }
     }
-    updateArrow(routeS)
+    updateArrow()
     statsTimer += dt
     if (statsTimer >= 0.25) {
+      const poseTurn = nav.aligned ? nav.nextTurnAt(routeS) : null
       statsTimer = 0
       onStats?.({
         phase,
@@ -667,7 +660,9 @@ export function createArTrip({
         positionUncertain: phase === 'ready' && !arrived && !positionOk,
         positionReason: confidenceNow.reason,
         headingSwingDeg: confidenceNow.swingDeg,
-        distanceFromRouteM: phase === 'ready' ? (arrowProgress?.distanceFromRoute ?? null) : null,
+        distanceFromRouteM: phase === 'ready' && pose.lateralOffsetM != null ? Math.abs(pose.lateralOffsetM) : null,
+        lateralOffsetM: phase === 'ready' ? pose.lateralOffsetM : null,
+        poseConfident: pose.confident,
         offRouteForS: offRoute.offForS(time),
         rerouteWaitS: offRoute.waitS(time),
         gpsToEntranceM: gpsDistanceToEntrance(lastFix, route),
@@ -675,7 +670,7 @@ export function createArTrip({
          pathBearingDeg: nav.startInfo(bestFix()).pathBearingDeg,
         remainingM: nav.aligned ? remainingM : route.lengthM,
         toPinM: s.toPinM ?? null,
-        offRouteM: nav.aligned ? s.offset : null,
+        offRouteM: nav.aligned && pose.lateralOffsetM != null ? Math.abs(pose.lateralOffsetM) : null,
         cameraHeight: camera.position.y,
         groundHeight: groundNow.height,
         groundSlope: groundNow.slope,
@@ -698,8 +693,8 @@ export function createArTrip({
         canStart: trackingReady(),
         routeBearingDeg: phase === 'ready' ? null : nav.startInfo(bestFix()).bearingDeg,
         debug: debug ? debugData() : null,
-        nextTurnM: nav.aligned ? (s.nextTurnM ?? null) : null,
-        nextTurnDir: nav.aligned ? (s.nextTurnDir ?? null) : null,
+        nextTurnM: nav.aligned ? (poseTurn ? Math.max(0, poseTurn.s - routeS) : null) : null,
+        nextTurnDir: nav.aligned && poseTurn ? (poseTurn.angle > 0 ? 'right' : 'left') : null,
         source: route.source,
         fps,
       })
