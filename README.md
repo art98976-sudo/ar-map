@@ -163,3 +163,15 @@ Every destination has a suggested main entrance. They are **not confirmed yet**:
 ## Privacy
 
 The camera feed is processed on the phone and is never uploaded. No sign-in and no personal data.
+
+## /premium (redesign in progress)
+
+`/#/premium` is the redesigned map, built beside the existing screens so they can be compared.
+It restyles MazeMap's layers (paint and zoom ranges only), adds 3D buildings from MazeMap's
+building outlines (height estimated at 3.8 m per floor), a sun with soft shadows, sky and haze,
+and an architectural indoor plan. If a phone draws fewer than 45 frames a second while the map
+moves, it turns off shadows, then haze, then blur ([src/premium/fps-guard.js](src/premium/fps-guard.js)).
+
+**Aerial imagery and 3D terrain** need your own public Mapbox token: set `VITE_MAPBOX_TOKEN`
+(in `.env.local`, and in Vercel's environment variables) and rebuild. Without it the map uses
+the plan colours. Add `route=demo` (`/#/premium?route=demo`) to see the route style.

@@ -6,11 +6,13 @@ import './styles/screens.css'
 import './styles/home.css'
 import './styles/ar.css'
 import './styles/search.css'
+import './styles/premium.css'
 
 import {createRouter} from './ui/router.js'
 import {homeScreen} from './ui/screens/home.js'
 import {arScreen} from './ui/screens/ar.js'
 import {locateScreen} from './ui/screens/locate.js'
+import {premiumScreen} from './premium/premium.js'
 import {showToast} from './ui/components/toast.js'
 
 const root = document.getElementById('app')
@@ -21,6 +23,7 @@ const router = createRouter({
     '/': homeScreen,
     '/locate': locateScreen,
     '/ar': arScreen,
+    '/premium': premiumScreen,
   },
 })
 
