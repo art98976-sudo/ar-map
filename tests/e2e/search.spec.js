@@ -5,7 +5,7 @@ const onlyOn = (...names) => (testInfo) => !names.includes(testInfo.project.name
 
 const openSearch = async (page) => {
   await page.goto('/')
-  await page.getByRole('button', {name: 'Where do you want to go?'}).click()
+  await page.getByRole('button', {name: 'Search rooms, buildings, places'}).click()
   return page.getByRole('dialog', {name: 'Where do you want to go?'})
 }
 
@@ -38,7 +38,7 @@ test.describe('destination search', () => {
     const sheet = await openSearch(page)
     await page.goBack()
     await expect(sheet).toBeHidden()
-    const opener = page.getByRole('button', {name: 'Where do you want to go?'})
+    const opener = page.getByRole('button', {name: 'Search rooms, buildings, places'})
     await expect(opener).toBeVisible()
     await expect(opener).toBeFocused()
   })
@@ -50,7 +50,7 @@ test.describe('destination search', () => {
     await sheet.getByRole('button', {name: 'Close search'}).click()
     await expect(sheet).toBeHidden()
     await expect(page.locator('[data-map]')).not.toHaveAttribute('inert', '')
-    await expect(page.getByRole('button', {name: 'Where do you want to go?'})).toBeFocused()
+    await expect(page.getByRole('button', {name: 'Search rooms, buildings, places'})).toBeFocused()
   })
 
   test('closing a sheet leaves no entry behind for the back button to reopen', async ({page}) => {
@@ -138,7 +138,7 @@ test.describe('destination search', () => {
 
   test('the camera screen without a destination goes back to the map', async ({page}) => {
     await page.goto('/#/ar')
-    await expect(page.getByRole('button', {name: 'Where do you want to go?'})).toBeVisible()
+    await expect(page.getByRole('button', {name: 'Search rooms, buildings, places'})).toBeVisible()
   })
 
   test('reloading the camera screen shows the destination and one small button', async ({page}, testInfo) => {

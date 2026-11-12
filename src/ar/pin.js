@@ -35,7 +35,7 @@ function makeLabel(THREE) {
     ctx.fillStyle = '#ffffff'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.font = '600 58px "General Sans", system-ui, sans-serif'
+    ctx.font = '600 58px Inter, system-ui, sans-serif'
     ctx.fillText(fit(ctx, distanceText ? `${name} · ${distanceText}` : name, canvas.width - 64), canvas.width / 2, canvas.height / 2)
     texture.needsUpdate = true
   }

@@ -119,7 +119,7 @@
   height: 22px;
   border-radius: 50%;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--white);
   background: var(--green-02);
 }
@@ -263,130 +263,6 @@
   width: 100%;
   height: 100%;
 }
-.map-home__top {
-  position: absolute;
-  top: calc(var(--safe-top) + var(--s-3));
-  left: 0;
-  right: 0;
-  z-index: 4;
-  display: grid;
-  gap: var(--s-2);
-  pointer-events: none;
-}
-.map-home__top > * {
-  pointer-events: auto;
-}
-.map-home__row {
-  display: flex;
-  gap: var(--s-2);
-  padding: 0 var(--s-3);
-}
-/* The 2D/3D switch for the campus model. */
-.map-3d {
-  font-weight: 700;
-  font-size: 0.95rem;
-  color: var(--text);
-}
-.map-3d[aria-pressed="true"] {
-  background: var(--accent);
-  color: var(--white);
-}
-.map-3d__spinner {
-  width: 20px;
-  height: 20px;
-  border-width: 2px;
-  border-color: var(--green-02-a16);
-  border-top-color: var(--green-02);
-}
-.map-3d__spinner[hidden],
-.map-3d [hidden] {
-  display: none;
-}
-.map-search {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  gap: var(--s-2);
-  min-width: 0;
-  min-height: 52px;
-  padding: 0 var(--s-4);
-  border: 0;
-  border-radius: var(--r-pill);
-  background: var(--surface);
-  box-shadow: var(--shadow-2);
-  color: var(--text-muted);
-  font: inherit;
-  font-weight: 500;
-  text-align: left;
-  cursor: pointer;
-}
-.map-search span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.map-search .icon {
-  color: var(--green-02);
-}
-.map-home__row .icon-btn {
-  flex: none;
-  width: 52px;
-  height: 52px;
-}
-.map-chips {
-  display: flex;
-  gap: var(--s-2);
-  padding: 0 var(--s-3) var(--s-1);
-  overflow-x: auto;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-}
-.map-chips::-webkit-scrollbar {
-  display: none;
-}
-.map-chip {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 6px;
-  min-height: var(--tap);
-  padding: 0 var(--s-4);
-  border: 0;
-  border-radius: var(--r-pill);
-  background: var(--surface);
-  box-shadow: var(--shadow-1);
-  color: var(--text);
-  font: inherit;
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  cursor: pointer;
-}
-.map-chip .icon {
-  color: var(--green-02);
-}
-.map-chip[aria-pressed='true'] {
-  background: var(--green-02);
-  color: var(--white);
-}
-.map-chip[aria-pressed='true'] .icon {
-  color: inherit;
-}
-.map-home__overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: var(--s-3);
-  padding: var(--gutter);
-  background: var(--paper-veil);
-  color: var(--text-muted);
-  font-weight: 500;
-}
-.map-home__overlay[hidden] {
-  display: none;
-}
 .map-home__error {
   display: grid;
   justify-items: center;
@@ -403,26 +279,6 @@
   font-weight: 600;
   color: var(--text);
 }
-/* MazeMap controls: keep clear of the iPhone home bar, big enough to tap, brand the floor bar. */
-.map-home .mapboxgl-ctrl-bottom-left,
-.map-home .mapboxgl-ctrl-bottom-right {
-  margin-bottom: calc(var(--safe-bottom) + 12px);
-}
-.map-home .mapboxgl-ctrl-group button {
-  width: var(--tap);
-  height: var(--tap);
-}
-.map-home .mm-floor-bar {
-  border-radius: 14px !important;
-  overflow: hidden;
-  box-shadow: var(--shadow-1) !important;
-}
-/* Keep the controls above the card when it is open. */
-.map-home:has(.dest-sheet:not([hidden])) .mapboxgl-ctrl-bottom-left,
-.map-home:has(.dest-sheet:not([hidden])) .mapboxgl-ctrl-bottom-right {
-  margin-bottom: calc(var(--safe-bottom) + 230px);
-}
-
 /* ---------- Pins ---------- */
 .map-pin {
   display: grid;

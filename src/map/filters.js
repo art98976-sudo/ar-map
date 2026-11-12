@@ -40,3 +40,21 @@ const CATEGORY_LABEL = {
 export function categoryLabel(category) {
   return CATEGORY_LABEL[category] || 'Place'
 }
+
+/**
+ * The quick chips in the map's bottom sheet, in order.
+ * kind 'pins': our own places (MAP_FILTERS), shown as pins and listed.
+ * kind 'rooms': toilets and lifts from the 3D campus model (public/data/room-types.json).
+ * kind 'search': a MazeMap room search, for what our data has no tag for.
+ */
+export const QUICK_CHIPS = [
+  {id: 'lecture', label: 'Lecture theatres', icon: 'lecture', kind: 'search', query: 'lecture theatre'},
+  {id: 'toilets', label: 'Toilets', icon: 'toilet', kind: 'rooms', type: 'toilet'},
+  {id: 'food', label: 'Food', icon: 'cup', kind: 'pins'},
+  {id: 'library', label: 'Library', icon: 'book', kind: 'pins'},
+  {id: 'study', label: 'Study spaces', icon: 'study', kind: 'search', query: 'study'},
+  {id: 'lifts', label: 'Lifts', icon: 'lift', kind: 'rooms', type: 'lift'},
+  {id: 'buildings', label: 'Buildings', icon: 'building', kind: 'pins'},
+  {id: 'bus', label: 'Bus', icon: 'bus', kind: 'pins'},
+  {id: 'sport', label: 'Sport', icon: 'dumbbell', kind: 'pins'},
+]

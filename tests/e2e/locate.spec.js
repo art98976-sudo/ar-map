@@ -134,6 +134,6 @@ test.describe('location step', () => {
 
   test('without a destination it goes back to the map', async ({page}) => {
     await page.goto('/#/locate')
-    await expect(page.getByRole('button', {name: 'Where do you want to go?'})).toBeVisible()
+    await expect(page.getByRole('button', {name: 'Search rooms, buildings, places'})).toBeVisible()
   })
 })

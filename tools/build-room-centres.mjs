@@ -51,3 +51,30 @@ gltf.nodes.forEach((node, index) => {
 
 writeFileSync(OUT, JSON.stringify(out))
 console.log(`${OUT}: ${Object.keys(out).length} rooms${skipped ? `, ${skipped} skipped (no bounds)` : ''}`)
+
+// ---------- public/data/room-types.json: toilets and lifts, for the quick chips on the map ----------
+// [poiId, lat, lng, level, label, building]. The model names rooms "<category>_<room no>_<poiId>".
+const TYPES_OUT = 'public/data/room-types.json'
+const buildingOf = (index) => {
+  for (let i = parentOf.get(index); i != null; i = parentOf.get(i)) {
+    const name = gltf.nodes[i].name
+    if (/^B_/.test(name) && floorLevelOf(name) == null) return name.slice(2).replace(/_/g, ' ')
+  }
+  return ''
+}
+const toiletLabel = (roomNo) => {
+  if (/DISABLED|ACCESS/i.test(roomNo)) return 'Accessible toilet'
+  if (/LADIES|FEMALE/i.test(roomNo)) return 'Toilets (ladies)'
+  if (/GENTS|MALE/i.test(roomNo)) return 'Toilets (gents)'
+  return 'Toilet'
+}
+const types = {toilet: [], lift: []}
+gltf.nodes.forEach((node, index) => {
+  const m = /^(toilet|lift)_(.+)_(\d{6,})$/.exec(node.name || '')
+  if (!m || !out[m[3]]) return
+  const [lat, lng, level] = out[m[3]]
+  if (level == null) return
+  types[m[1]].push([m[3], lat, lng, level, m[1] === 'lift' ? 'Lift' : toiletLabel(m[2]), buildingOf(index)])
+})
+writeFileSync(TYPES_OUT, JSON.stringify(types))
+console.log(`${TYPES_OUT}: ${types.toilet.length} toilets, ${types.lift.length} lifts`)

@@ -50,10 +50,15 @@ test.describe('the map home', () => {
     const height = await page.locator('[data-map]').evaluate((el) => el.getBoundingClientRect().height)
     expect(height).toBeGreaterThan(500)
     await expect(page.locator('.mapboxgl-canvas')).toBeVisible()
-    await expect(page.getByRole('button', {name: 'Where do you want to go?'})).toBeVisible()
-    for (const name of ['Buildings', 'Library', 'Food', 'Bus', 'Sport']) {
-      await expect(page.locator('.map-chips').getByRole('button', {name, exact: true})).toBeVisible()
+    await expect(page.getByRole('button', {name: 'Search rooms, buildings, places'})).toBeVisible()
+    // The quick chips: in the sheet, scrolled sideways.
+    for (const name of ['Lecture theatres', 'Toilets', 'Food', 'Library', 'Study spaces', 'Lifts', 'Buildings', 'Bus', 'Sport']) {
+      await expect(page.locator('.quick-chips').getByRole('button', {name, exact: true})).toBeAttached()
     }
+    // Nothing else at the top: the search bar alone; the round buttons sit on the right.
+    await expect(page.locator('.map-home__top button')).toHaveCount(1)
+    await expect(page.locator('[data-rail]').getByRole('button', {name: 'Show 3D buildings'})).toBeVisible()
+    await expect(page.locator('[data-rail]').getByRole('button', {name: 'Show my location'})).toBeVisible()
     await expect(page.locator('.map-pin')).toHaveCount(24)
     await expect(page.getByRole('button', {name: 'Pathfoot Building'})).toBeAttached()
     expect(errors).toEqual([])
@@ -70,22 +75,42 @@ test.describe('the map home', () => {
     test.skip(onlyOn(...CHROME)(testInfo))
     await page.goto('/')
     await mapReady(page)
-    const chips = page.locator('.map-chips')
+    const chips = page.locator('.quick-chips')
     const bus = chips.getByRole('button', {name: 'Bus', exact: true})
     await bus.click()
     await expect(bus).toHaveAttribute('aria-pressed', 'true')
     await expect(page.locator('.map-pin:not([hidden])')).toHaveCount(1)
     await expect(page.locator('[data-pin="bus-hub"]')).toBeVisible()
+    // ...and the sheet rises to list them.
+    await expect(page.locator('[data-home-sheet]')).toHaveAttribute('data-height', 'half')
+    await expect(page.locator('[data-chip-results] .place-row')).toHaveCount(1)
     await chips.getByRole('button', {name: 'Food', exact: true}).click()
     await expect(page.locator('[data-pin="scran"]')).toBeVisible()
     await expect(page.locator('[data-pin="bus-hub"]')).toBeHidden()
     await chips.getByRole('button', {name: 'Food', exact: true}).click()
     await expect(page.locator('.map-pin:not([hidden])')).toHaveCount(24)
+    await expect(page.locator('[data-home-sheet]')).toHaveAttribute('data-height', 'peek')
+  })
+
+  test('Toilets lists toilets from the campus model, and a row opens its place card', async ({page}, testInfo) => {
+    test.skip(onlyOn(...CHROME)(testInfo))
+    await page.goto('/')
+    await mapReady(page)
+    await page.locator('.quick-chips').getByRole('button', {name: 'Toilets', exact: true}).click()
+    const rows = page.locator('[data-chip-results] .place-row')
+    await expect(rows.first()).toBeVisible()
+    expect(await rows.count()).toBeGreaterThan(5)
+    // The test phone is on campus, so each row says how far away it is.
+    await expect(rows.first()).toContainText(/\d+ (m|km)/)
+    await rows.first().click()
+    await expect(page.locator('.dest-sheet__name')).toHaveText(/Toilet/)
+    await expect(page.locator('[data-home-sheet]')).toBeHidden()
   })
 
   test('the ⓘ button opens about, privacy, the disclaimer and licences', async ({page}) => {
     await page.goto('/')
-    await page.getByRole('button', {name: 'About and privacy'}).click()
+    await page.getByRole('button', {name: 'More', exact: true}).click()
+    await page.getByRole('menuitem', {name: 'About and privacy'}).click()
     const sheet = page.getByRole('dialog', {name: /About Stirling Welcome AR/})
     await expect(sheet).toBeVisible()
     await expect(sheet.getByRole('heading', {name: 'Privacy'})).toBeVisible()
@@ -112,7 +137,7 @@ test.describe('the map home', () => {
   test('old addresses land on the map', async ({page}) => {
     for (const old of ['/#/check', '/#/search', '/#/map', '/#/about']) {
       await page.goto(old)
-      await expect(page.getByRole('button', {name: 'Where do you want to go?'})).toBeVisible()
+      await expect(page.getByRole('button', {name: 'Search rooms, buildings, places'})).toBeVisible()
     }
   })
 })
@@ -126,14 +151,14 @@ test.describe('at 360 px wide', () => {
         .filter((el) => {
           if (el.closest('.mm-floor-bar, .mapboxgl-ctrl-attrib')) return false // MazeMap's own
           const r = el.getBoundingClientRect()
-          // Rounded: a sheet sliding in can make a 48 px height read as 47.99.
-          return r.width > 0 && (Math.round(r.height) < 48 || Math.round(r.width) < 48)
+          // Rounded: a sheet sliding in can make a 44 px height read as 43.99.
+          return r.width > 0 && (Math.round(r.height) < 44 || Math.round(r.width) < 44)
         })
         .map((el) => el.getAttribute('aria-label') || el.textContent.trim()),
     )
   const overflow = (page) => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
 
-  test('every screen fits, and every button is at least 48 px', async ({page}, testInfo) => {
+  test('every screen fits, and every button is at least 44 px', async ({page}, testInfo) => {
     test.skip(onlyOn('android-chrome')(testInfo))
     await page.goto('/')
     await mapReady(page)
@@ -146,13 +171,15 @@ test.describe('at 360 px wide', () => {
     expect(await tooSmall(page)).toEqual([])
     await page.getByRole('button', {name: 'Close', exact: true}).click()
 
-    await page.getByRole('button', {name: 'Where do you want to go?'}).click()
+    await page.getByRole('button', {name: 'Search rooms, buildings, places'}).click()
     await expect(page.getByRole('combobox')).toBeFocused()
     expect(await overflow(page)).toBeLessThanOrEqual(0)
     expect(await tooSmall(page)).toEqual([])
     await page.getByRole('button', {name: 'Close search'}).click()
 
-    await page.getByRole('button', {name: 'About and privacy'}).click()
+    await page.getByRole('button', {name: 'More', exact: true}).click()
+    expect(await tooSmall(page)).toEqual([])
+    await page.getByRole('menuitem', {name: 'About and privacy'}).click()
     expect(await overflow(page)).toBeLessThanOrEqual(0)
     expect(await tooSmall(page)).toEqual([])
   })
@@ -291,7 +318,7 @@ test.describe('AR session', () => {
     await expect(page.getByRole('button', {name: 'Show debug panel'})).toHaveCount(0)
     // Exit returns to the map and releases the camera.
     await page.getByRole('button', {name: 'Exit AR'}).click()
-    await expect(page.getByRole('button', {name: 'Where do you want to go?'})).toBeVisible()
+    await expect(page.getByRole('button', {name: 'Search rooms, buildings, places'})).toBeVisible()
     expect(errors).toEqual([])
   })
 
@@ -304,7 +331,7 @@ test.describe('AR session', () => {
     await page.getByRole('button', {name: 'Tap to start'}).click({timeout: 30_000})
     await expect(page.getByRole('heading', {name: 'You have arrived'})).toBeVisible({timeout: 90_000})
     await page.getByRole('button', {name: 'Done'}).click()
-    await expect(page.getByRole('button', {name: 'Where do you want to go?'})).toBeVisible()
+    await expect(page.getByRole('button', {name: 'Search rooms, buildings, places'})).toBeVisible()
   })
 
   test('iPhone: motion denied shows Safari steps and a way out', async ({page}, testInfo) => {
@@ -319,7 +346,7 @@ test.describe('AR session', () => {
     await expect(page.getByRole('heading', {name: 'Motion access is off'})).toBeFocused()
     await expect(page.getByText('Tap Allow when Safari asks about motion.')).toBeVisible()
     await page.getByRole('button', {name: 'View 2D map instead'}).click()
-    await expect(page.getByRole('button', {name: 'Where do you want to go?'})).toBeVisible()
+    await expect(page.getByRole('button', {name: 'Search rooms, buildings, places'})).toBeVisible()
   })
 
   test('Android: camera blocked shows how to turn it back on', async ({page}, testInfo) => {

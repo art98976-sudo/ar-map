@@ -51,7 +51,7 @@ export function infoSheetContent() {
         <h3>Open-source software</h3>
         <ul class="about__list">
           <li>three.js, MIT licence</li>
-          <li>General Sans typeface by the Indian Type Foundry, ITF Free Font Licence</li>
+          <li>Inter typeface by The Inter Project Authors, SIL Open Font Licence 1.1</li>
         </ul>
       </section>
     </div>

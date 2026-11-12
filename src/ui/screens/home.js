@@ -5,6 +5,7 @@ import {clearRouteLine, drawRouteLine} from '../../map/route-line.js'
 import {createDestinationSearch} from '../components/destination-search.js'
 import {createMapPicker} from '../components/map-picker.js'
 import {createMapPins} from '../components/map-pins.js'
+import {createHomeSheet} from '../components/home-sheet.js'
 import {showToast} from '../components/toast.js'
 import {deviceIssue} from '../../ar/device.js'
 import {startPermissionRequests} from '../../ar/permissions.js'
@@ -81,7 +82,7 @@ export function homeScreen(root, {navigate, params}) {
       info: {element: infoSheet, opener: 'open-info'},
       start: {element: startSheet, opener: 'open-start'},
     },
-    [root.querySelector('[data-map]'), root.querySelector('.map-home__top'), card, overlay],
+    [root.querySelector('[data-map]'), root.querySelector('.map-home__top'), root.querySelector('[data-rail]'), root.querySelector('[data-home-sheet]'), card, overlay],
     keepAddressInStep,
   )
   const picker = createMapPicker(root.querySelector('[data-pick-bar]'))
@@ -91,6 +92,44 @@ export function homeScreen(root, {navigate, params}) {
     canSelect: () => !picker.active,
     onSelect: select,
   })
+  const homeSheet = createHomeSheet(root, {
+    getMap: () => instance?.map,
+    // Nearest to the user when we know where they are, else to the middle of the map.
+    getFrom: () => {
+      const fix = fixWatch.fix
+      if (fix && fix.accuracy <= GPS.goodEnoughFixM) return {point: fix, isUser: true}
+      const c = instance?.map?.getCenter()
+      return {point: c ? {lat: c.lat, lng: c.lng} : null, isUser: false}
+    },
+    pins,
+    onPick: (dest) => select(dest),
+  })
+  const menu = root.querySelector('[data-menu]')
+  const menuButton = root.querySelector('[data-action="open-menu"]')
+  function setMenu(open) {
+    menu.hidden = !open
+    menuButton.setAttribute('aria-expanded', String(open))
+    if (open) menu.querySelector('[role="menuitem"]')?.focus({preventScroll: true})
+  }
+  const onOutside = (event) => {
+    if (!menu.hidden && !event.target.closest('[data-menu], [data-action="open-menu"]')) setMenu(false)
+  }
+  document.addEventListener('pointerdown', onOutside)
+
+  /** MazeMap's floor bar goes in the right-hand rail; north only shows on a turned map. */
+  function fitControls() {
+    const bar = root.querySelector('.mm-floor-bar')
+    const host = root.querySelector('[data-floor-host]')
+    if (bar && host && bar.parentElement !== host) host.append(bar)
+    const north = root.querySelector('[data-north]')
+    const map = instance?.map
+    const paintNorth = () => {
+      north.hidden = Math.abs(map.getBearing()) < 1
+    }
+    map.on('rotate', paintNorth)
+    paintNorth()
+  }
+
   // Location, only if the phone has already allowed it.
   const fixWatch = createFixWatch(readTripFix(), {
     onFix: () => {
@@ -466,6 +505,8 @@ export function homeScreen(root, {navigate, params}) {
           if (disposed) return
           overlay.hidden = true
           pins.addAll()
+          fitControls()
+          homeSheet.mapReady()
           instance.map.on('click', (event) => {
             if (picker.active) picker.moveTo(event.lngLat)
             else if (selected) unselect()
@@ -512,11 +553,16 @@ export function homeScreen(root, {navigate, params}) {
     },
     'pick-cancel': () => leavePick(),
     'open-info': () => {
+      setMenu(false)
       sheets.open('info')
       infoSheet.querySelector('#info-title').focus({preventScroll: true})
     },
     'close-sheets': () => sheets.close(),
-    filter: (_, target) => pins.setFilter(target.dataset.filter),
+    filter: (_, target) => homeSheet.choose(target.dataset.filter),
+    'sheet-step': () => homeSheet.step(),
+    'open-menu': () => setMenu(menu.hidden),
+    locate: () => instance?.geolocate?.trigger(),
+    north: () => instance?.map.easeTo({bearing: 0, duration: 400}),
     unselect: () => {
       unselect()
       root.querySelector('[data-action="open-search"]').focus({preventScroll: true}) // its button has gone
@@ -537,7 +583,9 @@ export function homeScreen(root, {navigate, params}) {
   })
 
   const onKey = (event) => {
-    if (event.key === 'Escape') sheets.close()
+    if (event.key !== 'Escape') return
+    if (!menu.hidden) setMenu(false)
+    else sheets.close()
   }
   document.addEventListener('keydown', onKey)
 
@@ -560,6 +608,8 @@ export function homeScreen(root, {navigate, params}) {
     startMarker?.remove()
     fixWatch.destroy()
     pins.destroy()
+    homeSheet.destroy()
+    document.removeEventListener('pointerdown', onOutside)
     stopSimulation()
     stopAlignDebug()
     model?.destroy()

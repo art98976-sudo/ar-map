@@ -92,26 +92,35 @@ export function createCampusMap(Mazemap, container, {onReady, onError, controls 
     ...options,
   })
 
+  const instance = {
+    map,
+    floorBar: null,
+    geolocate: null,
+    destroy: () => {
+      try {
+        map.remove()
+      } catch {
+        // already removed
+      }
+    },
+  }
+
   map.on('load', () => {
     try {
       if (!controls) {
         onReady?.(map)
         return
       }
-      // Floor switcher, shown when an indoor building is in view.
-      map.addControl(
-        new Mazemap.ZLevelBarControl({className: 'mm-floor-bar', autoUpdate: true, maxHeight: 260}),
-        'bottom-left',
-      )
-      map.addControl(new Mazemap.mapboxgl.NavigationControl({showCompass: true, showZoom: false}), 'bottom-right')
-      map.addControl(
-        new Mazemap.mapboxgl.GeolocateControl({
-          positionOptions: {enableHighAccuracy: true},
-          trackUserLocation: true,
-          showUserHeading: true,
-        }),
-        'bottom-right',
-      )
+      // Floor switcher, shown when an indoor building is in view. The screen places and styles it.
+      instance.floorBar = new Mazemap.ZLevelBarControl({className: 'mm-floor-bar', autoUpdate: true, maxHeight: 220})
+      map.addControl(instance.floorBar, 'bottom-left')
+      // "My location": the screen draws its own button and calls geolocate.trigger().
+      instance.geolocate = new Mazemap.mapboxgl.GeolocateControl({
+        positionOptions: {enableHighAccuracy: true},
+        trackUserLocation: true,
+        showUserHeading: true,
+      })
+      map.addControl(instance.geolocate, 'bottom-right')
     } catch (err) {
       console.warn('[map] control setup failed', err)
     }
@@ -122,14 +131,5 @@ export function createCampusMap(Mazemap, container, {onReady, onError, controls 
     onError?.(event?.error)
   })
 
-  return {
-    map,
-    destroy: () => {
-      try {
-        map.remove()
-      } catch {
-        // already removed
-      }
-    },
-  }
+  return instance
 }

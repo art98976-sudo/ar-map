@@ -74,7 +74,7 @@ src/
   styles/            design tokens (Stirling brand palette), components, screens
 public/
   brand/             University of Stirling logo (green and white)
-  fonts/             General Sans (self-hosted)
+  fonts/             Inter (self-hosted)
   data/              stirling_campus.glb (3D campus), room-centres.json (built from it)
 scripts/             engine copy, phone tunnel, icon generator
 tools/               find-entrances.mjs, build-footpaths.mjs, build-room-centres.mjs
@@ -100,7 +100,7 @@ Every push to a branch gets a preview URL.
   (Heritage Green `#006938`).
 - **MazeMap:** © MazeMap.
 - **Backup footpaths:** © OpenStreetMap contributors, ODbL.
-- **Three.js, qrcode:** MIT. **General Sans:** ITF Free Font Licence.
+- **Three.js, qrcode:** MIT. **Inter:** SIL Open Font Licence 1.1.
 
 ## 3D campus model
 

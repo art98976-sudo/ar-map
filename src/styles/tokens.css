@@ -1,43 +1,95 @@
-/* Hallmark · checked: 2026-11-05 · genre: modern-minimal (inferred) · scope: app
- * floor: lint 0 FAIL, 1 judged gate open (63, tripPillText in src/ui/screens/ar.js, its text pinned by e2e tests)
- * fixed: 7a, 34, 40, 48, 67, F3 · structural: 1 printed (44d, search bar width at 1440)
- * built: the project · redesign: polish · v2.0.0 */
-/* Hallmark · dismissed 29 · blur sits over the live camera and map, so labels stay legible on a moving picture */
-/* Hallmark · dismissed 40 · .error-state__icon holds only an icon, whose limit is 3:1, and it measures 4.01:1 */
-/* Hallmark · answered F5 · round map controls and the arrival check are this app's own marks, kept by the polish */
-/* Design tokens. Colours from the University of Stirling Brand Bank
-   (stir.ac.uk/brand-bank/brand-assets/colour-palette). Green leads everywhere. */
+/* Design tokens: the one place colours, type, spacing, corners, shadow and motion are set.
+   Components use these names only. Nothing else in the app hard-codes a colour or a size.
+
+   Light is the default. Dark follows the phone's setting, on screens marked .theme-auto
+   (each screen gets the class as it is redesigned; the rest stay light until then). */
 
 @font-face {
-  font-family: 'General Sans';
-  src: url('/fonts/general-sans-400.woff2') format('woff2');
+  font-family: 'Inter';
+  src: url('/fonts/inter-400.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
-  font-family: 'General Sans';
-  src: url('/fonts/general-sans-500.woff2') format('woff2');
+  font-family: 'Inter';
+  src: url('/fonts/inter-500.woff2') format('woff2');
   font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
-  font-family: 'General Sans';
-  src: url('/fonts/general-sans-600.woff2') format('woff2');
+  font-family: 'Inter';
+  src: url('/fonts/inter-600.woff2') format('woff2');
   font-weight: 600;
   font-style: normal;
   font-display: swap;
 }
-@font-face {
-  font-family: 'General Sans';
-  src: url('/fonts/general-sans-700.woff2') format('woff2');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
 
-:root {
+:root,
+.theme-auto {
+  /* ---------- Colour ---------- */
+  --c-primary: #00693e;
+  --c-on-primary: #ffffff;
+  --c-primary-press: #00552f;
+  --c-primary-tint: rgba(0, 105, 62, 0.1); /* a pressed or chosen row */
+  --c-bg: #ffffff;
+  --c-surface: #f6f8f7;
+  --c-text: #14201b;
+  --c-text-2: #5c6b64;
+  --c-border: #dde4e0;
+  --c-accent: #1f6feb; /* the route */
+  --c-warning: #b25e00;
+  --c-error: #c0362c;
+  --c-skeleton: #e6ebe8;
+  --c-scrim: rgba(20, 32, 27, 0.4);
+
+  /* ---------- Type: Inter, three weights, four sizes ---------- */
+  --font: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --fs-small: 0.8125rem; /* 13 */
+  --fs-body: 0.9375rem; /* 15 */
+  --fs-emphasis: 1.0625rem; /* 17 */
+  --fs-title: 1.375rem; /* 22 */
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+
+  /* ---------- Spacing: multiples of 4 ---------- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-6: 24px;
+  --side: 16px; /* screen side padding */
+
+  /* ---------- Corners ---------- */
+  --radius: 12px; /* cards and buttons */
+  --radius-sheet: 20px; /* the bottom sheet's top corners */
+  --radius-round: 999px; /* icon buttons */
+
+  /* ---------- Shadow: floating elements only ---------- */
+  --shadow: 0 4px 16px rgba(20, 32, 27, 0.16);
+
+  /* ---------- Sizes ---------- */
+  --tap: 44px; /* smallest tap target */
+  --bar: 48px; /* search bar */
+  --row: 56px; /* list row */
+  --icon: 24px;
+
+  /* ---------- Motion ---------- */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --t: 200ms;
+
+  /* ---------- Safe areas (notch, home bar) ---------- */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  /* ==========================================================================================
+     Older names, still used by the screens not yet redesigned (search, place card, locate, AR).
+     Each block goes as its screen is redone. New code must not use these.
+     ========================================================================================== */
   /* Brand: primary greens */
   --green-02: #006938; /* Heritage Green, Pantone 349 */
   --green-03: #005734; /* Pantone 7484 */
@@ -119,7 +171,6 @@
   --badge-amber-text: #7b5c18;
 
   /* Type */
-  --font: 'General Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --fs-xs: 0.8125rem;
   --fs-sm: 0.9375rem;
   --fs-md: 1.0625rem;
@@ -151,7 +202,61 @@
   --t-med: 280ms;
 
   /* Safe areas (iPhone notch / Dynamic Island / home bar) */
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --tap: 48px;
+
+  /* Older roles, pointed at the new tokens. */
+  --green-02: var(--c-primary);
+  --green-03: var(--c-primary-press);
+  --bg: var(--c-bg);
+  --surface: var(--c-bg);
+  --text: var(--c-text);
+  --text-muted: var(--c-text-2);
+  --line: var(--c-border);
+  --accent: var(--c-primary);
+  --accent-press: var(--c-primary-press);
+  --focus: var(--c-accent);
+  --fs-xs: var(--fs-small);
+  --fs-sm: var(--fs-body);
+  --fs-md: var(--fs-emphasis);
+  --fs-lg: var(--fs-title);
+  --gutter: var(--side);
+  --r-md: var(--radius);
+  --r-lg: var(--radius-sheet);
+  --r-pill: var(--radius-round);
+  --shadow-1: var(--shadow);
+  --shadow-2: var(--shadow);
+  --ease: var(--ease-out);
+  --t-fast: var(--t);
+  --t-med: var(--t);
+}
+
+/* ---------- Dark: follows the phone ---------- */
+@media (prefers-color-scheme: dark) {
+  .theme-auto {
+    color-scheme: dark;
+    --c-primary: #4fc08d;
+    --c-on-primary: #0f1513;
+    --c-primary-press: #3fa878;
+    --c-primary-tint: rgba(79, 192, 141, 0.16);
+    --c-bg: #0f1513;
+    --c-surface: #18211d;
+    --c-text: #e8eeea;
+    --c-text-2: #9baaa2;
+    --c-border: #2a3631;
+    --c-accent: #6ea8ff; /* #1f6feb is too dim on a dark surface for text */
+    --c-warning: #f0a04b;
+    --c-error: #ff8a80;
+    --c-skeleton: #222d28;
+    --c-scrim: rgba(0, 0, 0, 0.55);
+    --shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    /* Older tints that assumed a white page. */
+    --grey-a07: rgba(232, 238, 234, 0.08);
+    --grey-a10: rgba(232, 238, 234, 0.12);
+    --green-tint-press: var(--c-primary-tint);
+    --green-tint-hover: var(--c-primary-tint);
+    --green-tint-active: var(--c-primary-tint);
+    --paper-veil: rgba(15, 21, 19, 0.86);
+    --placeholder: var(--c-text-2);
+    --chevron: var(--c-text-2);
+    --map-ground: #18211d;
+  }
 }

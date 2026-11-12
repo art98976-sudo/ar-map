@@ -67,9 +67,9 @@ export function createMapPins(root, {getMap, getSelected, canSelect, onSelect}) 
       applyFilter()
     },
     clear: () => pins.clear(),
+    /** Show only this filter's pins (null: all). The bottom sheet paints its own chips. */
     setFilter(next) {
-      filter = filter === next ? null : next
-      root.querySelectorAll('[data-filter]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.filter === filter)))
+      filter = next ?? null
       applyFilter()
       fitToFilter()
     },

@@ -1,6 +1,6 @@
 // The home screen's HTML: the page, the card for the chosen place, the door list and the map error.
 import {infoSheetContent} from '../components/info-sheet.js'
-import {categoryLabel, MAP_FILTERS} from '../../map/filters.js'
+import {categoryLabel, QUICK_CHIPS} from '../../map/filters.js'
 import {describeDestination} from '../../map/search.js'
 import {entrancesOf} from '../../route/start-point.js'
 import {html} from '../dom.js'
@@ -11,30 +11,41 @@ export const homePage = () => html`
   <div class="map-home">
     <h1 class="sr-only" tabindex="-1">Campus map</h1>
     <div class="map-home__map" data-map role="region" aria-label="University of Stirling campus map"></div>
-    <header class="map-home__top">
-      <div class="map-home__row">
-        <button class="map-search" type="button" data-action="open-search" aria-label="Where do you want to go?">
-          ${icon('search', {size: 20})}<span>Where do you want to go?</span>
-        </button>
-        <button class="icon-btn icon-btn--glass-light map-3d" type="button" data-action="toggle-3d" aria-pressed="false" aria-label="Show 3D buildings">
-          <span data-3d-label>3D</span><span class="spinner map-3d__spinner" data-3d-spinner aria-hidden="true" hidden></span>
-        </button>
-        <button class="icon-btn icon-btn--glass-light" type="button" data-action="open-info" aria-label="About and privacy">${icon('info')}</button>
-      </div>
-      <div class="map-chips" role="group" aria-label="Filter the map">
-        ${MAP_FILTERS.map(
-          (f) => html`
-            <button class="map-chip" type="button" data-action="filter" data-filter="${f.id}" aria-pressed="false">
-              ${icon(f.icon, {size: 18})}<span>${f.label}</span>
-            </button>
-          `,
-        )}
-      </div>
+    <header class="map-home__top theme-auto">
+      <button class="map-search" type="button" data-action="open-search" aria-label="Search rooms, buildings, places">
+        ${icon('search', {size: 24})}<span>Search rooms, buildings, places</span>
+      </button>
     </header>
-    <div class="map-home__overlay" data-overlay>
-      <span class="spinner spinner--dark" aria-hidden="true"></span>
-      <p>Loading the University map…</p>
+    <div class="map-rail theme-auto" data-rail>
+      <div class="map-rail__floors" data-floor-host></div>
+      <button class="round-btn map-3d" type="button" data-action="toggle-3d" aria-pressed="false" aria-label="Show 3D buildings">
+        <span data-3d-label>3D</span><span class="spinner map-3d__spinner" data-3d-spinner aria-hidden="true" hidden></span>
+      </button>
+      <button class="round-btn" type="button" data-action="locate" aria-label="Show my location">${icon('locate')}</button>
+      <button class="round-btn" type="button" data-action="north" aria-label="Turn the map north up" data-north hidden>${icon('north')}</button>
     </div>
+    <div class="map-home__overlay theme-auto" data-overlay>${mapLoading()}</div>
+    <section class="home-sheet theme-auto" data-home-sheet data-height="peek" aria-label="Places">
+      <button class="home-sheet__handle" type="button" data-action="sheet-step" aria-label="Show more" aria-expanded="false">
+        <span aria-hidden="true"></span>
+      </button>
+      <div class="home-sheet__peek">
+        <div class="quick-chips" role="group" aria-label="Find on the map">
+          ${QUICK_CHIPS.map(
+            (c) => html`
+              <button class="quick-chip" type="button" data-action="filter" data-filter="${c.id}" aria-pressed="false">
+                ${icon(c.icon, {size: 20})}<span>${c.label}</span>
+              </button>
+            `,
+          )}
+        </div>
+        <button class="round-btn round-btn--flat" type="button" data-action="open-menu" aria-label="More" aria-haspopup="menu" aria-expanded="false">${icon('menu')}</button>
+        <div class="home-menu" data-menu role="menu" hidden>
+          <button class="home-menu__item" type="button" role="menuitem" data-action="open-info">${icon('info', {size: 20})}<span>About and privacy</span></button>
+        </div>
+      </div>
+      <div class="home-sheet__body" data-chip-results aria-live="polite"></div>
+    </section>
     <section class="dest-sheet" data-card hidden aria-live="polite" aria-label="Selected place"></section>
 
     <section class="pick-bar" data-pick-bar aria-label="Pick your start on the map" hidden>
@@ -81,8 +92,35 @@ export const homePage = () => html`
   </div>
 `
 
-export const mapLoading = () => html`<span class="spinner spinner--dark" aria-hidden="true"></span>
-  <p>Loading the University map…</p>`
+/** Grey blocks in the shape of what is coming, instead of a blank screen or a lone spinner. */
+export const mapLoading = () => html`<div class="skeleton" aria-hidden="true">
+    <span class="skeleton__bar"></span>
+    <span class="skeleton__rail"></span>
+    <span class="skeleton__sheet"><span></span><span></span><span></span></span>
+  </div>
+  <p class="sr-only" role="status">Loading the University map…</p>`
+
+/** One row of the quick-chip results: what it is, where, how far. */
+export const placeRow = (place, i) => html`
+  <li>
+    <button class="place-row" type="button" data-result="${i}">
+      <span class="place-row__icon">${icon(place.icon, {size: 20})}</span>
+      <span class="place-row__text"><strong>${place.name}</strong><span>${place.detail}</span></span>
+    </button>
+  </li>
+`
+
+export const chipResults = (title, places, note = '') => html`
+  <h2 class="home-sheet__title">${title}</h2>
+  ${note ? html`<p class="home-sheet__note">${note}</p>` : ''}
+  <ul class="place-list">${places.map((p, i) => placeRow(p, i))}</ul>
+`
+
+export const chipLoading = (title) => html`
+  <h2 class="home-sheet__title">${title}</h2>
+  <ul class="place-list" aria-hidden="true">${[0, 1, 2, 3].map(() => html`<li class="place-row place-row--skeleton"><span></span><span></span></li>`)}</ul>
+  <p class="sr-only" role="status">Loading…</p>
+`
 
 export function placeCard(place, walkText) {
   const room = place.category === 'room' ? describeDestination(place) : ''
