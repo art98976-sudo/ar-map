@@ -688,6 +688,50 @@ describe('walking beats the compass', () => {
     }
   }
 
+  it('line-up: opens after Start, a drag turns the route about the user, and after "Looks right" the compass never turns it again', () => {
+    const t = startTrip(0)
+    for (let i = 0; i < 10; i++) t.frame()
+    expect(t.box.stats).toMatchObject({lineUp: true, canRealign: false})
+    const before = wrapped(t.box.stats.yawDeg)
+    // Drag right 30°: the route turns clockwise seen from above, about where the user stands.
+    const root = t.scene.getObjectByName('geo-root')
+    const userBefore = t.trip.mapState().user
+    expect(t.trip.rotateRoute(30)).toBe(true)
+    for (let i = 0; i < 6; i++) t.frame()
+    near(wrapped(t.box.stats.yawDeg - before), -30, 0.5)
+    near(t.trip.mapState().user.lat, userBefore.lat, 1e-6) // the user stays put
+    expect(root.visible).toBe(true)
+    t.trip.confirmLineUp()
+    for (let i = 0; i < 6; i++) t.frame()
+    expect(t.box.stats).toMatchObject({lineUp: false, canRealign: true, compassLocked: true})
+    // The compass now says 40° east for many seconds, steady: the route must not move.
+    const settled = t.box.stats.yawDeg
+    t.faceNorth(40)
+    for (let i = 0; i < 10 / 0.05; i++) t.frame()
+    near(t.box.stats.yawDeg, settled, 0.01)
+    t.trip.recalibrate() // not even the debug button
+    for (let i = 0; i < 40; i++) t.frame()
+    near(t.box.stats.yawDeg, settled, 0.01)
+    // "Re-align" opens it again.
+    expect(t.trip.reopenLineUp()).toBe(true)
+    t.frame()
+    for (let i = 0; i < 6; i++) t.frame()
+    expect(t.box.stats.lineUp).toBe(true)
+    t.done()
+  })
+
+  it('line-up: the first drag already stops the compass turning the route', () => {
+    const t = startTrip(0)
+    for (let i = 0; i < 10; i++) t.frame()
+    t.trip.rotateRoute(-10)
+    for (let i = 0; i < 6; i++) t.frame()
+    const dragged = t.box.stats.yawDeg
+    t.faceNorth(25)
+    for (let i = 0; i < 10 / 0.05; i++) t.frame()
+    near(t.box.stats.yawDeg, dragged, 0.01)
+    t.done()
+  })
+
   it('draws the floor chevrons inside geo-root at once, on the fallback floor, and hides them after 2 s of lost tracking', () => {
     const t = startTrip(0)
     for (let i = 0; i < 10; i++) t.frame()

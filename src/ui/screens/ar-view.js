@@ -32,7 +32,15 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
             <span class="chip__dot"></span><span data-tracking-label>Starting tracking</span>
           </div>`
         : ''}
+      <button class="ar-realign chip chip--glass" type="button" data-action="realign" aria-label="Re-align the arrows with the path" hidden>
+        ${icon('compass', {size: 16})}<span>Re-align</span>
+      </button>
     </header>
+
+    <section class="ar-lineup" data-lineup aria-label="Line up the arrows" hidden>
+      <p class="ar-lineup__hint">${icon('drag', {size: 18})}<span>Drag to lay the arrows on the path</span></p>
+      <button class="btn btn--primary btn--block" type="button" data-action="looks-right">Looks right</button>
+    </section>
     ${showDebug
       ? html`<button class="debug-toggle chip chip--glass" type="button" data-action="debug" aria-label="Show debug panel" aria-expanded="false" aria-controls="ar-debug">
           ${icon('info', {size: 16})}<span>Debug</span>

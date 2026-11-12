@@ -488,3 +488,48 @@
 .ar__top:has([data-tracking-chip]) ~ .ar-pill {
   top: calc(var(--safe-top) + var(--s-3) + 60px);
 }
+
+/* ---------- Line-up: drag the route onto the real path, then "Looks right" ---------- */
+.ar.is-lining-up {
+  touch-action: none; /* the drag turns the route; it must not scroll or zoom the page */
+}
+.ar-lineup {
+  position: absolute;
+  left: var(--s-4);
+  right: var(--s-4);
+  bottom: calc(var(--safe-bottom) + var(--s-4));
+  z-index: 6;
+  display: grid;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  border-radius: 20px;
+  background: var(--ar-panel-82);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  backdrop-filter: blur(20px) saturate(1.4);
+  box-shadow: inset 0 0 0 1px var(--glass-line);
+  color: #fff;
+}
+.ar-lineup[hidden] {
+  display: none;
+}
+.ar-lineup__hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  margin: 0;
+  font-weight: 600;
+}
+.ar-lineup .btn {
+  min-height: 48px;
+}
+.ar-realign {
+  /* Under the top row, on the right, clear of the trip pill. */
+  position: absolute;
+  top: 56px;
+  right: 0;
+  min-height: 44px;
+}
+.ar-realign[hidden] {
+  display: none;
+}

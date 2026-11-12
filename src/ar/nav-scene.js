@@ -180,6 +180,23 @@ export function createNavScene({THREE, scene, camera, route, origin, reducedMoti
     return true
   }
 
+  /**
+   * Turn the whole route about where the user stands, straight away (the line-up drag).
+   * deltaRad > 0 turns it anticlockwise seen from above, < 0 clockwise.
+   */
+  function rotateAboutUser(deltaRad) {
+    if (!aligned || !Number.isFinite(deltaRad)) return false
+    ease = null
+    camera.getWorldPosition(camPos)
+    const pivot = geoRoot.worldToLocal(camPos.clone())
+    yaw += deltaRad
+    const rotated = rotateY({x: pivot.x, z: pivot.z}, yaw)
+    geoRoot.rotation.set(0, yaw, 0)
+    geoRoot.position.set(camPos.x - rotated.x, geoRoot.position.y, camPos.z - rotated.z)
+    geoRoot.updateMatrixWorld(true)
+    return true
+  }
+
   /** A new route, from a reroute. The placement stays, so the walk so far still lines up. */
   function setRoute(next) {
     local = routeToLocal(origin, next.points)
@@ -282,6 +299,7 @@ export function createNavScene({THREE, scene, camera, route, origin, reducedMoti
     routePointForFix,
     nextTurnAt: (s = whereAmI().s) => nextTurn(turns, s),
     realign,
+    rotateAboutUser,
     applyCorrection,
     worldToRoute,
     /** Route frame {x, y} -> a new world position on the ground. */

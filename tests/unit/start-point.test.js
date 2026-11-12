@@ -213,6 +213,7 @@ describe('a trip in AR', () => {
     expect(box.stats.manual).toBe(true)
     expect(box.stats.directionKnown).toBe(true)
     near(Math.abs((((box.stats.yawDeg + 180) % 360) + 360) % 360 - 180), 40, 0.1) // not 200
+    expect(box.stats.lineUp).toBe(false) // a door already knows which way the user faces: no line-up
   })
   it('from a pin, with no stored heading: the compass decides, as usual', () => {
     setup({startPoint: {type: 'map', name: 'Pin', lat: ORIGIN.lat, lng: ORIGIN.lng, headingDeg: null}})

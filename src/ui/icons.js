@@ -17,6 +17,7 @@ const PATHS = {
   arrowUp: '<path d="M12 20V5M6 11l6-6 6 6"/>',
   straight: '<path d="M12 20V5M6 11l6-6 6 6"/>',
   swap: '<path d="M8 4v15M4 8l4-4 4 4M16 20V5M12 16l4 4 4-4"/>',
+  drag: '<path d="M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4"/>',
   expand: '<path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/>',
   shrink: '<path d="M20 10h-6V4M14 10l7-7M4 14h6v6M10 14l-7 7"/>',
   left: '<path d="M17 20v-8a3 3 0 0 0-3-3H6M10 4.5 5.5 9l4.5 4.5"/>',

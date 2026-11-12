@@ -22,6 +22,7 @@ import {errorCopy} from './ar-errors.js'
 import {errorView, liveView, loadingView} from './ar-view.js'
 
 const MAP_SWIPE_PX = 40
+const LINE_UP_DEG_PER_WIDTH = 90 // a drag across the whole screen turns the route this far
 const SWIPE_CLICK_MS = 500 // a mouse swipe also fires a click; a finger's does not
 
 /** How the pill names the end of the walk: "Pathfoot entrance", but not "Bus Hub entrance". */
@@ -78,6 +79,8 @@ export function arScreen(root, {navigate, params}) {
   let compassMap = null
   let mapFailed = false
   let mapSwipedAt = -Infinity
+  let lineUpDraggedAt = -Infinity // a line-up drag also fires a click: not a floor tap
+  let lineUpOpen = false
   const setStat = (name, text, tone) => setDebugStat(root, name, text, tone)
 
   const actions = {
@@ -90,6 +93,13 @@ export function arScreen(root, {navigate, params}) {
       trip?.switchToLive()
     },
     exit: () => navigate('/'),
+    'looks-right': () => {
+      trip?.confirmLineUp()
+      haptic(20)
+    },
+    realign: () => {
+      if (trip?.reopenLineUp()) paintLineUp(true)
+    },
     done: () => navigate('/'),
     'start-walk': () => {
       const result = trip?.start()
@@ -222,6 +232,7 @@ export function arScreen(root, {navigate, params}) {
     if (minimap && mapFailed && s.minimap) drawMinimap(minimap, s.minimap)
     paintDebugStats(root, s)
     paintStatusLine(s)
+    paintLineUp(Boolean(s.lineUp), s.canRealign)
     const pillText = root.querySelector('[data-trip-pill]')
     if (pillText && s.phase === 'ready') pillText.textContent = tripPillText(destination.name, s.remainingM)
   }
@@ -260,11 +271,55 @@ export function arScreen(root, {navigate, params}) {
     const view = root.querySelector('.ar')
     if (!view) return
     view.addEventListener('click', (event) => {
-      // Only a tap on the camera picture itself, not on a button, the map or a card.
+      // Only a tap on the camera picture itself, not on a button, the map or a card, nor a line-up drag.
+      if (performance.now() - lineUpDraggedAt < SWIPE_CLICK_MS) return
       if (event.target !== view && !event.target.matches?.('[data-canvas]')) return
       const box = view.getBoundingClientRect()
       if (trip?.tapFloor((event.clientX - box.left) / box.width, (event.clientY - box.top) / box.height)) haptic(15)
     })
+  }
+
+  /** The line-up step: its card while open, the "Re-align" button otherwise. */
+  function paintLineUp(open, canRealign = false) {
+    const card = root.querySelector('[data-lineup]')
+    const view = root.querySelector('.ar')
+    const realign = root.querySelector('[data-action="realign"]')
+    if (!card || !view) return
+    if (open && !lineUpOpen) haptic(12)
+    lineUpOpen = open
+    card.hidden = !open
+    view.classList.toggle('is-lining-up', open)
+    if (realign) realign.hidden = open || !canRealign
+  }
+
+  /**
+   * Line-up: a finger dragged left or right anywhere on the camera view turns the route about the
+   * user. The whole width of the screen is LINE_UP_DEG_PER_WIDTH degrees.
+   */
+  function wireLineUpDrag() {
+    const view = root.querySelector('.ar')
+    if (!view) return
+    let drag = null
+    view.addEventListener('pointerdown', (event) => {
+      if (!lineUpOpen || event.target.closest('button, a, .ar-map, [data-lineup]')) return
+      drag = {id: event.pointerId, x: event.clientX, moved: 0}
+      view.setPointerCapture?.(event.pointerId)
+    })
+    view.addEventListener('pointermove', (event) => {
+      if (!drag || event.pointerId !== drag.id) return
+      const dx = event.clientX - drag.x
+      if (!dx) return
+      drag.x = event.clientX
+      drag.moved += Math.abs(dx)
+      trip?.rotateRoute((dx / view.clientWidth) * LINE_UP_DEG_PER_WIDTH)
+    })
+    const end = (event) => {
+      if (!drag || event.pointerId !== drag.id) return
+      if (drag.moved > 6) lineUpDraggedAt = performance.now()
+      drag = null
+    }
+    view.addEventListener('pointerup', end)
+    view.addEventListener('pointercancel', end)
   }
 
   /** One thing to do at a time: only the most urgent of these shows. */
@@ -378,6 +433,7 @@ export function arScreen(root, {navigate, params}) {
     trip = createArTrip({route, origin, destination, allowDesktop, debug: showDebug, arriveLabel: arriveLabel(destination), onPhase, onStats, onArrived, onTurnClose: () => haptic(30), onTurnNow: () => haptic([30, 50, 30]), startPoint: tripStart, autoStart: !manualStart, reducedMotion: prefersReducedMotion(), onEnterCampus: () => showToast('Welcome to campus', {tone: 'success'})})
     wireMapSwipe()
     wireFloorTap()
+    wireLineUpDrag()
     compassMap = createCompassMap(root.querySelector('[data-map-canvas]'), {
       getState: () => trip?.mapState() ?? null,
       onReady: () => {

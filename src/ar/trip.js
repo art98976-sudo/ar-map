@@ -99,6 +99,9 @@ export function createArTrip({
   let matcher = null
   let lastMatchAt = -Infinity
   let arrived = false
+  let lineUp = false // the line-up step is open: drag to turn the route, then "Looks right"
+  let lineUpTouched = false // the user has dragged: the compass no longer turns the route
+  let compassLocked = false // confirmed by the user, or locked on by walking: never the compass again
   let trackingLostAt = null // when world tracking last stopped being NORMAL
   let arrowsShown = false
   const arrival = createArrivalDetector()
@@ -199,9 +202,22 @@ export function createArTrip({
     return r.status === 'unsteady' ? 'unsteady' : 'ok'
   }
 
+  /**
+   * The compass is only the first guess: once the user has lined the arrows up by hand (or started
+   * to), or walking has locked the route on, it never turns the route again.
+   */
+  function compassMayTurn() {
+    if (lineUpTouched || compassLocked) return false
+    if (matcher?.locked) {
+      compassLocked = true
+      return false
+    }
+    return true
+  }
+
   function realignFromCompass(h) {
     // Once walking has shown the compass is badly wrong, it could only turn the route back.
-    if (!directionKnown || matcher.flipped || compassOff) return
+    if (!directionKnown || matcher.flipped || compassOff || !compassMayTurn()) return
     // A compass that only woke up after Start: remember its error, do not act on it.
     if (compassBias == null) {
       compassBias = angleDiff(cameraBearing() + matcher.totalYawDeg, h)
@@ -259,7 +275,7 @@ export function createArTrip({
   }
 
   /** Place the route and start guiding. headingDeg: the compass; null: find out by walking. */
-  function beginGuidance(headingDeg) {
+  function beginGuidance(headingDeg, {facingKnown = false} = {}) {
     const fix = bestFix()
     const info = nav.startInfo(fix)
     nav.setGround(floorNow.height ?? ground.fallback(camera.position.y), 0)
@@ -274,6 +290,9 @@ export function createArTrip({
     navPose.reset()
     startS = info.s
     restartWindow()
+    // Line the arrows up with the real path by hand, unless the start already knows its facing.
+    lineUp = !facingKnown
+    lineUpTouched = false
     setPhase('ready', {heading: headingDeg})
   }
 
@@ -294,7 +313,7 @@ export function createArTrip({
     // Standing at a door with it behind you: the stored heading beats a compass beside a building.
     if (manual && Number.isFinite(startPoint.headingDeg)) {
       compassOff = true
-      beginGuidance(startPoint.headingDeg)
+      beginGuidance(startPoint.headingDeg, {facingKnown: true})
       return 'ok'
     }
     if (!compassUsable()) {
@@ -603,7 +622,7 @@ export function createArTrip({
     }
     if (phase === 'ready' && !arrived) {
       // A compass that recovers before walking has shown the way: use it, from where the user is.
-      if (!directionKnown && compassUsable()) {
+      if (!directionKnown && compassUsable() && compassMayTurn()) {
         nav.align(recentHeading(), fromLocal(origin, pointAt(nav.route, tracker.s)))
         compassBias = 0
         directionFound()
@@ -704,6 +723,9 @@ export function createArTrip({
         distanceFromRouteM: phase === 'ready' && pose.lateralOffsetM != null ? Math.abs(pose.lateralOffsetM) : null,
         lateralOffsetM: phase === 'ready' ? pose.lateralOffsetM : null,
         poseConfident: pose.confident,
+        lineUp: phase === 'ready' && lineUp && !arrived,
+        canRealign: phase === 'ready' && !lineUp && !arrived && Boolean(nav.aligned),
+        compassLocked,
         aligned: Boolean(nav.aligned),
         arrowsShown,
         arrowsCreated: nav.arrowsCreated,
@@ -775,13 +797,38 @@ export function createArTrip({
       return ground.eyeM
     },
     recalibrate() {
-      if (phase !== 'ready' || heading == null) return
+      // The compass may not turn a route the user has lined up, or walking has locked on.
+      if (phase !== 'ready' || heading == null || !compassMayTurn()) return
       restartWindow()
       compassBias = 0
       nav.realign(recentHeading())
     },
     start,
     tapFloor,
+    /** Line-up drag: turn the route about the user by `deg` (> 0 clockwise, as the finger moves right). */
+    rotateRoute(deg) {
+      if (phase !== 'ready' || !nav?.aligned || !Number.isFinite(deg) || deg === 0) return false
+      lineUpTouched = true // from the first drag, the compass no longer turns the route
+      return nav.rotateAboutUser(-(deg * Math.PI) / 180)
+    },
+    /** "Looks right": the route stays as the user lined it up; walking may still correct it. */
+    confirmLineUp() {
+      if (!lineUp) return
+      lineUp = false
+      compassLocked = true
+      compassOff = true // the arrow and the map follow the camera from here, not the compass
+      directionFound()
+    },
+    /** The "Re-align" button: open the line-up step again. */
+    reopenLineUp() {
+      if (phase !== 'ready' || arrived || !nav?.aligned) return false
+      lineUp = true
+      lineUpTouched = false
+      return true
+    },
+    get lineUp() {
+      return lineUp
+    },
     /** A chosen start, and GPS has become good: follow GPS from here on. */
     switchToLive() {
       if (!manual || !lastFix) return
