@@ -56,7 +56,8 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
     <p class="ar__hint" data-locating role="status" hidden>Locating you…</p>
     <button class="ar__hint ar__hint--action" type="button" data-action="go-live" hidden>Switch to live location?</button>
     <button class="ar__hint ar__hint--action" type="button" data-action="repick" hidden>Off route? Choose your start again</button>
-    <p class="ar__hint" data-reroute-hint role="status" hidden>Off route - finding a new route</p>
+    <p class="ar__hint" data-position-hint role="status" hidden>Finding your position. Follow the map for now.</p>
+    <p class="ar__hint" data-reroute-hint role="status" hidden>Finding a new route</p>
     <p class="ar__hint" data-approx-hint role="status" ${routeSource === 'direct' ? '' : 'hidden'}>Approximate route - check the 2D map</p>
     </div>
 

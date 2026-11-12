@@ -769,6 +769,72 @@ describe('walking beats the compass', () => {
     t.done()
   })
 
+  it('GPS worse than 20 m for 3 s hides the arrow and the ground route; 3 s of good GPS brings them back', () => {
+    let onFix
+    const t = startTrip(0, {geolocation: {watchPosition: (ok) => ((onFix = ok), 1), clearWatch: () => {}}})
+    const root = t.scene.getObjectByName('geo-root')
+    const fix = (accuracy) => onFix({coords: {latitude: ORIGIN.lat, longitude: ORIGIN.lng, accuracy}})
+    fix(6)
+    for (let i = 0; i < 20; i++) t.frame()
+    expect(t.trip.guideDeg).not.toBeNull()
+    fix(35)
+    for (let i = 0; i < 2.8 / 0.05; i++) t.frame()
+    expect(t.box.stats.positionUncertain).toBe(false) // not yet: one bad stretch must last 3 s
+    for (let i = 0; i < 0.4 / 0.05; i++) t.frame()
+    expect(t.box.stats).toMatchObject({positionUncertain: true, positionReason: 'gps'})
+    expect(root.visible).toBe(false)
+    expect(t.trip.guideDeg).toBeNull()
+    fix(8)
+    for (let i = 0; i < 2.8 / 0.05; i++) t.frame()
+    expect(t.box.stats.positionUncertain).toBe(true)
+    for (let i = 0; i < 0.6 / 0.05; i++) t.frame() // recovers at 3 s; stats go out every 0.25 s
+    expect(t.box.stats.positionUncertain).toBe(false)
+    expect(root.visible).toBe(true)
+    expect(t.trip.guideDeg).not.toBeNull()
+    t.done()
+  })
+
+  it('a compass swinging 60° while the phone holds still hides the arrow', () => {
+    const t = startTrip(0)
+    for (let i = 0; i < 10; i++) t.frame()
+    for (let i = 0; i < 5 / 0.05; i++) {
+      t.faceNorth(i % 16 < 8 ? 30 : 330) // the compass jumps between 30° and -30°; the camera does not move
+      t.frame()
+    }
+    expect(t.box.stats).toMatchObject({positionUncertain: true, positionReason: 'compass'})
+    expect(t.box.stats.headingSwingDeg).toBeGreaterThan(40)
+    expect(t.trip.guideDeg).toBeNull()
+    t.done()
+  })
+
+  it('a poor GPS fix does not hide the arrow on a trip from a chosen door', () => {
+    let onFix
+    const door = {type: 'place', placeId: 'cottrell', name: 'Cottrell', lat: ORIGIN.lat, lng: ORIGIN.lng, headingDeg: 0}
+    const t = startTrip(0, {startPoint: door, geolocation: {watchPosition: (ok) => ((onFix = ok), 1), clearWatch: () => {}}})
+    onFix?.({coords: {latitude: ORIGIN.lat, longitude: ORIGIN.lng, accuracy: 60}})
+    for (let i = 0; i < 6 / 0.05; i++) t.frame()
+    expect(t.box.stats.positionUncertain).toBe(false)
+    t.done()
+  })
+
+  it('off route: plans a new route at most once every 15 s', async () => {
+    const plan = vi.fn(async () => ({...ROUTE, status: 'ok', source: 'footpaths'})) // the same route: still off it
+    let onFix
+    const t = startTrip(0, {plan, geolocation: {watchPosition: (ok) => ((onFix = ok), 1), clearWatch: () => {}}})
+    onFix({coords: {latitude: ORIGIN.lat, longitude: ORIGIN.lng + 40 / 62_000, accuracy: 10}})
+    t.sidestep(40)
+    for (let i = 0; i < 5.2 / 0.05; i++) t.frame()
+    expect(plan).toHaveBeenCalledTimes(1)
+    expect(t.box.stats.distanceFromRouteM).toBeGreaterThan(15)
+    await vi.advanceTimersByTimeAsync(0)
+    for (let i = 0; i < 13.5 / 0.05; i++) t.frame() // 18.7 s: 5 s off again, but only 13.5 s since the last
+    expect(plan).toHaveBeenCalledTimes(1)
+    expect(t.box.stats.rerouteWaitS).toBeGreaterThan(0)
+    for (let i = 0; i < 2 / 0.05; i++) t.frame()
+    expect(plan).toHaveBeenCalledTimes(2)
+    t.done()
+  })
+
   it('crossing on to campus: says welcome once, and plans again for a campus destination', async () => {
     const outside = {lat: 56.13, lng: -3.92}
     const route = {...ROUTE, source: 'footpaths', points: [outside, ROUTE.entrance]}

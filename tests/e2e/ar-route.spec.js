@@ -134,3 +134,39 @@ test.describe('route and arrows', () => {
     await expect(page.getByRole('button', {name: 'Show debug panel'})).toHaveCount(0)
   })
 })
+
+test.describe('position confidence on the AR screen', () => {
+  test('GPS worse than 20 m for 3 s: arrows hide, the map opens with "Finding your position"; good GPS brings them back', async ({page, context}, testInfo) => {
+    test.setTimeout(180_000)
+    test.skip(onlyOn('android-chrome')(testInfo))
+    const errors = []
+    page.on('pageerror', (e) => errors.push(e.message))
+    await page.addInitScript(FAKE_REAR_CAMERA)
+    const here = {latitude: 56.14525, longitude: -3.9201}
+    await context.setGeolocation({...here, accuracy: 5})
+    await page.goto('/#/locate?to=cottrell&force=1')
+    await page.getByRole('button', {name: 'Tap to start'}).click({timeout: 30_000})
+    const arrows = page.locator('[data-floor-arrows] [data-trail]')
+    await expect(arrows).toBeVisible({timeout: 90_000})
+    const hint = page.getByText('Finding your position. Follow the map for now.')
+    const map = page.locator('[data-compass-map]')
+    await expect(hint).toBeHidden()
+    await expect(map).not.toHaveClass(/is-expanded/)
+
+    await context.setGeolocation({...here, accuracy: 40})
+    await page.waitForTimeout(1500)
+    await expect(hint).toBeHidden() // not after one bad moment
+    await expect(hint).toBeVisible({timeout: 5000})
+    await expect(map).toHaveClass(/is-expanded/)
+    await expect(arrows).toBeHidden()
+    await page.screenshot({path: testInfo.outputPath("finding-position.png")})
+
+    await context.setGeolocation({...here, accuracy: 6})
+    await page.waitForTimeout(1500)
+    await expect(hint).toBeVisible() // 3 s of good readings first
+    await expect(hint).toBeHidden({timeout: 5000})
+    await expect(map).not.toHaveClass(/is-expanded/) // put back, as the user had it
+    await expect(arrows).toBeVisible({timeout: 10_000})
+    expect(errors).toEqual([])
+  })
+})

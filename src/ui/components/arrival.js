@@ -1,4 +1,4 @@
-// "You've arrived": shown over the camera at the entrance, with a short burst of confetti.
+// "You have arrived": shown over the camera at the entrance, with a short burst of confetti.
 import {haptic, html, render} from '../dom.js'
 import {icon} from '../icons.js'
 import {COLOURS} from '../../config.js'
@@ -26,7 +26,7 @@ export function showArrival(host, {name, reducedMotion = prefersReducedMotion()}
       ${reducedMotion ? '' : html`<div class="arrival__confetti" data-confetti aria-hidden="true">${confetti()}</div>`}
       <section class="arrival__card" role="dialog" aria-modal="true" aria-labelledby="arrival-title">
         <span class="arrival__icon">${icon('check', {size: 32})}</span>
-        <h1 class="arrival__title" id="arrival-title" tabindex="-1">You've arrived 🎉</h1>
+        <h1 class="arrival__title" id="arrival-title" tabindex="-1">You have arrived</h1>
         <p class="arrival__place">${name}</p>
         <button class="btn btn--primary btn--block" type="button" data-action="done" aria-label="Done">Done</button>
       </section>

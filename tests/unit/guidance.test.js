@@ -2,9 +2,7 @@ import {describe, expect, it} from 'vitest'
 import {
   buildManoeuvres,
   classifyTurn,
-  createArrivalDetector,
   createGuidance,
-  createOffRouteMonitor,
   instructionFor,
   roundDistance,
 } from '../../src/route/guidance.js'
@@ -147,55 +145,5 @@ describe('the next manoeuvre', () => {
     const ticks = []
     for (let s = 0; s <= 100; s += 0.5) if (guide.turnIsClose(s)) ticks.push(s)
     expect(ticks).toEqual([30, 60])
-  })
-})
-
-describe('off route', () => {
-  it('8. 20 m off for 5 s asks for a reroute, once', () => {
-    const monitor = createOffRouteMonitor()
-    const fired = []
-    for (let t = 0; t <= 12; t += 0.25) if (monitor.update(20, t)) fired.push(t)
-    expect(fired).toEqual([5])
-  })
-  it('8. coming back within 8 m before then cancels it', () => {
-    const monitor = createOffRouteMonitor()
-    for (let t = 0; t < 4; t += 0.25) expect(monitor.update(20, t)).toBe(false)
-    expect(monitor.update(6, 4)).toBe(false)
-    for (let t = 4.25; t < 9; t += 0.25) expect(monitor.update(20, t)).toBe(false)
-    expect(monitor.update(20, 9.25)).toBe(true) // the clock started again at 4.25
-  })
-  it('keeps counting between 8 m and 15 m, but does not start there', () => {
-    const monitor = createOffRouteMonitor()
-    for (let t = 0; t < 20; t += 0.5) expect(monitor.update(12, t)).toBe(false)
-    expect(monitor.update(20, 20)).toBe(false)
-    expect(monitor.update(12, 23)).toBe(false)
-    expect(monitor.update(12, 25)).toBe(true)
-  })
-  it('never reroutes more than once in 20 s', () => {
-    const monitor = createOffRouteMonitor()
-    const fired = []
-    for (let t = 0; t <= 60; t += 0.25) if (monitor.update(30, t)) fired.push(t)
-    expect(fired).toEqual([5, 25, 45])
-  })
-})
-
-describe('arrival', () => {
-  it('9. triggers once, within 8 m along the route', () => {
-    const arrival = createArrivalDetector()
-    const fired = []
-    for (let i = 0; i < 100; i++) if (arrival.update(0.1, Math.max(0, 60 - i), 100)) fired.push(i)
-    expect(fired).toHaveLength(1)
-    expect(fired[0]).toBeGreaterThanOrEqual(52) // 8 m to go at i = 52, then held for a second
-  })
-  it('triggers within 6 m in a straight line, whatever the route says is left', () => {
-    const arrival = createArrivalDetector()
-    let fired = 0
-    for (let i = 0; i < 40; i++) if (arrival.update(0.1, 50, 5)) fired += 1
-    expect(fired).toBe(1)
-  })
-  it('does not trigger on a moment passing close by', () => {
-    const arrival = createArrivalDetector()
-    for (let i = 0; i < 5; i++) expect(arrival.update(0.1, 5, 100)).toBe(false)
-    for (let i = 0; i < 100; i++) expect(arrival.update(0.1, 30, 30)).toBe(false)
   })
 })

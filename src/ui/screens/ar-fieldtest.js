@@ -38,7 +38,7 @@ export function rowFrom(stats, {at, startedAt, mark = null}) {
     tracked_lon: num(s.trackedLng, 7),
     gps_accuracy_m: num(s.gpsAccuracy, 1),
     heading_deg: num(s.heading, 1),
-    off_route_m: num(s.offRouteM, 2),
+    off_route_m: num(s.distanceFromRouteM ?? s.offRouteM, 2),
     along_m: num(s.userS, 1),
     arrow_bearing_deg: num(s.arrowBearingDeg, 1),
     phase: s.phase ?? null,
@@ -292,7 +292,7 @@ export function createFieldTest({haptic = () => {}, storage, intervalMs = 1000} 
     }
     set('gps', Number.isFinite(s.gpsAccuracy) ? `±${Math.round(s.gpsAccuracy)} m` : 'waiting')
     set('heading', Number.isFinite(s.heading) ? `${Math.round(s.heading)}°` : '–')
-    set('off', fmt(s.offRouteM, ' m'))
+    set('off', fmt(s.distanceFromRouteM ?? s.offRouteM, ' m'))
     set('along', fmt(s.userS, ' m', 0))
     set('arrow', Number.isFinite(s.arrowBearingDeg) ? `${Math.round(s.arrowBearingDeg)}°` : '–')
   }

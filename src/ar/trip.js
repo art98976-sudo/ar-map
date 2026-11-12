@@ -27,7 +27,8 @@ import {acceptHit, createGroundTracker, HIT_TYPES, SCREEN_POINTS} from './ground
 import {createRouteMatcher} from './route-matcher.js'
 import {locationPermissionState, watchLocation} from '../geo/location.js'
 import {isManual} from '../route/start-point.js'
-import {createArrivalDetector, createGuidance, createOffRouteMonitor, landmarksFrom} from '../route/guidance.js'
+import {createGuidance, landmarksFrom} from '../route/guidance.js'
+import {createArrivalDetector, createConfidenceMonitor, createOffRouteMonitor} from '../route/trip-monitors.js'
 import {entranceOf, isOnCampus, planRoute} from '../route/route.js'
 import {COMPASS_GUIDE, GPS, GROUND, PIN, ROUTING, START, TRIP} from '../config.js'
 
@@ -102,6 +103,11 @@ export function createArTrip({
   let arrived = false
   const arrival = createArrivalDetector()
   const offRoute = createOffRouteMonitor()
+  // Is the position good enough to draw the arrow? Unreliable: arrows hidden, the 2D map instead.
+  const confidence = createConfidenceMonitor()
+  let positionOk = true
+  let confidenceNow = {reliable: true, reason: null, gpsBad: false, swingDeg: 0}
+  let arrowProgress = null // {distanceAlong, distanceFromRoute, segmentIndex} from arrow-direction.js
   let guidance = null
   let instruction = null
   let instructionAt = -Infinity
@@ -259,6 +265,8 @@ export function createArTrip({
     nav.align(headingDeg ?? info.bearingDeg, fix)
     // A webcam in test mode has no compass and cannot walk.
     directionKnown = headingDeg != null || allowDesktop
+    confidence.reset()
+    positionOk = true
     nav.setVisible(directionKnown)
     compassBias = headingDeg == null ? null : 0
     tracker = createRouteTracker(nav.route, info.s)
@@ -321,7 +329,33 @@ export function createArTrip({
   /** The direction came from walking or a compass that recovered: now the ground can be drawn. */
   function directionFound() {
     directionKnown = true
-    nav.setVisible(true)
+    nav.setVisible(positionOk)
+  }
+
+  /**
+   * The confidence check, once a frame while guiding. GPS counts only while the trip follows GPS
+   * (not from a chosen door or pin), and the compass only while it sets the direction.
+   */
+  function checkConfidence(time) {
+    const f = lookDirection()
+    const level = Math.hypot(f.x, f.z) >= TRIP.minHorizontalLook // looking straight down has no yaw
+    confidenceNow = confidence.update({
+      time,
+      gpsAccuracy: lastFix?.accuracy ?? null,
+      // Judged from the first reading here on: the trip starts from Locate's good fix.
+      useGps: !manual && lastFix != null,
+      heading: compassStale() ? null : heading,
+      useCompass: compassSteers(),
+      cameraYawDeg: level ? toDeg(Math.atan2(f.x, -f.z)) : null, // the phone's own turn, clockwise
+    })
+    if (confidenceNow.reliable === positionOk) return
+    positionOk = confidenceNow.reliable
+    nav.setVisible(directionKnown && positionOk)
+  }
+
+  /** Does the compass set the arrow's direction now? (Not a door's heading, not proven walking.) */
+  function compassSteers() {
+    return heading != null && !compassStale() && !(directionKnown && (compassOff || matcher?.locked))
   }
 
   /** Keep the route on the path the user is really walking. Never while tracking is unsure. */
@@ -486,6 +520,7 @@ export function createArTrip({
     // Where motion tracking puts the user (smooth, and kept on the route by GPS and walking).
     const target = arrowBearingFrom(trackedPosition())
     arrowBearingDeg = target
+    if (!positionOk) return // not sure where the user is: no arrow, the 2D map leads
     if (h != null && target != null) guideDeg = arrowYawDeg(target, h)
   }
 
@@ -498,6 +533,7 @@ export function createArTrip({
     const dir = arrowDirection(arrowLine.line, user, arrowAlong)
     if (!dir) return null
     arrowAlong = dir.progress.distanceAlong
+    arrowProgress = dir.progress
     return dir.bearingDeg
   }
 
@@ -561,6 +597,7 @@ export function createArTrip({
       sampleGround(time)
     }
     const s = nav.update(dt, time)
+    if (phase === 'ready' && !arrived) checkConfidence(time)
     if (phase === 'ready') {
       groundNow = ground.update(dt, s.s, camera.position.y, time)
       nav.setGround(groundNow.height, groundNow.slope, s.s)
@@ -593,7 +630,9 @@ export function createArTrip({
         if (guidance.turnIsClose(routeS)) onTurnClose?.()
         if (guidance.turnIsNow(routeS)) onTurnNow?.()
         // Only while SLAM knows where the user is, and not while already planning.
-        if (directionKnown && tracking === 'NORMAL' && !rerouting && offRoute.update(s.offset, time)) {
+        // Measured as the arrow does (arrow-direction.js), and only from a position we trust.
+        const fromRoute = positionOk ? (arrowProgress?.distanceFromRoute ?? null) : null
+        if (directionKnown && tracking === 'NORMAL' && !rerouting && offRoute.update(fromRoute, time)) {
           if (manual) repickUntil = time + TRIP.repickForS
           reroute()
         }
@@ -625,6 +664,12 @@ export function createArTrip({
         gpsLng: lastFix?.lng ?? null,
         ...trackedLatLng(),
         arrowBearingDeg: phase === 'ready' && !arrived ? arrowBearingDeg : null,
+        positionUncertain: phase === 'ready' && !arrived && !positionOk,
+        positionReason: confidenceNow.reason,
+        headingSwingDeg: confidenceNow.swingDeg,
+        distanceFromRouteM: phase === 'ready' ? (arrowProgress?.distanceFromRoute ?? null) : null,
+        offRouteForS: offRoute.offForS(time),
+        rerouteWaitS: offRoute.waitS(time),
         gpsToEntranceM: gpsDistanceToEntrance(lastFix, route),
          startGapM: nav.startInfo(bestFix()).offset,
          pathBearingDeg: nav.startInfo(bestFix()).pathBearingDeg,

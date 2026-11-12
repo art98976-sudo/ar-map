@@ -1,8 +1,8 @@
-// Turn-by-turn guidance, off-route detection and arrival. Pure logic: no GPS, no three.js.
+// Turn-by-turn guidance. Pure logic: no GPS, no three.js. (Off route and arrival: trip-monitors.js.)
 // Positions are distances along the route, from projecting the SLAM position onto it, so GPS
 // noise cannot reach them.
 import {findTurns, pointAt, polylineLength, projectOntoPolyline, toLocal} from '../geo/geo.js'
-import {ARRIVAL, GUIDE, OFF_ROUTE} from '../config.js'
+import {GUIDE} from '../config.js'
 
 // Names that read wrongly after "the": "Turn left at Scran", not "at the Scran".
 const NO_ARTICLE = new Set(['Campus Central', 'Andrew Stewart Hall', 'Airthrey Loch', 'Airthrey Castle', 'Scran', 'Umami', 'Starbucks'])
@@ -181,44 +181,6 @@ export function createGuidance(route, {arriveLabel = 'Destination', landmarks = 
       const next = getNextManoeuvre(userS)
       if (next.type === 'arrive' || warned.has(next) || next.s - userS > GUIDE.hapticM) return false
       warned.add(next)
-      return true
-    },
-  }
-}
-
-/**
- * Over offM for forS means off route: reroute. Back within backM before that cancels it. At most
- * one reroute per cooldownS. update() returns true on the moment a reroute should start.
- */
-export function createOffRouteMonitor({offM, backM, forS, cooldownS} = OFF_ROUTE) {
-  let since = null
-  let lastFiredAt = -Infinity
-  return {
-    update(offsetM, time) {
-      if (offsetM <= backM) since = null
-      else if (offsetM > offM) since ??= time
-      if (since == null || time - since < forS || time - lastFiredAt < cooldownS) return false
-      lastFiredAt = time
-      since = null
-      return true
-    },
-  }
-}
-
-/**
- * Arrived: within remainingM along the route, or pinM in a straight line from the entrance, for a
- * moment, so a correction easing past cannot end the trip. update() is true once only.
- */
-export function createArrivalDetector({remainingM, pinM, forS} = ARRIVAL) {
-  let held = 0
-  let done = false
-  return {
-    update(dt, remaining, toPin) {
-      if (done) return false
-      const close = remaining <= remainingM || (toPin != null && toPin <= pinM)
-      held = close ? held + dt : 0
-      if (held < forS) return false
-      done = true
       return true
     },
   }

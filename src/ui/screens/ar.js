@@ -71,6 +71,7 @@ export function arScreen(root, {navigate, params}) {
   let disposed = false
   let offAction = () => {}
   let fieldTest = null
+  let mapOpenedForPosition = false // the 2D map was opened because the position is uncertain
   if (fieldTestOn) {
     import('./ar-fieldtest.js').then(({createFieldTest}) => {
       if (disposed) return
@@ -168,11 +169,12 @@ export function arScreen(root, {navigate, params}) {
     if (fieldTest && host) fieldTest.mount(host)
   }
 
-  function toggleMap() {
+  function toggleMap(force) {
     const host = root.querySelector('[data-compass-map]')
     const button = root.querySelector('[data-action="toggle-map"]')
     if (!host) return
-    const expanded = host.classList.toggle('is-expanded')
+    if (force === undefined) mapOpenedForPosition = false // the user's own choice now
+    const expanded = host.classList.toggle('is-expanded', force)
     button.setAttribute('aria-expanded', String(expanded))
     button.setAttribute('aria-label', expanded ? 'Shrink map' : 'Expand map')
     render(root.querySelector('[data-map-expand]'), icon(expanded ? 'shrink' : 'expand', {size: 18}))
@@ -232,8 +234,10 @@ export function arScreen(root, {navigate, params}) {
   function onStats(s) {
     fieldTest?.update(s)
     paintHints(s)
-    floorArrows?.setActive(s.phase === 'ready' || s.phase === 'facing')
-    floorArrows?.setArrived(arrived || (s.phase === 'ready' && s.remainingM <= FLOOR_ARROWS.arriveM))
+    followMapWhileUncertain(s.positionUncertain)
+    floorArrows?.setActive((s.phase === 'ready' && !s.positionUncertain) || s.phase === 'facing')
+    const close = s.remainingM <= FLOOR_ARROWS.arriveM || (s.toPinM != null && s.toPinM <= FLOOR_ARROWS.arriveM)
+    floorArrows?.setArrived(arrived || (s.phase === 'ready' && close))
     if (s.locked && !wasLocked) haptic(18)
     wasLocked = s.locked
     paintStartCard(s)
@@ -248,9 +252,25 @@ export function arScreen(root, {navigate, params}) {
     if (pillText && s.phase === 'ready') pillText.textContent = tripPillText(destination.name, s.remainingM)
   }
 
+  /**
+   * Not sure where the user is: open the 2D map with the route while the arrow is hidden, and put
+   * it back once the position is good again, unless the user has opened or closed it meanwhile.
+   */
+  function followMapWhileUncertain(uncertain) {
+    const open = root.querySelector('[data-compass-map]')?.classList.contains('is-expanded')
+    if (uncertain && !open) {
+      toggleMap(true)
+      mapOpenedForPosition = true
+    } else if (!uncertain && mapOpenedForPosition) {
+      mapOpenedForPosition = false
+      if (open) toggleMap(false)
+    }
+  }
+
   /** One thing to do at a time: only the most urgent of these shows. */
   function paintHints(s) {
     const hints = [
+      ['[data-position-hint]', s.positionUncertain],
       ['[data-reroute-hint]', s.rerouting],
       ['[data-compass-pill]', s.compassUnsteady || s.compassPoor],
       ['[data-locating]', !s.manual && !s.startBlocked && (s.phase === 'await-start' || (s.phase === 'ready' && !s.directionKnown))],

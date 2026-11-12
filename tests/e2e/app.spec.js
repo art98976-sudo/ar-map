@@ -302,7 +302,7 @@ test.describe('AR session', () => {
     await context.setGeolocation({latitude: 56.144904, longitude: -3.920317, accuracy: 5})
     await page.goto('/#/locate?to=cottrell&force=1')
     await page.getByRole('button', {name: 'Tap to start'}).click({timeout: 30_000})
-    await expect(page.getByRole('heading', {name: "You've arrived"})).toBeVisible({timeout: 90_000})
+    await expect(page.getByRole('heading', {name: 'You have arrived'})).toBeVisible({timeout: 90_000})
     await page.getByRole('button', {name: 'Done'}).click()
     await expect(page.getByRole('button', {name: 'Where do you want to go?'})).toBeVisible()
   })
@@ -394,12 +394,69 @@ test.describe('arrow test mode', () => {
     await panel.getByRole('button', {name: 'Restart'}).click()
     await panel.getByLabel('Off the route').fill('15')
     await expect(panel.locator('[data-sim-offset-label]')).toHaveText('15 m')
-    const off = async () => Number((await readout.textContent()).match(/([\d.]+) m off it/)?.[1])
+    const off = async () => Number((await readout.textContent()).match(/([\d.]+) m off the route/)?.[1])
     await expect.poll(off).toBeGreaterThan(2) // off the line, so the arrow aims back on to it
     // Closing the place ends the test mode, and the address keeps it for the next place.
     await page.getByRole('button', {name: 'Close', exact: true}).click()
     await expect(panel).toHaveCount(0)
     expect(page.url()).toContain('simulate=1')
+    expect(errors).toEqual([])
+  })
+
+  test('?simulate=1 sets off "Finding your position" (GPS and compass) and "Finding a new route" (at most once in 15 s)', async ({page}, testInfo) => {
+    test.skip(onlyOn('desktop-chrome')(testInfo))
+    test.setTimeout(180_000)
+    const errors = watchErrors(page)
+    await page.goto('/#/?to=pathfoot&simulate=1')
+    await mapReady(page)
+    const panel = page.getByRole('region', {name: 'Arrow test mode'})
+    await expect(panel.locator('[data-sim-status]')).toHaveText(/route, \d+ m/, {timeout: 60_000})
+    const banner = panel.locator('[data-sim-banner]')
+    const readout = panel.locator('[data-sim-readout]')
+    await panel.getByRole('button', {name: 'Pause'}).click()
+
+    // 1. GPS worse than 20 m for 3 s: the arrow hides and the map takes over; 3 s of good GPS brings it back.
+    await panel.getByLabel('GPS accuracy').fill('35')
+    await page.waitForTimeout(2000)
+    await expect(banner).toBeHidden()
+    await expect(banner).toHaveText('Finding your position. Follow the map for now.', {timeout: 3000})
+    await expect(readout).toContainText('arrow hidden')
+    await panel.getByLabel('GPS accuracy').fill('6')
+    await page.waitForTimeout(2000)
+    await expect(banner).toBeVisible()
+    await expect(banner).toBeHidden({timeout: 3000})
+    await expect(readout).toContainText(/arrow \d+°/)
+
+    // ...and the compass swinging while the phone holds still.
+    await panel.getByRole('button', {name: 'Compass swinging'}).click()
+    await expect(banner).toHaveText('Finding your position. Follow the map for now.', {timeout: 7000})
+    await panel.getByRole('button', {name: 'Compass swinging'}).click()
+    await expect(banner).toBeHidden({timeout: 7000})
+
+    // 2. More than 15 m off for 5 s: plans a new route; not again within 15 s.
+    await panel.getByLabel('Off the route').fill('22')
+    await page.waitForTimeout(3500)
+    await expect(panel.locator('[data-sim-status]')).not.toContainText('new routes')
+    await expect(panel.locator('[data-sim-status]')).toContainText('new routes: 1', {timeout: 8000})
+    await expect(readout).toContainText(/next new route in \d+ s/)
+    await page.waitForTimeout(9000) // 5 s off again, but within 15 s of the last
+    await expect(panel.locator('[data-sim-status]')).toContainText('new routes: 1')
+    await expect(panel.locator('[data-sim-status]')).toContainText('new routes: 2', {timeout: 12_000})
+    expect(errors).toEqual([])
+  })
+
+  test('?simulate=1 shows "You have arrived" with the place name at the end', async ({page}, testInfo) => {
+    test.skip(onlyOn('desktop-chrome')(testInfo))
+    test.setTimeout(150_000)
+    const errors = watchErrors(page)
+    await page.goto('/#/?to=library&simulate=1')
+    await mapReady(page)
+    const panel = page.getByRole('region', {name: 'Arrow test mode'})
+    await expect(panel.locator('[data-sim-status]')).toHaveText(/route, \d+ m/, {timeout: 60_000})
+    await panel.getByRole('button', {name: 'Walking speed'}).click() // 4x
+    await expect(panel.locator('[data-sim-banner]')).toHaveText(/^You have arrived · .*Library/, {timeout: 60_000})
+    await expect(panel.locator('[data-sim-readout]')).toContainText('arrow hidden')
+    await expect(panel.getByRole('button', {name: 'Replay'})).toBeVisible()
     expect(errors).toEqual([])
   })
 })

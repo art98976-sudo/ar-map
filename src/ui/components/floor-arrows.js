@@ -1,6 +1,6 @@
 // The way to walk, drawn over the camera: four big chevrons lying on the ground at the bottom of the
 // screen (CSS perspective), turned towards the route. Turning further than about 100°, a curved turn
-// arrow shows instead, and within 10 m of the entrance a pin and "You've arrived".
+// arrow shows instead, and within 8 m of the entrance a pin and "You have arrived".
 // It needs only the compass, so it looks the same on every phone.
 import {angleDiff} from '../../geo/geo.js'
 import {html, render} from '../dom.js'
@@ -41,7 +41,7 @@ export function createFloorArrows(host, {getDeg}) {
       </div>
       <div class="floor-arrows__arrived" data-arrived hidden>
         <span class="floor-arrows__pin">${icon('pin', {size: 40})}</span>
-        <p class="floor-arrows__arrived-text">You've arrived</p>
+        <p class="floor-arrows__arrived-text">You have arrived</p>
       </div>
     `,
   )
@@ -94,7 +94,7 @@ export function createFloorArrows(host, {getDeg}) {
     setActive(value) {
       active = value
     },
-    /** Close to the entrance: a pin and "You've arrived" instead of arrows. */
+    /** Close to the entrance: a pin and "You have arrived" instead of arrows. */
     setArrived(value) {
       arrived = value
     },

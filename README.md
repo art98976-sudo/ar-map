@@ -137,10 +137,24 @@ node tools/build-room-centres.mjs
 The arrow never points straight at the destination: it turns at each corner, and leads someone who
 has wandered off the path back on to it. In AR, "the user" is where motion tracking puts the phone.
 
+**When the arrow steps aside** ([src/route/trip-monitors.js](src/route/trip-monitors.js), numbers in
+`CONFIDENCE`, `OFF_ROUTE` and `ARRIVAL` in [src/config.js](src/config.js)):
+
+- **Finding your position:** GPS worse than 20 m, or the compass swinging more than 40° within 2 s
+  while the phone itself is not turning, for 3 s: the arrow hides and the 2D map opens with "Finding
+  your position. Follow the map for now." 3 s of good readings bring the arrow back. GPS only counts
+  on a trip that follows GPS (not from a chosen door or pin), the compass only while it sets the direction.
+- **Finding a new route:** more than 15 m from the route for 5 s in a row plans a new one from where
+  the user is, at most once every 15 s.
+- **You have arrived:** within 8 m of the destination (held for 1 s), the arrow hides and the card
+  shows the place name.
+
 **Test it on a laptop:** open `/#/?to=pathfoot&simulate=1` (any place id works, or pick one from the
 search). A fake user walks the route at walking speed, from the starting point you chose, or a fixed
 point by the loch. The green arrow is what AR would show and the orange dot is the point 9 m ahead.
-The slider pushes the fake user up to 20 m off the route.
+The slider pushes the fake user up to 25 m off the route (past 15 m for 5 s: a new route). The GPS
+accuracy slider and "Compass swinging" set off "Finding your position", and walking to the end
+shows "You have arrived".
 
 ## Entrances
 

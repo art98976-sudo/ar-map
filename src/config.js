@@ -43,7 +43,7 @@ export const FLOOR_ARROWS = {
   easeS: 0.25, // smoothing of their turn, so the compass does not make them jitter
   turnDeg: 100, // turning further than this: a curved turn arrow instead of the chevrons...
   turnBackDeg: 85, // ...until back within this
-  arriveM: 10, // this close to the entrance: a pin and "You've arrived" instead
+  arriveM: 8, // this close to the entrance: a pin and "You have arrived" instead (= ARRIVAL.arriveM)
 }
 
 // The destination pin.
@@ -198,18 +198,28 @@ export const COMPASS_MAP = {
   dotFromTop: 0.72, // the user's dot sits this far down the map
 }
 
+// Is the position good enough to draw the AR arrow? (src/route/trip-monitors.js)
+// Unreliable: GPS worse than maxGpsAccuracyM, or the compass swinging more than maxHeadingSwingDeg
+// within swingWindowS while the phone itself is not turning. After unreliableAfterS of that, the
+// arrow hides and the 2D map takes over; it comes back after reliableAfterS of good readings.
+export const CONFIDENCE = {
+  maxGpsAccuracyM: 20,
+  maxHeadingSwingDeg: 40,
+  swingWindowS: 2,
+  unreliableAfterS: 3,
+  reliableAfterS: 3,
+}
+
 // Going off the route, and arriving.
 export const OFF_ROUTE = {
   offM: 15, // further from the route than this...
-  backM: 8, // ...until back within this
-  forS: 5, // ...for this long counts as off route
-  cooldownS: 20, // and it is not reported again for this long
+  forS: 5, // ...for this long, without a break, plans a new route...
+  minIntervalS: 15, // ...but never more than once in this long
 }
 
 export const ARRIVAL = {
-  remainingM: 8, // this little route left, or...
-  pinM: 6, // ...this close to the pin
-  forS: 1, // held for this long
+  arriveM: 8, // this close to the destination (straight line, or route left)...
+  forS: 1, // ...held for this long, so a correction easing past cannot end the trip
 }
 
 // Planning a walking route.

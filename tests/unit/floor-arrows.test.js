@@ -77,6 +77,6 @@ describe('the floor arrows on screen', () => {
     arrows.step(0.016)
     expect(host.querySelector('[data-trail]').hidden).toBe(true)
     expect(host.querySelector('[data-arrived]').hidden).toBe(false)
-    expect(host.querySelector('[data-arrived]').textContent).toContain("You've arrived")
+    expect(host.querySelector('[data-arrived]').textContent).toContain('You have arrived')
   })
 })
