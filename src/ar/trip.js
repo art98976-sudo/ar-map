@@ -2,7 +2,6 @@
 //
 // Phases (reported through onPhase):
 //   'await-start'  the camera is running: the user taps Start
-//   'facing'       facing more than 60° off the route: turn until within 30°, then guidance starts
 //   'ready'        route placed: guidance running
 //
 // A chosen start (a door or a pin) is where the user stands: motion tracking runs from there, GPS is
@@ -17,11 +16,11 @@
 // While walking, map matching (route-matcher.js) lays the walked track onto the route, and hit
 // tests (ground.js) lay the route onto the real ground.
 import {circularMean, createCalibrator, isPoorAccuracy, startCompass} from './compass.js'
-import {angleDiff, distanceM, fromLocal, pointAt, polylineSlice, toDeg, toLocal, wrap360} from '../geo/geo.js'
+import {angleDiff, distanceM, fromLocal, pointAt, toDeg, toLocal, wrap360} from '../geo/geo.js'
 import {DESTINATIONS} from '../map/destinations.js'
 import {getRoomCentre} from '../map/room-centres.js'
-import {arrowTarget, arrowYawDeg, createRouteTracker, turnPrompt, walkingCorrection} from '../route/compass-guide.js'
-import {aimBearing, createNavPose, routeBearingAt} from '../route/nav-pose.js'
+import {arrowTarget, arrowYawDeg, createRouteTracker, walkingCorrection} from '../route/compass-guide.js'
+import {aimBearing, createNavPose} from '../route/nav-pose.js'
 import {createNavScene, gpsDistanceToEntrance} from './nav-scene.js'
 import {acceptHit, createGroundTracker, HIT_TYPES, SCREEN_POINTS} from './ground.js'
 import {createRouteMatcher} from './route-matcher.js'
@@ -75,10 +74,9 @@ export function createArTrip({
   let tracker = null
   let startS = 0
   let fedFix = null
-  let facingYaw = null
   let ringFill = 0
   let routeVersion = 0
-  let legCache = null
+  let lineCache = null // the route polyline as map coordinates, per route version
   let manual = isManual(startPoint)
   let liveFixes = 0
   let repickUntil = -Infinity
@@ -272,18 +270,16 @@ export function createArTrip({
     navPose.reset()
     startS = info.s
     restartWindow()
-    facingYaw = null
     setPhase('ready', {heading: headingDeg})
   }
 
   /**
-   * The Start tap, with the user on the path. Returns 'ok', 'facing' (turn first), 'tracking' (world
+   * The Start tap, with the user on the path. Returns 'ok', 'tracking' (world
    * tracking not ready), 'look' (phone pointing up or down) or 'path' (too far from the path).
    */
   function start() {
     if (!nav) return 'tracking'
     if (phase === 'ready') return 'ok'
-    if (phase === 'facing') return 'facing'
     if (!trackingReady()) return 'tracking'
     const f = lookDirection()
     // A webcam in test mode reports no direction, so only a real phone can be asked to look up.
@@ -301,23 +297,9 @@ export function createArTrip({
       beginGuidance(null)
       return 'ok'
     }
-    const h = recentHeading()
-    facingYaw = arrowYawDeg(routeBearingAt(nav.route, startInfo.s), h)
-    if (turnPrompt(facingYaw)) {
-      setPhase('facing')
-      return 'facing'
-    }
-    beginGuidance(h)
+    // No "turn around" prompt: the arrows on the floor bend towards the route whichever way the user faces.
+    beginGuidance(recentHeading())
     return 'ok'
-  }
-
-  /** Waiting for the user to turn towards the route. A compass that goes poor stops the wait. */
-  function watchFacing() {
-    if (!compassUsable() || compassStale()) return beginGuidance(null)
-    const h = recentHeading()
-    const info = nav.startInfo(bestFix())
-    facingYaw = arrowYawDeg(routeBearingAt(nav.route, info.s), h)
-    if (Math.abs(facingYaw) <= COMPASS_GUIDE.facingOkDeg) beginGuidance(h)
   }
 
   /** The direction came from walking or a compass that recovered: now the ground can be drawn. */
@@ -398,7 +380,7 @@ export function createArTrip({
       route = next
       nav.setRoute(next)
       routeVersion += 1
-      legCache = null
+      lineCache = null
       startS = nav.startInfo(from).s
       tracker = createRouteTracker(nav.route, startS)
       // The walk so far no longer has a route to fit, so matching starts afresh. Its turn stays in
@@ -474,7 +456,6 @@ export function createArTrip({
       route: nav.route,
       user,
       headingDeg: pose.headingDeg ?? heading ?? start.bearingDeg,
-      nextTurn: nav.nextTurnAt(pose.routeS ?? start.s),
     }
   }
 
@@ -483,32 +464,21 @@ export function createArTrip({
     if (!nav) return null
     const pose = navPose.current
     const s = pose.shownS ?? nav.startInfo(bestFix()).s
-    const next = guidance.getNextManoeuvre(pose.routeS ?? s)
-    const key = `${Math.round(s)}:${next.s}`
-    if (legCache?.key !== key) {
-      legCache = {key, coords: polylineSlice(nav.route, s, next.s).map((p) => toCoord(fromLocal(origin, p)))}
-    }
-    const at = pointAt(nav.route, next.s)
+    // The very polyline the ground arrows are built from, so the map and the floor show one line.
+    if (lineCache?.version !== routeVersion) lineCache = {version: routeVersion, coords: nav.route.map((p) => toCoord(fromLocal(origin, p)))}
     return {
       headingDeg: pose.headingDeg ?? guideHeading(),
       user: fromLocal(origin, pointAt(nav.route, s)),
-      leg: legCache.coords,
-      routeCoords: route.points.map(toCoord),
+      routeCoords: lineCache.coords,
       routeVersion,
       approximate: route.source === 'direct',
-      entrance: route.entrance || route.points.at(-1),
-      turn: next.type === 'arrive' ? null : {number: guidance.manoeuvres.indexOf(next) + 1, at: fromLocal(origin, at)},
     }
   }
 
-  /** Which way to walk from where the phone faces (> 0 to the right), for the arrows over the camera. */
+  /** Which way to walk from where the phone faces (> 0 to the right), and the arrow's bearing for ?fieldtest=1. */
   function updateArrow() {
     guideDeg = null
     if (arrived) return
-    if (phase === 'facing') {
-      guideDeg = facingYaw
-      return
-    }
     if (phase !== 'ready') return
     const pose = navPose.current
     if (pose.routeS == null) return
@@ -567,7 +537,6 @@ export function createArTrip({
       autoStartAt = time + TRIP.autoStartEveryS
       startBlocked = start() === 'path'
     }
-    if (phase === 'facing') watchFacing()
     if (phase === 'ready' && !arrived) {
       // A compass that recovers before walking has shown the way: use it, from where the user is.
       if (!directionKnown && compassUsable()) {
@@ -645,7 +614,6 @@ export function createArTrip({
         startBlocked,
         repick: manual && !arrived && time < repickUntil,
         liveAvailable: manual && !arrived && phase === 'ready' && liveFixes >= TRIP.liveFixes,
-        turnPrompt: phase === 'facing' ? turnPrompt(facingYaw, 0) : null,
         step: phase === 'ready' && !arrived ? guidance.step(routeS) : null,
         steps: phase === 'ready' ? guidance.steps(routeS) : null,
         ringFill,

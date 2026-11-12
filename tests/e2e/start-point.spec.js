@@ -141,7 +141,7 @@ test.describe('starting point', () => {
     await expect(page.getByRole('heading', {name: /^Stand at the Cottrell main entrance, with the door behind you, facing south-east\.$/})).toBeVisible({timeout: 90_000})
     await page.getByRole('button', {name: 'Start', exact: true}).click({timeout: 30_000})
     await expect(page.locator('[data-stat="phase"]')).toHaveText('ready', {timeout: 30_000})
-    await expect(page.locator('[data-guidance]')).not.toBeEmpty()
+    await expect(page.locator('[data-guidance]')).toHaveCount(0) // no directions in words
     await expect(page.locator('[data-compass-map]')).toBeVisible()
   })
 })

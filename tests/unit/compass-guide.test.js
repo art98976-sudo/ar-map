@@ -5,13 +5,12 @@ import {
   blendBearing,
   createRouteTracker,
   stepBearing,
-  turnPrompt,
   walkingCorrection,
 } from '../../src/route/compass-guide.js'
 import {buildManoeuvres, createGuidance, instructionFor, landmarkPhrase, landmarksFrom, nearestLandmark, spokenStep, stepIcon} from '../../src/route/guidance.js'
 import {mapCamera, viewKey} from '../../src/ui/components/compass-map.js'
 import {icon} from '../../src/ui/icons.js'
-import {COMPASS_GUIDE, COMPASS_MAP} from '../../src/config.js'
+import {COMPASS_MAP} from '../../src/config.js'
 
 const near = (a, b, tol = 1e-6) => expect(Math.abs(a - b)).toBeLessThanOrEqual(tol)
 const nearAngle = (a, b, tol = 1e-6) => expect(Math.abs((((a - b + 540) % 360) + 360) % 360 - 180)).toBeLessThanOrEqual(tol)
@@ -157,20 +156,6 @@ describe('the step list and turn events', () => {
   })
 })
 
-describe('facing the route before guidance starts', () => {
-  it('asks for a turn only when more than 60° off', () => {
-    expect(turnPrompt(60)).toBeNull()
-    expect(turnPrompt(-59)).toBeNull()
-    expect(turnPrompt(61)).toBe('Turn right')
-    expect(turnPrompt(-61)).toBe('Turn left')
-    expect(turnPrompt(170)).toBe('Turn around')
-    expect(turnPrompt(-170)).toBe('Turn around')
-  })
-  it('keeps prompting down to the 30° where guidance starts', () => {
-    expect(turnPrompt(45, 0)).toBe('Turn right')
-    expect(COMPASS_GUIDE.facingOkDeg).toBe(30)
-  })
-})
 
 describe('the heading-up map', () => {
   const user = {lat: 56.14, lng: -3.92}

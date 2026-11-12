@@ -24,7 +24,6 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
       <span class="spinner" aria-hidden="true"></span>
       <p data-veil-text role="status">Waiting for the camera…</p>
     </div>
-    <div class="floor-arrows" data-floor-arrows aria-hidden="true"></div>
 
     <header class="ar__top">
       <button class="icon-btn icon-btn--glass" data-action="exit" aria-label="Exit AR">${icon('close')}</button>
@@ -39,17 +38,7 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
           ${icon('info', {size: 16})}<span>Debug</span>
         </button>`
       : ''}
-    <div class="ar-steps" data-step-card hidden>
-      <button class="ar-steps__card" type="button" data-action="toggle-steps" aria-expanded="false" aria-controls="ar-step-list" aria-label="Next step. Show all steps">
-        <span class="ar-steps__icon" data-guidance-icon></span>
-        <span class="ar-steps__text" data-guidance></span>
-        <span class="ar-steps__handle" aria-hidden="true"></span>
-      </button>
-      <ol class="ar-steps__list" id="ar-step-list" data-steps hidden></ol>
-      <p class="sr-only" data-guidance-say role="status"></p>
-    </div>
 
-    <span class="ar-check" data-turn-check aria-hidden="true" hidden>${icon('check', {size: 44})}</span>
 
     <div class="ar__hints">
     <p class="ar__hint" data-compass-pill role="status" hidden>Wave your phone in a figure-8</p>
@@ -73,9 +62,7 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
     </section>
 
     <section class="ar-guide" data-start aria-labelledby="start-title" hidden>
-      <span class="ar-guide__icon" data-start-arrow hidden>${icon('arrowUp', {size: 28})}</span>
       <h1 class="ar-guide__title" data-start-title id="start-title" tabindex="-1">${startTitle}</h1>
-      <p class="ar-guide__text" data-start-direction></p>
       <p class="ar-guide__text" data-start-note role="status" hidden>Hold your phone up, looking ahead.</p>
       <button class="btn btn--primary btn--block" type="button" data-action="start-walk" disabled>
         <span class="spinner spinner--sm" aria-hidden="true"></span><span data-start-label aria-live="polite">Getting ready…</span>

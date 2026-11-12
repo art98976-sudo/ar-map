@@ -188,24 +188,16 @@ describe('background alignment', () => {
     near(Math.abs(wrapped(stats.yawDeg)), 40, 0.1)
   })
 
-  it('facing away at Start: says which way to turn, and starts by itself within 30°', () => {
+  it('facing away at Start: no turn prompt, guidance starts at once and the compass sets the direction', () => {
     read(180)
     trip.onTracking({status: 'NORMAL'})
     trip.onTick({dt: 0.016, time: 1000})
-    expect(trip.start()).toBe('facing')
-    expect(phases).toEqual(['await-start', 'facing'])
+    expect(trip.start()).toBe('ok')
+    expect(phases).toEqual(['await-start', 'ready'])
     run(300, 180)
-    expect(stats.turnPrompt).toBe('Turn around')
-    run(800, 100) // the route, north, is 100° anticlockwise from here
-    expect(stats.turnPrompt).toBe('Turn left')
-    run(800, 40) // 40° off: better, but not yet
-    expect(stats.phase).toBe('facing')
-    expect(stats.turnPrompt).toBe('Turn left')
-    run(800, 25)
-    expect(phases).toEqual(['await-start', 'facing', 'ready'])
-    expect(stats.turnPrompt).toBeNull()
+    expect(stats.turnPrompt).toBeUndefined()
     expect(stats.directionKnown).toBe(true)
-    near(Math.abs(wrapped(stats.yawDeg)), 25, 8)
+    near(Math.abs(wrapped(stats.yawDeg)), 180, 8)
   })
 
   it('within 60° at Start: no prompt, and the compass decides the direction, not the camera', () => {
@@ -714,9 +706,13 @@ describe('walking beats the compass', () => {
     for (let i = 0; i < 10; i++) t.frame()
     t.walk(10)
     const state = t.trip.mapState()
-    expect(state.routeCoords).toEqual([[ORIGIN.lng, ORIGIN.lat], [ORIGIN.lng, ORIGIN.lat + 0.001]])
+    // The same polyline the ground arrows use, as map coordinates; no turn numbers, no leg, no pin.
+    expect(state.routeCoords).toHaveLength(2)
+    near(state.routeCoords[0][1], ORIGIN.lat, 1e-7)
+    near(state.routeCoords[1][1], ORIGIN.lat + 0.001, 1e-7)
     near(state.user.lat, ORIGIN.lat + 10 / 111_195, 2 / 111_195)
-    expect(state.leg.length).toBeGreaterThanOrEqual(2)
+    expect(state).not.toHaveProperty('turn')
+    expect(state).not.toHaveProperty('leg')
     expect(state.approximate).toBe(true)
     expect(state.headingDeg).not.toBeNull()
     t.done()

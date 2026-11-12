@@ -1,12 +1,11 @@
 // AR screen. States, in order:
 //   loading  download the AR engine with a real progress bar
-//   live     full-screen camera + world tracking: the instruction card and trip pill on top, arrows on the
-//            floor over the camera, and a small heading-up map in the corner. The debug tools appear only with ?debug=1.
+//   live     full-screen camera + world tracking: the trip pill on top, arrows lying on the real
+//            floor (3D, in the AR scene), and a small heading-up map in the corner. Debug tools only with ?debug=1.
 //   error    camera denied, motion denied, offline, timeout or engine crash; each says what to do
 import {permissionsAllowed} from '../../ar/permissions.js'
 import {parseUserAgent} from '../../ar/device.js'
 import {findDestination} from '../../map/destinations.js'
-import {compassPoint} from '../../geo/geo.js'
 import {GPS_START, isManual, setStart, standHereText} from '../../route/start-point.js'
 import {readTripRoute} from '../../route/route.js'
 import {readTripFix} from '../../geo/location.js'
@@ -15,16 +14,13 @@ import {prefersReducedMotion, showArrival} from '../components/arrival.js'
 import {showToast} from '../components/toast.js'
 import {drawMinimap} from '../components/ar-minimap.js'
 import {createCompassMap} from '../components/compass-map.js'
-import {createFloorArrows} from '../components/floor-arrows.js'
 import {focusScreen, haptic, onAction, render} from '../dom.js'
 import {icon} from '../icons.js'
-import {FLOOR_ARROWS, GROUND, ROUTING} from '../../config.js'
+import {GROUND, ROUTING} from '../../config.js'
 import {paintDebugStats, paintLiveDebug, setStat as setDebugStat, toggleDebugPanel} from './ar-debug.js'
 import {errorCopy} from './ar-errors.js'
-import {createStepCard} from './ar-steps.js'
 import {errorView, liveView, loadingView} from './ar-view.js'
 
-const TURN_CHECK_MS = 700
 const MAP_SWIPE_PX = 40
 const SWIPE_CLICK_MS = 500 // a mouse swipe also fires a click; a finger's does not
 
@@ -81,17 +77,13 @@ export function arScreen(root, {navigate, params}) {
   }
   let compassMap = null
   let mapFailed = false
-  let floorArrows = null
-  let arrived = false
   let mapSwipedAt = -Infinity
-  const steps = createStepCard(root)
   const setStat = (name, text, tone) => setDebugStat(root, name, text, tone)
 
   const actions = {
     'toggle-map': () => {
       if (performance.now() - mapSwipedAt > SWIPE_CLICK_MS) toggleMap()
     },
-    'toggle-steps': () => steps.tap(),
     repick: () => navigate(`/?${new URLSearchParams({to: destination.id, start: 'pick', ...(allowDesktop ? {force: '1'} : {})})}`),
     'go-live': () => {
       setStart(GPS_START)
@@ -149,8 +141,6 @@ export function arScreen(root, {navigate, params}) {
   // ---------- live ----------
   function showLive() {
     mapFailed = false
-    arrived = false
-    steps.reset()
     setView(
       liveView({
         showDebug,
@@ -202,17 +192,6 @@ export function arScreen(root, {navigate, params}) {
     })
   }
 
-  /** The quick green tick when a corner has been passed. */
-  function showTurnCheck() {
-    const check = root.querySelector('[data-turn-check]')
-    if (!check) return
-    check.hidden = true
-    void check.offsetWidth // restart the animation
-    check.hidden = false
-    setTimeout(() => {
-      check.hidden = true
-    }, TURN_CHECK_MS)
-  }
 
   function onPhase(phase) {
     const card = root.querySelector('[data-start]')
@@ -225,8 +204,6 @@ export function arScreen(root, {navigate, params}) {
   }
 
   function onArrived() {
-    arrived = true
-    floorArrows?.setArrived(true)
     const host = root.querySelector('[data-arrival]')
     if (host) showArrival(host, {name: destination.name})
   }
@@ -235,14 +212,10 @@ export function arScreen(root, {navigate, params}) {
     fieldTest?.update(s)
     paintHints(s)
     followMapWhileUncertain(s.positionUncertain)
-    floorArrows?.setActive((s.phase === 'ready' && !s.positionUncertain) || s.phase === 'facing')
-    const close = s.remainingM <= FLOOR_ARROWS.arriveM || (s.toPinM != null && s.toPinM <= FLOOR_ARROWS.arriveM)
-    floorArrows?.setArrived(arrived || (s.phase === 'ready' && close))
     if (s.locked && !wasLocked) haptic(18)
     wasLocked = s.locked
     paintStartCard(s)
     if (s.debug) paintLiveDebug(root, s)
-    steps.paint(s)
     const approx = root.querySelector('[data-approx-hint]')
     if (approx) approx.hidden = s.source !== 'direct'
     const minimap = root.querySelector('[data-minimap]')
@@ -291,7 +264,7 @@ export function arScreen(root, {navigate, params}) {
     if (status) status.hidden = true
   }
 
-  /** Which way the route goes from here: the arrow needs a compass, the words do not. */
+  /** The Start card: no directions in words, only whether to tap Start or reach the path first. */
   function paintStartCard(s) {
     const card = root.querySelector('[data-start]')
     if (!card) return
@@ -306,13 +279,6 @@ export function arScreen(root, {navigate, params}) {
     if (s.routeBearingDeg == null || manualStart) return
     const far = s.startGapM > 25
     card.querySelector('[data-start-title]').textContent = far ? 'Walk to the path first' : 'Stand on the path and tap Start'
-    card.querySelector('[data-start-direction]').textContent = far
-      ? `The path is ${Math.round(s.startGapM)} m away. Walk that way, then tap Start again.`
-      : `The route heads ${compassPoint(s.routeBearingDeg)} from here.`
-    const arrow = card.querySelector('[data-start-arrow]')
-    arrow.hidden = s.heading == null && !far
-    const target = far ? s.pathBearingDeg : s.routeBearingDeg
-    if (target != null) arrow.style.transform = `rotate(${Math.round(target - (s.heading ?? 0))}deg)`
   }
 
   function onTracking(detail) {
@@ -381,10 +347,8 @@ export function arScreen(root, {navigate, params}) {
     const canvas = root.querySelector('[data-canvas]')
     const {createArTrip} = await import('../../ar/trip.js')
     if (disposed) return
-    trip = createArTrip({route, origin, destination, allowDesktop, debug: showDebug, arriveLabel: arriveLabel(destination), onPhase, onStats, onArrived, onTurnClose: () => haptic(30), onTurnNow: () => haptic([30, 50, 30]), onTurnPassed: showTurnCheck, startPoint: tripStart, autoStart: !manualStart, reducedMotion: prefersReducedMotion(), onEnterCampus: () => showToast('Welcome to campus', {tone: 'success'})})
-    steps.wireSwipe()
+    trip = createArTrip({route, origin, destination, allowDesktop, debug: showDebug, arriveLabel: arriveLabel(destination), onPhase, onStats, onArrived, onTurnClose: () => haptic(30), onTurnNow: () => haptic([30, 50, 30]), startPoint: tripStart, autoStart: !manualStart, reducedMotion: prefersReducedMotion(), onEnterCampus: () => showToast('Welcome to campus', {tone: 'success'})})
     wireMapSwipe()
-    floorArrows = createFloorArrows(root.querySelector('[data-floor-arrows]'), {getDeg: () => trip?.guideDeg ?? null})
     compassMap = createCompassMap(root.querySelector('[data-map-canvas]'), {
       getState: () => trip?.mapState() ?? null,
       onReady: () => {
@@ -433,8 +397,6 @@ export function arScreen(root, {navigate, params}) {
   document.addEventListener('visibilitychange', onVisibility)
 
   function teardownSession() {
-    floorArrows?.destroy()
-    floorArrows = null
     compassMap?.destroy()
     compassMap = null
     trip?.stop()

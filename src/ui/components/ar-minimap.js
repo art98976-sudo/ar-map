@@ -19,7 +19,7 @@ function fitToBox(points, size, padding = 14) {
   return (p) => ({x: offX + (p.x - minX) * scale, y: size - offY - (p.y - minY) * scale})
 }
 
-export function drawMinimap(canvas, {route, user, headingDeg = 0, nextTurn = null, track = []}) {
+export function drawMinimap(canvas, {route, user, headingDeg = 0, track = []}) {
   const ctx = canvas?.getContext?.('2d')
   if (!ctx) return
   const size = canvas.width
@@ -50,22 +50,9 @@ export function drawMinimap(canvas, {route, user, headingDeg = 0, nextTurn = nul
   line(route, COLOURS.lightGreen, 6)
   line(track, COLOURS.white, 3)
 
-  // Route start, so its direction can be read at a glance.
-  const start = rotate(route[0])
-  ctx.fillStyle = COLOURS.lightGreen
-  ctx.beginPath()
-  ctx.arc(start.x, start.y, 7, 0, Math.PI * 2)
-  ctx.fill()
 
   // User and camera direction.
   const at = rotate(user)
-  if (nextTurn) {
-    const turn = rotate(nextTurn)
-    ctx.fillStyle = COLOURS.debugYellow
-    ctx.beginPath()
-    ctx.arc(turn.x, turn.y, 5, 0, Math.PI * 2)
-    ctx.fill()
-  }
   ctx.fillStyle = COLOURS.debugYellow
   ctx.beginPath()
   ctx.arc(at.x, at.y, 8, 0, Math.PI * 2)

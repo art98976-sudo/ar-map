@@ -46,13 +46,6 @@ export function arrowTarget(route, manoeuvres, next, s) {
   return {bearingDeg: blendBearing(legBearing(route, s, corner), legAfter(route, next, after), t), ringFill: t}
 }
 
-/** "Turn around", "Turn left" or "Turn right" for an arrow yaw; null within `withinDeg`. */
-export function turnPrompt(yawDeg, withinDeg = COMPASS_GUIDE.facingAwayDeg) {
-  const size = Math.abs(yawDeg)
-  if (size <= withinDeg) return null
-  if (size > COMPASS_GUIDE.aroundDeg) return 'Turn around'
-  return yawDeg < 0 ? 'Turn left' : 'Turn right'
-}
 
 /** Ease a bearing towards a target, the short way, at no more than maxDegPerS. */
 export function stepBearing(current, target, dt, maxDegPerS = 90) {

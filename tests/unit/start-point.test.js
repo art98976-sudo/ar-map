@@ -2,7 +2,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import * as THREE from 'three'
 import {findTurns} from '../../src/geo/geo.js'
 import {TURNS} from '../../src/config.js'
-import {pinScale} from '../../src/ar/pin.js'
+import {pinVisible} from '../../src/ar/pin.js'
 import {createArTrip} from '../../src/ar/trip.js'
 import {buildGraph, nearestOnPaths} from '../../src/route/footpaths.js'
 import {
@@ -119,11 +119,11 @@ describe('choosing where to start', () => {
 })
 
 describe('the visuals', () => {
-  it('keeps the pin a fixed size on screen when far away, and never shrinks it', () => {
-    expect(pinScale(5)).toBe(1)
-    expect(pinScale(25)).toBe(1)
-    expect(pinScale(100)).toBe(4)
-    expect(pinScale(null)).toBe(1)
+  it('shows the destination pin only within 30 m, never from far away', () => {
+    expect(pinVisible(5)).toBe(true)
+    expect(pinVisible(30)).toBe(true)
+    expect(pinVisible(31)).toBe(false)
+    expect(pinVisible(null)).toBe(false)
   })
   it('counts a 30° bend as a corner, but not a 25° one', () => {
     const bend = (deg) => {
@@ -198,11 +198,11 @@ describe('a trip in AR', () => {
     frames(15)
     expect(box.phases).toEqual(['await-start', 'ready'])
   })
-  it('from GPS, facing away: starts by itself into the turn prompt', () => {
+  it('from GPS, facing away: starts by itself, with no turn prompt (the floor arrows show the way)', () => {
     setup({autoStart: true})
     frames(25, 180)
-    expect(box.phases).toEqual(['await-start', 'facing'])
-    expect(box.stats.turnPrompt).toBe('Turn around')
+    expect(box.phases).toEqual(['await-start', 'ready'])
+    expect(box.stats.turnPrompt).toBeUndefined()
   })
   it('from a door: waits for the tap, then trusts the stored heading over the compass', () => {
     setup({autoStart: true, startPoint: {type: 'place', name: 'Cottrell', lat: ORIGIN.lat, lng: ORIGIN.lng, headingDeg: 40}})
@@ -213,12 +213,12 @@ describe('a trip in AR', () => {
     expect(box.stats.manual).toBe(true)
     expect(box.stats.directionKnown).toBe(true)
     near(Math.abs((((box.stats.yawDeg + 180) % 360) + 360) % 360 - 180), 40, 0.1) // not 200
-    expect(box.stats.turnPrompt).toBeNull()
   })
   it('from a pin, with no stored heading: the compass decides, as usual', () => {
     setup({startPoint: {type: 'map', name: 'Pin', lat: ORIGIN.lat, lng: ORIGIN.lng, headingDeg: null}})
     frames(5, 180)
-    expect(trip.start()).toBe('facing')
+    expect(trip.start()).toBe('ok')
+    expect(box.phases).toEqual(['await-start', 'ready'])
   })
   it('a manual start ignores GPS, and offers to switch once GPS is good', async () => {
     allowGps()

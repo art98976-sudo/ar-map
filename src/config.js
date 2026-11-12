@@ -50,8 +50,7 @@ export const FLOOR_ARROWS = {
 export const PIN = {
   green: 0x006938,
   lightGreen: 0x76b72a,
-  growFromM: 25, // further than this the pin keeps its size on screen
-  maxDrawnM: 600, // the camera stops drawing far away: a further pin comes this close instead
+  showWithinM: 30, // the pin appears only this close to the destination, standing on the ground
   onTop: 30,
   maxLiftM: 1.5, // the slope of the ground raises or lowers the pin by at most this
   roomMaxM: 80, // the pin moves to the room only if the room is this close to the entrance
@@ -77,9 +76,6 @@ export const COMPASS_GUIDE = {
   blendM: 12, // the arrow starts curving into a turn this far before it
   legAheadM: 5, // the current segment's direction is read over this much route...
   nextLegM: 8, // ...and the next segment's over this much, after the corner
-  facingAwayDeg: 60, // further off the route than this at Start: turn first
-  facingOkDeg: 30, // and guidance starts once within this
-  aroundDeg: 135, // further off than this, "Turn around" says it better than left or right
   poorAccuracyDeg: 25, // iPhone's webkitCompassAccuracy worse than this: do not rely on the compass
   walkDirectionM: 6, // with no usable compass, walking this far shows which way the user faces
   walkStraightRatio: 0.7, // straight-line over walked: a wandering walk shows no direction

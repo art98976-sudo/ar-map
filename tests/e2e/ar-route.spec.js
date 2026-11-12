@@ -74,35 +74,22 @@ test.describe('route and arrows', () => {
     await page.getByRole('button', {name: 'Show debug panel'}).click()
     const panel = page.getByRole('region', {name: 'Debug panel'})
     await expect(panel).toBeVisible()
-    // The way to walk: four big chevrons lying on the floor over the camera. They wait for a heading,
-    // which headless Chrome (no real compass) can be slow to give.
-    await expect(page.locator('[data-floor-arrows] [data-trail]')).toBeVisible({timeout: 30_000})
-    await expect(page.locator('[data-floor-arrows] .floor-arrows__chevron')).toHaveCount(4)
+    // No directions in words, no flat overlay arrows, no numbered turns: the way is drawn on the floor.
+    for (const gone of ['[data-floor-arrows]', '[data-guidance]', '[data-steps]', '[data-start-direction]', '.ar-map__turn']) {
+      await expect(page.locator(gone)).toHaveCount(0)
+    }
+    await expect(page.getByText(/^Turn (left|right|around)/)).toHaveCount(0)
     await expect(panel.locator('[data-stat="gps"]')).toHaveText(/±\d+ m/)
     await expect(panel.locator('[data-stat="remaining"]')).toHaveText(/\d+ m/)
     await expect(panel.locator('[data-stat="source"]')).toHaveText(/mazemap|footpaths|direct/)
     await expect(panel.locator('[data-stat="turn"]')).toHaveText(/^(left|right|slight-left|slight-right|arrive), \d+ m$/)
     await expect(panel.locator('[data-stat="source"]')).toHaveText(/, \d+ points$/)
-    await expect(page.locator('[data-guidance]')).toHaveText(/^(Continue (straight \d+ m|past .+ · \d+ m)|(Turn|Bear) (left|right) (in \d+ m|now|at .+ · (\d+ m|now))|.* in \d+ m)$/)
     await expect(panel.getByRole('button', {name: 'Recalibrate compass'})).toBeVisible()
-    // The card pulls down the list of steps, and the map opens to full screen and back.
+    // The map opens to full screen and back.
     await page.getByRole('button', {name: 'Hide debug panel'}).click()
-    await page.locator('[data-action="toggle-steps"]').click()
-    await expect(page.locator('[data-steps] li').first()).toBeVisible({timeout: 5_000})
-    await page.locator('[data-action="toggle-steps"]').click()
-    await expect(page.locator('[data-steps]')).toBeHidden()
-    // A finger swipe opens the list, and the tap after it still closes it.
-    const card = await page.locator('[data-action="toggle-steps"]').boundingBox()
-    const cdp = await page.context().newCDPSession(page)
-    const touch = (type, touchPoints) => cdp.send('Input.dispatchTouchEvent', {type, touchPoints})
-    const at = {x: card.x + card.width / 2, y: card.y + 20}
-    await touch('touchStart', [at])
-    for (const down of [15, 30, 45]) await touch('touchMove', [{...at, y: at.y + down}])
-    await touch('touchEnd', [])
-    await expect(page.locator('[data-steps] li').first()).toBeVisible({timeout: 5_000})
-    await page.waitForTimeout(600)
-    await page.touchscreen.tap(at.x, at.y)
-    await expect(page.locator('[data-steps]')).toBeHidden()
+    // Kept: the close button and the trip pill ("Cottrell · 120 m · 2 min").
+    await expect(page.getByRole('button', {name: 'Exit AR'})).toBeVisible()
+    await expect(page.locator('[data-trip-pill]')).toHaveText(/^.+ · \d+(\.\d)? k?m · \d+ min$/)
     await page.getByRole('button', {name: 'Expand map'}).click()
     await expect(page.locator('[data-compass-map]')).toHaveClass(/is-expanded/)
     // The map itself follows, not only its box: open, it is a sheet over about 55% of the screen.
@@ -136,7 +123,7 @@ test.describe('route and arrows', () => {
 })
 
 test.describe('position confidence on the AR screen', () => {
-  test('GPS worse than 20 m for 3 s: arrows hide, the map opens with "Finding your position"; good GPS brings them back', async ({page, context}, testInfo) => {
+  test('GPS worse than 20 m for 3 s: the map opens with "Finding your position"; good GPS puts it back', async ({page, context}, testInfo) => {
     test.setTimeout(180_000)
     test.skip(onlyOn('android-chrome')(testInfo))
     const errors = []
@@ -144,10 +131,9 @@ test.describe('position confidence on the AR screen', () => {
     await page.addInitScript(FAKE_REAR_CAMERA)
     const here = {latitude: 56.14525, longitude: -3.9201}
     await context.setGeolocation({...here, accuracy: 5})
-    await page.goto('/#/locate?to=cottrell&force=1')
+    await page.goto('/#/locate?to=cottrell&force=1&debug=1')
     await page.getByRole('button', {name: 'Tap to start'}).click({timeout: 30_000})
-    const arrows = page.locator('[data-floor-arrows] [data-trail]')
-    await expect(arrows).toBeVisible({timeout: 90_000})
+    await expect(page.locator('[data-stat="phase"]')).toHaveText('ready', {timeout: 90_000})
     const hint = page.getByText('Finding your position. Follow the map for now.')
     const map = page.locator('[data-compass-map]')
     await expect(hint).toBeHidden()
@@ -158,7 +144,6 @@ test.describe('position confidence on the AR screen', () => {
     await expect(hint).toBeHidden() // not after one bad moment
     await expect(hint).toBeVisible({timeout: 5000})
     await expect(map).toHaveClass(/is-expanded/)
-    await expect(arrows).toBeHidden()
     await page.screenshot({path: testInfo.outputPath("finding-position.png")})
 
     await context.setGeolocation({...here, accuracy: 6})
@@ -166,7 +151,6 @@ test.describe('position confidence on the AR screen', () => {
     await expect(hint).toBeVisible() // 3 s of good readings first
     await expect(hint).toBeHidden({timeout: 5000})
     await expect(map).not.toHaveClass(/is-expanded/) // put back, as the user had it
-    await expect(arrows).toBeVisible({timeout: 10_000})
     expect(errors).toEqual([])
   })
 })

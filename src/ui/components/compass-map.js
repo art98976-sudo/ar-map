@@ -6,7 +6,6 @@ import {createCampusMap, loadMazeMap} from '../../map/mazemap.js'
 import {stepBearing} from '../../route/compass-guide.js'
 
 const ROUTE = 'trip-route'
-const LEG = 'trip-leg'
 
 const line = (coordinates) => ({type: 'Feature', properties: {}, geometry: {type: 'LineString', coordinates}})
 
@@ -50,11 +49,7 @@ export function createCompassMap(host, {getState, onReady, onFailed}) {
   let bearing = null
   let expanded = false
   let drawnVersion = null
-  let drawnLeg = null
   let dot = null
-  let dest = null
-  let turn = null
-  let shownTurn = null
   let shownView = null
   let failTimer = 0
   // The host grows and shrinks over a CSS transition: follow it, so the map always fills it.
@@ -68,14 +63,11 @@ export function createCompassMap(host, {getState, onReady, onFailed}) {
       map.getSource(ROUTE).setData(data)
       map.setPaintProperty(ROUTE, 'line-color', color)
     } else {
+      // Only the route line and the user dot: no numbered turns, no second highlight, no pin.
       map.addSource(ROUTE, {type: 'geojson', data})
-      map.addSource(LEG, {type: 'geojson', data: line(state.leg)})
       const layout = {'line-cap': 'round', 'line-join': 'round'}
       map.addLayer({id: ROUTE, type: 'line', source: ROUTE, layout, paint: {'line-color': color, 'line-width': 9, 'line-opacity': 0.9}})
-      map.addLayer({id: LEG, type: 'line', source: LEG, layout, paint: {'line-color': state.approximate ? COLOURS.amber : COLOURS.legGreen, 'line-width': 7}})
     }
-    dest ??= new Marker({element: markerElement('ar-map__pin')}).setLngLat(state.entrance).addTo(map)
-    dest.setLngLat(state.entrance)
     drawnVersion = state.routeVersion
   }
 
@@ -83,24 +75,8 @@ export function createCompassMap(host, {getState, onReady, onFailed}) {
     const state = getState()
     if (!state) return
     if (drawnVersion !== state.routeVersion) drawRoute(map, Marker, state)
-    if (drawnLeg !== state.leg) {
-      map.getSource(LEG)?.setData(line(state.leg))
-      drawnLeg = state.leg
-    }
     dot ??= new Marker({element: markerElement('ar-map__dot')}).setLngLat(state.user).addTo(map)
     dot.setLngLat(state.user)
-    if (state.turn) {
-      turn ??= new Marker({element: markerElement('ar-map__turn')}).setLngLat(state.turn.at).addTo(map)
-      if (shownTurn !== state.turn.number) {
-        turn.getElement().textContent = String(state.turn.number)
-        turn.setLngLat(state.turn.at)
-        shownTurn = state.turn.number
-      }
-    } else if (turn) {
-      turn.remove()
-      turn = null
-      shownTurn = null
-    }
     if (state.headingDeg != null) {
       bearing = bearing == null ? state.headingDeg : stepBearing(bearing, state.headingDeg, dt, COMPASS_MAP.maxTurnDegPerS)
     }
