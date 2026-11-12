@@ -122,6 +122,34 @@ export const chipLoading = (title) => html`
   <p class="sr-only" role="status">Loading…</p>
 `
 
+/** While a linked room is looked up on MazeMap: the card's shape, not a lone spinner. */
+export function placeLoading() {
+  return html`
+    <div class="dest-sheet__head" aria-busy="true">
+      <div class="dest-sheet__text">
+        <p class="route-from__label">To</p>
+        <h2 class="dest-sheet__name" tabindex="-1">Finding the place…</h2>
+        <p class="dest-sheet__meta"><span class="skeleton-line" aria-hidden="true"></span></p>
+      </div>
+    </div>
+    <p class="sr-only" role="status">Finding the place on the campus map</p>
+  `
+}
+
+/** A link to a place that does not exist (or could not be loaded). */
+export function placeNotFound(text = 'We couldn’t find that place') {
+  return html`
+    <div class="dest-sheet__head">
+      <div class="dest-sheet__text">
+        <h2 class="dest-sheet__name" tabindex="-1" role="alert">${text}</h2>
+        <p class="dest-sheet__meta">Search for it by name or room number.</p>
+      </div>
+      <button class="icon-btn" type="button" data-action="unselect" aria-label="Close">${icon('close', {size: 20})}</button>
+    </div>
+    <button class="btn btn--primary btn--block" type="button" data-action="open-search">${icon('search')}<span>Search</span></button>
+  `
+}
+
 export function placeCard(place, walkText) {
   const room = place.category === 'room' ? describeDestination(place) : ''
   return html`

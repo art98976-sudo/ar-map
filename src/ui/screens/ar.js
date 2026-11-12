@@ -46,7 +46,8 @@ export function arScreen(root, {navigate, params}) {
   const destination = findDestination(params.to)
   if (!destination) {
     // Defer, so the router finishes mounting this screen before it switches again.
-    queueMicrotask(() => navigate('/', {replace: true}))
+    // Not known here (a room link on a new device): the map looks it up and opens its card.
+    queueMicrotask(() => navigate(params.to ? `/?to=${encodeURIComponent(params.to)}` : '/', {replace: true}))
     return
   }
   // The walking route and the one permission tap happen on the location screen. Without them, go back.

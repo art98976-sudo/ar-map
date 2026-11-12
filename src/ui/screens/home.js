@@ -11,6 +11,7 @@ import {deviceIssue} from '../../ar/device.js'
 import {startPermissionRequests} from '../../ar/permissions.js'
 import {createFixWatch, locationPermissionState, readTripFix} from '../../geo/location.js'
 import {findDestination, setCurrentDestination} from '../../map/destinations.js'
+import {fetchPoiDestination, poiIdFrom} from '../../map/poi-lookup.js'
 import {estimateWalkMinutes, planRoute} from '../../route/route.js'
 import {
   addRecentStart,
@@ -31,7 +32,7 @@ import {
 import {onAction, render} from '../dom.js'
 import {GPS, START} from '../../config.js'
 import {createSheets} from './home-sheets.js'
-import {doorList, homePage, mapError, mapLoading, placeCard} from './home-view.js'
+import {doorList, homePage, mapError, mapLoading, placeCard, placeLoading, placeNotFound} from './home-view.js'
 
 export function homeScreen(root, {navigate, params}) {
   const forced = params.force === '1'
@@ -397,6 +398,28 @@ export function homeScreen(root, {navigate, params}) {
     else setTimeout(load, 500)
   }
 
+  /**
+   * A room link (#/?to=mm-<poiId>) opened in a fresh tab or on another device: the room is not in
+   * our list nor in this tab's storage, so ask MazeMap for it, then open its card as usual.
+   */
+  async function lookUpLinkedRoom() {
+    const poiId = selected ? null : poiIdFrom(params.to)
+    if (!poiId) return
+    render(card, placeLoading())
+    card.hidden = false
+    let dest
+    try {
+      dest = await fetchPoiDestination(poiId)
+    } catch (err) {
+      console.warn('[home] room lookup failed', err)
+      if (!disposed && !selected) render(card, placeNotFound('We couldn’t load that place. Check your connection and try again.'))
+      return
+    }
+    if (disposed || selected) return
+    if (dest) select(dest)
+    else render(card, placeNotFound())
+  }
+
   function drawCard() {
     if (!selected) {
       card.hidden = true
@@ -590,6 +613,7 @@ export function homeScreen(root, {navigate, params}) {
   document.addEventListener('keydown', onKey)
 
   drawCard()
+  lookUpLinkedRoom()
   load()
   // A reload keeps the history entry of a sheet that was open.
   if (window.history.state?.sheet) sheets.show(window.history.state.sheet)

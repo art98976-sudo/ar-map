@@ -32,7 +32,8 @@ const CONTINUE_DELAY_MS = 900
 export function locateScreen(root, {navigate, params}) {
   const destination = findDestination(params.to)
   if (!destination) {
-    queueMicrotask(() => navigate('/', {replace: true}))
+    // Not known here (a room link on a new device): the map looks it up and opens its card.
+    queueMicrotask(() => navigate(params.to ? `/?to=${encodeURIComponent(params.to)}` : '/', {replace: true}))
     return
   }
   const device = parseUserAgent(navigator.userAgent, {maxTouchPoints: navigator.maxTouchPoints})

@@ -550,3 +550,13 @@
   margin-bottom: var(--s-3);
   color: var(--text-muted);
 }
+
+/* A linked room being looked up: a grey line where its building and level will go. */
+.skeleton-line {
+  display: inline-block;
+  width: 60%;
+  height: 0.9em;
+  border-radius: 4px;
+  background: var(--c-skeleton);
+  vertical-align: middle;
+}
