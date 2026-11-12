@@ -4,6 +4,7 @@
 import {DESTINATIONS, POPULAR, TOWN_PLACES, addRecent, clearRecent, getRecent} from '../../map/destinations.js'
 import {describeDestination, searchDestinations} from '../../map/search.js'
 import {searchMazeMap} from '../../map/mazemap-search.js'
+import {matchTier, rankResults} from '../../map/search-rank.js'
 import {html, render} from '../dom.js'
 import {CATEGORY_ICON, icon} from '../icons.js'
 
@@ -29,6 +30,8 @@ export function createDestinationSearch(host, {
   let query = ''
   let local = []
   let rooms = {state: 'idle', items: []} // idle | loading | done | error
+  // Our places found only through a typo ("libary"): ranked after real matches.
+  const fuzzyIds = () => new Set(local.filter((d) => matchTier(d, query) == null).map((d) => d.id))
   let options = [] // flat list of selectable results, in display order
   let active = -1
   let timer = null
@@ -140,17 +143,15 @@ export function createDestinationSearch(host, {
         `,
       )
     } else {
-      options = [...local, ...rooms.items]
-      const empty = !local.length && !rooms.items.length && rooms.state !== 'loading'
+      // One list, ranked together (search-rank.js): our places and MazeMap rooms.
+      const results = rankResults(query, [...local, ...rooms.items], {fuzzyIds: fuzzyIds()})
+      options = results
+      const empty = !results.length && rooms.state !== 'loading'
       render(
         panel,
         html`
           <ul class="dsearch__list" role="listbox" id="${uid}-list" aria-label="Search results">
-            ${local.map((d, i) => row(d, i))}
-            ${rooms.items.length
-              ? html`<li class="dsearch__divider" role="presentation">Rooms on the campus map</li>
-                  ${rooms.items.map((d, i) => row(d, local.length + i))}`
-              : ''}
+            ${results.map((d, i) => row(d, i))}
           </ul>
           ${rooms.state === 'loading'
             ? html`<p class="dsearch__status"><span class="spinner spinner--dark spinner--sm" aria-hidden="true"></span>Searching rooms…</p>`
@@ -193,11 +194,10 @@ export function createDestinationSearch(host, {
     timer = setTimeout(async () => {
       controller = new AbortController()
       try {
-        const found = await searchMazeMap(q, {signal: controller.signal})
+        const found = await searchMazeMap(q, {signal: controller.signal, rows: 14})
         if (q !== query.trim()) return
-        // Don't repeat places we already list (e.g. "Library" from both sources).
-        const names = new Set(local.map((d) => d.name.toLowerCase()))
-        rooms = {state: 'done', items: found.filter((d) => !names.has(d.name.toLowerCase())).slice(0, 6)}
+        // Ranking (and removing repeats of our own places) happens when the list is drawn.
+        rooms = {state: 'done', items: found}
       } catch {
         if (q !== query.trim()) return // an older request was cancelled by typing
         rooms = {state: 'error', items: []}

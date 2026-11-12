@@ -1,0 +1,242 @@
+{
+ "result": [
+  {
+   "title": "<em>COTT</em>/A3/EXIT\n17.04",
+   "dispTypeNames": [],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 1,
+   "poiId": 1002084562,
+   "identifier": null,
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.920386259829239,
+     56.144820820829764
+    ]
+   }
+  },
+  {
+   "title": "<em>COTT</em>/1A002\n42.62",
+   "dispTypeNames": [],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 1,
+   "poiId": 1002084634,
+   "identifier": null,
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9214705415543185,
+     56.145412932840564
+    ]
+   }
+  },
+  {
+   "title": "<em>COTT</em>/1A105\n5.07",
+   "dispTypeNames": [],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 1,
+   "poiId": 1002084679,
+   "identifier": null,
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9187009099092407,
+     56.14418827413545
+    ]
+   }
+  },
+  {
+   "title": "<em>COTT</em>/1A097A\n23.38",
+   "dispTypeNames": [],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 1,
+   "poiId": 1002084700,
+   "identifier": null,
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9191158227699034,
+     56.14420145343799
+    ]
+   }
+  },
+  {
+   "title": "<em>COTT</em>/1A013\n82.14",
+   "dispTypeNames": [],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 1,
+   "poiId": 1002084669,
+   "identifier": "1A13",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9208363577850713,
+     56.14503216662569
+    ]
+   }
+  },
+  {
+   "title": "<em>COTT</em>/3A/CORRIDOR/XY\n70.80",
+   "dispTypeNames": [],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 3,
+   "poiId": 1002085606,
+   "identifier": null,
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9208637267703548,
+     56.14500905341931
+    ]
+   }
+  },
+  {
+   "title": "<em>COTT</em>/2BY/CLR2\n1.20",
+   "dispTypeNames": [],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 2,
+   "poiId": 1002085129,
+   "identifier": null,
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9216473790959987,
+     56.144973501380456
+    ]
+   }
+  },
+  {
+   "title": "<em>COTT</em>/2B080C/STORE\n.64",
+   "dispTypeNames": [],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 2,
+   "poiId": 1002096306,
+   "identifier": null,
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9203600303870543,
+     56.14436341556927
+    ]
+   }
+  },
+  {
+   "title": "<em>COTT</em>/1A115\n10.53",
+   "dispTypeNames": [],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 1,
+   "poiId": 1002084573,
+   "identifier": null,
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.918539621700997,
+     56.14418189609518
+    ]
+   }
+  },
+  {
+   "title": "<em>COTT</em>/1AW/PLANT\n4.73",
+   "dispTypeNames": [],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 1,
+   "poiId": 1002084579,
+   "identifier": null,
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.919890557735197,
+     56.144579325652245
+    ]
+   }
+  },
+  {
+   "title": "<em>COTT</em>/1A096\n44.83",
+   "dispTypeNames": [],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 1,
+   "poiId": 1002084605,
+   "identifier": null,
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9189526675590187,
+     56.14413222420364
+    ]
+   }
+  },
+  {
+   "title": "<em>COTT</em>/1A001\n19.76",
+   "dispTypeNames": [],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 1,
+   "poiId": 1002084614,
+   "identifier": null,
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9214159005595093,
+     56.1453938136221
+    ]
+   }
+  },
+  {
+   "title": "<em>COTT</em>/1A102A/STORE\n3.75",
+   "dispTypeNames": [],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 1,
+   "poiId": 1002084649,
+   "identifier": null,
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.918689589753851,
+     56.14410502830812
+    ]
+   }
+  },
+  {
+   "title": "<em>COTT</em>/1A103\n10.46",
+   "dispTypeNames": [],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 1,
+   "poiId": 1002084651,
+   "identifier": null,
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.918744002026466,
+     56.14419000462419
+    ]
+   }
+  }
+ ]
+}

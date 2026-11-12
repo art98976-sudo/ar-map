@@ -1,0 +1,270 @@
+{
+ "result": [
+  {
+   "title": "<em>2B87</em>",
+   "dispTypeNames": [
+    "Learning Spaces"
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 2,
+   "poiId": 1002084974,
+   "identifier": "COTT/2B087",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9200082584376426,
+     56.14411702785941
+    ]
+   }
+  },
+  {
+   "title": "2.8 Office",
+   "dispTypeNames": [
+    "Office"
+   ],
+   "dispBldNames": [
+    "INTO"
+   ],
+   "zValue": 3,
+   "poiId": 1002081937,
+   "identifier": "INTO-2.8",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.921687097231335,
+     56.14432384874516
+    ]
+   }
+  },
+  {
+   "title": "2B80-2B80C LOBBY",
+   "dispTypeNames": [
+    "Circulation Room"
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 2,
+   "poiId": 1002085201,
+   "identifier": "COTT/2B080/LOBBY",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.92035651790348,
+     56.144377396721445
+    ]
+   }
+  },
+  {
+   "title": "2B80",
+   "dispTypeNames": [
+    "Hidden "
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 2,
+   "poiId": 1002084954,
+   "identifier": "COTT/2B080",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9204275318029715,
+     56.14438698706873
+    ]
+   }
+  },
+  {
+   "title": "2Y8",
+   "dispTypeNames": [
+    "PC Lab"
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 2,
+   "poiId": 1002085029,
+   "identifier": "COTT/2Y008",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.921519078740864,
+     56.14509569250814
+    ]
+   }
+  },
+  {
+   "title": "2B89",
+   "dispTypeNames": [
+    "Circulation Room"
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 2,
+   "poiId": 1002085012,
+   "identifier": "COTT/2B089",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.920006406813184,
+     56.14421076097078
+    ]
+   }
+  },
+  {
+   "title": "2X8",
+   "dispTypeNames": [
+    "Hidden "
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 2,
+   "poiId": 1002085019,
+   "identifier": "COTT/2X008",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9210898275670574,
+     56.1447484695666
+    ]
+   }
+  },
+  {
+   "title": "2A87",
+   "dispTypeNames": [
+    "Learning Spaces"
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 2,
+   "poiId": 1002085065,
+   "identifier": "COTT/2A087",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.918987004674201,
+     56.14417907376774
+    ]
+   }
+  },
+  {
+   "title": "2B8",
+   "dispTypeNames": [
+    "Office"
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 2,
+   "poiId": 1002085092,
+   "identifier": "COTT/2B008",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9220266797893557,
+     56.14546666327348
+    ]
+   }
+  },
+  {
+   "title": "2A81/83",
+   "dispTypeNames": [
+    "Learning Spaces"
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 2,
+   "poiId": 1002085107,
+   "identifier": "COTT/2A081/83",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9192174498300405,
+     56.14422995435331
+    ]
+   }
+  },
+  {
+   "title": "2B88",
+   "dispTypeNames": [
+    "Learning Spaces"
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 2,
+   "poiId": 1002085127,
+   "identifier": "COTT/2B088",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.91992400575902,
+     56.14414690691685
+    ]
+   }
+  },
+  {
+   "title": "2B84",
+   "dispTypeNames": [
+    "Learning Spaces"
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 2,
+   "poiId": 1002085215,
+   "identifier": "COTT/2B084",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9202344282179173,
+     56.14429848918004
+    ]
+   }
+  },
+  {
+   "title": "2A87A",
+   "dispTypeNames": [
+    "Circulation Room"
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 2,
+   "poiId": 1002085038,
+   "identifier": "COTT/2A087A",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9190598006904485,
+     56.14412403515247
+    ]
+   }
+  },
+  {
+   "title": "2B85",
+   "dispTypeNames": [
+    "Learning Spaces"
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 2,
+   "poiId": 1002085032,
+   "identifier": "COTT/2B085",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9201469660960155,
+     56.144245329757815
+    ]
+   }
+  }
+ ]
+}

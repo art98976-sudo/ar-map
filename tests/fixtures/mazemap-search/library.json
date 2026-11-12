@@ -1,0 +1,270 @@
+{
+ "result": [
+  {
+   "title": "<em>Library</em>",
+   "dispTypeNames": [
+    "Learning Spaces"
+   ],
+   "dispBldNames": [
+    "Library"
+   ],
+   "zValue": 3,
+   "poiId": 1002083724,
+   "identifier": "LIB/3/3.05",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9207278400513337,
+     56.14597801852311
+    ]
+   }
+  },
+  {
+   "title": "<em>Library</em>",
+   "dispTypeNames": [
+    "Learning Spaces"
+   ],
+   "dispBldNames": [
+    "Library"
+   ],
+   "zValue": 4,
+   "poiId": 1002083149,
+   "identifier": "LIB/4.01",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9207290964973014,
+     56.14598808084203
+    ]
+   }
+  },
+  {
+   "title": "<em>Library</em>",
+   "dispTypeNames": [
+    "Learning Spaces"
+   ],
+   "dispBldNames": [
+    "Library"
+   ],
+   "zValue": 2,
+   "poiId": 1002083104,
+   "identifier": "LIB/2/2.14",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.920658035543155,
+     56.14601513819533
+    ]
+   }
+  },
+  {
+   "title": "<em>Library</em> Emergency Access",
+   "dispTypeNames": [
+    "Circulation Room"
+   ],
+   "dispBldNames": [
+    "Andrew Miller"
+   ],
+   "zValue": 3,
+   "poiId": 1002096807,
+   "identifier": "3.08",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9208066092175105,
+     56.14569935058158
+    ]
+   }
+  },
+  {
+   "title": "I.T. Hub Cupboard",
+   "dispTypeNames": [
+    "Hidden "
+   ],
+   "dispBldNames": [
+    "Library"
+   ],
+   "zValue": 3,
+   "poiId": 1002083203,
+   "identifier": "LIB/3.18A",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9207910728692443,
+     56.145752231162895
+    ]
+   }
+  },
+  {
+   "title": "Risers",
+   "dispTypeNames": [
+    "Hidden "
+   ],
+   "dispBldNames": [
+    "Library"
+   ],
+   "zValue": 3,
+   "poiId": 1002083204,
+   "identifier": "LIB/3.23",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9205311785680537,
+     56.14603263884113
+    ]
+   }
+  },
+  {
+   "title": "I.T. Hub",
+   "dispTypeNames": [
+    "Hidden "
+   ],
+   "dispBldNames": [
+    "Library"
+   ],
+   "zValue": 3,
+   "poiId": 1002083205,
+   "identifier": "LIB/3.18",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9207704004508757,
+     56.145745480326674
+    ]
+   }
+  },
+  {
+   "title": "Plant Room",
+   "dispTypeNames": [
+    "Hidden "
+   ],
+   "dispBldNames": [
+    "Library"
+   ],
+   "zValue": 3,
+   "poiId": 1002083206,
+   "identifier": "LIB/3.19",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.92076895913708,
+     56.14577050083233
+    ]
+   }
+  },
+  {
+   "title": "North Stair",
+   "dispTypeNames": [
+    "Stairs"
+   ],
+   "dispBldNames": [
+    "Library"
+   ],
+   "zValue": 3,
+   "poiId": 1002083207,
+   "identifier": "LIB/3.08",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9208039869783877,
+     56.1461946693255
+    ]
+   }
+  },
+  {
+   "title": "Riser",
+   "dispTypeNames": [
+    "Hidden "
+   ],
+   "dispBldNames": [
+    "Library"
+   ],
+   "zValue": 3,
+   "poiId": 1002083213,
+   "identifier": "LIB/3.26",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.920490972063035,
+     56.145888649946755
+    ]
+   }
+  },
+  {
+   "title": "Risers",
+   "dispTypeNames": [
+    "Hidden "
+   ],
+   "dispBldNames": [
+    "Library"
+   ],
+   "zValue": 3,
+   "poiId": 1002083214,
+   "identifier": "LIB/3.22",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9208815118183535,
+     56.145813175374585
+    ]
+   }
+  },
+  {
+   "title": "Plant",
+   "dispTypeNames": [
+    "Hidden "
+   ],
+   "dispBldNames": [
+    "Library"
+   ],
+   "zValue": 3,
+   "poiId": 1002083215,
+   "identifier": "LIB/3.27",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.920707274476799,
+     56.146210914630615
+    ]
+   }
+  },
+  {
+   "title": "Toilet Lobby",
+   "dispTypeNames": [
+    "Circulation Room"
+   ],
+   "dispBldNames": [
+    "Library"
+   ],
+   "zValue": 3,
+   "poiId": 1002083216,
+   "identifier": "LIB/3.10",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.920541096785242,
+     56.145971664333885
+    ]
+   }
+  },
+  {
+   "title": "South Stair",
+   "dispTypeNames": [
+    "Stairs"
+   ],
+   "dispBldNames": [
+    "Library"
+   ],
+   "zValue": 3,
+   "poiId": 1002083217,
+   "identifier": "LIB/3.20",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9208688030001646,
+     56.14578351526398
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,269 @@
+{
+ "result": [
+  {
+   "title": "COTT/<em>A3</em>/EXIT\n17.04",
+   "dispTypeNames": [],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 1,
+   "poiId": 1002084562,
+   "identifier": null,
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.920386259829239,
+     56.144820820829764
+    ]
+   }
+  },
+  {
+   "title": "<em>A3</em> Entrance",
+   "dispTypeNames": [
+    "Circulation Room"
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 2,
+   "poiId": 1002085077,
+   "identifier": "COTT/A3/ENTRANCE",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9204311791458726,
+     56.14487156667142
+    ]
+   }
+  },
+  {
+   "title": "<em>A3</em> Entrance Cupboard",
+   "dispTypeNames": [
+    "Hidden "
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 2,
+   "poiId": 1002085219,
+   "identifier": "COTT/A3/ENT/CPBD",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9204323411591058,
+     56.14484532922141
+    ]
+   }
+  },
+  {
+   "title": "Lecture Theatre <em>A3</em> - Offer Holder Day",
+   "dispTypeNames": [
+    "Offer Holder Day"
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 2,
+   "poiId": 1002829207,
+   "identifier": null,
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9204805799927263,
+     56.14481214263628
+    ]
+   }
+  },
+  {
+   "title": "<em>A3</em> Plantroom",
+   "dispTypeNames": [
+    "Hidden "
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 2,
+   "poiId": 1002084992,
+   "identifier": "COTT/A3/PLANT",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.920556439182724,
+     56.14474549971142
+    ]
+   }
+  },
+  {
+   "title": "<em>A3</em> Lecture Theatre",
+   "dispTypeNames": [
+    "Lecture Theatre",
+    "Learning Spaces"
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 2,
+   "poiId": 1002085033,
+   "identifier": "COTT/A3LT",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.920512146473198,
+     56.14479762776267
+    ]
+   }
+  },
+  {
+   "title": "NULL",
+   "dispTypeNames": [
+    "Hidden "
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 1,
+   "poiId": 1002084660,
+   "identifier": "COTT/A3/LOBBYSTORE",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9204339131302586,
+     56.14484522140277
+    ]
+   }
+  },
+  {
+   "title": "<em>A3LT</em> Store 2",
+   "dispTypeNames": [
+    "Hidden "
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 1,
+   "poiId": 1002084586,
+   "identifier": "COTT/A3LT/STORE2",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9204887457350246,
+     56.144783288148744
+    ]
+   }
+  },
+  {
+   "title": "<em>A3LT</em> Store <em>3</em>",
+   "dispTypeNames": [
+    "Hidden "
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 1,
+   "poiId": 1002084589,
+   "identifier": "COTT/A3LT/STORE3",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.920414163437305,
+     56.14476150272404
+    ]
+   }
+  },
+  {
+   "title": "<em>A3LT</em> Plantroom 4",
+   "dispTypeNames": [
+    "Hidden "
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 1,
+   "poiId": 1002084594,
+   "identifier": "COTT/A3LT/PLANT4",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9205411013821387,
+     56.14475373351955
+    ]
+   }
+  },
+  {
+   "title": "<em>A3LT</em> Plantroom 5",
+   "dispTypeNames": [
+    "Hidden "
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 1,
+   "poiId": 1002084615,
+   "identifier": "COTT/A3LT/PLANT5",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.920495684983146,
+     56.14475191466878
+    ]
+   }
+  },
+  {
+   "title": "<em>A3LT</em> Store 1",
+   "dispTypeNames": [
+    "Hidden "
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 1,
+   "poiId": 1002084662,
+   "identifier": "COTT/A3LT/STORE1",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9205506669690426,
+     56.144800826995834
+    ]
+   }
+  },
+  {
+   "title": "<em>A3LT</em> Corridor",
+   "dispTypeNames": [
+    "Circulation Room"
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 1,
+   "poiId": 1002084663,
+   "identifier": "COTT/A3LT/CORR",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.920632370758315,
+     56.14478812976407
+    ]
+   }
+  },
+  {
+   "title": "<em>A3LT</em> Plantroom <em>3</em>",
+   "dispTypeNames": [
+    "Hidden "
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 1,
+   "poiId": 1002084689,
+   "identifier": "COTT/A3LT/PLANT3",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.920551192555856,
+     56.14476726830917
+    ]
+   }
+  }
+ ]
+}

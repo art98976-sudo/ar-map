@@ -1,0 +1,214 @@
+{
+ "result": [
+  {
+   "title": "Toilet Male",
+   "dispTypeNames": [
+    "Toilet Male"
+   ],
+   "zValue": null,
+   "identifier": null
+  },
+  {
+   "title": "Toilet Female",
+   "dispTypeNames": [
+    "Toilet Female"
+   ],
+   "zValue": null,
+   "identifier": null
+  },
+  {
+   "title": "Toilet Accessible",
+   "dispTypeNames": [
+    "Toilet Accessible"
+   ],
+   "zValue": null,
+   "identifier": null
+  },
+  {
+   "title": "Gender Neutral Toilet",
+   "dispTypeNames": [
+    "Gender Neutral Toilet"
+   ],
+   "zValue": null,
+   "identifier": null
+  },
+  {
+   "title": "Childrens Toilet",
+   "dispTypeNames": [
+    "Childrens Toilet"
+   ],
+   "zValue": null,
+   "identifier": null
+  },
+  {
+   "title": "Toilets",
+   "dispTypeNames": [
+    "Toilets"
+   ],
+   "zValue": null,
+   "identifier": null
+  },
+  {
+   "title": "Female <em>Toilet</em>",
+   "dispTypeNames": [
+    "Toilet Female",
+    "Toilets",
+    "Hidden "
+   ],
+   "dispBldNames": [
+    "Robbins Centre"
+   ],
+   "zValue": 1,
+   "poiId": 1002096427,
+   "identifier": "WC/F",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9183850879390456,
+     56.145953264332924
+    ]
+   }
+  },
+  {
+   "title": "Male <em>Toilet</em>",
+   "dispTypeNames": [
+    "Toilet Male",
+    "Toilets",
+    "Hidden "
+   ],
+   "dispBldNames": [
+    "Robbins Centre"
+   ],
+   "zValue": 1,
+   "poiId": 1002096430,
+   "identifier": "WC/M",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.918367721792942,
+     56.14601796498117
+    ]
+   }
+  },
+  {
+   "title": "Gents <em>Toilet</em>",
+   "dispTypeNames": [
+    "Toilet Male",
+    "Toilets"
+   ],
+   "dispBldNames": [
+    "Pathfoot Building"
+   ],
+   "zValue": 1,
+   "poiId": 1002068429,
+   "identifier": "PATH/A/GENTS",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9281426873544105,
+     56.14895277933496
+    ]
+   }
+  },
+  {
+   "title": "Accessible <em>Toilet</em>",
+   "dispTypeNames": [
+    "Toilets",
+    "Toilet Accessible"
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 1,
+   "poiId": 1002084667,
+   "identifier": "COTT/1AV/TOILET",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.919547242695577,
+     56.14435555182705
+    ]
+   }
+  },
+  {
+   "title": "Accessible <em>Toilet</em>",
+   "dispTypeNames": [
+    "Toilets",
+    "Toilet Accessible"
+   ],
+   "dispBldNames": [
+    "Cottrell Building"
+   ],
+   "zValue": 2,
+   "poiId": 1002085073,
+   "identifier": "COTT/2AW/TOILET",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.9200559595331104,
+     56.14459804618313
+    ]
+   }
+  },
+  {
+   "title": "Male <em>Toilet</em>",
+   "dispTypeNames": [
+    "Toilets",
+    "Toilet Male"
+   ],
+   "dispBldNames": [
+    "Library"
+   ],
+   "zValue": 4,
+   "poiId": 1002083156,
+   "identifier": "LIB/4.14",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.920488377181677,
+     56.14598945584772
+    ]
+   }
+  },
+  {
+   "title": "Male <em>Toilet</em>",
+   "dispTypeNames": [
+    "Toilets",
+    "Toilet Male"
+   ],
+   "dispBldNames": [
+    "Colin Bell Building"
+   ],
+   "zValue": 4,
+   "poiId": 1002081617,
+   "identifier": "4S/MALE/WC",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.917347769427748,
+     56.144057366401164
+    ]
+   }
+  },
+  {
+   "title": "Female <em>Toilet</em>",
+   "dispTypeNames": [
+    "Toilets",
+    "Toilet Female"
+   ],
+   "dispBldNames": [
+    "Colin Bell Building"
+   ],
+   "zValue": 4,
+   "poiId": 1002081629,
+   "identifier": "4S/FEMALE/WC",
+   "point": {
+    "type": "Point",
+    "coordinates": [
+     -3.917376479646737,
+     56.14379459405446
+    ]
+   }
+  }
+ ]
+}

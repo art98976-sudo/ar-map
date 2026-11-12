@@ -30,6 +30,7 @@ export function parseMazeMapResults(json) {
       lat: r.point.coordinates[1],
       lng: r.point.coordinates[0],
       mazemapPoi: r.poiId,
+      code: r.identifier ? strip(r.identifier) : null, // "COTT/A3LT": the room code people may type
       source: 'mazemap',
     })
   }

@@ -161,6 +161,7 @@ describe('parseMazeMapResults', () => {
         lat: 56.1444,
         lng: -3.9195,
         mazemapPoi: 1,
+        code: null,
         source: 'mazemap',
       },
     ])
