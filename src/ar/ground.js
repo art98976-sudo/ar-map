@@ -6,18 +6,6 @@ import {GROUND} from '../config.js'
 
 export const HIT_TYPES = ['DETECTED_SURFACE', 'ESTIMATED_SURFACE', 'FEATURE_POINT']
 
-/** Spots in the lower half of the screen (0..1), where the ground usually is. */
-export const SCREEN_POINTS = [
-  [0.5, 0.6],
-  [0.3, 0.68],
-  [0.7, 0.68],
-  [0.5, 0.75],
-  [0.2, 0.82],
-  [0.8, 0.82],
-  [0.5, 0.88],
-  [0.35, 0.95],
-  [0.65, 0.95],
-]
 
 /**
  * Keep a hit only if it could be the path: below the phone, not far off, near the route.
@@ -94,6 +82,120 @@ export function fitGround(hits, userS, now) {
   const slope = Math.max(-GROUND.maxSlope, Math.min(GROUND.maxSlope, fit.slope))
   const height = slope === fit.slope ? fit.height : flatHeight(points, slope)
   return {height, slope, inliers: points, span: spanOf(points)}
+}
+
+// ---------- The floor under the user: fast, robust height for the arrows ----------
+
+const SURFACE = new Set(['DETECTED_SURFACE', 'ESTIMATED_SURFACE'])
+
+/** A grid over the lower half of the screen (0..1 from the top left), searched in turn. */
+export const FLOOR_GRID = (() => {
+  const xs = [0.15, 0.32, 0.5, 0.68, 0.85]
+  const ys = [0.55, 0.67, 0.79, 0.91]
+  const out = []
+  // Interleaved, so a few tests in a row already spread over the whole area.
+  for (let i = 0; i < ys.length; i++) for (let j = 0; j < xs.length; j++) out.push([xs[(j + i * 2) % xs.length], ys[i]])
+  return out
+})()
+
+/** Could this hit be the floor? 0.5-2.2 m below the phone, and near it. */
+export function acceptFloorHit(hit, camera) {
+  if (!hit || !Number.isFinite(hit.y)) return false
+  const drop = camera.y - hit.y
+  if (drop < GROUND.floorMinDropM || drop > GROUND.floorMaxDropM) return false
+  return Math.hypot(hit.x - camera.x, hit.z - camera.z) <= GROUND.floorNearM
+}
+
+export function median(values) {
+  if (!values.length) return null
+  const s = [...values].sort((a, b) => a - b)
+  const mid = s.length >> 1
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2
+}
+
+/**
+ * The floor height from hits [{x, y, z, surface}]: the median, so furniture cannot pull it up,
+ * of surface hits if there are any (feature points only when nothing else exists). `found` once
+ * enough of them agree within GROUND.floorBandM and spread over the floor, i.e. a flat cluster.
+ */
+export function floorFromHits(hits) {
+  const surfaces = hits.filter((h) => h.surface)
+  const use = surfaces.length >= GROUND.floorMinHits ? surfaces : hits
+  if (!use.length) return {height: null, found: false, count: 0}
+  const m = median(use.map((h) => h.y))
+  const band = use.filter((h) => Math.abs(h.y - m) <= GROUND.floorBandM)
+  const xs = band.map((h) => h.x)
+  const zs = band.map((h) => h.z)
+  const spread = band.length ? Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs)) : 0
+  return {
+    height: median(band.map((h) => h.y)) ?? m,
+    found: band.length >= GROUND.floorFoundHits && spread >= GROUND.floorSpreadM,
+    count: band.length,
+  }
+}
+
+/**
+ * The floor the arrows lie on. Hits come in from hit tests; a tap on the floor overrides them
+ * until tracking resets (clear()). update() gives the height to draw at, eased (about 0.3 s)
+ * and never moving more than GROUND.floorMaxStepM in one frame.
+ *   source: 'tap' | 'hits' | 'fallback' (phone height minus the eye height, before any floor)
+ */
+export function createFloorFinder() {
+  let hits = []
+  let tapY = null
+  let found = false
+  let shown = null
+  let last = {height: null, source: 'fallback', found: false, belowPhoneM: GROUND.defaultEyeM, hits: 0}
+
+  return {
+    /** A hit test result {x, y, z} of `type`, with the camera where it was. Returns true if kept. */
+    addHit(position, type, camera, time) {
+      if (!acceptFloorHit(position, camera)) return false
+      hits.push({x: position.x, y: position.y, z: position.z, surface: SURFACE.has(type), time})
+      if (hits.length > GROUND.floorMaxHits) hits = hits.slice(-GROUND.floorMaxHits)
+      return true
+    },
+    /** The user tapped the floor at this world height: used straight away, no easing. */
+    setTap(y) {
+      tapY = y
+      shown = y
+    },
+    /** Tracking was reset: the world may have moved, so start the search again. */
+    clear() {
+      hits = []
+      tapY = null
+      found = false
+    },
+    update(dt, camera, time) {
+      // Only recent hits near where the user is now: the floor of this room, this stretch of path.
+      hits = hits.filter((h) => time - h.time <= GROUND.floorMaxAgeS && Math.hypot(h.x - camera.x, h.z - camera.z) <= GROUND.floorNearM)
+      const fit = floorFromHits(hits)
+      found ||= fit.found
+      let target
+      let source
+      if (tapY != null) {
+        target = tapY
+        source = 'tap'
+      } else if (found && fit.height != null) {
+        target = fit.height
+        source = 'hits'
+      } else {
+        target = camera.y - GROUND.defaultEyeM
+        source = 'fallback'
+      }
+      if (shown == null) shown = target
+      const eased = shown + (target - shown) * (1 - Math.exp((-3 * dt) / GROUND.floorEaseS))
+      shown += Math.max(-GROUND.floorMaxStepM, Math.min(GROUND.floorMaxStepM, eased - shown))
+      last = {height: shown, source, found: source !== 'fallback', belowPhoneM: camera.y - shown, hits: hits.length}
+      return last
+    },
+    get found() {
+      return last.found
+    },
+    get current() {
+      return last
+    },
+  }
 }
 
 /** Collects hits and gives a smooth ground height and slope. */

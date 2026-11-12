@@ -1,12 +1,12 @@
-// The way to walk, drawn on the real floor: flat green chevrons with a white edge, one every
-// 1.2 m along the next 18 m of the route, inside the AR scene's geo-root group. Being 3D objects
-// in the world, the real camera gives them perspective and they stay put when the phone moves.
+// The way to walk, drawn on the real floor: flat green chevrons with a white edge and a soft
+// shadow, one every 1 m along the next 10 m of the route, inside the AR scene geo-root group.
+// Being 3D objects in the world, the real camera gives them perspective and they stay on the floor.
 //
 // They are laid along the same polyline the map draws, with each corner rounded (about 1 m
 // radius), so the line of arrows itself bends left or right: that bend is the only turn signal.
-// Chevrons are anchored to fixed spots along the route (every 1.2 m from the start), so they do
-// not slide as the user walks; the ones left behind are recycled ahead. A fixed pool of meshes is
-// made once; nothing is created per frame.
+// Chevrons are anchored to fixed spots along the route, so they do not slide as the user walks;
+// the ones left behind are recycled ahead. A fixed pool of meshes is made once; nothing is
+// created per frame. A chevron behind a wall or furniture (hit tests, in trip.js) fades out.
 //
 // Route frame: {x east, y north} metres. Geo-root: x = east, y = up, z = -north.
 import {localBearing, pointAt, polylineLength, projectOntoPolyline, toRad} from '../geo/geo.js'
@@ -111,43 +111,97 @@ function shapeOf(THREE, pts) {
   return new THREE.Shape(pts.map(([x, y]) => new THREE.Vector2(x, y)))
 }
 
+
+/** 1 for a chevron well below the horizon, fading to 0 by GROUND_ARROWS.minAngleDeg / 2. */
+export function angleFade(depressionDeg) {
+  const full = GROUND_ARROWS.minAngleDeg
+  const none = full / 2
+  if (!Number.isFinite(depressionDeg) || depressionDeg <= none) return 0
+  if (depressionDeg >= full) return 1
+  const t = (depressionDeg - none) / (full - none)
+  return t * t * (3 - 2 * t)
+}
+
+/** A soft dark blurred chevron on a transparent canvas, for the shadow under each arrow. */
+function shadowTexture(THREE, outline) {
+  const canvas = typeof document !== 'undefined' ? document.createElement('canvas') : null
+  let ctx = null
+  try {
+    ctx = canvas?.getContext?.('2d') ?? null
+  } catch {
+    ctx = null // no canvas (tests): a plain dark shape instead
+  }
+  if (!ctx) return null
+  const size = 128
+  canvas.width = size
+  canvas.height = size
+  const span = GROUND_ARROWS.widthM * GROUND_ARROWS.shadowScale // metres across the texture
+  const px = (m) => (m / span) * size
+  // Draw the chevron far off the canvas and keep only its blurred shadow, which every browser does.
+  const off = size * 4
+  ctx.shadowColor = 'rgba(0,0,0,1)'
+  ctx.shadowBlur = size * 0.09
+  ctx.shadowOffsetX = off
+  ctx.fillStyle = '#000'
+  ctx.beginPath()
+  outline.forEach(([x, y], i) => {
+    const cx = size / 2 + px(x) - off
+    const cy = size / 2 - px(y)
+    if (i) ctx.lineTo(cx, cy)
+    else ctx.moveTo(cx, cy)
+  })
+  ctx.closePath()
+  ctx.fill()
+  return new THREE.CanvasTexture(canvas)
+}
+
 /**
  * The pool and its drawing. update() once per frame with the user's s along the route, the
- * ground slope (height change per metre along the route), and whether to show them at all.
+ * ground slope (height change per metre along the route), whether to show them, an opacity for
+ * all of them (half while the floor is still a guess), and the camera (to keep them on the floor).
  */
-export function createGroundArrows(THREE, {reducedMotion = false} = {}) {
+export function createGroundArrows(THREE) {
   const group = new THREE.Group()
   group.name = 'ground-arrows'
   group.visible = false
   const outline = chevronOutline()
   const greenGeo = new THREE.ShapeGeometry(shapeOf(THREE, outline))
   const edgeGeo = new THREE.ShapeGeometry(shapeOf(THREE, growPolygon(outline, GROUND_ARROWS.edgeM)))
+  const shadowSize = GROUND_ARROWS.widthM * GROUND_ARROWS.shadowScale
+  const shadowGeo = new THREE.PlaneGeometry(shadowSize, shadowSize)
   // Lying flat: the shape's +Y (its point) becomes -Z, which the geo-root calls north.
-  greenGeo.rotateX(-Math.PI / 2)
-  edgeGeo.rotateX(-Math.PI / 2)
-  const green = new THREE.Color(GROUND_ARROWS.green)
-  const bright = new THREE.Color(GROUND_ARROWS.pulseGreen)
+  for (const g of [greenGeo, edgeGeo, shadowGeo]) g.rotateX(-Math.PI / 2)
+  const shadowMap = shadowTexture(THREE, outline)
+  const flat = {transparent: true, depthTest: false, depthWrite: false}
 
   const pool = Array.from({length: GROUND_ARROWS.poolSize}, (_, i) => {
     const item = new THREE.Group()
     item.name = `chevron-${i}`
-    const edgeMat = new THREE.MeshBasicMaterial({color: 0xffffff, transparent: true, depthTest: false, depthWrite: false})
-    const fillMat = new THREE.MeshBasicMaterial({color: green.clone(), transparent: true, depthTest: false, depthWrite: false})
+    const shadowMat = new THREE.MeshBasicMaterial({...flat, color: 0x000000, map: shadowMap, opacity: GROUND_ARROWS.shadowOpacity})
+    const edgeMat = new THREE.MeshBasicMaterial({...flat, color: 0xffffff})
+    const fillMat = new THREE.MeshBasicMaterial({...flat, color: GROUND_ARROWS.green})
+    const shadow = new THREE.Mesh(shadowGeo, shadowMat)
     const edge = new THREE.Mesh(edgeGeo, edgeMat)
     const fill = new THREE.Mesh(greenGeo, fillMat)
-    // Drawn on top of the camera image and everything else; the green over its own white edge.
-    edge.renderOrder = GROUND_ARROWS.renderOrder
-    fill.renderOrder = GROUND_ARROWS.renderOrder + 1
-    fill.position.y = 0.002
-    item.add(edge, fill)
+    // Over the camera image (depthTest off), in this order: shadow, white edge, green.
+    shadow.renderOrder = GROUND_ARROWS.renderOrder
+    edge.renderOrder = GROUND_ARROWS.renderOrder + 1
+    fill.renderOrder = GROUND_ARROWS.renderOrder + 2
+    item.add(shadow, edge, fill)
     item.visible = false
     group.add(item)
-    return {item, edgeMat, fillMat}
+    return {item, shadowMat, edgeMat, fillMat, spot: null, alpha: 0}
   })
 
   let route = []
   let rounded = []
   let active = 0
+  let visibleCount = 0
+  // Blocked state per spot along the route (its s), so it follows the spot, not the pool slot.
+  const blocked = new Map() // sKey -> {target: 0|1 (1 = blocked), shown: 0..1 (1 = fully hidden), cascade}
+  const keyOf = (s) => Math.round(s * 100)
+  const p = new THREE.Vector3()
+  const camPos = new THREE.Vector3()
 
   return {
     group,
@@ -155,32 +209,79 @@ export function createGroundArrows(THREE, {reducedMotion = false} = {}) {
     setRoute(points) {
       route = points
       rounded = roundCorners(points)
+      blocked.clear()
     },
-    /** Lay the chevrons for this frame. Returns how many are drawn. */
-    update({userS, slope = 0, show, time = 0}) {
+    /** Lay the chevrons for this frame. camera: the AR camera (world). Returns how many are placed. */
+    update({userS, slope = 0, show, opacity = 1, dt = 0, camera = null}) {
       group.visible = Boolean(show)
       const spots = show ? chevronSpots(route, rounded, userS) : []
       active = Math.min(spots.length, pool.length)
+      visibleCount = 0
+      const live = new Set(spots.slice(0, active).map((s) => keyOf(s.s)))
+      for (const key of blocked.keys()) if (!live.has(key)) blocked.delete(key)
+      const k = 1 - Math.exp((-3 * dt) / GROUND_ARROWS.blockEaseS)
+      if (camera) camera.getWorldPosition(camPos)
+      group.updateMatrixWorld(true)
+      let behind = false // past the first blocked spot along the path, everything is hidden too
       for (let i = 0; i < pool.length; i++) {
-        const {item, edgeMat, fillMat} = pool[i]
-        const spot = spots[i]
-        if (!spot || i >= active) {
-          item.visible = false
+        const slot = pool[i]
+        const spot = i < active ? spots[i] : null
+        slot.spot = spot
+        if (!spot) {
+          slot.item.visible = false
+          slot.alpha = 0
           continue
         }
-        item.visible = true
         // On the floor: the geo-root sits at the floor under the user; the slope carries it along.
         const lift = Math.max(-GROUND_ARROWS.maxLiftM, Math.min(GROUND_ARROWS.maxLiftM, (spot.s - userS) * slope))
-        item.position.set(spot.x, lift + 0.01, -spot.y)
-        item.rotation.set(0, -toRad(spot.bearingDeg), 0)
-        const alpha = fadeAt(spot.d)
-        edgeMat.opacity = alpha * 0.95
-        fillMat.opacity = alpha
-        // A slow pulse travelling forward along the arrows (none with reduced motion).
-        const wave = reducedMotion ? 0 : Math.max(0, Math.cos(2 * Math.PI * (spot.d / GROUND_ARROWS.pulseWavelengthM - time / GROUND_ARROWS.pulsePeriodS)))
-        fillMat.color.copy(green).lerp(bright, wave ** 4)
+        slot.item.position.set(spot.x, lift + 0.005, -spot.y)
+        slot.item.rotation.set(0, -toRad(spot.bearingDeg), 0)
+        slot.item.updateMatrixWorld(true)
+        let alpha = fadeAt(spot.d) * opacity
+        if (camera) {
+          slot.item.getWorldPosition(p)
+          const below = camPos.y - p.y
+          // Never at or above eye level, and nothing seen nearly edge-on near the horizon.
+          if (below < GROUND_ARROWS.minBelowCameraM) alpha = 0
+          else alpha *= angleFade((Math.atan2(below, Math.hypot(p.x - camPos.x, p.z - camPos.z)) * 180) / Math.PI)
+        }
+        const b = blocked.get(keyOf(spot.s)) ?? {target: 0, shown: 0, cascade: false}
+        b.cascade = behind && b.target === 0
+        const hide = b.target === 1 || behind ? 1 : 0
+        if (b.target === 1) behind = true
+        b.shown += (hide - b.shown) * k
+        blocked.set(keyOf(spot.s), b)
+        alpha *= 1 - b.shown
+        slot.alpha = alpha
+        slot.item.visible = alpha > 0.01
+        if (slot.item.visible) visibleCount += 1
+        slot.shadowMat.opacity = GROUND_ARROWS.shadowOpacity * alpha
+        slot.edgeMat.opacity = alpha
+        slot.fillMat.opacity = alpha
       }
       return active
+    },
+    /**
+     * Where chevron i is on screen ({x, y} 0..1 from the top left) and how far from the camera,
+     * for the blocked test; null if it is not placed or not in front of the camera.
+     */
+    screenSpot(i, camera) {
+      const slot = pool[i]
+      if (!slot?.spot || i >= active) return null
+      camera.updateMatrixWorld()
+      slot.item.getWorldPosition(p)
+      camera.getWorldPosition(camPos)
+      const distance = p.distanceTo(camPos)
+      const q = p.clone().project(camera)
+      if (q.z < -1 || q.z > 1 || Math.abs(q.x) > 1 || Math.abs(q.y) > 1) return null
+      return {x: (q.x + 1) / 2, y: (1 - q.y) / 2, distance, s: slot.spot.s}
+    },
+    /** The blocked test for spot s: is a surface nearer the camera than the chevron? */
+    setBlocked(s, isBlocked) {
+      const key = keyOf(s)
+      const b = blocked.get(key) ?? {target: 0, shown: 0, cascade: false}
+      b.target = isBlocked ? 1 : 0
+      blocked.set(key, b)
     },
     /** How many of the drawn chevrons are inside the camera's view right now. */
     countInView(camera) {
@@ -188,9 +289,9 @@ export function createGroundArrows(THREE, {reducedMotion = false} = {}) {
       camera.updateMatrixWorld()
       const m = new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
       const frustum = new THREE.Frustum().setFromProjectionMatrix(m)
-      const p = new THREE.Vector3()
       let n = 0
       for (let i = 0; i < active; i++) {
+        if (!pool[i].item.visible) continue
         pool[i].item.getWorldPosition(p)
         if (frustum.containsPoint(p)) n += 1
       }
@@ -202,10 +303,26 @@ export function createGroundArrows(THREE, {reducedMotion = false} = {}) {
     get active() {
       return active
     },
+    /** Drawn with some opacity (not faded out, not hidden as blocked). */
+    get visible() {
+      return visibleCount
+    },
+    /** Hidden because a surface is in front of them, or in front of one before them on the path. */
+    get blockedCount() {
+      let n = 0
+      for (let i = 0; i < active; i++) {
+        const b = pool[i].spot && blocked.get(keyOf(pool[i].spot.s))
+        if (b && (b.target === 1 || b.cascade)) n += 1
+      }
+      return n
+    },
     dispose() {
       greenGeo.dispose()
       edgeGeo.dispose()
-      for (const {edgeMat, fillMat} of pool) {
+      shadowGeo.dispose()
+      shadowMap?.dispose()
+      for (const {shadowMat, edgeMat, fillMat} of pool) {
+        shadowMat.dispose()
         edgeMat.dispose()
         fillMat.dispose()
       }

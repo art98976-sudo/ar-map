@@ -245,21 +245,34 @@ export function arScreen(root, {navigate, params}) {
   function paintStatusLine(s) {
     const line = root.querySelector('[data-ar-status]')
     if (!line) return
+    const below = Number.isFinite(s.floorBelowM) ? `${s.floorBelowM.toFixed(2)} m below` : '–'
     line.textContent = [
       `Tracking ${s.tracking ?? '–'}`,
-      `floor ${s.groundSource === 'hits' ? 'hits' : 'fallback'}`,
+      `floor ${s.floorSource ?? 'fallback'} ${below}`,
       `aligned ${s.aligned ? 'yes' : 'no'}`,
-      `chevrons ${s.arrowsCreated ?? 0} made, ${s.arrowsDrawn ?? 0} drawn`,
+      `chevrons ${s.arrowsVisible ?? 0} visible, ${s.arrowsBlocked ?? 0} blocked`,
       `in view ${s.arrowsInView ?? 0}`,
     ].join(' · ')
+  }
+
+  /** Tap the floor in the camera view: that spot sets the floor height straight away. */
+  function wireFloorTap() {
+    const view = root.querySelector('.ar')
+    if (!view) return
+    view.addEventListener('click', (event) => {
+      // Only a tap on the camera picture itself, not on a button, the map or a card.
+      if (event.target !== view && !event.target.matches?.('[data-canvas]')) return
+      const box = view.getBoundingClientRect()
+      if (trip?.tapFloor((event.clientX - box.left) / box.width, (event.clientY - box.top) / box.height)) haptic(15)
+    })
   }
 
   /** One thing to do at a time: only the most urgent of these shows. */
   function paintHints(s) {
     const hints = [
-      ['[data-floor-hint]', s.pointAtFloor],
       ['[data-position-hint]', s.positionUncertain],
       ['[data-reroute-hint]', s.rerouting],
+      ['[data-floor-hint]', s.pointAtFloor],
       ['[data-compass-pill]', s.compassUnsteady || s.compassPoor],
       ['[data-locating]', !s.manual && !s.startBlocked && (s.phase === 'await-start' || (s.phase === 'ready' && !s.directionKnown))],
     ]
@@ -364,6 +377,7 @@ export function arScreen(root, {navigate, params}) {
     if (disposed) return
     trip = createArTrip({route, origin, destination, allowDesktop, debug: showDebug, arriveLabel: arriveLabel(destination), onPhase, onStats, onArrived, onTurnClose: () => haptic(30), onTurnNow: () => haptic([30, 50, 30]), startPoint: tripStart, autoStart: !manualStart, reducedMotion: prefersReducedMotion(), onEnterCampus: () => showToast('Welcome to campus', {tone: 'success'})})
     wireMapSwipe()
+    wireFloorTap()
     compassMap = createCompassMap(root.querySelector('[data-map-canvas]'), {
       getState: () => trip?.mapState() ?? null,
       onReady: () => {

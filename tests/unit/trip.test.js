@@ -460,11 +460,80 @@ describe('the arrows on the real ground', () => {
     }
   }
 
-  it('starts on the phone height minus 1.4 m, with no hits', () => {
+  it('starts on the phone height minus 1.4 m, with no hits: half-transparent, "Point your phone at the floor"', () => {
     const t = start(() => [])
     t.run(0.5)
     near(t.root.position.y, 0.1, 0.001)
-    expect(t.box.stats.groundSource).toBe('eye')
+    expect(t.box.stats).toMatchObject({groundSource: 'fallback', floorSource: 'fallback', pointAtFloor: true, arrowsShown: true})
+    near(t.box.stats.floorBelowM, 1.4, 0.001)
+    const fill = t.root.getObjectByName('chevron-1').children[2].material
+    near(fill.opacity, 0.5, 0.01)
+    t.done()
+  })
+
+  it('takes the median of a flat cluster: a table among floor hits does not lift the arrows', () => {
+    let n = 0
+    const t = start(() => {
+      n += 1
+      const x = ((n % 7) - 3) * 0.3
+      // One hit in four is a table top 0.75 m above the floor.
+      return [{type: 'DETECTED_SURFACE', position: {x, y: n % 4 ? -0.1 : 0.65, z: -1 - (n % 3)}}]
+    })
+    t.run(2)
+    near(t.root.position.y, -0.1, 0.01)
+    expect(t.box.stats).toMatchObject({floorSource: 'hits', pointAtFloor: false})
+    near(t.root.getObjectByName('chevron-1').children[2].material.opacity, 1, 0.01)
+    t.done()
+  })
+
+  it('never moves the floor more than 5 cm in one frame', () => {
+    let floorY = -0.1
+    const t = start(() => [{type: 'DETECTED_SURFACE', position: {x: Math.random() - 0.5, y: floorY, z: -1 - Math.random() * 2}}])
+    t.run(2)
+    near(t.root.position.y, -0.1, 0.01)
+    floorY = -0.6 // the floor turns out 0.5 m lower (stale hits age out over 8 s)
+    let last = t.root.position.y
+    let biggest = 0
+    for (let i = 0; i < 400; i++) {
+      t.run(0.05)
+      biggest = Math.max(biggest, Math.abs(t.root.position.y - last))
+      last = t.root.position.y
+    }
+    expect(biggest).toBeLessThanOrEqual(0.05 + 1e-9)
+    near(t.root.position.y, -0.6, 0.02)
+    t.done()
+  })
+
+  it('a tap on the floor sets the height straight away, until tracking resets', () => {
+    let tapping = false
+    const t = start(() => (tapping ? [{type: 'FEATURE_POINT', position: {x: 0.2, y: -0.25, z: -1.5}}] : []))
+    t.run(0.5)
+    tapping = true
+    expect(t.trip.tapFloor(0.5, 0.8)).toBe(true)
+    tapping = false
+    t.run(0.3)
+    near(t.root.position.y, -0.25, 1e-6)
+    expect(t.box.stats.floorSource).toBe('tap')
+    t.run(1)
+    expect(t.box.stats.floorSource).toBe('tap') // overrides the estimate
+    t.trip.onTracking({status: 'LIMITED'})
+    t.run(3)
+    t.trip.onTracking({status: 'NORMAL'})
+    t.run(0.5)
+    expect(t.box.stats.floorSource).toBe('fallback') // tracking reset: found again from scratch
+    t.done()
+  })
+
+  it('hides a chevron behind a wall, and every one beyond it along the path', () => {
+    // A wall 3 m ahead of the camera, across the path: anything aimed past it hits the wall first.
+    const t = start((x, y) => (y < 0.5 ? [] : [{type: 'FEATURE_POINT', position: {x: 0, y: 0.6, z: -3}}]))
+    t.run(3)
+    expect(t.box.stats.arrowsBlocked).toBeGreaterThan(0)
+    const items = [...Array(11).keys()].map((i) => t.root.getObjectByName(`chevron-${i}`))
+    // The near ones stay; past the wall (3 m, plus the 0.6 m margin), none are drawn.
+    const drawn = items.filter((c) => c.visible).map((c) => -c.getWorldPosition(new THREE.Vector3()).z)
+    expect(drawn.length).toBeGreaterThan(0)
+    expect(drawn.every((d) => d < 3.6)).toBe(true)
     t.done()
   })
 
@@ -491,15 +560,14 @@ describe('the arrows on the real ground', () => {
     t.done()
   })
 
-  it('samples about every 0.15 s, and carries on if a hit test throws', () => {
+  it('searches with several hit tests a frame until the floor is found, and carries on if a hit test throws', () => {
     const hitTest = vi.fn(() => {
       throw new Error('not ready')
     })
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const t = start(hitTest)
     t.run(1.5)
-    expect(hitTest.mock.calls.length).toBeGreaterThan(5)
-    expect(hitTest.mock.calls.length).toBeLessThan(15)
+    expect(hitTest.mock.calls.length).toBeGreaterThanOrEqual(6 * 29)
     expect(t.box.stats.phase).toBe('ready')
     warn.mockRestore()
     t.done()
@@ -627,8 +695,8 @@ describe('walking beats the compass', () => {
     const arrows = t.scene.getObjectByName('ground-arrows')
     expect(arrows.parent).toBe(root) // in the AR world, not over the screen
     expect(arrows.visible).toBe(true)
-    expect(t.box.stats).toMatchObject({aligned: true, arrowsShown: true, arrowsCreated: 16, pointAtFloor: false, groundSource: 'eye'})
-    expect(t.box.stats.arrowsDrawn).toBeGreaterThanOrEqual(14)
+    expect(t.box.stats).toMatchObject({aligned: true, arrowsShown: true, arrowsCreated: 11, pointAtFloor: true, groundSource: 'fallback'})
+    expect(t.box.stats.arrowsDrawn).toBeGreaterThanOrEqual(9)
     // No floor hit yet: the floor is the phone's height minus 1.4 m, and nothing waits for a hit.
     for (let i = 0; i < 40; i++) t.frame()
     near(root.position.y, t.camera.position.y - 1.4, 0.05)

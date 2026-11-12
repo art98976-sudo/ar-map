@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {acceptHit, createGroundTracker, fitGround} from '../../src/ar/ground.js'
+import {acceptFloorHit, acceptHit, createFloorFinder, createGroundTracker, FLOOR_GRID, fitGround, floorFromHits, median} from '../../src/ar/ground.js'
 import {GROUND} from '../../src/config.js'
 
 const near = (a, b, tol) => expect(Math.abs(a - b)).toBeLessThanOrEqual(tol)
@@ -120,5 +120,69 @@ describe('adjusting the floor height', () => {
     expect(tracker.eyeM).toBe(GROUND.maxEyeM)
     tracker.setEyeM(0)
     expect(tracker.eyeM).toBe(GROUND.minEyeM)
+  })
+})
+
+describe('the floor finder', () => {
+  const cam = {x: 0, y: 1.5, z: 0}
+  const floorHits = (y, n = 10, surface = true) => Array.from({length: n}, (_, i) => ({x: (i % 5) * 0.3, y, z: -1 - (i % 3) * 0.4, surface}))
+
+  it('searches the lower half of the screen', () => {
+    expect(FLOOR_GRID.length).toBe(20)
+    expect(FLOOR_GRID.every(([x, y]) => x > 0 && x < 1 && y >= 0.5 && y < 1)).toBe(true)
+  })
+
+  it('accepts only hits 0.5-2.2 m below the phone and near it', () => {
+    expect(acceptFloorHit({x: 0, y: 0, z: -1}, cam)).toBe(true) // 1.5 m below
+    expect(acceptFloorHit({x: 0, y: 1.2, z: -1}, cam)).toBe(false) // a table 0.3 m below the phone
+    expect(acceptFloorHit({x: 0, y: -0.8, z: -1}, cam)).toBe(false) // 2.3 m down: a stairwell
+    expect(acceptFloorHit({x: 0, y: 0, z: -6}, cam)).toBe(false) // too far away
+  })
+
+  it('takes the median of a flat cluster, so a bed among floor hits does not lift it', () => {
+    expect(median([3, 1, 2])).toBe(2)
+    const hits = [...floorHits(0, 10), ...floorHits(0.55, 4)] // four hits on a bed 55 cm up
+    const fit = floorFromHits(hits)
+    expect(fit.height).toBeCloseTo(0, 6)
+    expect(fit.found).toBe(true)
+  })
+
+  it('is not found from hits in one spot, nor from too few', () => {
+    expect(floorFromHits(Array.from({length: 12}, () => ({x: 0, y: 0, z: -1, surface: true}))).found).toBe(false)
+    expect(floorFromHits(floorHits(0, 5)).found).toBe(false)
+  })
+
+  it('uses feature points only when there are no surfaces', () => {
+    const surfaces = floorHits(0, 8)
+    const features = floorHits(0.4, 20, false)
+    expect(floorFromHits([...surfaces, ...features]).height).toBeCloseTo(0, 6)
+    expect(floorFromHits(features).height).toBeCloseTo(0.4, 6)
+  })
+
+  it('starts at the fallback, eases to the found floor, never more than 5 cm a frame', () => {
+    const f = createFloorFinder()
+    let r = f.update(0.016, cam, 0)
+    expect(r).toMatchObject({source: 'fallback', found: false})
+    expect(r.height).toBeCloseTo(1.5 - GROUND.defaultEyeM, 6)
+    for (const h of floorHits(-0.2, 10)) f.addHit(h, 'DETECTED_SURFACE', cam, 0.1)
+    let last = r.height
+    for (let i = 0; i < 40; i++) {
+      r = f.update(0.016, cam, 0.1 + i * 0.016)
+      expect(Math.abs(r.height - last)).toBeLessThanOrEqual(0.05 + 1e-9)
+      last = r.height
+    }
+    expect(r).toMatchObject({source: 'hits', found: true})
+    expect(r.height).toBeCloseTo(-0.2, 3)
+    expect(r.belowPhoneM).toBeCloseTo(1.7, 3)
+  })
+
+  it('a tap sets the floor at once and overrides hits, until cleared', () => {
+    const f = createFloorFinder()
+    for (const h of floorHits(0, 10)) f.addHit(h, 'DETECTED_SURFACE', cam, 0)
+    f.update(0.016, cam, 0)
+    f.setTap(0.3)
+    expect(f.update(0.016, cam, 0.02)).toMatchObject({source: 'tap', height: 0.3})
+    f.clear()
+    expect(f.update(0.016, cam, 0.04).source).toBe('fallback')
   })
 })

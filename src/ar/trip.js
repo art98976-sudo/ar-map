@@ -22,7 +22,7 @@ import {getRoomCentre} from '../map/room-centres.js'
 import {arrowTarget, arrowYawDeg, createRouteTracker, walkingCorrection} from '../route/compass-guide.js'
 import {aimBearing, createNavPose} from '../route/nav-pose.js'
 import {createNavScene, gpsDistanceToEntrance} from './nav-scene.js'
-import {acceptHit, createGroundTracker, HIT_TYPES, SCREEN_POINTS} from './ground.js'
+import {acceptHit, createFloorFinder, createGroundTracker, FLOOR_GRID, HIT_TYPES} from './ground.js'
 import {createRouteMatcher} from './route-matcher.js'
 import {locationPermissionState, watchLocation} from '../geo/location.js'
 import {isManual} from '../route/start-point.js'
@@ -114,10 +114,12 @@ export function createArTrip({
   let compassOff = false
   let stopped = false
   let xr = null
-  let lastGroundAt = -Infinity
+  let blockIndex = 0 // the next chevron to test for being behind something
   let nextPoint = 0
   let groundNow = {height: null, slope: 0, source: 'eye'}
-  const ground = createGroundTracker()
+  const ground = createGroundTracker() // the slope along the route
+  const floor = createFloorFinder() // the floor height under the user
+  let floorNow = floor.current
   const calibrator = createCalibrator()
 
   function setPhase(next, detail = {}) {
@@ -260,7 +262,7 @@ export function createArTrip({
   function beginGuidance(headingDeg) {
     const fix = bestFix()
     const info = nav.startInfo(fix)
-    nav.setGround(ground.fallback(camera.position.y), 0)
+    nav.setGround(floorNow.height ?? ground.fallback(camera.position.y), 0)
     nav.align(headingDeg ?? info.bearingDeg, fix)
     // A webcam in test mode has no compass and cannot walk.
     directionKnown = headingDeg != null || allowDesktop
@@ -409,25 +411,54 @@ export function createArTrip({
     if (!rerouting && !arrived && isOnCampus(entranceOf(destination))) reroute()
   }
 
-  /** Look for the real ground at a few spots in the lower half of the screen. */
-  function sampleGround(time) {
-    if (tracking !== 'NORMAL' || !xr?.XrController?.hitTest || time - lastGroundAt < GROUND.sampleEveryS) return
-    lastGroundAt = time
-    for (let i = 0; i < TRIP.pointsPerSample; i++) {
-      const [x, y] = SCREEN_POINTS[nextPoint]
-      nextPoint = (nextPoint + 1) % SCREEN_POINTS.length
-      let hits
-      try {
-        hits = xr.XrController.hitTest(x, y, HIT_TYPES) || []
-      } catch (err) {
-        console.warn('[ground] hit test failed', err)
-        return
-      }
-      for (const {position} of hits) {
+  /** The engine's hit test at a screen point (0..1 from the top left), or [] if it cannot. */
+  function hitTest(x, y) {
+    if (!xr?.XrController?.hitTest) return []
+    try {
+      return xr.XrController.hitTest(x, y, HIT_TYPES) || []
+    } catch (err) {
+      console.warn('[ground] hit test failed', err)
+      return []
+    }
+  }
+
+  /**
+   * Look for the floor across the lower half of the screen, from the moment tracking starts:
+   * several tests a frame until the floor is found, fewer after. Hits also feed the slope along
+   * the route once it is placed.
+   */
+  function sampleFloor(time) {
+    if (tracking !== 'NORMAL' || !xr?.XrController?.hitTest) return
+    const count = floor.found ? GROUND.floorTestsFound : GROUND.floorTestsSearching
+    for (let i = 0; i < count; i++) {
+      const [x, y] = FLOOR_GRID[nextPoint]
+      nextPoint = (nextPoint + 1) % FLOOR_GRID.length
+      for (const {position, type} of hitTest(x, y)) {
         if (!position) continue
+        floor.addHit(position, type, camera.position, time)
+        if (!nav.aligned) continue
         const along = nav.routePosition(position)
         if (acceptHit(position, camera.position, along.offset)) ground.addHit(along.s, position.y, camera.position.y, time)
       }
+    }
+  }
+
+  /**
+   * Hide chevrons behind things: a few chevrons a frame, in turn, hit test toward where each is
+   * on screen. A surface more than blockMarginM nearer than the chevron blocks it.
+   */
+  function checkBlocked() {
+    if (!arrowsShown || tracking !== 'NORMAL' || !xr?.XrController?.hitTest) return
+    for (let k = 0; k < GROUND_ARROWS.blockChecksPerFrame; k++) {
+      const i = blockIndex
+      blockIndex = (blockIndex + 1) % GROUND_ARROWS.poolSize
+      const spot = nav.arrowScreenSpot(i)
+      if (!spot) continue
+      let nearest = Infinity
+      for (const {position} of hitTest(spot.x, spot.y)) {
+        if (position) nearest = Math.min(nearest, Math.hypot(position.x - camera.position.x, position.y - camera.position.y, position.z - camera.position.z))
+      }
+      nav.setArrowBlocked(spot.s, nearest < spot.distance - GROUND_ARROWS.blockMarginM)
     }
   }
 
@@ -528,8 +559,27 @@ export function createArTrip({
 
   function onTracking({status}) {
     if (status !== 'NORMAL' && tracking === 'NORMAL') trackingLostAt = lastTime
-    if (status === 'NORMAL') trackingLostAt = null
+    if (status === 'NORMAL') {
+      // Back after a real loss: the world may have moved, so the floor (and a tapped floor) is found again.
+      if (trackingLostAt != null && lastTime - trackingLostAt > GROUND_ARROWS.trackingLostS) floor.clear()
+      trackingLostAt = null
+    }
     tracking = status
+  }
+
+  /**
+   * The user tapped the camera view at (x, y), 0..1 from the top left: if that is the floor, its
+   * height is the floor from now on (until tracking resets). Returns true if a floor was found.
+   */
+  function tapFloor(x, y) {
+    if (!camera || tracking !== 'NORMAL') return false
+    const below = hitTest(x, y)
+      .map((h) => h.position)
+      .filter((p) => p && camera.position.y - p.y >= GROUND.floorMinDropM * 0.6 && camera.position.y - p.y <= GROUND.floorMaxDropM + 0.3)
+      .sort((a, b) => Math.hypot(a.x - camera.position.x, a.z - camera.position.z) - Math.hypot(b.x - camera.position.x, b.z - camera.position.z))
+    if (!below.length) return false
+    floor.setTap(below[0].y)
+    return true
   }
 
   /**
@@ -559,12 +609,16 @@ export function createArTrip({
         directionFound()
       }
       runMatching(time)
-      sampleGround(time)
     }
+    // The floor: searched from the moment the camera tracks, before Start too.
+    if (!arrived) sampleFloor(time)
+    floorNow = floor.update(dt, camera.position, time)
     const s = nav.update(dt, time)
     if (phase === 'ready' && !arrived) checkConfidence(time)
     if (phase === 'ready') {
-      groundNow = ground.update(dt, s.s, camera.position.y, time)
+      // Height at the user from the floor finder; the slope along the route from the route fit.
+      const along = ground.update(dt, s.s, camera.position.y, time)
+      groundNow = {height: floorNow.height, slope: floorNow.found && along.source === 'hits' ? along.slope : 0, source: floorNow.source}
       nav.setGround(groundNow.height, groundNow.slope, s.s)
       if (tracking === 'NORMAL') tracker.walk(camera.position, directionKnown ? nav.worldToRoute : null)
       if (manual) {
@@ -616,7 +670,9 @@ export function createArTrip({
     updateArrow()
     // The chevrons on the floor: same pose s as the map dot, height from the ground estimate.
     arrowsShown = arrowsWanted(time)
-    nav.updateArrows({userS: routeS, slope: groundNow.slope, show: arrowsShown, time})
+    checkBlocked()
+    // Half-transparent while the floor is still a guess; solid once it is found (or tapped).
+    nav.updateArrows({userS: routeS, slope: groundNow.slope, show: arrowsShown, opacity: floorNow.found ? 1 : GROUND_ARROWS.guessOpacity, dt})
     statsTimer += dt
     if (statsTimer >= 0.25) {
       const poseTurn = nav.aligned ? nav.nextTurnAt(routeS) : null
@@ -653,7 +709,13 @@ export function createArTrip({
         arrowsCreated: nav.arrowsCreated,
         arrowsDrawn: nav.arrowsShown,
         arrowsInView: arrowsShown ? nav.arrowsInView() : 0,
-        pointAtFloor: phase === 'ready' && !arrived && Boolean(nav.aligned) && !arrowsShown,
+        // Until the floor is found (or after tracking is lost): "Point your phone at the floor".
+        pointAtFloor: phase === 'ready' && !arrived && Boolean(nav.aligned) && (!arrowsShown || !floorNow.found),
+        floorSource: floorNow.source,
+        floorBelowM: floorNow.belowPhoneM,
+        floorHits: floorNow.hits,
+        arrowsVisible: arrowsShown ? nav.arrowsVisible : 0,
+        arrowsBlocked: arrowsShown ? nav.arrowsBlocked : 0,
         offRouteForS: offRoute.offForS(time),
         rerouteWaitS: offRoute.waitS(time),
         gpsToEntranceM: gpsDistanceToEntrance(lastFix, route),
@@ -719,6 +781,7 @@ export function createArTrip({
       nav.realign(recentHeading())
     },
     start,
+    tapFloor,
     /** A chosen start, and GPS has become good: follow GPS from here on. */
     switchToLive() {
       if (!manual || !lastFix) return

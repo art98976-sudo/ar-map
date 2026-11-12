@@ -40,23 +40,28 @@ export const TURNS = {
 
 // The way to walk: 3D chevrons lying on the real floor along the route (src/ar/ground-arrows.js).
 export const GROUND_ARROWS = {
-  spacingM: 1.2, // one chevron every this far along the route
-  aheadM: 18, // drawn this far ahead of the user
+  spacingM: 1, // one chevron every this far along the route, so several lie close to the user
+  aheadM: 10, // drawn this far ahead: further away a flat arrow no longer reads as floor
   nearM: 0.6, // the first one at least this far ahead (not under the feet)
-  poolSize: 16, // aheadM / spacingM, plus one: made once, recycled as the user walks
-  widthM: 0.6,
-  depthM: 0.42, // tip to back: deep enough to read when seen along the floor
-  edgeM: 0.025, // the thin white edge all round
-  solidM: 4, // fully solid this close, fading to nothing by aheadM
+  poolSize: 11, // aheadM / spacingM, plus one: made once, recycled as the user walks
+  widthM: 0.5,
+  depthM: 0.35, // tip to back: deep enough to read when seen along the floor
+  edgeM: 0.022, // the thin white edge all round
+  solidM: 3, // fully solid this close, fading to nothing by aheadM
   cornerRadiusM: 1, // corners are rounded so the arrows bend through the turn
   cornerSteps: 8,
   minCornerDeg: 8, // smaller bends are left as they are
   maxLiftM: 1.5, // the ground slope moves a chevron up or down by at most this
+  minAngleDeg: 8, // seen closer than this to the horizon a chevron fades (gone at half of it)
+  minBelowCameraM: 0.3, // never drawn higher than this below the phone
   green: 0x22c55e,
-  pulseGreen: 0xb7f7cf,
-  pulseWavelengthM: 9, // a slow bright band travelling forward along the arrows...
-  pulsePeriodS: 3, // ...this often
-  renderOrder: 20, // over the camera image (depthTest off)
+  shadowScale: 1.35, // the soft shadow under each chevron, this much wider
+  shadowOpacity: 0.25,
+  guessOpacity: 0.5, // while the floor is only a guess (fallback height)
+  renderOrder: 20, // over the camera image (depthTest off): shadow, edge, green
+  blockMarginM: 0.6, // a surface this much nearer than a chevron hides it
+  blockChecksPerFrame: 3, // blocked tests, chevrons taken in turn
+  blockEaseS: 0.3, // fade in and out over about this, so nothing flickers
   trackingLostS: 2, // tracking lost longer than this: hide them, "Point your phone at the floor"
 }
 
@@ -135,7 +140,6 @@ export const MATCH = {
 }
 
 export const GROUND = {
-  sampleEveryS: 0.15,
   belowPhoneM: 0.3, // a hit must be at least this far below the phone
   maxDistanceM: 14,
   maxOffRouteM: 4,
@@ -149,6 +153,20 @@ export const GROUND = {
   nearUserM: 4, // hits this close teach the height of the phone above the ground
   defaultEyeM: 1.4, // with no floor found yet, the floor is this far below the phone (adjustable in debug)
   eyeStepM: 0.05, // one tap of the debug floor buttons
+  // The floor finder (arrows): fast, median of a flat cluster of hits.
+  floorMinDropM: 0.5, // a floor hit is this far below the phone...
+  floorMaxDropM: 2.2, // ...and no further
+  floorNearM: 4, // and within this of the phone, sideways
+  floorBandM: 0.08, // hits within this of the median count as the floor
+  floorMinHits: 3, // this many surface hits before feature points are ignored
+  floorFoundHits: 8, // the floor is found once this many agree...
+  floorSpreadM: 0.5, // ...spread over at least this much floor
+  floorMaxHits: 120,
+  floorMaxAgeS: 8,
+  floorEaseS: 0.3, // to the found floor in about this long
+  floorMaxStepM: 0.05, // never more than this per frame
+  floorTestsSearching: 6, // hit tests per frame until the floor is found
+  floorTestsFound: 3, // and after
   minEyeM: 0.8,
   maxEyeM: 2.1,
   easeS: 0.4,
@@ -181,7 +199,6 @@ export const TRIP = {
   repickForS: 20, // how long to offer choosing the start again, after going off route
   campusCheckEveryS: 1,
   instructionEveryS: 0.5,
-  pointsPerSample: 3,
 }
 
 export const GPS = {

@@ -86,7 +86,7 @@ export function createNavScene({THREE, scene, camera, route, origin, reducedMoti
   entranceAnchor.position.set(entranceLocal.x, 0, -entranceLocal.y)
   geoRoot.add(entranceAnchor)
   // The way to walk: chevrons on the floor, built from this same route polyline.
-  const arrows = createGroundArrows(THREE, {reducedMotion})
+  const arrows = createGroundArrows(THREE)
   arrows.setRoute(local)
   geoRoot.add(arrows.group)
   let pinAllowed = true
@@ -301,17 +301,29 @@ export function createNavScene({THREE, scene, camera, route, origin, reducedMoti
       pinAllowed = show
       if (!show) pin.group.visible = false
     },
-    /** Lay the chevrons for this frame: userS from the pose, the ground slope, whether to show. */
-    updateArrows({userS, slope, show, time}) {
-      return arrows.update({userS, slope, show: show && aligned, time: reducedMotion ? 0 : time})
+    /**
+     * Lay the chevrons for this frame: userS from the pose, the ground slope, whether to show,
+     * and their opacity (half while the floor is still a guess).
+     */
+    updateArrows({userS, slope, show, opacity = 1, dt = 0}) {
+      return arrows.update({userS, slope, show: show && aligned, opacity, dt, camera})
     },
     /** How many chevrons are inside the camera's view. */
     arrowsInView: () => arrows.countInView(camera),
+    /** Chevron i on screen (0..1) and its distance, for the blocked test; null if not testable. */
+    arrowScreenSpot: (i) => arrows.screenSpot(i, camera),
+    setArrowBlocked: (s, isBlocked) => arrows.setBlocked(s, isBlocked),
     get arrowsCreated() {
       return arrows.created
     },
     get arrowsShown() {
       return arrows.active
+    },
+    get arrowsVisible() {
+      return arrows.visible
+    },
+    get arrowsBlocked() {
+      return arrows.blockedCount
     },
     setRoute,
     setMarker,
