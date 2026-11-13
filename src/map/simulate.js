@@ -10,10 +10,12 @@
 //
 // Loaded only when the address asks for it. Draws its own map layers (sim-*), never MazeMap's.
 import {distanceM, fromLocal, localBearing, pointAt, polylineLength, toLocal, wrap360} from '../geo/geo.js'
-import {LOOK_AHEAD_M, arrowDirection, routeFromPoints} from '../route/arrow-direction.js'
+import {arrowTarget} from '../route/compass-guide.js'
+import {createGuidance} from '../route/guidance.js'
+import {createNavPose, steeredBearing} from '../route/nav-pose.js'
 import {createArrivalDetector, createConfidenceMonitor, createOffRouteMonitor} from '../route/trip-monitors.js'
 import {planRoute} from '../route/route.js'
-import {ARRIVAL, COLOURS, CONFIDENCE, OFF_ROUTE, ROUTING} from '../config.js'
+import {ARRIVAL, ARROW, COLOURS, CONFIDENCE, OFF_ROUTE, ROUTING} from '../config.js'
 
 /** A fixed start on a campus path, by the loch walkway, when no start was chosen. */
 export const SIM_START = {lat: 56.14525, lng: -3.9201}
@@ -99,14 +101,14 @@ export function createSimulator(map, {from = SIM_START, dest, host = document.bo
     let origin = null
     let local = null
     let total = 0
-    let arrowRoute = null
+    let guidance = null
+    const pose = createNavPose() // the same pose and arrow rule as the AR trip (nav-pose.js)
     let s = 0
     let offset = 0
     let gpsAccuracy = 5
     let swinging = false
     let playing = true
     let speed = 1
-    let along = 0 // the arrow's last distanceAlong: the walk starts at the route's start, as in AR
     let last = null
     let simT = 0 // simulated seconds: runs 4x with "4x speed", and stops on arrival
     let confidence = createConfidenceMonitor()
@@ -121,7 +123,7 @@ export function createSimulator(map, {from = SIM_START, dest, host = document.bo
       origin = route.points[0]
       local = route.points.map((p) => toLocal(origin, p))
       total = polylineLength(local)
-      arrowRoute = routeFromPoints(route.points)
+      guidance = createGuidance(local)
       setData(map, ID.route, featureOf({type: 'LineString', coordinates: route.points.map((p) => [p.lng, p.lat])}))
     }
 
@@ -188,7 +190,6 @@ export function createSimulator(map, {from = SIM_START, dest, host = document.bo
     function restart() {
       useRoute(firstRoute)
       s = 0
-      along = 0
       simT = 0
       confidence = createConfidenceMonitor()
       offRoute = createOffRouteMonitor()
@@ -205,7 +206,6 @@ export function createSimulator(map, {from = SIM_START, dest, host = document.bo
           if (destroyed || arrived || next.status !== 'ok' || next.points.length < 2) return
           useRoute(next)
           s = 0 // the new route starts where the user stands
-          along = 0
           reroutes += 1
         })
         .catch(() => {})
@@ -237,33 +237,38 @@ export function createSimulator(map, {from = SIM_START, dest, host = document.bo
     }
 
     function step(simDt) {
-      const user = fromLocal(origin, fakeUserAt(local, s, offset))
-      const dir = arrowDirection(arrowRoute, user, along)
-      if (!dir) return
-      along = dir.progress.distanceAlong
-      const p = dir.progress
+      const here = fakeUserAt(local, s, offset)
+      const user = fromLocal(origin, here)
 
       // The phone faces the way it walks; with "Compass swinging" the compass alone jumps about.
       const walkDeg = localBearing(pointAt(local, Math.max(0, s - 1)), pointAt(local, Math.min(total, s + 1)))
       const heading = wrap360(walkDeg + (swinging ? (Math.floor(simT * 1.5) % 2 ? SWING_DEG : -SWING_DEG) : 0))
       const c = confidence.update({time: simT, gpsAccuracy, useGps: true, heading, cameraYawDeg: walkDeg})
+      // One pose, as in AR: s along the route, the signed offset, heading, confidence.
+      const p = pose.update({route: local, routeS: s, tracked: here, headingDeg: heading, confident: c.reliable})
+      const fromRoute = Math.abs(p.lateralOffsetM ?? 0)
+      // The arrow: the path direction 8 m ahead (blended through turns), leaning back by at most
+      // 25 degrees once walking would have proved the placement (here: after the first 8 m).
+      const path = arrowTarget(local, guidance.manoeuvres, guidance.getNextManoeuvre(s), s)
+      const bearing = steeredBearing(path.bearingDeg, p.lateralOffsetM, s >= ARROW.aheadM)
+      const ahead = fromLocal(origin, pointAt(local, Math.min(total, s + ARROW.aheadM)))
 
       const toDestination = distanceM(user, route.points.at(-1))
-      const remaining = Math.max(0, arrowRoute.lengthMetres - p.distanceAlong)
+      const remaining = Math.max(0, total - s)
       if (!arrived && arrival.update(simDt, remaining, toDestination)) {
         arrived = true
         playing = false
         paintButtons()
       }
       const close = remaining <= ARRIVAL.arriveM || toDestination <= ARRIVAL.arriveM
-      if (!arrived && !rerouting && offRoute.update(c.reliable ? p.distanceFromRoute : null, simT)) reroute(user)
+      if (!arrived && !rerouting && offRoute.update(c.reliable ? fromRoute : null, simT)) reroute(user)
 
       // What the AR screen would draw: no arrow while unsure, close to the end, or arrived.
       const showArrow = c.reliable && !arrived && !close
       setData(map, ID.user, pointOf(user))
-      setData(map, ID.target, showArrow ? pointOf(dir.target) : NOTHING)
-      setData(map, ID.aim, showArrow ? featureOf({type: 'LineString', coordinates: [[user.lng, user.lat], [dir.target.lon, dir.target.lat]]}) : NOTHING)
-      setData(map, ID.arrow, showArrow ? featureOf({type: 'Polygon', coordinates: [arrowRing(user, dir.bearingDeg)]}) : NOTHING)
+      setData(map, ID.target, showArrow ? pointOf(ahead) : NOTHING)
+      setData(map, ID.aim, showArrow ? featureOf({type: 'LineString', coordinates: [[user.lng, user.lat], [ahead.lng, ahead.lat]]}) : NOTHING)
+      setData(map, ID.arrow, showArrow ? featureOf({type: 'Polygon', coordinates: [arrowRing(user, bearing)]}) : NOTHING)
       if (follow) {
         map.jumpTo({center: [user.lng, user.lat], padding: padding(), ...(zoomed ? {} : {zoom: 18.6})})
         zoomed = true
@@ -280,8 +285,8 @@ export function createSimulator(map, {from = SIM_START, dest, host = document.bo
       const wait = offRoute.waitS(simT)
       const offFor = offRoute.offForS(simT)
       panel.readout.textContent =
-        `Walked ${Math.round(s)} of ${Math.round(total)} m · arrow ${showArrow ? `${Math.round(dir.bearingDeg)}°` : 'hidden'}\n` +
-        `${p.distanceFromRoute.toFixed(1)} m off the route` +
+        `Walked ${Math.round(s)} of ${Math.round(total)} m · arrow ${showArrow ? `${Math.round(bearing)}°` : 'hidden'}\n` +
+        `${fromRoute.toFixed(1)} m off the route` +
         (offFor > 0 ? ` for ${offFor.toFixed(1)} of ${OFF_ROUTE.forS} s` : '') +
         (wait > 0 ? ` · next new route in ${Math.ceil(wait)} s` : '') +
         `\nGPS ±${gpsAccuracy} m${c.gpsBad ? ` (worse than ${CONFIDENCE.maxGpsAccuracyM})` : ''} · compass swing ${Math.round(c.swingDeg)}°` +
@@ -396,7 +401,7 @@ function buildPanel(host) {
     </div>
     <p class="sim-readout" data-sim-readout></p>
     <p class="sim-key"><b style="color:#2563eb">●</b> fake user · <b style="color:${COLOURS.arrowGreen}">➤</b> AR arrow ·
-      <b style="color:#f97316">●</b> point ${LOOK_AHEAD_M} m ahead on the route</p>`
+      <b style="color:#f97316">●</b> point ${ARROW.aheadM} m ahead on the route</p>`
   host.append(root)
   const q = (sel) => root.querySelector(sel)
   return {

@@ -4,8 +4,8 @@
 // two estimates of the user's position can never be on screen at once.
 //
 // Route frame: {x east, y north} metres; s is the distance along the route.
-import {localBearing, pointAt, polylineLength, polylineSlice, projectOntoPolyline} from '../geo/geo.js'
-import {LOOK_AHEAD_M} from './arrow-direction.js'
+import {localBearing, pointAt, polylineLength, polylineSlice, projectOntoPolyline, toDeg, toLocal, wrap360} from '../geo/geo.js'
+import {ARROW} from '../config.js'
 
 /** How far either side of routeS to look when measuring the sideways offset. */
 export const OFFSET_WINDOW_M = 15
@@ -31,19 +31,46 @@ export function signedOffset(route, s, point, windowM = OFFSET_WINDOW_M) {
 }
 
 /**
- * Bearing (degrees from north) from the tracked position to the route LOOK_AHEAD_M past routeS.
- * Step 1 keeps this rule but reads routeS from the pose instead of a second progress value.
+ * The arrow's bearing (degrees from north): the PATH direction from routeS (blended through the
+ * next turn by compass-guide.js arrowTarget), never aimed from the raw tracked position. Only when
+ * walking has proved the placement (matcher confident) and the user is more than ARROW.steerAboveM
+ * to one side does it lean back towards the route, by at most ARROW.maxSteerDeg.
+ *   pathDeg: the path direction at routeS. lateralOffsetM: > 0 right of the route, < 0 left.
  */
-export function aimBearing(route, pose, aheadM = LOOK_AHEAD_M) {
-  if (pose?.routeS == null) return null
-  const total = polylineLength(route)
-  const target = pointAt(route, Math.min(total, pose.routeS + aheadM))
-  const from = pose.tracked && Math.hypot(target.x - pose.tracked.x, target.y - pose.tracked.y) >= 0.5 ? pose.tracked : pointAt(route, Math.max(0, Math.min(total, pose.routeS) - 1))
-  return localBearing(from, target)
+export function steeredBearing(pathDeg, lateralOffsetM, matcherConfident) {
+  if (!Number.isFinite(pathDeg)) return null
+  if (!matcherConfident || !Number.isFinite(lateralOffsetM) || Math.abs(lateralOffsetM) <= ARROW.steerAboveM) return wrap360(pathDeg)
+  const lean = Math.min(ARROW.maxSteerDeg, toDeg(Math.atan2(Math.abs(lateralOffsetM) - ARROW.steerAboveM, ARROW.aheadM)) + ARROW.minSteerDeg)
+  // Right of the route: lean left (anticlockwise), and the other way round.
+  return wrap360(pathDeg - Math.sign(lateralOffsetM) * lean)
+}
+
+/** Floor levels along a route: [{s, z}] from points that carry z (MazeMap levels; 0 outdoors). */
+export function levelsAlong(points, origin) {
+  if (!points?.length || !origin) return []
+  let s = 0
+  let prev = null
+  return points.map((p) => {
+    const q = toLocal(origin, p)
+    if (prev) s += Math.hypot(q.x - prev.x, q.y - prev.y)
+    prev = q
+    return {s, z: Number.isFinite(p.z) ? p.z : 0}
+  })
+}
+
+/** The floor level at s along the route (the level of the point at or before it). */
+export function levelAt(levels, s) {
+  if (!levels?.length || !Number.isFinite(s)) return null
+  let z = levels[0].z
+  for (const l of levels) {
+    if (l.s > s) break
+    z = l.z
+  }
+  return z
 }
 
 /** The route's own direction at s: from s to `aheadM` further on. */
-export function routeBearingAt(route, s, aheadM = LOOK_AHEAD_M) {
+export function routeBearingAt(route, s, aheadM = ARROW.aheadM) {
   const total = polylineLength(route)
   const a = pointAt(route, Math.max(0, Math.min(total - 0.5, s)))
   const b = pointAt(route, Math.min(total, Math.max(s, 0) + aheadM))
@@ -57,24 +84,26 @@ export function routeBearingAt(route, s, aheadM = LOOK_AHEAD_M) {
  *   shownS       the same estimate eased for display (the map dot)
  *   tracked      where motion tracking puts the user, route frame, or null before placement
  *   headingDeg   which way the phone faces, degrees from north, or null
+ *   floorLevel   the route's floor level at routeS (MazeMap z; 0 outdoors)
  *   confident    the position is good enough to guide from
  */
 export function createNavPose() {
-  let pose = {routeS: null, shownS: null, lateralOffsetM: null, headingDeg: null, confident: false, tracked: null}
+  let pose = {routeS: null, shownS: null, lateralOffsetM: null, headingDeg: null, floorLevel: null, confident: false, tracked: null}
   return {
-    update({route, routeS, shownS = routeS, tracked = null, headingDeg = null, confident = false}) {
+    update({route, routeS, shownS = routeS, tracked = null, headingDeg = null, floorLevel = null, confident = false}) {
       pose = {
         routeS,
         shownS,
         lateralOffsetM: routeS == null ? null : signedOffset(route, routeS, tracked),
         headingDeg,
+        floorLevel,
         confident: Boolean(confident && routeS != null),
         tracked,
       }
       return pose
     },
     reset() {
-      pose = {routeS: null, shownS: null, lateralOffsetM: null, headingDeg: null, confident: false, tracked: null}
+      pose = {routeS: null, shownS: null, lateralOffsetM: null, headingDeg: null, floorLevel: null, confident: false, tracked: null}
     },
     get current() {
       return pose

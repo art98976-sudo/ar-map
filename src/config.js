@@ -114,9 +114,17 @@ export const GUIDE = {
   pastAfterM: 3, // "Continue past" only names a place still this far ahead
 }
 
+// The arrow's direction (route/nav-pose.js steeredBearing): the path, leaning back only when far off it.
+export const ARROW = {
+  aheadM: 8, // the path direction is read this far ahead
+  steerAboveM: 4, // more than this to one side of the route (and walking has proved the placement)...
+  minSteerDeg: 5, // ...the arrow leans back towards it, at least this much...
+  maxSteerDeg: 25, // ...and never more than this
+}
+
 export const COMPASS_GUIDE = {
   blendM: 12, // the arrow starts curving into a turn this far before it
-  legAheadM: 5, // the current segment's direction is read over this much route...
+  legAheadM: 8, // the path direction is read from the user to this far ahead (the arrow)...
   nextLegM: 8, // ...and the next segment's over this much, after the corner
   poorAccuracyDeg: 25, // iPhone's webkitCompassAccuracy worse than this: do not rely on the compass
   walkDirectionM: 6, // with no usable compass, walking this far shows which way the user faces

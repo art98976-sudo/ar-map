@@ -477,8 +477,17 @@ export function arScreen(root, {navigate, params}) {
     }
   }
   // The browser drops the wake lock when the tab is hidden; take it again on return.
+  // Back from the background: the engine resumes tracking (engine.js); the trip starts its floor
+  // search and walk match afresh and reopens the line-up step.
+  let wasHidden = false
   const onVisibility = () => {
-    if (!document.hidden && stopSession && (!wakeLock || wakeLock.released)) keepScreenOn()
+    if (document.hidden) {
+      wasHidden = true
+      return
+    }
+    if (stopSession && (!wakeLock || wakeLock.released)) keepScreenOn()
+    if (wasHidden) trip?.onResume()
+    wasHidden = false
   }
   document.addEventListener('visibilitychange', onVisibility)
 

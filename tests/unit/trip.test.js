@@ -720,6 +720,18 @@ describe('walking beats the compass', () => {
     t.done()
   })
 
+  it('back from the background: the line-up opens again, and the compass still may not turn the route', () => {
+    const t = startTrip(0)
+    for (let i = 0; i < 10; i++) t.frame()
+    t.trip.confirmLineUp()
+    for (let i = 0; i < 6; i++) t.frame()
+    expect(t.box.stats.lineUp).toBe(false)
+    t.trip.onResume()
+    for (let i = 0; i < 6; i++) t.frame()
+    expect(t.box.stats).toMatchObject({lineUp: true, compassLocked: true, floorSource: 'fallback'})
+    t.done()
+  })
+
   it('line-up: the first drag already stops the compass turning the route', () => {
     const t = startTrip(0)
     for (let i = 0; i < 10; i++) t.frame()
@@ -917,7 +929,7 @@ describe('walking beats the compass', () => {
     expect(t.box.stats.positionUncertain).toBe(false) // not yet: one bad stretch must last 3 s
     for (let i = 0; i < 0.4 / 0.05; i++) t.frame()
     expect(t.box.stats).toMatchObject({positionUncertain: true, positionReason: 'gps'})
-    expect(arrows.visible).toBe(true) // the floor arrows hide only when tracking is lost
+    expect(arrows.visible).toBe(false) // unsure for 3 s: the arrows hide and the map leads
     expect(t.trip.guideDeg).toBeNull()
     fix(8)
     for (let i = 0; i < 2.8 / 0.05; i++) t.frame()

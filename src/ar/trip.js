@@ -20,7 +20,7 @@ import {angleDiff, distanceM, fromLocal, pointAt, toDeg, toLocal, wrap360} from 
 import {DESTINATIONS} from '../map/destinations.js'
 import {getRoomCentre} from '../map/room-centres.js'
 import {arrowTarget, arrowYawDeg, createRouteTracker, walkingCorrection} from '../route/compass-guide.js'
-import {aimBearing, createNavPose} from '../route/nav-pose.js'
+import {createNavPose, levelAt, levelsAlong, steeredBearing} from '../route/nav-pose.js'
 import {createNavScene, gpsDistanceToEntrance} from './nav-scene.js'
 import {acceptHit, createFloorFinder, createGroundTracker, FLOOR_GRID, HIT_TYPES} from './ground.js'
 import {createRouteMatcher} from './route-matcher.js'
@@ -87,6 +87,7 @@ export function createArTrip({
   let arrowBearingDeg = null // where the arrow points, degrees from north (for ?fieldtest=1)
   // The one pose the map dot, map rotation, arrow, instructions, distance left and off-route all read.
   const navPose = createNavPose()
+  let routeLevels = levelsAlong(firstRoute.points, origin) // floor level along the route (0 outdoors)
   let cameFromOutside = !isOnCampus(origin)
   let fixesOnCampus = 0
   let lastTime = null
@@ -404,6 +405,7 @@ export function createArTrip({
       nav.setRoute(next)
       routeVersion += 1
       lineCache = null
+      routeLevels = levelsAlong(next.points, origin)
       startS = nav.startInfo(from).s
       tracker = createRouteTracker(nav.route, startS)
       // The walk so far no longer has a route to fit, so matching starts afresh. Its turn stays in
@@ -534,9 +536,11 @@ export function createArTrip({
     if (phase !== 'ready') return
     const pose = navPose.current
     if (pose.routeS == null) return
-    ringFill = arrowTarget(nav.route, guidance.manoeuvres, guidance.getNextManoeuvre(pose.routeS), pose.routeS).ringFill
-    // From the pose: the same progress as the map dot, no second estimate.
-    const target = aimBearing(nav.route, pose)
+    // The path's own direction 8 m ahead of the pose (blended through turns), leaning back towards
+    // the route only once walking has proved the placement and the user is well off it.
+    const path = arrowTarget(nav.route, guidance.manoeuvres, guidance.getNextManoeuvre(pose.routeS), pose.routeS)
+    ringFill = path.ringFill
+    const target = steeredBearing(path.bearingDeg, pose.lateralOffsetM, Boolean(matcher?.confident))
     arrowBearingDeg = target
     if (!positionOk) return // not sure where the user is: no arrow, the 2D map leads
     if (pose.headingDeg != null && target != null) guideDeg = arrowYawDeg(target, pose.headingDeg)
@@ -602,11 +606,12 @@ export function createArTrip({
   }
 
   /**
-   * Are the ground arrows drawn? As soon as the route is placed, and until tracking has been lost
-   * for more than GROUND_ARROWS.trackingLostS (a webcam in test mode never tracks: always drawn).
+   * Are the ground arrows drawn? As soon as the route is placed; not while the position or heading
+   * has been unreliable for 3 s (the map leads then, "Finding your position"), and not once tracking
+   * has been lost for more than GROUND_ARROWS.trackingLostS (a webcam in test mode never tracks).
    */
   function arrowsWanted(time) {
-    if (phase !== 'ready' || arrived || !nav?.aligned) return false
+    if (phase !== 'ready' || arrived || !nav?.aligned || !positionOk) return false
     if (allowDesktop || tracking === 'NORMAL') return true
     return trackingLostAt != null && time - trackingLostAt <= GROUND_ARROWS.trackingLostS
   }
@@ -658,6 +663,7 @@ export function createArTrip({
         shownS: tracker.shownS,
         tracked: nav.aligned ? nav.worldToRoute({x: camera.position.x, z: camera.position.z}) : null,
         headingDeg: guideHeading(),
+        floorLevel: levelAt(routeLevels, tracker.s),
         confident: positionOk && directionKnown && (tracking === 'NORMAL' || allowDesktop),
       })
     }
@@ -723,6 +729,7 @@ export function createArTrip({
         distanceFromRouteM: phase === 'ready' && pose.lateralOffsetM != null ? Math.abs(pose.lateralOffsetM) : null,
         lateralOffsetM: phase === 'ready' ? pose.lateralOffsetM : null,
         poseConfident: pose.confident,
+        floorLevel: pose.floorLevel,
         lineUp: phase === 'ready' && lineUp && !arrived,
         canRealign: phase === 'ready' && !lineUp && !arrived && Boolean(nav.aligned),
         compassLocked,
@@ -818,6 +825,22 @@ export function createArTrip({
       compassLocked = true
       compassOff = true // the arrow and the map follow the camera from here, not the compass
       directionFound()
+    },
+    /**
+     * Back from the background (another app, a call, the screen off): the world the phone tracks
+     * may have shifted. Start the floor search and the walked-track match afresh, and open the
+     * line-up step so the user can lay the arrows on the path again.
+     */
+    onResume() {
+      if (!nav) return
+      floor.clear()
+      trackingLostAt = null
+      matcher = createRouteMatcher(nav.route)
+      lastMatchAt = -Infinity
+      if (phase === 'ready' && !arrived && nav.aligned) {
+        lineUp = true
+        lineUpTouched = false
+      }
     },
     /** The "Re-align" button: open the line-up step again. */
     reopenLineUp() {
