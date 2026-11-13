@@ -460,16 +460,16 @@ describe('the arrows on the real ground', () => {
     }
   }
 
-  it('starts on the phone height minus 1.4 m, with no hits: half-transparent; "Point your phone at the floor" only after 3 s', () => {
+  it('Step 3: with no hits, the scene floor sits at phone height minus 1.4 m; never a floor prompt', () => {
     const t = start(() => [])
     t.run(0.5)
     near(t.root.position.y, 0.1, 0.001)
-    expect(t.box.stats).toMatchObject({groundSource: 'fallback', floorSource: 'fallback', pointAtFloor: false, arrowsShown: true})
+    expect(t.box.stats).toMatchObject({groundSource: 'scene', floorSource: 'fallback', pointAtFloor: false, arrowsShown: true})
     near(t.box.stats.floorBelowM, 1.4, 0.001)
     const fill = t.root.getObjectByName('chevron-1').children[2].material
-    near(fill.opacity, 0.5 * 0.8, 0.01) // a guessed floor, and not yet matched by walking
-    t.run(3)
-    expect(t.box.stats.pointAtFloor).toBe(true)
+    near(fill.opacity, 0.8, 0.01) // not yet matched by walking; the floor itself is the scene's, not a guess
+    t.run(10)
+    expect(t.box.stats.pointAtFloor).toBe(false) // nothing to scan, nothing to tap
     t.done()
   })
 
@@ -488,7 +488,7 @@ describe('the arrows on the real ground', () => {
     t.done()
   })
 
-  it('never moves the floor more than 5 cm in one frame', () => {
+  it('after the first floor, the camera only refines it: never more than 5 cm a frame', () => {
     let floorY = -0.1
     const t = start(() => [{type: 'DETECTED_SURFACE', position: {x: Math.random() - 0.5, y: floorY, z: -1 - Math.random() * 2}}])
     t.run(2)
@@ -506,7 +506,7 @@ describe('the arrows on the real ground', () => {
     t.done()
   })
 
-  it('a tap on the floor sets the height straight away, until tracking resets', () => {
+  it('?debug=1: a tap on the floor sets the height straight away, until tracking resets', () => {
     let tapping = false
     const t = start(() => (tapping ? [{type: 'FEATURE_POINT', position: {x: 0.2, y: -0.25, z: -1.5}}] : []))
     t.run(0.5)
@@ -550,7 +550,7 @@ describe('the arrows on the real ground', () => {
     expect(hitTest.mock.calls[0][2]).toEqual(['DETECTED_SURFACE', 'ESTIMATED_SURFACE', 'FEATURE_POINT'])
     expect(hitTest.mock.calls.every(([x, y]) => x > 0 && x < 1 && y >= 0.5)).toBe(true)
     near(t.root.position.y, -0.6, 0.02)
-    expect(t.box.stats.groundSource).toBe('hits')
+    expect(t.box.stats.groundSource).toBe('scene+camera')
     t.done()
   })
 
@@ -804,19 +804,19 @@ describe('walking beats the compass', () => {
     const arrows = t.scene.getObjectByName('ground-arrows')
     expect(arrows.parent).toBe(root) // in the AR world, not over the screen
     expect(arrows.visible).toBe(true)
-    expect(t.box.stats).toMatchObject({aligned: true, arrowsShown: true, arrowsCreated: 11, pointAtFloor: false, groundSource: 'fallback'})
+    expect(t.box.stats).toMatchObject({aligned: true, arrowsShown: true, arrowsCreated: 11, pointAtFloor: false, groundSource: 'scene'})
     expect(t.box.stats.arrowsDrawn).toBeGreaterThanOrEqual(9)
     // No floor hit yet: the floor is the phone's height minus 1.4 m, and nothing waits for a hit.
     for (let i = 0; i < 40; i++) t.frame()
     near(root.position.y, t.camera.position.y - 1.4, 0.05)
-    // Tracking lost: still drawn for 2 s, then hidden with "Point your phone at the floor".
+    // Tracking lost: still drawn for 2 s, then hidden with "Tracking lost. Move slowly" (no floor prompt).
     t.trip.onTracking({status: 'LIMITED'})
     for (let i = 0; i < 1.5 / 0.05; i++) t.frame()
     expect(arrows.visible).toBe(true)
     for (let i = 0; i < 1 / 0.05; i++) t.frame()
     expect(arrows.visible).toBe(false)
     for (let i = 0; i < 6; i++) t.frame()
-    expect(t.box.stats).toMatchObject({arrowsShown: false, pointAtFloor: true})
+    expect(t.box.stats).toMatchObject({arrowsShown: false, pointAtFloor: false})
     t.trip.onTracking({status: 'NORMAL'})
     t.frame()
     expect(arrows.visible).toBe(true)

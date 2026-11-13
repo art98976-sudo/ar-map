@@ -32,7 +32,8 @@ import {createGuidance, landmarksFrom} from '../route/guidance.js'
 import {createArrivalDetector, createConfidenceMonitor, createOffRouteMonitor} from '../route/trip-monitors.js'
 import {entranceOf, isOnCampus, planRoute} from '../route/route.js'
 import {markerName} from '../route/card-text.js'
-import {COMPASS_GUIDE, GPS, GROUND, GROUND_ARROWS, INDOOR, LINE_UP, MATCH, PIN, ROUTING, SAFETY, SHELL, START, TRIP} from '../config.js'
+import {COMPASS_GUIDE, GPS, GROUND, GROUND_ARROWS, INDOOR, LINE_UP, MATCH, PIN, ROUTING, SAFETY, SCENE_FLOOR, SHELL, START, TRIP} from '../config.js'
+import {createHeightProfile} from '../scene/route-height.js'
 
 /** Compass-style bearing of a direction: degrees clockwise from north (or from SLAM -Z). */
 function bearing(east, north) {
@@ -125,6 +126,10 @@ export function createArTrip({
   let blockIndex = 0 // the next chevron to test for being behind something
   let nextPoint = 0
   let groundNow = {height: null, slope: 0, source: 'eye'}
+  let heightAt = () => 0 // the scene's floor height along the route (Step 3)
+  let sceneBase = null // where the scene's height 0 is, in the camera's world
+  let sceneBaseStart = null
+  let sceneBaseFromCamera = false // the camera has found the floor once (else: eye height minus 1.4 m)
   const ground = createGroundTracker() // the slope along the route
   const floor = createFloorFinder() // the floor height under the user
   let floorNow = floor.current
@@ -290,7 +295,11 @@ export function createArTrip({
   function beginGuidance(headingDeg, {facingKnown = false} = {}) {
     const fix = bestFix()
     const info = nav.startInfo(fix)
-    nav.setGround(floorNow.height ?? ground.fallback(camera.position.y), 0)
+    // Step 3: the floor's height comes from the scene. Where the scene is at height 0 is set once
+    // here, from the camera (a floor it found, or eye height); after that the camera only refines it.
+    sceneBaseStart = (floorNow.found ? floorNow.height : ground.fallback(camera.position.y)) - heightAt(info.s)
+    sceneBase = sceneBaseStart
+    nav.setGround(sceneBase + heightAt(info.s), 0)
     nav.align(headingDeg ?? info.bearingDeg, fix)
     // A webcam in test mode has no compass and cannot walk.
     directionKnown = headingDeg != null || allowDesktop
@@ -416,6 +425,7 @@ export function createArTrip({
       if (stopped || arrived || !nav || next.status !== 'ok') return
       route = next
       nav.setRoute(next)
+      heightAt = createHeightProfile(next.points, nav.route, origin)
       routeVersion += 1
       lineCache = null
       routeLevels = levelsAlong(next.points, origin)
@@ -589,6 +599,7 @@ export function createArTrip({
     xr = XR8
     const name = markerName(destination, route.entrance ?? null, DESTINATIONS, INDOOR.indoorAR)
     nav = createNavScene({THREE, scene, camera, route, origin, name, reducedMotion})
+    heightAt = createHeightProfile(route.points, nav.route, origin)
     placePinInRoom()
     matcher = createRouteMatcher(nav.route)
     guidance = createGuidance(nav.route, {arriveLabel, landmarks})
@@ -599,7 +610,10 @@ export function createArTrip({
     if (status !== 'NORMAL' && tracking === 'NORMAL') trackingLostAt = lastTime
     if (status === 'NORMAL') {
       // Back after a real loss: the world may have moved, so the floor (and a tapped floor) is found again.
-      if (trackingLostAt != null && lastTime - trackingLostAt > GROUND_ARROWS.trackingLostS) floor.clear()
+      if (trackingLostAt != null && lastTime - trackingLostAt > GROUND_ARROWS.trackingLostS) {
+        floor.clear()
+        sceneBaseFromCamera = false // the tracked world may have moved: take the next floor found
+      }
       trackingLostAt = null
     }
     tracking = status
@@ -704,7 +718,6 @@ export function createArTrip({
   // ---------- Group B: no line-up step ----------
   let unconfirmedSince = null
   let offerRealign = false
-  let floorMissingSince = null
 
   /** The arrows are placed for sure: the walked track matches the route, or the user lined them up. */
   function arrowsConfirmed() {
@@ -724,11 +737,8 @@ export function createArTrip({
       unconfirmedSince ??= time
       if (time - unconfirmedSince >= LINE_UP.offerAfterS) offerRealign = true
     }
-    if (ready && !floorNow.found) floorMissingSince ??= time
-    else floorMissingSince = null
   }
 
-  const floorPromptDue = (time) => floorMissingSince != null && time - floorMissingSince >= LINE_UP.floorPromptAfterS
 
   /** Once a frame indoors: is a stair or lift close? Has the walk stopped matching the route? */
   function checkIndoor(time) {
@@ -763,10 +773,10 @@ export function createArTrip({
   }
 
   /** Indoor AR: how far up or down a route point is from the user's floor, in metres. */
-  function arrowLevelLift() {
-    if (!INDOOR.indoorAR) return null
-    const here = navPose.current.floorLevel ?? 0
-    return (s) => ((levelAt(routeLevels, s) ?? here) - here) * INDOOR.floorHeightM
+  /** The arrows ahead sit on the scene's floor: its height there, from the floor under the user. */
+  function arrowLevelLift(userS) {
+    const here = heightAt(userS)
+    return (s) => heightAt(s) - here
   }
 
   /** Put the user at route-frame point p: the arrows and the dot move there; line up again. */
@@ -820,10 +830,29 @@ export function createArTrip({
     const s = nav.update(dt, time)
     if (phase === 'ready' && !arrived) checkConfidence(time)
     if (phase === 'ready') {
-      // Height at the user from the floor finder; the slope along the route from the route fit.
-      const along = ground.update(dt, s.s, camera.position.y, time)
-      groundNow = {height: floorNow.height, slope: floorNow.found && along.source === 'hits' ? along.slope : 0, source: floorNow.source}
-      nav.setGround(groundNow.height, groundNow.slope, s.s)
+      // Step 3: the floor under the user is the scene's (its height along the route, from where
+      // the scene sits). A floor the camera finds moves that silently, eased and capped.
+      ground.update(dt, s.s, camera.position.y, time)
+      const hUser = heightAt(s.s)
+      sceneBase ??= (floorNow.found ? floorNow.height : ground.fallback(camera.position.y)) - hUser
+      sceneBaseStart ??= sceneBase
+      if (floorNow.found && Number.isFinite(floorNow.height)) {
+        const want = floorNow.height - hUser
+        if (!sceneBaseFromCamera || floorNow.source === 'tap') {
+          // The first floor the camera finds (or a tap in ?debug=1) replaces the eye-height guess:
+          // followed as the finder settles on it, then only refined.
+          sceneBase = want
+          sceneBaseStart = want
+          if (!Number.isFinite(floorNow.target) || Math.abs(floorNow.height - floorNow.target) < SCENE_FLOOR.settledM) sceneBaseFromCamera = true
+        } else {
+          const step = SCENE_FLOOR.refineMps * dt
+          sceneBase += Math.max(-step, Math.min(step, want - sceneBase))
+          sceneBase = Math.max(sceneBaseStart - SCENE_FLOOR.maxRefineM, Math.min(sceneBaseStart + SCENE_FLOOR.maxRefineM, sceneBase))
+        }
+      }
+      groundNow = {height: sceneBase + hUser, slope: 0, source: sceneBaseFromCamera ? 'scene+camera' : 'scene'}
+      nav.setGround(groundNow.height, 0, s.s)
+      nav.setPinLift(heightAt(Infinity) - hUser)
       if (tracking === 'NORMAL') tracker.walk(camera.position, directionKnown ? nav.worldToRoute : null)
       if (manual) {
         if (directionKnown && time >= campusCheckAt) {
@@ -879,9 +908,9 @@ export function createArTrip({
     // Half-transparent while the floor is still a guess; solid once it is found (or tapped).
     // 80% until the walked track matches the route, then full (Group B).
     watchLineUp(time)
-    const floorOpacity = floorNow.found ? 1 : GROUND_ARROWS.guessOpacity
+    const floorOpacity = 1 // the scene knows the floor: no half-transparent "guess"
     const matchOpacity = arrowsConfirmed() ? 1 : LINE_UP.unconfirmedOpacity
-    nav.updateArrows({userS: routeS, slope: groundNow.slope, show: arrowsShown, opacity: floorOpacity * matchOpacity, dt, time, lift: arrowLevelLift()})
+    nav.updateArrows({userS: routeS, slope: groundNow.slope, show: arrowsShown, opacity: floorOpacity * matchOpacity, dt, time, lift: arrowLevelLift(routeS)})
     updateShell(time)
     checkIndoor(time)
     watchHeldUp(dt, time)
@@ -940,9 +969,8 @@ export function createArTrip({
         // None in view: which way they are, for one small chevron at the screen edge.
         edgeArrowDeg: arrowsShown ? (nav.arrowsOffscreen()?.angleDeg ?? null) : null,
         turnRings: arrowsShown ? nav.turnRingsShown : 0,
-        // Until the floor is found (or after tracking is lost): "Point your phone at the floor".
-        // Only once the floor has been missing for LINE_UP.floorPromptAfterS (3 s).
-        pointAtFloor: phase === 'ready' && !arrived && Boolean(nav.aligned) && floorPromptDue(time),
+        // Step 3: never asked; the scene gives the floor and the camera refines it silently.
+        pointAtFloor: false,
         offerRealign: phase === 'ready' && !arrived && offerRealign,
         arrowsConfirmed: arrowsConfirmed(),
         floorSource: floorNow.source,
@@ -1064,6 +1092,7 @@ export function createArTrip({
     onResume() {
       if (!nav) return
       floor.clear()
+      sceneBaseFromCamera = false
       trackingLostAt = null
       matcher = createRouteMatcher(nav.route)
       lastMatchAt = -Infinity

@@ -79,8 +79,8 @@ describe('planRoute', () => {
     const fallback = vi.fn(graph)
     const r = await planRoute(pt(A), pathfoot, {mazemap: mazemap(json), graph: fallback})
     expect(r.source).toBe('mazemap')
-    expect(r.points.at(-1)).toEqual(onFloor(C))
-    expect(r.entrance).toEqual(onFloor(C)) // the pin marks that door
+    expect(r.points.at(-1)).toMatchObject(onFloor(C)) // with its height (Step 3)
+    expect(r.entrance).toMatchObject(onFloor(C)) // the pin marks that door
     expect(fallback).not.toHaveBeenCalled()
   })
   it('a route through a building: prefers the outdoor footpaths', async () => {

@@ -103,7 +103,7 @@ describe('one status message at a time', () => {
     const {statusMessage} = await import('../../src/ui/screens/ar-status.js')
     const ready = {phase: 'ready', directionKnown: true, manual: false, source: 'mazemap'}
     expect(statusMessage({...ready, tracking: 'LIMITED', arrowsShown: false, pointAtFloor: true, positionUncertain: true}).key).toBe('tracking')
-    expect(statusMessage({...ready, tracking: 'NORMAL', pointAtFloor: true, positionUncertain: true}).key).toBe('floor')
+    expect(statusMessage({...ready, tracking: 'NORMAL', pointAtFloor: true, positionUncertain: true}).key).toBe('position') // Step 3: no floor prompt
     expect(statusMessage({...ready, tracking: 'NORMAL', positionUncertain: true, rerouting: true}).text).toBe('Finding your position. Follow the map for now.')
     expect(statusMessage({...ready, tracking: 'NORMAL', rerouting: true, source: 'direct'})).toBeNull() // nothing to do: no message
     expect(statusMessage({...ready, tracking: 'NORMAL', offerRealign: true, compassPoor: true}).key).toBe('realign')

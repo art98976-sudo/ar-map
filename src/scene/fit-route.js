@@ -452,7 +452,7 @@ export function fitRoute(scene) {
   const withH = addHeights(scene, points)
   return {
     points: withH,
-    latlng: withH.map((p) => ({...fromLocal(scene.origin, p), z: p.z})),
+    latlng: withH.map((p) => ({...fromLocal(scene.origin, p), z: p.z, h: Number(p.h.toFixed(3))})),
     lengthM: pathLength(withH),
     doors,
     repairs,

@@ -111,7 +111,7 @@ export const GROUND_ARROWS = {
   green: 0x22c55e,
   shadowScale: 1.35, // the soft shadow under each chevron, this much wider
   shadowOpacity: 0.25,
-  guessOpacity: 0.5, // while the floor is only a guess (fallback height)
+  guessOpacity: 0.5, // unused since Step 3 (the scene knows the floor); kept for the simulator's old runs
   renderOrder: 20, // over the camera image (depthTest off): shadow, edge, green
   blockMarginM: 0.6, // a surface this much nearer than a chevron hides it
   blockChecksPerFrame: 3, // blocked tests, chevrons taken in turn
@@ -199,11 +199,17 @@ export const FIT = {
   loadTimeoutMs: 6000, // the floors for fitting: past this, fit outdoors only
 }
 
+// Step 3: the floor height comes from the scene; the camera only refines it, silently.
+export const SCENE_FLOOR = {
+  refineMps: 0.1, // the camera's floor moves the scene's floor at most this fast (metres per second)
+  maxRefineM: 0.6, // and never more than this from where the scene put it
+  settledM: 0.01, // the first floor found is followed until the finder is this close to its target
+}
+
 // Group B: no line-up step. The arrows show at once and settle as the walk is matched.
 export const LINE_UP = {
   unconfirmedOpacity: 0.8, // until the walked track matches the route (or the user lined them up)
   offerAfterS: 10, // still not matching this long after walking far enough: offer Re-align
-  floorPromptAfterS: 3, // "Point your phone at the floor" only once the floor is missing this long
 }
 
 export const SAFETY = {
@@ -214,7 +220,7 @@ export const SAFETY = {
 
 // Indoors (Phase 5).
 export const INDOOR = {
-  indoorAR: false, // true: AR arrows carry on inside, along the indoor route, floor by floor
+  indoorAR: true, // AR arrows carry on inside, along the fitted indoor route, floor by floor (Step 3)
   floorHeightM: 3.5, // one floor up or down, for arrows that climb with the route
   stairNearM: 4, // this close to a stair or lift on the route: "Go to Level n"
   poorMatchM: 2.5, // the walked track this far from the route on average...

@@ -186,7 +186,7 @@ export function createFloorFinder() {
       if (shown == null) shown = target
       const eased = shown + (target - shown) * (1 - Math.exp((-3 * dt) / GROUND.floorEaseS))
       shown += Math.max(-GROUND.floorMaxStepM, Math.min(GROUND.floorMaxStepM, eased - shown))
-      last = {height: shown, source, found: source !== 'fallback', belowPhoneM: camera.y - shown, hits: hits.length}
+      last = {height: shown, target, source, found: source !== 'fallback', belowPhoneM: camera.y - shown, hits: hits.length}
       return last
     },
     get found() {

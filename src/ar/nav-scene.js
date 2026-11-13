@@ -259,6 +259,11 @@ export function createNavScene({THREE, scene, camera, route, origin, name = null
     pin.group.position.y = Math.max(-PIN.maxLiftM, Math.min(PIN.maxLiftM, (entranceS - userS) * slope))
   }
 
+  /** Step 3: the pin stands on the scene's floor at the destination (another level: higher or lower). */
+  function setPinLift(h) {
+    if (Number.isFinite(h)) pin.group.position.y = h
+  }
+
   /** How far along the route a world point is, and how far off to the side. */
   function routePosition(point) {
     const hit = projectOntoPolyline(local, worldToRoute(point))
@@ -337,6 +342,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name = null
     realign,
     rotateAboutUser,
     placeUserAt,
+    setPinLift,
     applyCorrection,
     worldToRoute,
     /** Route frame {x, y} -> a new world position on the ground. */

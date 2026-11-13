@@ -118,7 +118,7 @@ describe('route planning', () => {
     const r = await planRoute(WALKWAY, library, {mazemap: mmOk, graph: vi.fn()})
     expect(r).toMatchObject({status: 'ok', source: 'mazemap'})
     expect(r.points[0]).not.toEqual(WALKWAY)
-    expect(r.points.at(-1)).toEqual(entranceOf(library))
+    expect(r.points.at(-1)).toMatchObject(entranceOf(library))
     expect(r.minutes).toBe(walkingMinutes(r.lengthM))
   })
 

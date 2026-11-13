@@ -351,7 +351,9 @@ export function arScreen(root, {navigate, params}) {
   }
 
   /** Tap the floor in the camera view: that spot sets the floor height straight away. */
+  /** Tap the floor: ?debug=1 only (Step 3). In the normal flow the scene gives the floor. */
   function wireFloorTap() {
+    if (!showDebug) return
     const view = root.querySelector('.ar')
     if (!view) return
     view.addEventListener('click', (event) => {
