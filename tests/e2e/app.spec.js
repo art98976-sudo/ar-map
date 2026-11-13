@@ -52,13 +52,23 @@ test.describe('the map home', () => {
     await expect(page.locator('.mapboxgl-canvas')).toBeVisible()
     await expect(page.getByRole('button', {name: 'Search rooms, buildings, places'})).toBeVisible()
     // The quick chips: in the sheet, scrolled sideways.
-    for (const name of ['Lecture theatres', 'Toilets', 'Food', 'Library', 'Study spaces', 'Lifts', 'Buildings', 'Bus', 'Sport']) {
-      await expect(page.locator('.quick-chips').getByRole('button', {name, exact: true})).toBeAttached()
+    for (const id of ['lecture', 'toilets', 'food', 'library', 'study', 'lifts', 'buildings', 'bus', 'sport']) {
+      await expect(page.locator(`.quick-chips [data-filter="${id}"]`)).toBeAttached()
     }
-    // Nothing else at the top: the search bar alone; the round buttons sit on the right.
-    await expect(page.locator('.map-home__top button')).toHaveCount(1)
-    await expect(page.locator('[data-rail]').getByRole('button', {name: 'Show 3D buildings'})).toBeVisible()
+    // Group C: four chips at rest, the rest behind More.
+    for (const name of ['Lecture theatres', 'Toilets', 'Food', 'Library', 'More']) {
+      await expect(page.locator('.quick-chips').getByRole('button', {name, exact: true})).toBeVisible()
+    }
+    await expect(page.locator('.quick-chips').getByRole('button', {name: 'Bus', exact: true})).toBeHidden()
+    // The top: the search bar and one menu button. The right: only my location. 3D is in the menu.
+    await expect(page.locator('.map-home__top > button')).toHaveCount(2)
+    await expect(page.locator('[data-rail] button')).toHaveCount(1)
     await expect(page.locator('[data-rail]').getByRole('button', {name: 'Show my location'})).toBeVisible()
+    await page.getByRole('button', {name: 'Menu', exact: true}).click()
+    await expect(page.getByRole('menuitem', {name: 'Show 3D buildings'})).toBeVisible()
+    await page.getByRole('button', {name: 'Menu', exact: true}).click()
+    // At rest the sheet offers the nearest toilet, café and lift.
+    for (const name of ['Nearest toilet', 'Nearest café', 'Nearest lift']) await expect(page.getByRole('button', {name})).toBeVisible()
     await expect(page.locator('.map-pin')).toHaveCount(24)
     await expect(page.getByRole('button', {name: 'Pathfoot Building'})).toBeAttached()
     expect(errors).toEqual([])
@@ -76,6 +86,7 @@ test.describe('the map home', () => {
     await page.goto('/')
     await mapReady(page)
     const chips = page.locator('.quick-chips')
+    await chips.getByRole('button', {name: 'More', exact: true}).click() // Bus is behind More
     const bus = chips.getByRole('button', {name: 'Bus', exact: true})
     await bus.click()
     await expect(bus).toHaveAttribute('aria-pressed', 'true')
@@ -111,7 +122,7 @@ test.describe('the map home', () => {
 
   test('the ⓘ button opens about, privacy, the disclaimer and licences', async ({page}) => {
     await page.goto('/')
-    await page.getByRole('button', {name: 'More', exact: true}).click()
+    await page.getByRole('button', {name: 'Menu', exact: true}).click()
     await page.getByRole('menuitem', {name: 'About and privacy'}).click()
     const sheet = page.getByRole('dialog', {name: /About Stirling Welcome AR/})
     await expect(sheet).toBeVisible()
@@ -179,7 +190,7 @@ test.describe('at 360 px wide', () => {
     expect(await tooSmall(page)).toEqual([])
     await page.getByRole('button', {name: 'Close search'}).click()
 
-    await page.getByRole('button', {name: 'More', exact: true}).click()
+    await page.getByRole('button', {name: 'Menu', exact: true}).click()
     expect(await tooSmall(page)).toEqual([])
     await page.getByRole('menuitem', {name: 'About and privacy'}).click()
     expect(await overflow(page)).toBeLessThanOrEqual(0)
@@ -405,19 +416,22 @@ test.describe('3D buildings', () => {
     await page.goto('/#/?to=scran&debug=1')
     await mapReady(page)
     expect(glb).toHaveLength(0) // not downloaded until 3D is turned on
-    const button = page.getByRole('button', {name: 'Show 3D buildings'})
+    // Group C: 3D is in the menu.
+    await page.getByRole('button', {name: 'Menu', exact: true}).click()
+    const button = page.getByRole('menuitem', {name: 'Show 3D buildings'})
     await button.click()
-    const hide = page.getByRole('button', {name: 'Hide 3D buildings'})
+    const hide = page.getByRole('menuitem', {name: 'Hide 3D buildings'})
     await expect(hide).toHaveAttribute('aria-pressed', 'true')
-    await expect(hide).toHaveText('2D', {timeout: 90_000})
+    await expect(hide).toContainText('2D', {timeout: 90_000})
     await expect(hide).not.toHaveAttribute('aria-busy')
     expect(glb).toHaveLength(1)
     // Scran (Andrew Miller, level 2): its room is coloured, and the map moves to its floor.
     await expect.poll(() => page.evaluate(() => window.__campusModel?.stats()), {timeout: 10_000}).toMatchObject({visible: true, highlighted: '1002096756', level: 2})
     await page.getByRole('button', {name: 'Close', exact: true}).click()
     await expect.poll(() => page.evaluate(() => window.__campusModel.stats().highlighted)).toBeNull()
+    await page.getByRole('button', {name: 'Menu', exact: true}).click()
     await hide.click()
-    await expect(page.getByRole('button', {name: 'Show 3D buildings'})).toHaveText('3D')
+    await expect(page.getByRole('menuitem', {name: 'Show 3D buildings'})).toContainText('3D')
     expect(await page.evaluate(() => window.__campusModel.stats().visible)).toBe(false)
     expect(glb).toHaveLength(1)
     expect(errors).toEqual([])
@@ -522,7 +536,7 @@ test.describe('model alignment check', () => {
     await mapReady(page)
     const panel = page.getByRole('region', {name: 'Model alignment check'})
     await expect(panel).toBeVisible({timeout: 90_000})
-    await expect(page.getByRole('button', {name: 'Hide 3D buildings'})).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('menuitem', {name: 'Hide 3D buildings', includeHidden: true})).toHaveAttribute('aria-pressed', 'true')
     await expect(panel.getByLabel('Model')).toHaveValue('50')
     await page.locator('[data-map] canvas').first().click({position: {x: 300, y: 500}})
     await expect(panel.locator('[data-align-latlon]')).toHaveText(/^56\.\d+, -3\.\d+$/)
