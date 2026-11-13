@@ -218,6 +218,20 @@ export function createNavScene({THREE, scene, camera, route, origin, reducedMoti
     return true
   }
 
+  /**
+   * "I'm here" (or "I'm on Level n"): move the whole route so the user stands at route-frame point
+   * p, straight away, keeping its direction. The line-up step then sets the direction.
+   */
+  function placeUserAt(p) {
+    if (!aligned || !p) return false
+    ease = null
+    camera.getWorldPosition(camPos)
+    const rotated = rotateY({x: p.x, z: -p.y}, yaw)
+    geoRoot.position.set(camPos.x - rotated.x, geoRoot.position.y, camPos.z - rotated.z)
+    geoRoot.updateMatrixWorld(true)
+    return true
+  }
+
   /** A new route, from a reroute. The placement stays, so the walk so far still lines up. */
   function setRoute(next) {
     local = routeToLocal(origin, next.points)
@@ -322,6 +336,7 @@ export function createNavScene({THREE, scene, camera, route, origin, reducedMoti
     nextTurnAt: (s = whereAmI().s) => nextTurn(turns, s),
     realign,
     rotateAboutUser,
+    placeUserAt,
     applyCorrection,
     worldToRoute,
     /** Route frame {x, y} -> a new world position on the ground. */
@@ -345,8 +360,8 @@ export function createNavScene({THREE, scene, camera, route, origin, reducedMoti
      * Lay the chevrons for this frame: userS from the pose, the ground slope, whether to show,
      * and their opacity (half while the floor is still a guess).
      */
-    updateArrows({userS, slope, show, opacity = 1, dt = 0, time = 0}) {
-      return arrows.update({userS, slope, show: show && aligned, opacity, dt, time: reducedMotion ? 0 : time, camera})
+    updateArrows({userS, slope, show, opacity = 1, dt = 0, time = 0, lift = null}) {
+      return arrows.update({userS, slope, show: show && aligned, opacity, dt, time: reducedMotion ? 0 : time, camera, lift})
     },
     /**
      * The walls and doors of the floor in use (route frame, from floorToLocal). Replaces the

@@ -720,6 +720,35 @@ describe('walking beats the compass', () => {
     t.done()
   })
 
+  it('indoors: near a stair the trip says "Go to Level 2"; "I\'m on Level 2" carries on from the top and lines up again', () => {
+    const north = (m) => ORIGIN.lat + m / 111_195
+    const route = {
+      ...ROUTE,
+      source: 'mazemap',
+      points: [
+        {lat: ORIGIN.lat, lng: ORIGIN.lng, z: 1},
+        {lat: north(20), lng: ORIGIN.lng, z: 1},
+        {lat: north(20.5), lng: ORIGIN.lng, z: 2}, // up the stair
+        {lat: north(40), lng: ORIGIN.lng, z: 2},
+      ],
+    }
+    route.entrance = route.points.at(-1)
+    const t = startTrip(0, {route})
+    for (let i = 0; i < 10; i++) t.frame()
+    t.trip.confirmLineUp()
+    for (let i = 0; i < 6; i++) t.frame()
+    expect(t.box.stats.floorChange).toBeNull()
+    expect(t.box.stats.floorLevel).toBe(1)
+    t.walk(17.5) // 2.5 m before the stair
+    for (let i = 0; i < 6; i++) t.frame()
+    expect(t.box.stats.floorChange).toEqual({toLevel: 2, up: true})
+    expect(t.trip.confirmFloor()).toBe(true)
+    for (let i = 0; i < 6; i++) t.frame()
+    expect(t.box.stats).toMatchObject({floorChange: null, lineUp: true, floorLevel: 2})
+    expect(t.box.stats.userS).toBeGreaterThan(20)
+    t.done()
+  })
+
   it('back from the background: the line-up opens again, and the compass still may not turn the route', () => {
     const t = startTrip(0)
     for (let i = 0; i < 10; i++) t.frame()

@@ -330,7 +330,7 @@ test.describe('AR session', () => {
     await context.setGeolocation({latitude: 56.144904, longitude: -3.920317, accuracy: 5})
     await page.goto('/#/locate?to=cottrell&force=1')
     await page.getByRole('button', {name: 'Tap to start'}).click({timeout: 30_000})
-    await expect(page.getByRole('heading', {name: 'You have arrived'})).toBeVisible({timeout: 90_000})
+    await expect(page.getByRole('heading', {name: 'You’ve arrived'})).toBeVisible({timeout: 90_000})
     await page.getByRole('button', {name: 'Done'}).click()
     await expect(page.getByRole('button', {name: 'Search rooms, buildings, places'})).toBeVisible()
   })
@@ -473,7 +473,7 @@ test.describe('arrow test mode', () => {
     expect(errors).toEqual([])
   })
 
-  test('?simulate=1 shows "You have arrived" with the place name at the end', async ({page}, testInfo) => {
+  test('?simulate=1 shows "You’ve arrived" with the place name at the end', async ({page}, testInfo) => {
     test.skip(onlyOn('desktop-chrome')(testInfo))
     test.setTimeout(150_000)
     const errors = watchErrors(page)
@@ -482,7 +482,7 @@ test.describe('arrow test mode', () => {
     const panel = page.getByRole('region', {name: 'Arrow test mode'})
     await expect(panel.locator('[data-sim-status]')).toHaveText(/route, \d+ m/, {timeout: 60_000})
     await panel.getByRole('button', {name: 'Walking speed'}).click() // 4x
-    await expect(panel.locator('[data-sim-banner]')).toHaveText(/^You have arrived · .*Library/, {timeout: 60_000})
+    await expect(panel.locator('[data-sim-banner]')).toHaveText(/^You’ve arrived · .*Library/, {timeout: 60_000})
     await expect(panel.locator('[data-sim-readout]')).toContainText('arrow hidden')
     await expect(panel.getByRole('button', {name: 'Replay'})).toBeVisible()
     expect(errors).toEqual([])

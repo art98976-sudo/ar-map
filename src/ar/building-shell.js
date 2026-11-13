@@ -30,6 +30,8 @@ export function floorToLocal(floor, origin) {
     doors: floor.doors.map((d) => ({id: d.id, a: toXY(origin, d.line[0]), b: toXY(origin, d.line.at(-1))})),
     rooms: floor.rooms.map((r) => ({id: r.id, polygon: poly(r.polygon)})),
     outlines: floor.outlines.map((o) => ({id: o.id, polygon: poly(o.polygon)})),
+    stairs: (floor.stairs || []).map((o) => ({id: o.id, polygon: poly(o.polygon)})),
+    lifts: (floor.lifts || []).map((o) => ({id: o.id, polygon: poly(o.polygon)})),
     labels: floor.labels.map((l) => ({text: l.text, ...toLocal(origin, l)})),
   }
 }
@@ -122,6 +124,23 @@ export function wallCrossings(route, floor, {doorClearM = SHELL.doorClearM} = {}
     s0 += len
   }
   return found.sort((a, b) => a.s - b.s)
+}
+
+/**
+ * Places to say "I'm here" at, near point p: doors (their middle), stairs and lifts (their centre).
+ * [{kind: 'door' | 'stairs' | 'lift', x, y, d}], nearest first.
+ */
+export function anchorsNear(floor, p, metres) {
+  const centre = (ring) => ({x: ring.reduce((a, q) => a + q.x, 0) / ring.length, y: ring.reduce((a, q) => a + q.y, 0) / ring.length})
+  const all = [
+    ...floor.doors.map((d) => ({kind: 'door', x: (d.a.x + d.b.x) / 2, y: (d.a.y + d.b.y) / 2})),
+    ...(floor.stairs || []).map((s) => ({kind: 'stairs', ...centre(s.polygon[0])})),
+    ...(floor.lifts || []).map((s) => ({kind: 'lift', ...centre(s.polygon[0])})),
+  ]
+  return all
+    .map((a) => ({...a, d: Math.hypot(a.x - p.x, a.y - p.y)}))
+    .filter((a) => a.d <= metres)
+    .sort((a, b) => a.d - b.d)
 }
 
 /** Walls with any corner within `metres` of point p (for the near-only modes). */

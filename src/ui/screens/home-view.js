@@ -151,7 +151,7 @@ export function placeNotFound(text = 'We couldn’t find that place') {
   `
 }
 
-export function placeCard(place, walkText) {
+export function placeCard(place, walkText, {stepFree = false} = {}) {
   const room = place.category === 'room' ? describeDestination(place) : ''
   // Never repeat the name underneath it ("Library" / "Library").
   const subtitle = subtitleFor(place.name, room || categoryLabel(place.category))
@@ -179,9 +179,15 @@ export function placeCard(place, walkText) {
         <p class="dest-sheet__walk" data-walk>${icon('footsteps', {size: 16})}<span data-walk-text>${walkText}</span></p>
         <p class="dest-sheet__indoor" data-indoor hidden>${icon('door', {size: 16})}<span data-indoor-text></span></p>
         <p class="dest-sheet__indoor" data-stairs hidden>${icon('lift', {size: 16})}<span>Stairs or lift needed</span></p>
+        <label class="step-free">
+          <input type="checkbox" role="switch" data-step-free ${stepFree ? 'checked' : ''} />
+          <span>Step-free route</span>
+        </label>
+        <p class="dest-sheet__indoor" data-step-free-note ${stepFree ? '' : 'hidden'}>${icon('check', {size: 16})}<span>Step-free: no stairs on this route</span></p>
       </div>
       <button class="icon-btn" type="button" data-action="unselect" aria-label="Close">${icon('close', {size: 20})}</button>
     </div>
+    <button class="btn btn--primary btn--block" type="button" data-action="show-way" hidden>${icon('map')}<span>Show the way</span></button>
     <button class="btn btn--primary btn--block" type="button" data-action="walk" aria-label="Walk here in AR">
       ${icon('camera')}<span>Walk here in AR</span>
     </button>

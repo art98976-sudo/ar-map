@@ -12,7 +12,7 @@ import {startPermissionRequests} from '../../ar/permissions.js'
 import {createFixWatch, locationPermissionState, readTripFix} from '../../geo/location.js'
 import {DESTINATIONS, findDestination, setCurrentDestination} from '../../map/destinations.js'
 import {fetchPoiDestination, poiIdFrom} from '../../map/poi-lookup.js'
-import {entranceOf, estimateWalkMinutes, planRoute} from '../../route/route.js'
+import {entranceOf, estimateWalkMinutes, getStepFree, planRoute, saveTripRoute, setStepFree} from '../../route/route.js'
 import {entranceNameFor, estimatedWalkM, indoorLines, locationApproximate, walkSummary} from '../../route/card-text.js'
 import {
   addRecentStart,
@@ -31,7 +31,7 @@ import {
   startLabel,
 } from '../../route/start-point.js'
 import {onAction, render} from '../dom.js'
-import {GPS, START} from '../../config.js'
+import {GPS, INDOOR, START} from '../../config.js'
 import {createSheets} from './home-sheets.js'
 import {doorList, homePage, mapError, mapLoading, placeCard, placeLoading, placeNotFound} from './home-view.js'
 
@@ -327,6 +327,39 @@ export function homeScreen(root, {navigate, params}) {
     }
   }
 
+  /**
+   * A trip that is all indoors (hardly any walking outside before the door): no AR, the indoor
+   * map straight away, and the button reads "Show the way".
+   */
+  function indoorTrip() {
+    return Boolean(selected?.category === 'room' && cardRoute?.indoorPoints?.length >= 2 && cardRoute.lengthM < INDOOR.outdoorMinM)
+  }
+
+  function paintWayButton() {
+    const indoor = indoorTrip()
+    const way = root.querySelector('[data-action="show-way"]')
+    const walk = root.querySelector('[data-action="walk"]')
+    if (way) way.hidden = !indoor
+    if (walk) walk.hidden = indoor
+  }
+
+  /** The step-free switch: remembered on this device; the route is planned again without stairs. */
+  function onStepFree(event) {
+    const box = event.target.closest?.('[data-step-free]')
+    if (!box || !selected) return
+    setStepFree(box.checked)
+    const note = root.querySelector('[data-step-free-note]')
+    if (note) note.hidden = !box.checked
+    clearRoute()
+    setRouteLink('Show route on map')
+    cardRoute = null
+    refreshWalkText()
+    paintIndoor()
+    paintWayButton()
+    quietPlan()
+  }
+  card.addEventListener('change', onStepFree)
+
   /** A room indoors: which door, which level, and whether stairs or a lift are needed. */
   function paintIndoor() {
     if (!selected) return
@@ -361,6 +394,7 @@ export function homeScreen(root, {navigate, params}) {
       checkWalls(route)
       refreshWalkText()
       paintIndoor()
+      paintWayButton()
     } catch (err) {
       console.warn('[home] could not plan the route for the card', err?.message)
     } finally {
@@ -500,7 +534,8 @@ export function homeScreen(root, {navigate, params}) {
       card.hidden = true
       return
     }
-    render(card, placeCard(selected, walkText()))
+    render(card, placeCard(selected, walkText(), {stepFree: getStepFree()}))
+    paintWayButton()
     paintIndoor()
     quietPlan()
     card.hidden = false
@@ -629,6 +664,15 @@ export function homeScreen(root, {navigate, params}) {
 
   // ---------- actions ----------
   const off = onAction(root, {
+    // An indoor trip: the indoor map, with the route just planned for the card.
+    'show-way': () => {
+      if (!selected) return
+      if (cardRoute) {
+        const start = getStart()
+        saveTripRoute({...cardRoute, destinationId: selected.id, origin: isManual(start) ? start : fixWatch.fix, start: isManual(start) ? start : null, plannedAt: Date.now()})
+      }
+      navigate(`/indoor?to=${encodeURIComponent(selected.id)}`)
+    },
     'open-search': () => {
       sheets.open('search')
       // Inside the tap, or iPhone will not open the keyboard.
@@ -705,6 +749,7 @@ export function homeScreen(root, {navigate, params}) {
     disposed = true
     off()
     document.removeEventListener('keydown', onKey)
+    card.removeEventListener('change', onStepFree)
     sheets.destroy()
     search.destroy()
     startSearch.destroy()

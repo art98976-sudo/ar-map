@@ -6,7 +6,7 @@
 // - "Finding your position": GPS accuracy slider past 20 m, or "Compass swinging" on, for 3 s
 // - "Finding a new route": the off-route slider past 15 m for 5 s (it really plans again, at most
 //   once every 15 s)
-// - "You have arrived": walk on to the end
+// - "You’ve arrived": walk on to the end
 //
 // Loaded only when the address asks for it. Draws its own map layers (sim-*), never MazeMap's.
 import {distanceM, fromLocal, localBearing, pointAt, polylineLength, toLocal, wrap360} from '../geo/geo.js'
@@ -63,7 +63,7 @@ const NOTHING = {type: 'FeatureCollection', features: []}
  * @returns {{text, tone}|null}
  */
 export function simBanner({arrived, uncertain, rerouting, name}) {
-  if (arrived) return {text: `You have arrived · ${name}`, tone: 'done'}
+  if (arrived) return {text: `You’ve arrived · ${name}`, tone: 'done'}
   if (uncertain) return {text: 'Finding your position. Follow the map for now.', tone: 'warn'}
   if (rerouting) return {text: 'Finding a new route', tone: 'info'}
   return null

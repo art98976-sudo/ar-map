@@ -37,6 +37,20 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
       </button>
     </header>
 
+    <button class="ar-here chip chip--glass" type="button" data-action="reanchor" aria-label="I'm here: show where I am on the map" hidden>
+      ${icon('pin', {size: 16})}<span>I'm here</span>
+    </button>
+
+    <section class="ar-floor" data-floor-change aria-live="polite" hidden>
+      <p class="ar-floor__title"><span data-floor-icon></span><span data-floor-text>Go to Level 2</span></p>
+      <button class="btn btn--primary btn--block" type="button" data-action="confirm-floor" data-floor-button>I'm on Level 2</button>
+    </section>
+
+    <section class="ar-pick" data-pick hidden>
+      <p>Tap where you are on the map: a door, a stair or a lift.</p>
+      <button class="btn btn--secondary btn--block" type="button" data-action="pick-cancel">Cancel</button>
+    </section>
+
     <section class="ar-lineup" data-lineup aria-label="Line up the arrows" hidden>
       <p class="ar-lineup__hint">${icon('drag', {size: 18})}<span>Drag to lay the arrows on the path</span></p>
       <button class="btn btn--primary btn--block" type="button" data-action="looks-right">Looks right</button>

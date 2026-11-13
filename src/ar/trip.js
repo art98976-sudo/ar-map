@@ -16,14 +16,14 @@
 // While walking, map matching (route-matcher.js) lays the walked track onto the route, and hit
 // tests (ground.js) lay the route onto the real ground.
 import {circularMean, createCalibrator, isPoorAccuracy, startCompass} from './compass.js'
-import {angleDiff, distanceM, fromLocal, pointAt, toDeg, toLocal, wrap360} from '../geo/geo.js'
+import {angleDiff, distanceM, fromLocal, pointAt, polylineLength, projectOntoPolyline, toDeg, toLocal, wrap360} from '../geo/geo.js'
 import {DESTINATIONS} from '../map/destinations.js'
 import {getRoomCentre} from '../map/room-centres.js'
 import {arrowTarget, arrowYawDeg, createRouteTracker, walkingCorrection} from '../route/compass-guide.js'
 import {createNavPose, levelAt, levelsAlong, steeredBearing} from '../route/nav-pose.js'
 import {createNavScene, gpsDistanceToEntrance} from './nav-scene.js'
 import {acceptHit, createFloorFinder, createGroundTracker, FLOOR_GRID, HIT_TYPES} from './ground.js'
-import {floorToLocal} from './building-shell.js'
+import {anchorsNear, floorToLocal} from './building-shell.js'
 import {boxAround, fetchFloor} from './mazemap-floor.js'
 import {createRouteMatcher} from './route-matcher.js'
 import {locationPermissionState, watchLocation} from '../geo/location.js'
@@ -31,7 +31,7 @@ import {isManual} from '../route/start-point.js'
 import {createGuidance, landmarksFrom} from '../route/guidance.js'
 import {createArrivalDetector, createConfidenceMonitor, createOffRouteMonitor} from '../route/trip-monitors.js'
 import {entranceOf, isOnCampus, planRoute} from '../route/route.js'
-import {COMPASS_GUIDE, GPS, GROUND, GROUND_ARROWS, PIN, ROUTING, SHELL, START, TRIP} from '../config.js'
+import {COMPASS_GUIDE, GPS, GROUND, GROUND_ARROWS, INDOOR, PIN, ROUTING, SHELL, START, TRIP} from '../config.js'
 
 /** Compass-style bearing of a direction: degrees clockwise from north (or from SLAM -Z). */
 function bearing(east, north) {
@@ -60,7 +60,8 @@ export function createArTrip({
   onTurnPassed,
   onEnterCampus,
 }) {
-  let route = firstRoute
+  // Indoor AR on: the arrows carry on through the door, along MazeMap's indoor route to the room.
+  let route = INDOOR.indoorAR && firstRoute.indoorPoints?.length >= 2 ? {...firstRoute, points: [...firstRoute.points, ...firstRoute.indoorPoints.slice(1)], entrance: firstRoute.indoorPoints.at(-1)} : firstRoute
   let phase = null
   let nav = null
   let camera = null
@@ -89,7 +90,7 @@ export function createArTrip({
   let arrowBearingDeg = null // where the arrow points, degrees from north (for ?fieldtest=1)
   // The one pose the map dot, map rotation, arrow, instructions, distance left and off-route all read.
   const navPose = createNavPose()
-  let routeLevels = levelsAlong(firstRoute.points, origin) // floor level along the route (0 outdoors)
+  let routeLevels = levelsAlong(route.points, origin) // floor level along the route (0 outdoors)
   let cameFromOutside = !isOnCampus(origin)
   let fixesOnCampus = 0
   let lastTime = null
@@ -672,6 +673,59 @@ export function createArTrip({
     nav.updateDoorways(arrowsShown ? routeS : -Infinity)
   }
 
+  // ---------- indoors: floor changes, and "I'm here" ----------
+  let floorChange = null // {s, toLevel, up, point}: the stair or lift the route takes next, when near
+  let poorSince = null
+  let offerReanchor = false
+
+  /** The next change of floor along the route after s: {s, toLevel, up}, or null. */
+  function nextLevelChange(s) {
+    for (let i = 1; i < routeLevels.length; i++) {
+      const a = routeLevels[i - 1]
+      const b = routeLevels[i]
+      if (b.s <= s || b.z === a.z || a.z === 0 || b.z === 0) continue
+      return {s: b.s, toLevel: b.z, up: b.z > a.z}
+    }
+    return null
+  }
+
+  /** Once a frame indoors: is a stair or lift close? Has the walk stopped matching the route? */
+  function checkIndoor(time) {
+    if (phase !== 'ready' || arrived || !tracker) {
+      floorChange = null
+      return
+    }
+    const next = nextLevelChange(tracker.s)
+    floorChange = next && next.s - tracker.s <= INDOOR.stairNearM ? next : null
+    // A walk that keeps missing the route (indoors there is no GPS to put it right): offer "I'm here".
+    const residual = matcher?.residualM
+    if (Number.isFinite(residual) && residual > INDOOR.poorMatchM) {
+      poorSince ??= time
+      if (time - poorSince >= INDOOR.poorMatchForS) offerReanchor = true
+    } else poorSince = null
+  }
+
+  /** Indoor AR: how far up or down a route point is from the user's floor, in metres. */
+  function arrowLevelLift() {
+    if (!INDOOR.indoorAR) return null
+    const here = navPose.current.floorLevel ?? 0
+    return (s) => ((levelAt(routeLevels, s) ?? here) - here) * INDOOR.floorHeightM
+  }
+
+  /** Put the user at route-frame point p: the arrows and the dot move there; line up again. */
+  function reanchorAtLocal(p) {
+    if (!nav?.aligned || !tracker) return false
+    nav.placeUserAt(p)
+    tracker.set(projectOntoPolyline(nav.route, p).s)
+    matcher = createRouteMatcher(nav.route)
+    lastMatchAt = -Infinity
+    offerReanchor = false
+    poorSince = null
+    lineUp = true
+    lineUpTouched = false
+    return true
+  }
+
   /** Below SHELL.lowFps for SHELL.lowFpsForS: keep only the walls near the user. */
   function watchFps(time) {
     if (fps == null || lowFps) return
@@ -766,8 +820,9 @@ export function createArTrip({
     arrowsShown = arrowsWanted(time)
     checkBlocked()
     // Half-transparent while the floor is still a guess; solid once it is found (or tapped).
-    nav.updateArrows({userS: routeS, slope: groundNow.slope, show: arrowsShown, opacity: floorNow.found ? 1 : GROUND_ARROWS.guessOpacity, dt, time})
+    nav.updateArrows({userS: routeS, slope: groundNow.slope, show: arrowsShown, opacity: floorNow.found ? 1 : GROUND_ARROWS.guessOpacity, dt, time, lift: arrowLevelLift()})
     updateShell(time)
+    checkIndoor(time)
     paintShell(routeS)
     watchFps(time)
     statsTimer += dt
@@ -802,6 +857,10 @@ export function createArTrip({
         lateralOffsetM: phase === 'ready' ? pose.lateralOffsetM : null,
         poseConfident: pose.confident,
         shellLoaded: Boolean(nav.shellLoaded),
+        // Indoors: the stair or lift ahead ("Go to Level n"), and whether to offer "I'm here".
+        floorChange: floorChange ? {toLevel: floorChange.toLevel, up: floorChange.up} : null,
+        offerReanchor,
+        canReanchor: phase === 'ready' && !arrived && Boolean(shellFloor),
         shellLevel: nav.shellLevel,
         lowFps,
         floorLevel: pose.floorLevel,
@@ -914,6 +973,26 @@ export function createArTrip({
      * may have shifted. Start the floor search and the walked-track match afresh, and open the
      * line-up step so the user can lay the arrows on the path again.
      */
+    /** "I'm here": the places near the user to choose from, as GPS points with what they are. */
+    reanchorChoices() {
+      if (!shellFloor || !nav?.aligned) return []
+      const here = nav.worldToRoute({x: camera.position.x, z: camera.position.z})
+      return anchorsNear(shellFloor, here, INDOOR.pickRadiusM)
+        .slice(0, 12)
+        .map((a) => ({...fromLocal(origin, a), kind: a.kind, d: a.d}))
+    },
+    /** "I'm here" at a chosen door, stair or lift ({lat, lng}). */
+    reanchorAt(point) {
+      return reanchorAtLocal(toLocal(origin, point))
+    },
+    /** "I'm on Level n": the user has taken the stair or lift; carry on from its other end. */
+    confirmFloor() {
+      if (!floorChange || !nav) return false
+      const s = floorChange.s + 0.5
+      const ok = reanchorAtLocal(pointAt(nav.route, Math.min(s, nav.route.length ? polylineLength(nav.route) : s)))
+      floorChange = null
+      return ok
+    },
     onResume() {
       if (!nav) return
       floor.clear()

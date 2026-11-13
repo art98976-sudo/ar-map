@@ -67,7 +67,7 @@ describe('arrival', () => {
     host.hidden = true
     showArrival(host, {name: 'Library', reducedMotion: false})
     expect(host.hidden).toBe(false)
-    expect(host.querySelector('h1').textContent).toBe('You have arrived')
+    expect(host.querySelector('h1').textContent).toBe('You’ve arrived')
     expect(host.querySelector('.arrival__place').textContent).toBe('Library')
     expect(document.activeElement).toBe(host.querySelector('[data-action="done"]'))
     expect(host.querySelectorAll('.confetti').length).toBeGreaterThan(0)
@@ -78,7 +78,17 @@ describe('arrival', () => {
     document.body.append(host)
     showArrival(host, {name: 'Library', reducedMotion: true})
     expect(host.querySelector('[data-confetti]')).toBeNull()
-    expect(host.querySelector('h1').textContent).toBe('You have arrived')
+    expect(host.querySelector('h1').textContent).toBe('You’ve arrived')
+    host.remove()
+  })
+  it('at a building door for a room inside: "You’re at <entrance>" and continue on the indoor map', () => {
+    const host = document.createElement('div')
+    document.body.append(host)
+    showArrival(host, {name: 'A3 Lecture Theatre', entrance: 'Cottrell entrance', reducedMotion: true})
+    expect(host.querySelector('h1').textContent).toBe('You’re at Cottrell entrance')
+    expect(host.querySelector('.arrival__place').textContent).toBe('A3 Lecture Theatre is inside')
+    expect(document.activeElement).toBe(host.querySelector('[data-action="inside"]'))
+    expect(host.querySelector('[data-action="done"]')).toBeNull()
     host.remove()
   })
   it('reads the reduced-motion setting', () => {

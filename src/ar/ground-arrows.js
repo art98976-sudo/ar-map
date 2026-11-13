@@ -215,7 +215,9 @@ export function createGroundArrows(THREE) {
   const camPos = new THREE.Vector3()
   const v = new THREE.Vector3()
 
-  const heightAt = (s, userS, slope) => Math.max(-GROUND_ARROWS.maxLiftM, Math.min(GROUND_ARROWS.maxLiftM, (s - userS) * slope))
+  // Indoors with indoor AR: up or down a floor along the route (route level - the user's level).
+  let levelLift = null
+  const heightAt = (s, userS, slope) => Math.max(-GROUND_ARROWS.maxLiftM, Math.min(GROUND_ARROWS.maxLiftM, (s - userS) * slope)) + (levelLift ? levelLift(s) : 0)
 
   /** The strip and the corner rings, by the chevrons' rules: range, fades, eye level, blocking. */
   function paintExtras({userS, slope, show, opacity, camera, spots}) {
@@ -271,7 +273,8 @@ export function createGroundArrows(THREE) {
      * Lay the chevrons, the strip and the corner rings for this frame. camera: the AR camera
      * (world). time: seconds, for the slow pulse (0 with reduced motion). Returns how many are placed.
      */
-    update({userS, slope = 0, show, opacity = 1, dt = 0, time = 0, camera = null}) {
+    update({userS, slope = 0, show, opacity = 1, dt = 0, time = 0, camera = null, lift = null}) {
+      levelLift = lift
       group.visible = Boolean(show)
       const spots = show ? chevronSpots(route, rounded, userS) : []
       active = Math.min(spots.length, pool.length)
@@ -292,7 +295,7 @@ export function createGroundArrows(THREE) {
           continue
         }
         // On the floor: the geo-root sits at the floor under the user; the slope carries it along.
-        const lift = Math.max(-GROUND_ARROWS.maxLiftM, Math.min(GROUND_ARROWS.maxLiftM, (spot.s - userS) * slope))
+        const lift = heightAt(spot.s, userS, slope)
         slot.item.position.set(spot.x, lift + 0.005, -spot.y)
         slot.item.rotation.set(0, -toRad(spot.bearingDeg), 0)
         slot.item.updateMatrixWorld(true)

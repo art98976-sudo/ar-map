@@ -1,4 +1,4 @@
-// "You have arrived": shown over the camera at the entrance, with a short burst of confetti.
+// The arrival card over the camera: "You’ve arrived", or at a building door "You’re at <entrance>".
 import {haptic, html, render} from '../dom.js'
 import {icon} from '../icons.js'
 import {COLOURS} from '../../config.js'
@@ -18,21 +18,27 @@ function confetti() {
   })
 }
 
-/** Render into host. The Done button uses data-action="done", handled by the AR screen. */
-export function showArrival(host, {name, reducedMotion = prefersReducedMotion()}) {
+/**
+ * Render into host: a card rises with a tick that draws itself. Outdoors: "You've arrived" and the
+ * place, with Done. At a building's entrance for a room inside (entrance given): "You're at
+ * <entrance>" and "Continue inside on the map" (data-action="inside"). One vibration.
+ */
+export function showArrival(host, {name, entrance = null, reducedMotion = prefersReducedMotion()}) {
   render(
     host,
     html`
-      ${reducedMotion ? '' : html`<div class="arrival__confetti" data-confetti aria-hidden="true">${confetti()}</div>`}
+      ${reducedMotion || entrance ? '' : html`<div class="arrival__confetti" data-confetti aria-hidden="true">${confetti()}</div>`}
       <section class="arrival__card" role="dialog" aria-modal="true" aria-labelledby="arrival-title">
-        <span class="arrival__icon">${icon('check', {size: 32})}</span>
-        <h1 class="arrival__title" id="arrival-title" tabindex="-1">You have arrived</h1>
-        <p class="arrival__place">${name}</p>
-        <button class="btn btn--primary btn--block" type="button" data-action="done" aria-label="Done">Done</button>
+        <span class="arrival__icon arrival__tick">${icon('check', {size: 32})}</span>
+        <h1 class="arrival__title" id="arrival-title" tabindex="-1">${entrance ? `You’re at ${entrance}` : 'You’ve arrived'}</h1>
+        <p class="arrival__place">${entrance ? `${name} is inside` : name}</p>
+        ${entrance
+          ? html`<button class="btn btn--primary btn--block" type="button" data-action="inside">${icon('map')}<span>Continue inside on the map</span></button>`
+          : html`<button class="btn btn--primary btn--block" type="button" data-action="done" aria-label="Done">Done</button>`}
       </section>
     `,
   )
   host.hidden = false
-  host.querySelector('[data-action="done"]').focus({preventScroll: true})
-  haptic([30, 60, 30])
+  host.querySelector('[data-action]')?.focus({preventScroll: true})
+  haptic(40)
 }

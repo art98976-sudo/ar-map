@@ -126,6 +126,17 @@ export const SHELL = {
   renderOrder: 5, // the occluder draws before the arrows, so they can test against it
 }
 
+// Indoors (Phase 5).
+export const INDOOR = {
+  indoorAR: false, // true: AR arrows carry on inside, along the indoor route, floor by floor
+  floorHeightM: 3.5, // one floor up or down, for arrows that climb with the route
+  stairNearM: 4, // this close to a stair or lift on the route: "Go to Level n"
+  poorMatchM: 2.5, // the walked track this far from the route on average...
+  poorMatchForS: 10, // ...for this long: offer "I'm here" to put the user back on the map
+  pickRadiusM: 25, // "I'm here" offers doors, stairs and lifts this close
+  outdoorMinM: 15, // a route with less outdoor walking than this is an indoor trip: "Show the way"
+}
+
 // The destination pin.
 export const PIN = {
   green: 0x006938,

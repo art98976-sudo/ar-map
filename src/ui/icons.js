@@ -15,6 +15,7 @@ const PATHS = {
   locate: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22"/>',
   north: '<path d="M12 3.5 7 20l5-3.5 5 3.5z"/>',
   arrowUp: '<path d="M12 20V5M6 11l6-6 6 6"/>',
+  arrowDown: '<path d="M12 4v15M6 13l6 6 6-6"/>',
   straight: '<path d="M12 20V5M6 11l6-6 6 6"/>',
   swap: '<path d="M8 4v15M4 8l4-4 4 4M16 20V5M12 16l4 4 4-4"/>',
   drag: '<path d="M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4"/>',

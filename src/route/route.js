@@ -69,16 +69,20 @@ export function parseMazeMapPath(json) {
   return {points, outdoorPoints, indoor, endsIndoor, entryLevel, lengthM: json?.pathMetrics?.distanceWalkingMeters ?? null}
 }
 
-async function mazemapRoute(from, to, {signal} = {}) {
+/**
+ * MazeMap routing. targetZ: the floor level of a room (0 for a place outdoors). stepFree: ask
+ * for MazeMap's accessible route, which avoids stairs ("hc", supported on this campus).
+ */
+async function mazemapRoute(from, to, {signal, targetZ = 0, stepFree = false} = {}) {
   const q = new URLSearchParams({
     srid: '4326',
-    hc: 'false',
+    hc: String(Boolean(stepFree)),
     sourcelat: String(from.lat),
     sourcelon: String(from.lng),
     sourcez: '0', // outdoors
     targetlat: String(to.lat),
     targetlon: String(to.lng),
-    targetz: '0', // the entrance is outside the door
+    targetz: String(targetZ), // a room: its own floor, so the indoor part goes to the right level
     lang: 'en',
     distanceunitstype: 'metric',
     mode: 'PEDESTRIAN',
@@ -125,7 +129,7 @@ function lengthOf(points) {
  *   {status: 'off-campus', distanceM}
  *   {status: 'ok', points: [{lat,lng}], lengthM, minutes, source: 'mazemap'|'footpaths'|'direct', entrance}
  */
-export async function planRoute(from, dest, {mazemap = mazemapRoute, graph = loadCampusGraph, townGraph = loadTownGraph} = {}) {
+export async function planRoute(from, dest, {mazemap = mazemapRoute, graph = loadCampusGraph, townGraph = loadTownGraph, stepFree = getStepFree()} = {}) {
   if (!isInStirling(from)) return {status: 'off-campus', distanceM: distanceM(from, MAZEMAP.center)}
   const to = entranceOf(dest)
   const onCampus = isOnCampus(from) && isOnCampus(to)
@@ -133,14 +137,16 @@ export async function planRoute(from, dest, {mazemap = mazemapRoute, graph = loa
     const pts = anchor(points, from, target)
     const lengthM = lengthOf(pts)
     console.info('[route]', source, pts.length, 'points')
-    return {status: 'ok', points: pts, lengthM, minutes: walkingMinutes(lengthM), source, entrance: target, ...extra}
+    return {status: 'ok', points: pts, lengthM, minutes: walkingMinutes(lengthM), source, entrance: target, stepFree: Boolean(stepFree), ...extra}
   }
 
   // 1. MazeMap, as long as it stays outdoors. If it ends indoors (a room), walk to that door.
   let throughBuilding = null
   if (onCampus) {
     try {
-      const mm = await mazemap(from, to)
+      // A room: route to its own floor. Step-free: MazeMap's route without stairs.
+      const targetZ = dest?.category === 'room' && Number.isFinite(dest.floor) ? dest.floor : 0
+      const mm = await mazemap(from, to, {targetZ, stepFree})
       if (mm.points.length >= 2) {
         if (!mm.indoor) return done(mm.points, 'mazemap')
         // The walk ends at the door; the card also wants the whole way to the room and its floor.
@@ -168,6 +174,25 @@ export async function planRoute(from, dest, {mazemap = mazemapRoute, graph = loa
 
   // 4. Straight line: still useful on open lawns, and the UI says it is approximate.
   return done([from, to], 'direct')
+}
+
+// ---------- step-free routes: the choice is remembered on this device ----------
+const STEP_FREE_KEY = 'welcomeAR.stepFree.v1'
+
+export function getStepFree(storage = globalThis.localStorage) {
+  try {
+    return storage?.getItem(STEP_FREE_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function setStepFree(on, storage = globalThis.localStorage) {
+  try {
+    storage?.setItem(STEP_FREE_KEY, on ? '1' : '0')
+  } catch {
+    // blocked storage: it lasts for this page only
+  }
 }
 
 // ---------- the route for this trip (the AR screen reads it) ----------

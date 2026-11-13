@@ -51,6 +51,8 @@ export function decodeFloorTile(buffer, {x, y, z}) {
     doors: read('doors').flatMap((f) => (f.geometry.type === 'LineString' ? [{id: f.id, line: f.geometry.coordinates}] : f.geometry.type === 'MultiLineString' ? f.geometry.coordinates.map((line) => ({id: f.id, line})) : [])),
     rooms: read('rooms').flatMap((f) => ringsOf(f.geometry).map((polygon) => ({id: f.id, polygon}))),
     outlines: read('outlines').flatMap((f) => ringsOf(f.geometry).map((polygon) => ({id: f.id, polygon}))),
+    stairs: read('stairs').flatMap((f) => ringsOf(f.geometry).map((polygon) => ({id: f.id, polygon}))),
+    lifts: read('elevators').flatMap((f) => ringsOf(f.geometry).map((polygon) => ({id: f.id, polygon}))),
     labels: read('markers')
       .filter((f) => f.props.text && f.geometry.type === 'Point')
       .map((f) => ({text: String(f.props.text), lng: f.geometry.coordinates[0], lat: f.geometry.coordinates[1]})),
@@ -59,13 +61,15 @@ export function decodeFloorTile(buffer, {x, y, z}) {
 
 /** Put decoded tiles together (a wall cut by a tile edge stays as its pieces: fine for walls). */
 export function mergeFloor(parts) {
-  const floor = {walls: [], doors: [], rooms: [], outlines: [], labels: []}
+  const floor = {walls: [], doors: [], rooms: [], outlines: [], stairs: [], lifts: [], labels: []}
   const seenLabels = new Set()
   for (const part of parts) {
     floor.walls.push(...part.walls)
     floor.doors.push(...part.doors)
     floor.rooms.push(...part.rooms)
     floor.outlines.push(...part.outlines)
+    floor.stairs.push(...(part.stairs || []))
+    floor.lifts.push(...(part.lifts || []))
     for (const l of part.labels) {
       const key = `${l.text}|${l.lng.toFixed(6)}|${l.lat.toFixed(6)}`
       if (!seenLabels.has(key)) {

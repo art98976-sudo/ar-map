@@ -128,7 +128,34 @@ export function createCompassMap(host, {getState, onReady, onFailed}) {
       if (!stopped) onFailed?.()
     })
 
+  let picks = []
   return {
+    /**
+     * "I'm here": the nearby doors, stairs and lifts as markers to tap on this map. choices:
+     * [{lat, lng, kind}]. onPick(choice) is called with the one tapped.
+     */
+    showPicks(choices, onPick) {
+      this.clearPicks()
+      const map = instance?.map
+      const Marker = window.Mazemap?.mapboxgl?.Marker
+      if (!map || !Marker) return 0
+      picks = choices.map((choice) => {
+        const el = document.createElement('button')
+        el.type = 'button'
+        el.className = `ar-map__pick ar-map__pick--${choice.kind}`
+        el.setAttribute('aria-label', `I'm at this ${choice.kind === 'lift' ? 'lift' : choice.kind === 'stairs' ? 'stair' : 'door'}`)
+        el.addEventListener('click', (event) => {
+          event.stopPropagation()
+          onPick(choice)
+        })
+        return new Marker({element: el}).setLngLat([choice.lng, choice.lat]).addTo(map)
+      })
+      return picks.length
+    },
+    clearPicks() {
+      for (const m of picks) m.remove()
+      picks = []
+    },
     get ready() {
       return mapReady
     },

@@ -5,7 +5,8 @@
 //   error    camera denied, motion denied, offline, timeout or engine crash; each says what to do
 import {permissionsAllowed} from '../../ar/permissions.js'
 import {parseUserAgent} from '../../ar/device.js'
-import {findDestination} from '../../map/destinations.js'
+import {DESTINATIONS, findDestination} from '../../map/destinations.js'
+import {entranceNameFor} from '../../route/card-text.js'
 import {GPS_START, isManual, setStart, standHereText} from '../../route/start-point.js'
 import {readTripRoute} from '../../route/route.js'
 import {readTripFix} from '../../geo/location.js'
@@ -16,7 +17,7 @@ import {drawMinimap} from '../components/ar-minimap.js'
 import {createCompassMap} from '../components/compass-map.js'
 import {focusScreen, haptic, onAction, render} from '../dom.js'
 import {icon} from '../icons.js'
-import {GROUND, ROUTING} from '../../config.js'
+import {GROUND, INDOOR, ROUTING} from '../../config.js'
 import {paintDebugStats, paintLiveDebug, setStat as setDebugStat, toggleDebugPanel} from './ar-debug.js'
 import {errorCopy} from './ar-errors.js'
 import {errorView, liveView, loadingView} from './ar-view.js'
@@ -94,6 +95,31 @@ export function arScreen(root, {navigate, params}) {
       trip?.switchToLive()
     },
     exit: () => navigate('/'),
+    // "I'm here": the nearby doors, stairs and lifts on the map; the one tapped is where the user is.
+    reanchor: () => {
+      const choices = trip?.reanchorChoices() ?? []
+      if (!choices.length || !compassMap) return showToast('No doors, stairs or lifts nearby on the map', {tone: 'warning'})
+      toggleMap(true)
+      const pick = root.querySelector('[data-pick]')
+      if (pick) pick.hidden = false
+      compassMap.showPicks(choices, (choice) => {
+        trip?.reanchorAt(choice)
+        compassMap?.clearPicks()
+        if (pick) pick.hidden = true
+        toggleMap(false)
+        haptic(20)
+      })
+    },
+    'pick-cancel': () => {
+      compassMap?.clearPicks()
+      const pick = root.querySelector('[data-pick]')
+      if (pick) pick.hidden = true
+      toggleMap(false)
+    },
+    // "I'm on Level n": the stair or lift is done; carry on from its other end.
+    'confirm-floor': () => {
+      if (trip?.confirmFloor()) haptic(20)
+    },
     'looks-right': () => {
       trip?.confirmLineUp()
       haptic(20)
@@ -102,6 +128,7 @@ export function arScreen(root, {navigate, params}) {
       if (trip?.reopenLineUp()) paintLineUp(true)
     },
     done: () => navigate('/'),
+    inside: () => navigate(`/indoor?to=${encodeURIComponent(destination.id)}`),
     'start-walk': () => {
       const result = trip?.start()
       const note = root.querySelector('[data-start-note]')
@@ -222,7 +249,11 @@ export function arScreen(root, {navigate, params}) {
 
   function onArrived() {
     const host = root.querySelector('[data-arrival]')
-    if (host) showArrival(host, {name: destination.name})
+    if (!host) return
+    // A room inside a building (indoor AR off): stop at the door and carry on, on the indoor map.
+    const inside = destination.category === 'room' && !INDOOR.indoorAR
+    const entrance = inside ? entranceNameFor(destination, route.entrance ?? null, DESTINATIONS) : null
+    showArrival(host, {name: destination.name, entrance})
   }
 
   function onStats(s) {
@@ -241,6 +272,7 @@ export function arScreen(root, {navigate, params}) {
     paintStatusLine(s)
     paintLineUp(Boolean(s.lineUp), s.canRealign)
     paintEdgeArrow(s.edgeArrowDeg)
+    paintIndoorUi(s)
     const pillText = root.querySelector('[data-trip-pill]')
     if (pillText && s.phase === 'ready') pillText.textContent = tripPillText(destination.name, s.remainingM)
   }
@@ -345,6 +377,25 @@ export function arScreen(root, {navigate, params}) {
     el.style.left = `${50 + Math.cos(r) * 42}%`
     el.style.top = `${50 + Math.sin(r) * 40}%`
     el.style.transform = `translate(-50%, -50%) rotate(${angleDeg + 90}deg)`
+  }
+
+  /** Indoors: "Go to Level n" at a stair or lift, and the "I'm here" button (lit when the walk keeps missing). */
+  function paintIndoorUi(s) {
+    const card = root.querySelector('[data-floor-change]')
+    if (card) {
+      card.hidden = !s.floorChange
+      if (s.floorChange) {
+        const {toLevel, up} = s.floorChange
+        card.querySelector('[data-floor-text]').textContent = `Go to Level ${toLevel}`
+        card.querySelector('[data-floor-button]').textContent = `I’m on Level ${toLevel}`
+        render(card.querySelector('[data-floor-icon]'), icon(up ? 'arrowUp' : 'arrowDown', {size: 22}))
+      }
+    }
+    const here = root.querySelector('[data-action="reanchor"]')
+    if (here) {
+      here.hidden = !s.canReanchor || Boolean(s.lineUp)
+      here.dataset.offer = String(Boolean(s.offerReanchor))
+    }
   }
 
   /** One thing to do at a time: only the most urgent of these shows. */
