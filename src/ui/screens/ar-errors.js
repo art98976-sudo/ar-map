@@ -18,11 +18,10 @@ export function errorCopy(code, device = {os: 'other'}) {
         icon: 'compass',
         tone: 'warn',
         title: 'Motion access is off',
-        body: 'Motion sensors keep the arrows fixed to the floor while you walk.',
-        steps: ios
-          ? ['Close this tab.', 'Open the Welcome AR link again.', 'Tap Allow when Safari asks about motion.']
-          : ['Reload the page and allow motion sensors.'],
-        primary: {action: 'reload', label: 'Try again', icon: 'refresh'},
+        body: ios
+          ? 'Motion keeps the arrows fixed to the floor while you walk. Reload, then tap Allow when asked.'
+          : 'Motion keeps the arrows fixed to the floor while you walk. Reload, then allow motion when asked.',
+        primary: {action: 'reload', label: 'Reload and allow motion', icon: 'refresh'},
       }
     case 'offline':
       return {

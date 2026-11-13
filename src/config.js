@@ -38,6 +38,28 @@ export const TURNS = {
   passedM: 1, // a corner counts as passed this far beyond it
 }
 
+// The destination card (src/route/card-text.js).
+export const CARD = {
+  pathFactor: 1.3, // before a route is planned, paths are about this much longer than the straight line
+  sameDoorM: 25, // a route door this close to a known main entrance is that entrance
+  approximateM: 20, // GPS worse than this: "Location is approximate"
+}
+
+// Icons on the map for place types that have none yet (src/map/map-icons.js).
+export const MAP_ICONS = {
+  dotPx: 24, // the stand-in dot, in pixels (drawn at pixelRatio, so 12 px on screen)
+  dotColour: [92, 107, 100], // neutral grey-green
+  iconPx: 60, // MazeMap icons fetched at this size...
+  pixelRatio: 2, // ...and shown at half of it
+}
+
+// The 3D campus model (public/data/stirling_campus.glb).
+export const CAMPUS_MODEL = {
+  // The model was built with an Earth radius of 6378137 m; the map engine and geo.js use 6371008.8 m.
+  // Its metres are this much too long: scale them by it so the model sits on the map (about 1.1 m per km).
+  earthScale: 6371008.8 / 6378137,
+}
+
 // The way to walk: 3D chevrons lying on the real floor along the route (src/ar/ground-arrows.js).
 export const GROUND_ARROWS = {
   spacingM: 1, // one chevron every this far along the route, so several lie close to the user

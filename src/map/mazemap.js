@@ -1,6 +1,7 @@
 // Loads the University's MazeMap campus map (campus 2058) on demand.
 // The MazeMap script is ~1 MB, so it downloads only when a map is first shown.
 import {MAZEMAP} from '../config.js'
+import {handleMissingImages} from './map-icons.js'
 
 let ready = null
 
@@ -91,6 +92,8 @@ export function createCampusMap(Mazemap, container, {onReady, onError, controls 
     touchZoomRotate: true,
     ...options,
   })
+  // Every place type gets an icon, and no "image could not be loaded" warnings (map-icons.js).
+  handleMissingImages(map)
 
   const instance = {
     map,

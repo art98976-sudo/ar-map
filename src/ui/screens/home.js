@@ -10,9 +10,10 @@ import {showToast} from '../components/toast.js'
 import {deviceIssue} from '../../ar/device.js'
 import {startPermissionRequests} from '../../ar/permissions.js'
 import {createFixWatch, locationPermissionState, readTripFix} from '../../geo/location.js'
-import {findDestination, setCurrentDestination} from '../../map/destinations.js'
+import {DESTINATIONS, findDestination, setCurrentDestination} from '../../map/destinations.js'
 import {fetchPoiDestination, poiIdFrom} from '../../map/poi-lookup.js'
-import {estimateWalkMinutes, planRoute} from '../../route/route.js'
+import {entranceOf, estimateWalkMinutes, planRoute} from '../../route/route.js'
+import {entranceNameFor, estimatedWalkM, indoorLines, locationApproximate, walkSummary} from '../../route/card-text.js'
 import {
   addRecentStart,
   clearRecentStarts,
@@ -38,6 +39,8 @@ export function homeScreen(root, {navigate, params}) {
   const forced = params.force === '1'
   let instance = null
   let selected = findDestination(params.to)
+  let cardRoute = null // the route planned for the card (door, level, whole distance)
+  let planningFor = null // the destination a quiet plan is running for
   let routeRequest = 0
   let disposed = false
   let enginePrefetched = false
@@ -155,7 +158,10 @@ export function homeScreen(root, {navigate, params}) {
   }
 
   function select(dest) {
-    if (selected?.id !== dest.id) clearRoute()
+    if (selected?.id !== dest.id) {
+      clearRoute()
+      cardRoute = null
+    }
     selected = dest
     setCurrentDestination(dest) // a room from the search is not in our list: this finds it after a reload
     keepAddressInStep()
@@ -292,10 +298,53 @@ export function homeScreen(root, {navigate, params}) {
     if (level != null && selected?.floor == null && map?.getZLevel?.() !== level) map.setZLevel(level)
   }
 
+  /** "1 min · 95 m": the planned route once there is one (to the room itself), else an estimate. */
   function walkText() {
     const start = getStart()
-    const minutes = estimateWalkMinutes(isManual(start) ? start : fixWatch.fix, selected)
-    return minutes == null ? 'On campus' : `About ${minutes} min walk`
+    const from = isManual(start) ? start : fixWatch.fix
+    if (cardRoute) return walkSummary(cardRoute.totalM ?? cardRoute.lengthM) ?? 'On campus'
+    if (!from || estimateWalkMinutes(from, selected) == null) return 'On campus'
+    return walkSummary(estimatedWalkM(from, entranceOf(selected))) ?? 'On campus'
+  }
+
+  /** A room indoors: which door, which level, and whether stairs or a lift are needed. */
+  function paintIndoor() {
+    if (!selected) return
+    const lines = indoorLines(selected, {
+      entranceName: entranceNameFor(selected, cardRoute?.entrance ?? null, DESTINATIONS),
+      entryLevel: cardRoute?.entryLevel ?? null,
+    })
+    const enter = root.querySelector('[data-indoor]')
+    if (enter) {
+      enter.hidden = !lines.enter
+      enter.querySelector('[data-indoor-text]').textContent = lines.enter ?? ''
+    }
+    const stairs = root.querySelector('[data-stairs]')
+    if (stairs) stairs.hidden = !lines.stairs
+  }
+
+  /**
+   * For a room, plan the route quietly as soon as there is a start, so the card can name the door
+   * the route really uses, the level it comes in at, and the whole distance to the room.
+   */
+  async function quietPlan() {
+    const dest = selected
+    if (!dest || dest.category !== 'room' || cardRoute || planningFor === dest) return
+    const start = getStart()
+    const from = isManual(start) ? start : fixWatch.fix
+    if (!from) return
+    planningFor = dest
+    try {
+      const route = await planRoute(from, dest)
+      if (disposed || selected !== dest || route.status !== 'ok') return
+      cardRoute = route
+      refreshWalkText()
+      paintIndoor()
+    } catch (err) {
+      console.warn('[home] could not plan the route for the card', err?.message)
+    } finally {
+      if (planningFor === dest) planningFor = null
+    }
   }
 
   // ---------- the starting point ----------
@@ -315,6 +364,10 @@ export function homeScreen(root, {navigate, params}) {
     if (prompt) prompt.hidden = manual || !(trouble || fix?.accuracy > START.weakGpsM)
     const live = root.querySelector('[data-action="start-gps"][data-live]')
     if (live) live.hidden = !manual || !(fix?.accuracy <= START.liveGpsM)
+    const approx = root.querySelector('[data-approx]')
+    // One note at a time: the stronger "can't find you" prompt wins over "approximate".
+    if (approx) approx.hidden = manual || !locationApproximate(fix) || (prompt && !prompt.hidden)
+    if (selected) quietPlan() // GPS may only now have arrived
     const row = root.querySelector('.route-from__row')
     row?.setAttribute('aria-label', `Starting point: ${manual ? startLabel(start) : gpsText()}. Change`)
     const sheetText = root.querySelector('[data-start-gps-text]')
@@ -333,6 +386,7 @@ export function homeScreen(root, {navigate, params}) {
   }
 
   function useStart(start) {
+    cardRoute = null // a new start: a new route
     setStart(start)
     clearRoute()
     setRouteLink('Show route on map')
@@ -426,6 +480,8 @@ export function homeScreen(root, {navigate, params}) {
       return
     }
     render(card, placeCard(selected, walkText()))
+    paintIndoor()
+    quietPlan()
     card.hidden = false
     paintStart()
     prefetchEngine()
@@ -478,7 +534,9 @@ export function homeScreen(root, {navigate, params}) {
       }
       drawRouteLine(instance.map, route.points, card.offsetHeight + 40)
       setRouteLink('Hide route', true)
-      root.querySelector('[data-walk-text]').textContent = `About ${route.minutes} min walk`
+      cardRoute = route
+      root.querySelector('[data-walk-text]').textContent = walkText()
+      paintIndoor()
       if (route.source === 'direct') showToast('Approximate route - no path found', {tone: 'warning'})
     } catch (err) {
       if (disposed || request !== routeRequest) return

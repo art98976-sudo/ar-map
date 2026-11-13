@@ -12,6 +12,7 @@ import * as THREE from 'three'
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js'
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js'
 import {CAMPUS_ORIGIN, floorLevelOf, floorPartOf, floorToShow, poiIdOf} from './campus-geo.js'
+import {CAMPUS_MODEL} from '../config.js'
 
 export const CAMPUS_MODEL_URL = '/data/stirling_campus.glb'
 const LAYER_ID = 'campus-model-3d'
@@ -99,7 +100,8 @@ export async function createCampusModel(map, mapboxgl) {
 
   // ---------- three.js inside Mapbox ----------
   const anchor = mapboxgl.MercatorCoordinate.fromLngLat([CAMPUS_ORIGIN.lng, CAMPUS_ORIGIN.lat], 0)
-  const scale = anchor.meterInMercatorCoordinateUnits()
+  // Model metres to map metres (see CAMPUS_MODEL.earthScale), then to the map's own units.
+  const scale = anchor.meterInMercatorCoordinateUnits() * CAMPUS_MODEL.earthScale
   // As in Mapbox's "Add a 3D model" example: Y-up model, -Z points north.
   const modelToMercator = new THREE.Matrix4()
     .makeTranslation(anchor.x, anchor.y, anchor.z)

@@ -63,7 +63,10 @@ export function parseMazeMapPath(json) {
   const outdoorPoints = normaliseRoute({path: {features: outdoor}}).points.map(toPoint)
   const indoor = firstIndoor >= 0
   const endsIndoor = feats.at(-1)?.properties?.buildingId != null
-  return {points, outdoorPoints, indoor, endsIndoor, lengthM: json?.pathMetrics?.distanceWalkingMeters ?? null}
+  // The floor level just inside the door: with the room's level it says if stairs are needed.
+  const inside = indoor ? normaliseRoute({path: {features: [feats[firstIndoor]]}}).points[0] : null
+  const entryLevel = Number.isFinite(inside?.z) ? inside.z : null
+  return {points, outdoorPoints, indoor, endsIndoor, entryLevel, lengthM: json?.pathMetrics?.distanceWalkingMeters ?? null}
 }
 
 async function mazemapRoute(from, to, {signal} = {}) {
@@ -126,11 +129,11 @@ export async function planRoute(from, dest, {mazemap = mazemapRoute, graph = loa
   if (!isInStirling(from)) return {status: 'off-campus', distanceM: distanceM(from, MAZEMAP.center)}
   const to = entranceOf(dest)
   const onCampus = isOnCampus(from) && isOnCampus(to)
-  const done = (points, source, target = to) => {
+  const done = (points, source, target = to, extra = {}) => {
     const pts = anchor(points, from, target)
     const lengthM = lengthOf(pts)
     console.info('[route]', source, pts.length, 'points')
-    return {status: 'ok', points: pts, lengthM, minutes: walkingMinutes(lengthM), source, entrance: target}
+    return {status: 'ok', points: pts, lengthM, minutes: walkingMinutes(lengthM), source, entrance: target, ...extra}
   }
 
   // 1. MazeMap, as long as it stays outdoors. If it ends indoors (a room), walk to that door.
@@ -140,7 +143,10 @@ export async function planRoute(from, dest, {mazemap = mazemapRoute, graph = loa
       const mm = await mazemap(from, to)
       if (mm.points.length >= 2) {
         if (!mm.indoor) return done(mm.points, 'mazemap')
-        if (mm.endsIndoor && mm.outdoorPoints.length >= 2) return done(mm.outdoorPoints, 'mazemap', mm.outdoorPoints.at(-1))
+        // The walk ends at the door; the card also wants the whole way to the room and its floor.
+        if (mm.endsIndoor && mm.outdoorPoints.length >= 2) {
+          return done(mm.outdoorPoints, 'mazemap', mm.outdoorPoints.at(-1), {entryLevel: mm.entryLevel, totalM: lengthOf(mm.points), indoorPoints: mm.points.slice(mm.outdoorPoints.length - 1)})
+        }
         throughBuilding = mm.points
       }
     } catch (err) {

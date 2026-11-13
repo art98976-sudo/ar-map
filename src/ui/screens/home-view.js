@@ -2,6 +2,7 @@
 import {infoSheetContent} from '../components/info-sheet.js'
 import {categoryLabel, QUICK_CHIPS} from '../../map/filters.js'
 import {describeDestination} from '../../map/search.js'
+import {subtitleFor} from '../../route/card-text.js'
 import {entrancesOf} from '../../route/start-point.js'
 import {html} from '../dom.js'
 import {icon} from '../icons.js'
@@ -152,6 +153,8 @@ export function placeNotFound(text = 'We couldn’t find that place') {
 
 export function placeCard(place, walkText) {
   const room = place.category === 'room' ? describeDestination(place) : ''
+  // Never repeat the name underneath it ("Library" / "Library").
+  const subtitle = subtitleFor(place.name, room || categoryLabel(place.category))
   return html`
     ${place.photo ? html`<img class="dest-sheet__photo" src="${place.photo}" alt="" loading="lazy" />` : ''}
     <div class="route-from">
@@ -167,12 +170,15 @@ export function placeCard(place, walkText) {
       <button class="dest-sheet__link" type="button" data-action="open-start">Choose your starting point instead</button>
     </p>
     <button class="dest-sheet__link" type="button" data-action="start-gps" data-live hidden>Switch to live location?</button>
+    <p class="route-approx" data-approx hidden>${icon('alert', {size: 16})}<span>Location is approximate</span></p>
     <div class="dest-sheet__head">
       <div class="dest-sheet__text">
         <p class="route-from__label">To</p>
         <h2 class="dest-sheet__name" tabindex="-1">${place.name}</h2>
-        <p class="dest-sheet__meta">${room || categoryLabel(place.category)}</p>
+        ${subtitle ? html`<p class="dest-sheet__meta">${subtitle}</p>` : ''}
         <p class="dest-sheet__walk" data-walk>${icon('footsteps', {size: 16})}<span data-walk-text>${walkText}</span></p>
+        <p class="dest-sheet__indoor" data-indoor hidden>${icon('door', {size: 16})}<span data-indoor-text></span></p>
+        <p class="dest-sheet__indoor" data-stairs hidden>${icon('lift', {size: 16})}<span>Stairs or lift needed</span></p>
       </div>
       <button class="icon-btn" type="button" data-action="unselect" aria-label="Close">${icon('close', {size: 20})}</button>
     </div>

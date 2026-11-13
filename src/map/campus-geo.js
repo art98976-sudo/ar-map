@@ -1,6 +1,7 @@
 // Facts about the 3D campus model (public/data/stirling_campus.glb) shared by the map layer,
 // the room-centre build tool and the AR trip. No three.js here, so it is cheap to import.
 import {fromLocal} from '../geo/geo.js'
+import {CAMPUS_MODEL} from '../config.js'
 
 // The model's (0,0,0): ground level at this point. Units are metres, x east, y up, -z north.
 export const CAMPUS_ORIGIN = {lat: 56.1455, lng: -3.92}
@@ -23,9 +24,13 @@ export function floorPartOf(name) {
   return m ? m[1] : null
 }
 
-/** Metres east/north of the model origin -> GPS point. */
+/**
+ * Model metres east/north of the model origin -> GPS point, through the app's one conversion
+ * (geo.js). Model metres are scaled by CAMPUS_MODEL.earthScale first (the model's Earth radius).
+ */
 export function modelToLatLng(east, north) {
-  return fromLocal(CAMPUS_ORIGIN, {x: east, y: north})
+  const k = CAMPUS_MODEL.earthScale
+  return fromLocal(CAMPUS_ORIGIN, {x: east * k, y: north * k})
 }
 
 /**

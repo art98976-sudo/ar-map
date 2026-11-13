@@ -6,14 +6,17 @@
 // Loaded only when the address asks for it. Draws its own map layers (align-*), never MazeMap's.
 import {CAMPUS_ORIGIN} from './campus-geo.js'
 import {distanceM, toLocal} from '../geo/geo.js'
+import {CAMPUS_MODEL} from '../config.js'
 
 const ID = {origin: 'align-origin', click: 'align-click'}
 const point = (lng, lat) => ({type: 'Feature', properties: {}, geometry: {type: 'Point', coordinates: [lng, lat]}})
 
 /** A clicked point, as the panel shows it. Exported for tests. */
 export function describePoint({lat, lng}) {
+  // In model metres, so a click can be compared with the model's own coordinates.
   const {x, y} = toLocal(CAMPUS_ORIGIN, {lat, lng})
-  return {lat, lng, east: x, north: y, fromOrigin: distanceM(CAMPUS_ORIGIN, {lat, lng})}
+  const k = CAMPUS_MODEL.earthScale
+  return {lat, lng, east: x / k, north: y / k, fromOrigin: distanceM(CAMPUS_ORIGIN, {lat, lng})}
 }
 
 /**

@@ -2,6 +2,7 @@
 // The 12 University buildings come from MazeMap's building outlines; their height is
 // estimated from the number of floors (MazeMap does not give heights).
 import {MAZEMAP} from '../config.js'
+import {fromLocal, toLocal} from '../geo/geo.js'
 
 export const FLOOR_HEIGHT_M = 3.8
 export const ROOF_M = 1.2
@@ -18,16 +19,14 @@ export function heightForFloors(floors) {
  */
 export function growRing(ring, metres) {
   const n = ring.length
-  const cx = ring.reduce((s, p) => s + p[0], 0) / n
-  const cy = ring.reduce((s, p) => s + p[1], 0) / n
-  const mPerLng = 111320 * Math.cos((cy * Math.PI) / 180)
-  const mPerLat = 110540
-  return ring.map(([x, y]) => {
-    const dx = (x - cx) * mPerLng
-    const dy = (y - cy) * mPerLat
-    const d = Math.hypot(dx, dy) || 1
+  // Through the app's one lat/lng <-> metres conversion (geo.js), about the ring's centre.
+  const centre = {lng: ring.reduce((s, p) => s + p[0], 0) / n, lat: ring.reduce((s, p) => s + p[1], 0) / n}
+  return ring.map(([lng, lat]) => {
+    const {x, y} = toLocal(centre, {lat, lng})
+    const d = Math.hypot(x, y) || 1
     const k = (d + metres) / d
-    return [cx + (dx * k) / mPerLng, cy + (dy * k) / mPerLat]
+    const p = fromLocal(centre, {x: x * k, y: y * k})
+    return [p.lng, p.lat]
   })
 }
 
