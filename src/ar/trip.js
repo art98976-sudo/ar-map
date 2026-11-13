@@ -31,7 +31,7 @@ import {isManual} from '../route/start-point.js'
 import {createGuidance, landmarksFrom} from '../route/guidance.js'
 import {createArrivalDetector, createConfidenceMonitor, createOffRouteMonitor} from '../route/trip-monitors.js'
 import {entranceOf, isOnCampus, planRoute} from '../route/route.js'
-import {COMPASS_GUIDE, GPS, GROUND, GROUND_ARROWS, INDOOR, PIN, ROUTING, SHELL, START, TRIP} from '../config.js'
+import {COMPASS_GUIDE, GPS, GROUND, GROUND_ARROWS, INDOOR, PIN, ROUTING, SAFETY, SHELL, START, TRIP} from '../config.js'
 
 /** Compass-style bearing of a direction: degrees clockwise from north (or from SLAM -Z). */
 function bearing(east, north) {
@@ -705,6 +705,22 @@ export function createArTrip({
     } else poorSince = null
   }
 
+  // ---------- safety: "Look up while you walk" ----------
+  let heldUpWalkS = 0
+  let lookUpShown = false
+  let lookUpUntil = -Infinity
+
+  /** Walking for 10 s with the phone held up in front: remind the user to look up, once per trip. */
+  function watchHeldUp(dt, time) {
+    if (lookUpShown || phase !== 'ready' || arrived || tracking !== 'NORMAL' || !camera) return
+    const held = -lookDirection().y <= SAFETY.raisedMaxY
+    heldUpWalkS = held && matcher?.moving(time) ? heldUpWalkS + dt : 0
+    if (heldUpWalkS >= SAFETY.lookUpAfterS) {
+      lookUpShown = true
+      lookUpUntil = time + SAFETY.lookUpForS
+    }
+  }
+
   /** Indoor AR: how far up or down a route point is from the user's floor, in metres. */
   function arrowLevelLift() {
     if (!INDOOR.indoorAR) return null
@@ -823,6 +839,7 @@ export function createArTrip({
     nav.updateArrows({userS: routeS, slope: groundNow.slope, show: arrowsShown, opacity: floorNow.found ? 1 : GROUND_ARROWS.guessOpacity, dt, time, lift: arrowLevelLift()})
     updateShell(time)
     checkIndoor(time)
+    watchHeldUp(dt, time)
     paintShell(routeS)
     watchFps(time)
     statsTimer += dt
@@ -856,6 +873,7 @@ export function createArTrip({
         distanceFromRouteM: phase === 'ready' && pose.lateralOffsetM != null ? Math.abs(pose.lateralOffsetM) : null,
         lateralOffsetM: phase === 'ready' ? pose.lateralOffsetM : null,
         poseConfident: pose.confident,
+        lookUp: time < lookUpUntil,
         shellLoaded: Boolean(nav.shellLoaded),
         // Indoors: the stair or lift ahead ("Go to Level n"), and whether to offer "I'm here".
         floorChange: floorChange ? {toLevel: floorChange.toLevel, up: floorChange.up} : null,

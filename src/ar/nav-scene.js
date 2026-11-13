@@ -436,6 +436,10 @@ export function createNavScene({THREE, scene, camera, route, origin, reducedMoti
       })
       return ahead.length
     },
+    /** A slow phone: shorter arrows without shadows. */
+    setLowPower(on) {
+      arrows.setLowPower(on)
+    },
     get shellLoaded() {
       return Boolean(shell)
     },

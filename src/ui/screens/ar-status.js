@@ -6,6 +6,8 @@ export function statusMessage(s) {
   if (!s) return null
   const ready = s.phase === 'ready' && !s.arrived
   const rules = [
+    // Safety first: walking for a while with the phone held up.
+    [ready && s.lookUp, {key: 'look-up', icon: 'alert', text: 'Look up while you walk'}],
     // Tracking lost long enough to hide the arrows.
     [ready && s.tracking && s.tracking !== 'NORMAL' && s.arrowsShown === false, {key: 'tracking', icon: 'alert', text: 'Tracking lost. Move slowly'}],
     [ready && s.pointAtFloor, {key: 'floor', icon: 'arrowDown', text: 'Point your phone at the floor'}],

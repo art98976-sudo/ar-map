@@ -749,6 +749,24 @@ describe('walking beats the compass', () => {
     t.done()
   })
 
+  it('"Look up while you walk": after 10 s of walking with the phone held up, once per trip, for 3 s', () => {
+    const t = startTrip(0)
+    for (let i = 0; i < 10; i++) t.frame()
+    t.trip.confirmLineUp()
+    t.walk(10) // about 8 s: not yet
+    for (let i = 0; i < 6; i++) t.frame()
+    expect(t.box.stats.lookUp).toBe(false)
+    t.walk(5) // past 10 s of walking, phone up
+    for (let i = 0; i < 6; i++) t.frame()
+    expect(t.box.stats.lookUp).toBe(true)
+    for (let i = 0; i < 3.5 / 0.05; i++) t.frame()
+    expect(t.box.stats.lookUp).toBe(false) // gone after 3 s
+    t.walk(15)
+    for (let i = 0; i < 6; i++) t.frame()
+    expect(t.box.stats.lookUp).toBe(false) // once per trip
+    t.done()
+  })
+
   it('back from the background: the line-up opens again, and the compass still may not turn the route', () => {
     const t = startTrip(0)
     for (let i = 0; i < 10; i++) t.frame()

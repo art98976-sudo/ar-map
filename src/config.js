@@ -64,6 +64,7 @@ export const CAMPUS_MODEL = {
 export const GROUND_ARROWS = {
   spacingM: 1, // one chevron every this far along the route, so several lie close to the user
   aheadM: 10, // drawn this far ahead: further away a flat arrow no longer reads as floor
+  lowPowerAheadM: 6, // on a slow phone (below 24 fps for 3 s): this far, and no shadows
   nearM: 0.6, // the first one at least this far ahead (not under the feet)
   poolSize: 11, // aheadM / spacingM, plus one: made once, recycled as the user walks
   widthM: 0.5,
@@ -124,6 +125,13 @@ export const SHELL = {
   lowFps: 24, // frames a second below which...
   lowFpsForS: 3, // ...for this long, the shell (and the arrows) are lightened
   renderOrder: 5, // the occluder draws before the arrows, so they can test against it
+}
+
+// Safety (Phase 6.6): "Look up while you walk", once per trip.
+export const SAFETY = {
+  lookUpAfterS: 10, // walking this long with the phone held up in front...
+  lookUpForS: 3, // ...shows the reminder for this long
+  raisedMaxY: 0.55, // "held up": the camera looks no more than this far down (0 = level, 1 = straight down)
 }
 
 // Indoors (Phase 5).

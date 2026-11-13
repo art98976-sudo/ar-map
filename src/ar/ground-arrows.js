@@ -46,8 +46,8 @@ export function roundCorners(points, radius = GROUND_ARROWS.cornerRadiusM, steps
 }
 
 /** How opaque a chevron is at `d` metres ahead: solid near the user, gone by GROUND_ARROWS.aheadM. */
-export function fadeAt(d) {
-  const {solidM, aheadM} = GROUND_ARROWS
+export function fadeAt(d, aheadM = GROUND_ARROWS.aheadM) {
+  const solidM = Math.min(GROUND_ARROWS.solidM, aheadM / 2)
   if (d <= solidM) return 1
   return Math.max(0, 1 - (d - solidM) / (aheadM - solidM))
 }
@@ -217,6 +217,9 @@ export function createGroundArrows(THREE) {
 
   // Indoors with indoor AR: up or down a floor along the route (route level - the user's level).
   let levelLift = null
+  // Low power (a slow phone): a shorter range and no shadows.
+  let lowPower = false
+  let range = GROUND_ARROWS.aheadM
   const heightAt = (s, userS, slope) => Math.max(-GROUND_ARROWS.maxLiftM, Math.min(GROUND_ARROWS.maxLiftM, (s - userS) * slope)) + (levelLift ? levelLift(s) : 0)
 
   /** The strip and the corner rings, by the chevrons' rules: range, fades, eye level, blocking. */
@@ -240,7 +243,7 @@ export function createGroundArrows(THREE) {
       }
     }
     const alphaAt = (x, y, s, d) => {
-      let a = fadeAt(d) * opacity
+      let a = fadeAt(d, range) * opacity
       if (camera) {
         v.set(x, heightAt(s, userS, slope), -y)
         group.localToWorld(v)
@@ -251,10 +254,10 @@ export function createGroundArrows(THREE) {
       if (s >= blockS) a *= 1 - blockShown
       return a
     }
-    strip.update(stripSamples(rounded, from), (s) => heightAt(s, userS, slope), (q) => alphaAt(q.x, q.y, q.s, q.d))
+    strip.update(stripSamples(rounded, from, {aheadM: range}), (s) => heightAt(s, userS, slope), (q) => alphaAt(q.x, q.y, q.s, q.d))
     const corners = turns
       .map((c) => ({...c, d: c.s - from}))
-      .filter((c) => c.d > -0.5 && c.d <= GROUND_ARROWS.aheadM)
+      .filter((c) => c.d > -0.5 && c.d <= range)
       .sort((a, b) => a.d - b.d)
       .map((c) => ({x: c.x, y: c.y, d: Math.max(0, c.d), height: heightAt(c.s, userS, slope), alpha: alphaAt(c.x, c.y, c.s, Math.max(0, c.d))}))
     ringsShown = rings.update(corners)
@@ -276,7 +279,7 @@ export function createGroundArrows(THREE) {
     update({userS, slope = 0, show, opacity = 1, dt = 0, time = 0, camera = null, lift = null}) {
       levelLift = lift
       group.visible = Boolean(show)
-      const spots = show ? chevronSpots(route, rounded, userS) : []
+      const spots = show ? chevronSpots(route, rounded, userS, {aheadM: range}) : []
       active = Math.min(spots.length, pool.length)
       visibleCount = 0
       const live = new Set(spots.slice(0, active).map((s) => keyOf(s.s)))
@@ -299,7 +302,7 @@ export function createGroundArrows(THREE) {
         slot.item.position.set(spot.x, lift + 0.005, -spot.y)
         slot.item.rotation.set(0, -toRad(spot.bearingDeg), 0)
         slot.item.updateMatrixWorld(true)
-        let alpha = fadeAt(spot.d) * opacity
+        let alpha = fadeAt(spot.d, range) * opacity
         if (camera) {
           slot.item.getWorldPosition(p)
           const below = camPos.y - p.y
@@ -317,7 +320,7 @@ export function createGroundArrows(THREE) {
         slot.alpha = alpha
         slot.item.visible = alpha > 0.01
         if (slot.item.visible) visibleCount += 1
-        slot.shadowMat.opacity = GROUND_ARROWS.shadowOpacity * alpha
+        slot.shadowMat.opacity = lowPower ? 0 : GROUND_ARROWS.shadowOpacity * alpha
         slot.edgeMat.opacity = alpha
         slot.fillMat.opacity = alpha
         // Brighter through a corner; elsewhere a slow, light band moving forward (no glow).
@@ -401,6 +404,11 @@ export function createGroundArrows(THREE) {
           o.material.needsUpdate = true
         }
       })
+    },
+    /** A slow phone: arrows only GROUND_ARROWS.lowPowerAheadM ahead, and no shadows. */
+    setLowPower(on) {
+      lowPower = Boolean(on)
+      range = lowPower ? GROUND_ARROWS.lowPowerAheadM : GROUND_ARROWS.aheadM
     },
     /** Corner rings drawn now. */
     get ringsShown() {
