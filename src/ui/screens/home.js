@@ -13,7 +13,7 @@ import {startPermissionRequests} from '../../ar/permissions.js'
 import {seen} from '../first-use.js'
 import {openingMove} from '../opening.js'
 import {createFixWatch, locationPermissionState, readTripFix} from '../../geo/location.js'
-import {DESTINATIONS, findDestination, setCurrentDestination} from '../../map/destinations.js'
+import {addRecent, DESTINATIONS, findDestination, setCurrentDestination} from '../../map/destinations.js'
 import {fetchPoiDestination, poiIdFrom} from '../../map/poi-lookup.js'
 import {entranceOf, estimateWalkMinutes, getStepFree, planRoute, saveTripRoute, setStepFree, tripLengthM} from '../../route/route.js'
 import {entranceNameFor, estimatedWalkM, indoorLines, locationApproximate, walkSummary} from '../../route/card-text.js'
@@ -109,8 +109,16 @@ export function homeScreen(root, {navigate, params}) {
       return {point: c ? {lat: c.lat, lng: c.lng} : null, isUser: false}
     },
     pins,
-    onPick: (dest) => select(dest),
+    onPick: (dest, {go = false} = {}) => {
+      select(dest)
+      if (go) focusGo()
+    },
   })
+
+  /** The card's Go button, ready to tap (shortcuts, Recent and ?go=1 links). */
+  function focusGo() {
+    requestAnimationFrame(() => root.querySelector('[data-go]')?.focus({preventScroll: true}))
+  }
   const menu = root.querySelector('[data-menu]')
   const menuButton = root.querySelector('[data-action="open-menu"]')
   function setMenu(open) {
@@ -168,6 +176,8 @@ export function homeScreen(root, {navigate, params}) {
     }
     selected = dest
     setCurrentDestination(dest) // a room from the search is not in our list: this finds it after a reload
+    addRecent(dest) // "Recent" in the sheet at rest: the last 3 places, however they were picked
+    homeSheet?.refreshRest()
     keepAddressInStep()
     drawCard()
     pins.markSelected()
@@ -575,10 +585,17 @@ export function homeScreen(root, {navigate, params}) {
     else render(card, placeNotFound())
   }
 
+  // Group D: a link or QR code with ?go=1 opens the card with Go focused, once.
+  let goPending = params.go === '1'
+
   function drawCard() {
     if (!selected) {
       card.hidden = true
       return
+    }
+    if (goPending) {
+      goPending = false
+      focusGo()
     }
     // 8.4: a device that cannot run AR never sees the AR button; the card offers the map.
     render(card, placeCard(selected, walkText(), {stepFree: getStepFree(), arIssue: deviceIssue(forced)}))
@@ -742,6 +759,13 @@ export function homeScreen(root, {navigate, params}) {
     filter: (_, target) => homeSheet.choose(target.dataset.filter),
     'sheet-step': () => homeSheet.step(),
     'open-menu': () => setMenu(menu.hidden),
+    'more-chips': () => {
+      const more = root.querySelector('[data-action="more-chips"]')
+      const open = more?.getAttribute('aria-expanded') !== 'true'
+      root.querySelectorAll('[data-extra-chip]').forEach((el) => (el.hidden = !open))
+      more?.setAttribute('aria-expanded', String(open))
+      more?.querySelector('span')?.replaceChildren(open ? 'Less' : 'More')
+    },
     locate: () => instance?.geolocate?.trigger(),
     north: () => instance?.map.easeTo({bearing: 0, duration: 400}),
     unselect: () => {

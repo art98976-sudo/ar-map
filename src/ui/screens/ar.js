@@ -436,7 +436,8 @@ export function arScreen(root, {navigate, params}) {
     }
     const here = root.querySelector('[data-action="reanchor"]')
     if (here) {
-      here.hidden = !s.canReanchor || Boolean(s.lineUp)
+      // Group C: shown only when it is offered (the walk keeps missing the route), or in ?debug=1.
+      here.hidden = !s.canReanchor || Boolean(s.lineUp) || !(s.offerReanchor || showDebug)
       here.dataset.offer = String(Boolean(s.offerReanchor))
     }
   }

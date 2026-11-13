@@ -5,8 +5,11 @@ import {describeDestination} from '../../map/search.js'
 import {subtitleFor} from '../../route/card-text.js'
 import {entrancesOf} from '../../route/start-point.js'
 import {html} from '../dom.js'
-import {icon} from '../icons.js'
+import {icon, iconFor} from '../icons.js'
 import {APP} from '../../config.js'
+
+// Group C: four chips at rest (Lecture theatres, Toilets, Food, Library), the rest behind "More".
+const MAIN_CHIPS = 4
 
 export const homePage = () => html`
   <div class="map-home">
@@ -16,14 +19,20 @@ export const homePage = () => html`
       <button class="map-search" type="button" data-action="open-search" aria-label="Search rooms, buildings, places">
         ${icon('search', {size: 24})}<span>Search rooms, buildings, places</span>
       </button>
+      <!-- Group C: one menu holds 3D, north, the floors, and About. -->
+      <button class="round-btn map-menu-btn" type="button" data-action="open-menu" aria-label="Menu" aria-haspopup="menu" aria-expanded="false">${icon('menu')}</button>
+      <div class="home-menu" data-menu role="menu" hidden>
+        <button class="home-menu__item map-3d" type="button" role="menuitem" data-action="toggle-3d" aria-pressed="false" aria-label="Show 3D buildings">
+          ${icon('building', {size: 20})}<span>Buildings in <span data-3d-label>3D</span></span><span class="spinner map-3d__spinner" data-3d-spinner aria-hidden="true" hidden></span>
+        </button>
+        <button class="home-menu__item" type="button" role="menuitem" data-action="north" aria-label="Turn the map north up" data-north hidden>${icon('north', {size: 20})}<span>North up</span></button>
+        <div class="home-menu__floors" data-floor-host aria-label="Floor"></div>
+        <button class="home-menu__item" type="button" role="menuitem" data-action="open-info">${icon('info', {size: 20})}<span>About and privacy</span></button>
+        <p class="home-menu__note" role="none">Anonymous trip counts only. No location is kept.</p>
+      </div>
     </header>
     <div class="map-rail theme-auto" data-rail>
-      <div class="map-rail__floors" data-floor-host></div>
-      <button class="round-btn map-3d" type="button" data-action="toggle-3d" aria-pressed="false" aria-label="Show 3D buildings">
-        <span data-3d-label>3D</span><span class="spinner map-3d__spinner" data-3d-spinner aria-hidden="true" hidden></span>
-      </button>
       <button class="round-btn" type="button" data-action="locate" aria-label="Show my location">${icon('locate')}</button>
-      <button class="round-btn" type="button" data-action="north" aria-label="Turn the map north up" data-north hidden>${icon('north')}</button>
     </div>
     <div class="map-home__overlay theme-auto" data-overlay>${mapLoading()}</div>
     <section class="home-sheet theme-auto" data-home-sheet data-height="peek" aria-label="Places">
@@ -33,18 +42,16 @@ export const homePage = () => html`
       <div class="home-sheet__peek">
         <div class="quick-chips" role="group" aria-label="Find on the map">
           ${QUICK_CHIPS.map(
-            (c) => html`
-              <button class="quick-chip" type="button" data-action="filter" data-filter="${c.id}" aria-pressed="false">
+            (c, i) => html`
+              <button class="quick-chip" type="button" data-action="filter" data-filter="${c.id}" aria-pressed="false" ${i >= MAIN_CHIPS ? 'data-extra-chip hidden' : ''}>
                 ${icon(c.icon, {size: 20})}<span>${c.label}</span>
               </button>
             `,
           )}
+          <button class="quick-chip" type="button" data-action="more-chips" aria-expanded="false">${icon('menu', {size: 20})}<span>More</span></button>
         </div>
-        <button class="round-btn round-btn--flat" type="button" data-action="open-menu" aria-label="More" aria-haspopup="menu" aria-expanded="false">${icon('menu')}</button>
-        <div class="home-menu" data-menu role="menu" hidden>
-          <button class="home-menu__item" type="button" role="menuitem" data-action="open-info">${icon('info', {size: 20})}<span>About and privacy</span></button>
-          <p class="home-menu__note" role="none">Anonymous trip counts only. No location is kept.</p>
-        </div>
+        <!-- At rest: the nearest toilet, café and lift, and the last 3 places (home-sheet.js). -->
+        <div class="home-rest" data-rest></div>
       </div>
       <div class="home-sheet__body" data-chip-results aria-live="polite"></div>
     </section>
@@ -228,4 +235,21 @@ export const mapError = (offline) => html`
         ${icon('external')}<span>Open the full campus map</span>
       </a>
     </div>
+`
+
+/** The sheet at rest (Group C): three "Nearest" shortcuts, then the last 3 places. */
+export const restView = (recent) => html`
+  <div class="home-rest__nearest" role="group" aria-label="Nearest to you">
+    <button class="home-rest__near" type="button" data-nearest="toilet">${icon('toilet', {size: 18})}<span>Nearest toilet</span></button>
+    <button class="home-rest__near" type="button" data-nearest="cafe">${icon('cup', {size: 18})}<span>Nearest café</span></button>
+    <button class="home-rest__near" type="button" data-nearest="lift">${icon('lift', {size: 18})}<span>Nearest lift</span></button>
+  </div>
+  ${recent.length
+    ? html`<section class="home-rest__recent" aria-label="Recent">
+        <h2 class="home-rest__title">${icon('history', {size: 16})}Recent</h2>
+        <ul class="home-rest__list">
+          ${recent.map((d, i) => html`<li><button class="home-rest__row" type="button" data-recent="${i}">${icon(iconFor(d), {size: 18})}<span>${d.name}</span></button></li>`)}
+        </ul>
+      </section>`
+    : ''}
 `

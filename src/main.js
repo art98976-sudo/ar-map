@@ -15,11 +15,16 @@ import {locateScreen} from './ui/screens/locate.js'
 import {premiumScreen} from './premium/premium.js'
 import {indoorScreen} from './ui/screens/indoor.js'
 import {statsScreen} from './ui/screens/stats.js'
+import {qrScreen} from './ui/screens/qr.js'
 import {showToast} from './ui/components/toast.js'
 import {startOpening} from './ui/opening.js'
 import {registerServiceWorker} from './offline.js'
 
 const root = document.getElementById('app')
+
+// Group D: the short link on a poster, /p/<id>, opens that place's card with Go ready.
+const short = /^\/p\/([\w.-]+)\/?$/.exec(window.location.pathname)
+if (short) window.history.replaceState(null, '', `/#/?${new URLSearchParams({to: decodeURIComponent(short[1]), go: '1'})}`)
 
 const router = createRouter({
   root,
@@ -30,6 +35,7 @@ const router = createRouter({
     '/premium': premiumScreen,
     '/indoor': indoorScreen,
     '/stats': statsScreen,
+    '/qr': qrScreen,
   },
 })
 

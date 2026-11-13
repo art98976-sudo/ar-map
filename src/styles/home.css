@@ -100,7 +100,7 @@
 .map-rail__floors:empty {
   display: none;
 }
-.map-rail .mm-floor-bar {
+:is(.map-rail, .home-menu__floors) .mm-floor-bar {
   position: static !important;
   margin: 0 !important;
   width: var(--tap) !important;
@@ -111,20 +111,20 @@
   overflow: hidden;
   font-family: var(--font) !important;
 }
-.map-rail .mm-floor-bar * {
+:is(.map-rail, .home-menu__floors) .mm-floor-bar * {
   font-family: var(--font) !important;
 }
-.map-rail .mm-floor-bar ul,
-.map-rail .mm-floor-bar li {
+:is(.map-rail, .home-menu__floors) .mm-floor-bar ul,
+:is(.map-rail, .home-menu__floors) .mm-floor-bar li {
   margin: 0;
   padding: 0;
   list-style: none;
   border: 0 !important;
   background: transparent !important;
 }
-.map-rail .mm-floor-bar li,
-.map-rail .mm-floor-bar button,
-.map-rail .mm-floor-bar [class*='z-level'] {
+:is(.map-rail, .home-menu__floors) .mm-floor-bar li,
+:is(.map-rail, .home-menu__floors) .mm-floor-bar button,
+:is(.map-rail, .home-menu__floors) .mm-floor-bar [class*='z-level'] {
   display: grid !important;
   place-items: center;
   min-width: var(--tap) !important;
@@ -135,10 +135,10 @@
   font-weight: var(--fw-medium) !important;
   line-height: 1 !important;
 }
-.map-rail .mm-floor-bar .active,
-.map-rail .mm-floor-bar .selected,
-.map-rail .mm-floor-bar [class*='active'],
-.map-rail .mm-floor-bar [aria-selected='true'] {
+:is(.map-rail, .home-menu__floors) .mm-floor-bar .active,
+:is(.map-rail, .home-menu__floors) .mm-floor-bar .selected,
+:is(.map-rail, .home-menu__floors) .mm-floor-bar [class*='active'],
+:is(.map-rail, .home-menu__floors) .mm-floor-bar [aria-selected='true'] {
   background: var(--c-primary) !important;
   color: var(--c-on-primary) !important;
   border-radius: var(--radius-round);
@@ -422,7 +422,7 @@
   position: relative;
   z-index: 1;
 }
-.map-rail .mm-floor-bar button + button {
+:is(.map-rail, .home-menu__floors) .mm-floor-bar button + button {
   border-top: 0 !important;
 }
 
@@ -663,4 +663,150 @@
 [data-map-trip-on] .map-home__top,
 [data-map-trip-on] [data-home-sheet] {
   display: none;
+}
+
+/* Group C: the search bar and one menu button share the top row; the menu drops below it. */
+.map-home__top {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: center;
+}
+.map-home__top .map-search {
+  flex: 1;
+  min-width: 0;
+}
+.map-menu-btn {
+  flex: none;
+  box-shadow: var(--shadow);
+}
+.map-home__top .home-menu {
+  top: calc(100% + var(--sp-2));
+  bottom: auto;
+  right: 0;
+  z-index: 5;
+  min-width: 230px;
+}
+.home-menu__floors:empty {
+  display: none;
+}
+.home-menu__floors {
+  padding: var(--sp-1) var(--sp-2);
+}
+.home-menu__floors .mm-floor-bar {
+  position: static !important;
+}
+.home-menu .map-3d[aria-pressed='true'] {
+  color: var(--c-primary);
+}
+.home-menu__floors {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.home-menu__floors::before {
+  content: 'Floor';
+  flex: none;
+  padding-left: var(--sp-2);
+  color: var(--c-text-2);
+  font-size: var(--fs-body);
+}
+.home-menu__floors .mm-floor-bar {
+  width: auto !important;
+  box-shadow: none !important;
+  background: var(--c-surface) !important;
+}
+.home-menu__floors .mm-floor-bar .btns-container {
+  display: flex !important;
+  flex-direction: row-reverse;
+  max-height: none !important;
+}
+.home-menu__floors .mm-floor-bar li,
+.home-menu__floors .mm-floor-bar button {
+  width: 40px !important;
+  min-height: 40px !important;
+}
+.home-menu__floors .mm-floor-bar button + button,
+.home-menu__floors .mm-floor-bar li + li {
+  border-top: 0 !important;
+}
+
+/* Group C: the sheet at rest. Three "Nearest" shortcuts, then the last 3 places. */
+.home-rest {
+  display: grid;
+  gap: var(--sp-2);
+  padding: var(--sp-2) 0 0;
+}
+.home-rest:empty {
+  display: none;
+}
+.home-rest__nearest {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-2);
+}
+.home-rest__near {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-height: 56px;
+  padding: 6px 4px;
+  border: 1px solid var(--c-border);
+  border-radius: 14px;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font: inherit;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+}
+.home-rest__near svg {
+  color: var(--c-primary);
+}
+.home-rest__near[aria-busy='true'] {
+  opacity: 0.6;
+}
+.home-rest__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--c-text-2);
+}
+.home-rest__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.home-rest__row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--c-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.home-rest__row svg {
+  flex: none;
+  color: var(--c-primary);
+}
+.home-rest__row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.home-sheet__peek {
+  flex-wrap: wrap;
+}
+.home-rest {
+  flex-basis: 100%;
+  padding-right: var(--side);
 }

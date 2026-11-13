@@ -657,3 +657,42 @@
 .map-cluster.is-blocked {
   display: none;
 }
+
+/* /#/qr (Group D): a poster-ready code and the short link. */
+.qr-page__code {
+  width: min(320px, 80vw);
+  margin: var(--sp-3) auto;
+  padding: 12px;
+  border-radius: 16px;
+  background: #fff;
+}
+.qr-page__code svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.qr-page__hint {
+  margin: 0;
+  font-weight: 600;
+  text-align: center;
+}
+.qr-page__link {
+  margin: 0;
+  font-size: var(--fs-small);
+  color: var(--c-text-2);
+  text-align: center;
+  word-break: break-all;
+}
+.qr-page__actions {
+  display: grid;
+  gap: var(--sp-2);
+  width: 100%;
+}
+@media print {
+  .qr-page__actions {
+    display: none;
+  }
+  .qr-page__code {
+    width: 12cm;
+  }
+}

@@ -5,8 +5,20 @@
 // study spaces show as small dots on the map instead, nearest first in the list.
 import {QUICK_CHIPS} from '../../map/filters.js'
 import {loadRoomTypes, pinPlaces, roomTypeDestinations, searchPlaces, toRows} from '../../map/quick-places.js'
+import {getRecent} from '../../map/destinations.js'
 import {render} from '../dom.js'
-import {chipLoading, chipResults} from '../screens/home-view.js'
+import {chipLoading, chipResults, restView} from '../screens/home-view.js'
+
+const RECENT_AT_REST = 3
+
+/**
+ * The nearest place of a kind to a point (Group C shortcuts): toilet and lift from the campus model,
+ * café from our own food places. Pure on its inputs, so it is tested without a map.
+ */
+export function nearestOf(kind, from, {roomTypes = {}, food = []} = {}) {
+  const pool = kind === 'cafe' ? food : roomTypeDestinations(roomTypes[kind] ?? [])
+  return toRows(pool, from, undefined)[0]?.dest ?? null
+}
 
 export const SHEET_HEIGHTS = ['peek', 'half', 'full']
 const DOTS = 'quick-places'
@@ -191,9 +203,43 @@ export function createHomeSheet(root, {getMap, getFrom, pins, onPick}) {
   }
   body.addEventListener('click', onClick)
 
+  // ---------- at rest: "Nearest" shortcuts and Recent ----------
+  const rest = sheet.querySelector('[data-rest]')
+  let recent = []
+  function paintRest() {
+    if (!rest) return
+    recent = getRecent().slice(0, RECENT_AT_REST)
+    render(rest, restView(recent))
+    setHeight(height, {animate: false}) // the peek is as tall as what it shows
+  }
+  async function pickNearest(kind, button) {
+    const {point: from} = getFrom()
+    button?.setAttribute('aria-busy', 'true')
+    try {
+      const roomTypes = kind === 'cafe' ? {} : await loadRoomTypes()
+      const dest = nearestOf(kind, from, {roomTypes, food: pinPlaces('food')})
+      if (dest) onPick(dest, {go: true})
+    } catch (err) {
+      console.warn('[home] nearest failed', err)
+    } finally {
+      button?.removeAttribute('aria-busy')
+    }
+  }
+  const onRestClick = (event) => {
+    const near = event.target.closest('[data-nearest]')
+    if (near) return pickNearest(near.dataset.nearest, near)
+    const row = event.target.closest('[data-recent]')
+    const dest = row && recent[Number(row.dataset.recent)]
+    if (dest) onPick(dest, {go: true})
+  }
+  rest?.addEventListener('click', onRestClick)
+
   setHeight('peek', {animate: false})
+  paintRest()
 
   return {
+    /** A place was picked: Recent changes. */
+    refreshRest: paintRest,
     get height() {
       return height
     },

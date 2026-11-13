@@ -105,10 +105,10 @@ describe('one status message at a time', () => {
     expect(statusMessage({...ready, tracking: 'LIMITED', arrowsShown: false, pointAtFloor: true, positionUncertain: true}).key).toBe('tracking')
     expect(statusMessage({...ready, tracking: 'NORMAL', pointAtFloor: true, positionUncertain: true}).key).toBe('floor')
     expect(statusMessage({...ready, tracking: 'NORMAL', positionUncertain: true, rerouting: true}).text).toBe('Finding your position. Follow the map for now.')
-    expect(statusMessage({...ready, tracking: 'NORMAL', rerouting: true, source: 'direct'}).key).toBe('reroute')
-    expect(statusMessage({...ready, tracking: 'NORMAL', source: 'direct', compassPoor: true}).text).toBe('Approximate route')
+    expect(statusMessage({...ready, tracking: 'NORMAL', rerouting: true, source: 'direct'})).toBeNull() // nothing to do: no message
+    expect(statusMessage({...ready, tracking: 'NORMAL', offerRealign: true, compassPoor: true}).key).toBe('realign')
     expect(statusMessage({...ready, tracking: 'NORMAL', compassPoor: true}).key).toBe('compass')
     expect(statusMessage({...ready, tracking: 'NORMAL'})).toBeNull()
-    expect(statusMessage({phase: 'await-start', manual: false}).text).toBe('Locating you…')
+    expect(statusMessage({phase: 'await-start', manual: false})).toBeNull()
   })
 })

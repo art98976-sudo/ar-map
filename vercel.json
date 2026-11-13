@@ -70,5 +70,11 @@
         }
       ]
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/p/:id",
+      "destination": "/index.html"
+    }
   ]
 }

@@ -23,6 +23,7 @@
     "@8thwall/engine-binary": "^1.0.0",
     "@mapbox/vector-tile": "^3.0.0",
     "pbf": "^5.1.2",
+    "qrcode-generator": "^1.4.4",
     "three": "^0.187.0"
   },
   "devDependencies": {
