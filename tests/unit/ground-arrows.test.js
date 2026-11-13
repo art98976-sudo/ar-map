@@ -1,7 +1,8 @@
 import * as THREE from 'three'
 import {describe, expect, it} from 'vitest'
 import {angleFade, chevronSpots, createGroundArrows, fadeAt, roundCorners} from '../../src/ar/ground-arrows.js'
-import {GROUND_ARROWS} from '../../src/config.js'
+import {GROUND_ARROWS, GROUND_EXTRAS} from '../../src/config.js'
+import {ringFill, stripSamples} from '../../src/ar/ground-extras.js'
 
 // North 30 m, then east 30 m (route frame: x east, y north).
 const L = [
@@ -103,7 +104,7 @@ describe('createGroundArrows', () => {
     const arrows = createGroundArrows(THREE)
     arrows.setRoute(straight)
     arrows.update({userS: 10, slope: 0.1, show: true})
-    const items = arrows.group.children.filter((c) => c.visible)
+    const items = arrows.group.children.filter((c) => c.visible && c.name.startsWith('chevron-'))
     expect(items.at(-1).position.y).toBeGreaterThan(items[0].position.y) // uphill ahead
     arrows.update({userS: 10, slope: 0, show: false})
     expect(arrows.group.visible).toBe(false)
@@ -168,5 +169,88 @@ describe('only what reads as floor', () => {
     arrows.setBlocked(third.s, false)
     for (let i = 0; i < 10; i++) arrows.update({userS: 0, show: true, camera: cam, dt: 0.05})
     expect(arrows.visible).toBe(before)
+  })
+})
+
+describe('the path strip and the corner rings', () => {
+  const cam = () => {
+    const c = new THREE.PerspectiveCamera(60, 0.5, 0.05, 100)
+    c.position.set(0, 1.4, 0)
+    c.lookAt(0, 0, -6)
+    c.updateMatrixWorld(true)
+    return c
+  }
+
+  it('the strip follows the same line over the same 10 m, 0.5 m wide', () => {
+    const samples = stripSamples(roundCorners(straight), 10)
+    expect(samples[0].d).toBeCloseTo(0.3, 6)
+    expect(samples.at(-1).d).toBeLessThanOrEqual(10 + 1e-9)
+    for (const q of samples) {
+      expect(q.x).toBeCloseTo(0, 6) // on the route line
+      expect(Math.hypot(q.nx, q.ny)).toBeCloseTo(1, 6)
+    }
+  })
+
+  it('is one mesh, updated in place, faint (25%) and fading out by 10 m', () => {
+    const arrows = createGroundArrows(THREE)
+    arrows.setRoute(straight)
+    const strip = arrows.group.getObjectByName('path-strip')
+    const geometry = strip.geometry
+    arrows.update({userS: 10, show: true, camera: cam()})
+    arrows.update({userS: 12, show: true, camera: cam()})
+    expect(arrows.group.getObjectByName('path-strip')).toBe(strip)
+    expect(strip.geometry).toBe(geometry) // the same geometry, rewritten
+    expect(strip.visible).toBe(true)
+    const alpha = geometry.attributes.color.array
+    expect(alpha[3]).toBeLessThanOrEqual(0.25 + 1e-6)
+    expect(strip.material.depthTest).toBe(false)
+    arrows.update({userS: 12, show: false})
+    expect(arrows.group.visible).toBe(false)
+  })
+
+  it('a ring on the floor at a corner within range, fuller as the user nears it, and brighter chevrons through the corner', () => {
+    const corners = [{x: 0, y: 30}]
+    const arrows = createGroundArrows(THREE)
+    arrows.setRoute(L, corners)
+    // The camera stands where the user is, 22 m along the route, looking ahead and down.
+    const at = (s) => {
+      const c = cam()
+      c.position.set(0, 1.4, -s)
+      c.lookAt(0, 0, -s - 6)
+      c.updateMatrixWorld(true)
+      return c
+    }
+    arrows.update({userS: 22, show: true, camera: at(22)})
+    expect(arrows.ringsShown).toBe(1)
+    const ring = arrows.group.getObjectByName('turn-ring-0')
+    const far = ring.children[0].scale.x
+    arrows.update({userS: 27, show: true, camera: at(27)})
+    expect(ring.children[0].scale.x).toBeGreaterThan(far) // the disc grows as the corner nears
+    expect(ringFill(0)).toBe(1)
+    expect(ringFill(10)).toBe(0)
+    // A chevron within 1.6 m of the corner is the brighter green.
+    const colours = arrows.group.children.filter((c) => c.name.startsWith('chevron-') && c.visible).map((c) => c.children[2].material.color.getHex())
+    expect(colours).toContain(GROUND_EXTRAS.cornerGreen)
+  })
+
+  it('no corner in range: no ring', () => {
+    const arrows = createGroundArrows(THREE)
+    arrows.setRoute(L, [{x: 0, y: 30}])
+    arrows.update({userS: 0, show: true, camera: cam()})
+    expect(arrows.ringsShown).toBe(0)
+  })
+
+  it('with every chevron out of view, says which way they are for the edge arrow', () => {
+    const arrows = createGroundArrows(THREE)
+    arrows.setRoute(straight)
+    const behind = cam()
+    behind.lookAt(0, 0, 6) // looking the other way
+    behind.updateMatrixWorld(true)
+    arrows.update({userS: 0, show: true, camera: behind})
+    const hint = arrows.offscreenHint(behind)
+    expect(hint).not.toBeNull()
+    const ahead = cam()
+    arrows.update({userS: 0, show: true, camera: ahead})
+    expect(arrows.offscreenHint(ahead)).toBeNull()
   })
 })

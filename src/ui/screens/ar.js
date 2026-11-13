@@ -234,6 +234,7 @@ export function arScreen(root, {navigate, params}) {
     paintDebugStats(root, s)
     paintStatusLine(s)
     paintLineUp(Boolean(s.lineUp), s.canRealign)
+    paintEdgeArrow(s.edgeArrowDeg)
     const pillText = root.querySelector('[data-trip-pill]')
     if (pillText && s.phase === 'ready') pillText.textContent = tripPillText(destination.name, s.remainingM)
   }
@@ -321,6 +322,22 @@ export function arScreen(root, {navigate, params}) {
     }
     view.addEventListener('pointerup', end)
     view.addEventListener('pointercancel', end)
+  }
+
+  /**
+   * No chevron in view: one small chevron at the screen edge, pointing the way to them. No text.
+   * angleDeg: 0 = to the right, 90 = down (screen directions).
+   */
+  function paintEdgeArrow(angleDeg) {
+    const el = root.querySelector('[data-edge-arrow]')
+    if (!el) return
+    el.hidden = angleDeg == null
+    if (angleDeg == null) return
+    const r = (angleDeg * Math.PI) / 180
+    // On an ellipse just inside the screen edge, turned to point outwards.
+    el.style.left = `${50 + Math.cos(r) * 42}%`
+    el.style.top = `${50 + Math.sin(r) * 40}%`
+    el.style.transform = `translate(-50%, -50%) rotate(${angleDeg + 90}deg)`
   }
 
   /** One thing to do at a time: only the most urgent of these shows. */

@@ -127,7 +127,7 @@ describe('the step list and turn events', () => {
     expect(after[0]).toMatchObject({current: false, done: true})
     expect(after[1]).toMatchObject({current: true, done: false, distanceM: 40})
   })
-  it('fires 10 m before a turn, at it, and once it is passed, each only once', () => {
+  it('fires 5 m before a turn, at it, and once it is passed, each only once', () => {
     const guidance = createGuidance(rightTurn)
     const log = []
     for (let s = 20; s < 50; s += 0.5) {
@@ -135,7 +135,7 @@ describe('the step list and turn events', () => {
       if (guidance.turnIsClose(s)) log.push(['close', s])
       if (guidance.turnIsNow(s)) log.push(['now', s])
     }
-    expect(log).toEqual([['close', 30], ['now', 38], ['passed', 42]])
+    expect(log).toEqual([['close', 35], ['now', 38], ['passed', 42]])
   })
   it('reads a step aloud without the distance, so it is spoken once', () => {
     expect(spokenStep('Turn left at the Atrium · 12 m')).toBe('Turn left at the Atrium')

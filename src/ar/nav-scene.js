@@ -87,7 +87,7 @@ export function createNavScene({THREE, scene, camera, route, origin, reducedMoti
   geoRoot.add(entranceAnchor)
   // The way to walk: chevrons on the floor, built from this same route polyline.
   const arrows = createGroundArrows(THREE)
-  arrows.setRoute(local)
+  arrows.setRoute(local, turns)
   geoRoot.add(arrows.group)
   let pinAllowed = true
   // Debug: the floor as the app sees it, a faint 10 m grid under the user.
@@ -204,7 +204,7 @@ export function createNavScene({THREE, scene, camera, route, origin, reducedMoti
     totalM = lengthOf(local)
     entranceS = projectOntoPolyline(local, entranceLocal).s
     turns = findTurns(local, TURNS.minDeg)
-    arrows.setRoute(local)
+    arrows.setRoute(local, turns)
     pin.group.position.set(pinAt().x, pin.group.position.y, -pinAt().y)
     entranceAnchor.position.set(entranceLocal.x, 0, -entranceLocal.y)
   }
@@ -323,8 +323,13 @@ export function createNavScene({THREE, scene, camera, route, origin, reducedMoti
      * Lay the chevrons for this frame: userS from the pose, the ground slope, whether to show,
      * and their opacity (half while the floor is still a guess).
      */
-    updateArrows({userS, slope, show, opacity = 1, dt = 0}) {
-      return arrows.update({userS, slope, show: show && aligned, opacity, dt, camera})
+    updateArrows({userS, slope, show, opacity = 1, dt = 0, time = 0}) {
+      return arrows.update({userS, slope, show: show && aligned, opacity, dt, time: reducedMotion ? 0 : time, camera})
+    },
+    /** Which way the arrows are when none is in view (screen angle), or null. */
+    arrowsOffscreen: () => arrows.offscreenHint(camera),
+    get turnRingsShown() {
+      return arrows.ringsShown
     },
     /** How many chevrons are inside the camera's view. */
     arrowsInView: () => arrows.countInView(camera),

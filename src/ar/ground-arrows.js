@@ -10,7 +10,8 @@
 //
 // Route frame: {x east, y north} metres. Geo-root: x = east, y = up, z = -north.
 import {localBearing, pointAt, polylineLength, projectOntoPolyline, toRad} from '../geo/geo.js'
-import {GROUND_ARROWS} from '../config.js'
+import {GROUND_ARROWS, GROUND_EXTRAS} from '../config.js'
+import {createPathStrip, createTurnRings, stripSamples} from './ground-extras.js'
 
 /** Round every corner of a polyline (about `radius` m), as a list of points. Pure. */
 export function roundCorners(points, radius = GROUND_ARROWS.cornerRadiusM, steps = GROUND_ARROWS.cornerSteps) {
@@ -193,26 +194,84 @@ export function createGroundArrows(THREE) {
     return {item, shadowMat, edgeMat, fillMat, spot: null, alpha: 0}
   })
 
+  // The strip under the chevrons and the corner rings: same line, range and rules.
+  const strip = createPathStrip(THREE)
+  const rings = createTurnRings(THREE)
+  group.add(strip.mesh, ...rings.groups)
+  const green = new THREE.Color(GROUND_ARROWS.green)
+  const corner = new THREE.Color(GROUND_EXTRAS.cornerGreen)
+  const pulse = new THREE.Color(GROUND_EXTRAS.pulseGreen)
+
   let route = []
   let rounded = []
+  let turns = [] // corners of the route: [{x, y}] in the route frame
   let active = 0
   let visibleCount = 0
+  let ringsShown = 0
   // Blocked state per spot along the route (its s), so it follows the spot, not the pool slot.
   const blocked = new Map() // sKey -> {target: 0|1 (1 = blocked), shown: 0..1 (1 = fully hidden), cascade}
   const keyOf = (s) => Math.round(s * 100)
   const p = new THREE.Vector3()
   const camPos = new THREE.Vector3()
+  const v = new THREE.Vector3()
+
+  const heightAt = (s, userS, slope) => Math.max(-GROUND_ARROWS.maxLiftM, Math.min(GROUND_ARROWS.maxLiftM, (s - userS) * slope))
+
+  /** The strip and the corner rings, by the chevrons' rules: range, fades, eye level, blocking. */
+  function paintExtras({userS, slope, show, opacity, camera, spots}) {
+    if (!show || rounded.length < 2 || !Number.isFinite(userS)) {
+      strip.hide()
+      rings.hide()
+      ringsShown = 0
+      return
+    }
+    const from = projectOntoPolyline(rounded, pointAt(route, Math.max(0, userS))).s
+    // Hidden behind something from the first blocked chevron on, as the chevrons are.
+    let blockS = Infinity
+    let blockShown = 0
+    for (const spot of spots) {
+      const b = blocked.get(keyOf(spot.s))
+      if (b?.target === 1) {
+        blockS = spot.s - GROUND_ARROWS.spacingM / 2
+        blockShown = b.shown
+        break
+      }
+    }
+    const alphaAt = (x, y, s, d) => {
+      let a = fadeAt(d) * opacity
+      if (camera) {
+        v.set(x, heightAt(s, userS, slope), -y)
+        group.localToWorld(v)
+        const below = camPos.y - v.y
+        if (below < GROUND_ARROWS.minBelowCameraM) return 0
+        a *= angleFade((Math.atan2(below, Math.hypot(v.x - camPos.x, v.z - camPos.z)) * 180) / Math.PI)
+      }
+      if (s >= blockS) a *= 1 - blockShown
+      return a
+    }
+    strip.update(stripSamples(rounded, from), (s) => heightAt(s, userS, slope), (q) => alphaAt(q.x, q.y, q.s, q.d))
+    const corners = turns
+      .map((c) => ({...c, d: c.s - from}))
+      .filter((c) => c.d > -0.5 && c.d <= GROUND_ARROWS.aheadM)
+      .sort((a, b) => a.d - b.d)
+      .map((c) => ({x: c.x, y: c.y, d: Math.max(0, c.d), height: heightAt(c.s, userS, slope), alpha: alphaAt(c.x, c.y, c.s, Math.max(0, c.d))}))
+    ringsShown = rings.update(corners)
+  }
 
   return {
     group,
     /** The route polyline (route frame). The corners are rounded once here, not every frame. */
-    setRoute(points) {
+    setRoute(points, corners = []) {
       route = points
       rounded = roundCorners(points)
+      turns = corners.map((c) => ({x: c.x, y: c.y, s: projectOntoPolyline(rounded, c).s}))
       blocked.clear()
     },
-    /** Lay the chevrons for this frame. camera: the AR camera (world). Returns how many are placed. */
-    update({userS, slope = 0, show, opacity = 1, dt = 0, camera = null}) {
+    /**
+     * Lay the chevrons, the strip and the corner rings for this frame. camera: the AR camera
+     * (world). time: seconds, for the slow pulse (0 with reduced motion). Returns how many are placed.
+     */
+    update({userS, slope = 0, show, opacity = 1, dt = 0, time = 0, camera = null}) {
       group.visible = Boolean(show)
       const spots = show ? chevronSpots(route, rounded, userS) : []
       active = Math.min(spots.length, pool.length)
@@ -258,8 +317,39 @@ export function createGroundArrows(THREE) {
         slot.shadowMat.opacity = GROUND_ARROWS.shadowOpacity * alpha
         slot.edgeMat.opacity = alpha
         slot.fillMat.opacity = alpha
+        // Brighter through a corner; elsewhere a slow, light band moving forward (no glow).
+        const nearCorner = turns.some((c) => Math.hypot(c.x - spot.x, c.y - spot.y) <= GROUND_EXTRAS.cornerNearM)
+        const wave = time ? Math.max(0, Math.cos(2 * Math.PI * (spot.d / GROUND_EXTRAS.pulseWavelengthM - time / GROUND_EXTRAS.pulsePeriodS))) : 0
+        slot.fillMat.color.copy(nearCorner ? corner : green).lerp(pulse, nearCorner ? 0 : wave ** 4 * GROUND_EXTRAS.pulseMix)
       }
+      paintExtras({userS, slope, show, opacity, camera, spots})
       return active
+    },
+    /**
+     * When no chevron is in the camera's view: which way they are, as a screen angle (degrees,
+     * 0 = right, 90 = down), for one small chevron at the screen edge. Null if any is in view.
+     */
+    offscreenHint(camera) {
+      if (!group.visible || !active) return null
+      camera.updateMatrixWorld()
+      const m = new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
+      const frustum = new THREE.Frustum().setFromProjectionMatrix(m)
+      for (let i = 0; i < active; i++) {
+        pool[i].item.getWorldPosition(p)
+        if (frustum.containsPoint(p)) return null
+      }
+      // Towards the nearest one: its place on screen, mirrored when it is behind the camera.
+      pool[0].item.getWorldPosition(p)
+      const q = p.clone().applyMatrix4(camera.matrixWorldInverse)
+      const ndc = p.clone().project(camera)
+      let dx = ndc.x
+      let dy = -ndc.y
+      if (q.z > 0) {
+        dx = -dx
+        dy = -dy
+      }
+      if (Math.hypot(dx, dy) < 1e-6) dy = 1
+      return {angleDeg: (Math.atan2(dy, dx) * 180) / Math.PI}
     },
     /**
      * Where chevron i is on screen ({x, y} 0..1 from the top left) and how far from the camera,
@@ -297,6 +387,10 @@ export function createGroundArrows(THREE) {
       }
       return n
     },
+    /** Corner rings drawn now. */
+    get ringsShown() {
+      return ringsShown
+    },
     get created() {
       return pool.length
     },
@@ -321,6 +415,8 @@ export function createGroundArrows(THREE) {
       edgeGeo.dispose()
       shadowGeo.dispose()
       shadowMap?.dispose()
+      strip.dispose()
+      rings.dispose()
       for (const {shadowMat, edgeMat, fillMat} of pool) {
         shadowMat.dispose()
         edgeMat.dispose()

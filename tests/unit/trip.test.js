@@ -880,7 +880,7 @@ describe('walking beats the compass', () => {
     t.walk(28)
     expect(t.box.stats.instruction).toMatch(/^Turn right in 1[0-3] m$/)
     expect(ticks).toHaveLength(0)
-    t.walk(4)
+    t.walk(8) // the light vibration comes 5 m before the corner
     expect(ticks).toHaveLength(1)
     t.done()
   })

@@ -139,11 +139,11 @@ describe('the next manoeuvre', () => {
     expect(guide.getNextManoeuvre(35).type).toBe('arrive') // small step back: stays
     expect(guide.getNextManoeuvre(25).type).toBe('right')
   })
-  it('ticks once, 10 m before each turn, and not for the arrival', () => {
+  it('ticks once, 5 m before each turn, and not for the arrival', () => {
     const route = [{x: 0, y: 0}, {x: 0, y: 40}, {x: 30, y: 40}, {x: 30, y: 70}]
     const guide = createGuidance(route)
     const ticks = []
     for (let s = 0; s <= 100; s += 0.5) if (guide.turnIsClose(s)) ticks.push(s)
-    expect(ticks).toEqual([30, 60])
+    expect(ticks).toEqual([35, 65])
   })
 })

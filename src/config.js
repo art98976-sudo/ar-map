@@ -88,6 +88,25 @@ export const GROUND_ARROWS = {
 }
 
 
+// On the floor with the chevrons (src/ar/ground-extras.js): the path strip and the corner rings.
+export const GROUND_EXTRAS = {
+  stripWidthM: 0.5,
+  stripOpacity: 0.25,
+  stripStepM: 0.25, // the strip follows the rounded route line in steps this long
+  stripStartM: 0.3, // and starts just ahead of the feet
+  ringRadiusM: 0.6, // a ring on the floor at each corner within range
+  ringLineM: 0.06,
+  ringGreen: 0x22c55e,
+  ringFillOpacity: 0.55, // the disc inside the ring, which grows as the user nears the corner
+  ringPool: 3,
+  cornerGreen: 0x5ef08f, // chevrons through a corner are this brighter green
+  cornerNearM: 1.6, // ...if this close to the corner point
+  pulseGreen: 0x8ff5b6, // a slow, light band travelling forward along the chevrons (no glow)
+  pulseMix: 0.35, // at most this much of the light green
+  pulseWavelengthM: 6,
+  pulsePeriodS: 2.5,
+}
+
 // The destination pin.
 export const PIN = {
   green: 0x006938,
@@ -108,7 +127,7 @@ export const GUIDE = {
   passedM: 2, // a corner counts as passed this far beyond it
   backtrackM: 10, // this far back before a passed corner, it is ahead again
   announceM: 30, // further off than this, say "continue straight"
-  hapticM: 10,
+  hapticM: 5, // a light vibration this far before a corner, and again at it
   nowM: 2, // this close, the turn is now
   landmarkM: 30, // a place this close to a corner names it
   pastAfterM: 3, // "Continue past" only names a place still this far ahead

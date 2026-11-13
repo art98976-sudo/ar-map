@@ -697,7 +697,7 @@ export function createArTrip({
     arrowsShown = arrowsWanted(time)
     checkBlocked()
     // Half-transparent while the floor is still a guess; solid once it is found (or tapped).
-    nav.updateArrows({userS: routeS, slope: groundNow.slope, show: arrowsShown, opacity: floorNow.found ? 1 : GROUND_ARROWS.guessOpacity, dt})
+    nav.updateArrows({userS: routeS, slope: groundNow.slope, show: arrowsShown, opacity: floorNow.found ? 1 : GROUND_ARROWS.guessOpacity, dt, time})
     statsTimer += dt
     if (statsTimer >= 0.25) {
       const poseTurn = nav.aligned ? nav.nextTurnAt(routeS) : null
@@ -738,6 +738,9 @@ export function createArTrip({
         arrowsCreated: nav.arrowsCreated,
         arrowsDrawn: nav.arrowsShown,
         arrowsInView: arrowsShown ? nav.arrowsInView() : 0,
+        // None in view: which way they are, for one small chevron at the screen edge.
+        edgeArrowDeg: arrowsShown ? (nav.arrowsOffscreen()?.angleDeg ?? null) : null,
+        turnRings: arrowsShown ? nav.turnRingsShown : 0,
         // Until the floor is found (or after tracking is lost): "Point your phone at the floor".
         pointAtFloor: phase === 'ready' && !arrived && Boolean(nav.aligned) && (!arrowsShown || !floorNow.found),
         floorSource: floorNow.source,

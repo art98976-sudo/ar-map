@@ -533,3 +533,31 @@
 .ar-realign[hidden] {
   display: none;
 }
+
+/* ---------- No arrow in view: one small chevron at the edge, pointing the way to them ---------- */
+.ar-edge-arrow {
+  position: absolute;
+  z-index: 5;
+  width: 44px;
+  height: 22px;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45));
+  transition: left 250ms ease-out, top 250ms ease-out, transform 250ms ease-out;
+}
+.ar-edge-arrow[hidden] {
+  display: none;
+}
+.ar-edge-arrow svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: #22c55e;
+  stroke: #fff;
+  stroke-width: 4;
+  stroke-linejoin: round;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ar-edge-arrow {
+    transition: none;
+  }
+}

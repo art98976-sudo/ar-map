@@ -80,6 +80,10 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
 
     <div class="arrival" data-arrival hidden></div>
 
+    <span class="ar-edge-arrow" data-edge-arrow aria-hidden="true" hidden>
+      <svg viewBox="0 0 100 46"><path d="M3 43 L50 4 L97 43 L76 43 L50 21 L24 43 Z" /></svg>
+    </span>
+
     ${showDebug ? html`<p class="ar-status" data-ar-status aria-live="off">Starting…</p>` : ""}
 
     ${showDebug
