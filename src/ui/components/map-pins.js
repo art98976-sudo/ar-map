@@ -134,7 +134,8 @@ export function createMapPins(root, {getMap, getSelected, canSelect, onSelect}) 
     const selectedId = getSelected()?.id
     const shown = [...pins.entries()].map(([id, m]) => ({id, el: m.getElement(), m})).filter((p) => !p.el.hidden && !p.el.classList.contains('is-merged'))
     const all = [
-      ...shown.map((p) => ({id: p.id, el: p.el, keep: p.id === selectedId, ...map.project(p.m.getLngLat())})),
+      // The selected place, and the places a chip asked for, always show; names win over the rest.
+      ...shown.map((p) => ({id: p.id, el: p.el, keep: p.id === selectedId || Boolean(filter), ...map.project(p.m.getLngLat())})),
       ...clusters.map((m, i) => ({id: `cluster-${i}`, el: m.getElement(), ...map.project(m.getLngLat())})),
     ]
     const hide = blockedPins(all, boxes, HOME_MAP.pinDotPx)
@@ -154,7 +155,13 @@ export function createMapPins(root, {getMap, getSelected, canSelect, onSelect}) 
     if (!shown.length) return
     const first = [shown[0].lng, shown[0].lat]
     const bounds = shown.reduce((b, d) => b.extend([d.lng, d.lat]), new Mazemap.mapboxgl.LngLatBounds(first, first))
-    map.fitBounds(bounds, {padding: {top: 170, bottom: 80, left: 50, right: 50}, maxZoom: 16.5})
+    // Above the sheet, which rises to list the results: a pin under it would be hidden.
+    const box = map.getContainer().getBoundingClientRect()
+    // The sheet may still be sliding up: use the height it is going to (half: 50% of the screen).
+    const sheet = root.querySelector('[data-home-sheet]')
+    const sheetPx = sheet?.dataset.height === 'half' ? window.innerHeight * 0.5 : box.bottom - (sheet?.getBoundingClientRect().top ?? box.bottom)
+    const bottom = Math.max(80, sheetPx + 40)
+    map.fitBounds(bounds, {padding: {top: 170, bottom, left: 50, right: 50}, maxZoom: 16.5})
   }
 
   return {

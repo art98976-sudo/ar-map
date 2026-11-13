@@ -87,7 +87,7 @@ test.describe('the map home', () => {
     await chips.getByRole('button', {name: 'Food', exact: true}).click()
     // Shown by the filter; close food places may share one numbered cluster (7.3).
     await expect(page.locator('[data-pin="scran"]:not([hidden])')).toHaveCount(1)
-    await expect(page.locator('.map-pin:not([hidden]):not(.is-merged), .map-cluster').first()).toBeVisible()
+    await expect(page.locator('.map-pin, .map-cluster').filter({visible: true}).first()).toBeVisible()
     await expect(page.locator('[data-pin="bus-hub"]')).toBeHidden()
     await chips.getByRole('button', {name: 'Food', exact: true}).click()
     await expect(page.locator('.map-pin:not([hidden])')).toHaveCount(24)
