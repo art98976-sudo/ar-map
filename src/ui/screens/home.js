@@ -57,6 +57,7 @@ export function homeScreen(root, {navigate, params}) {
   // ?debug=align: the model see-through over MazeMap, its origin, and click coordinates.
   const debugAlign = params.debug === 'align' || new URLSearchParams(window.location.search).get('debug') === 'align'
   const debugWalls = params.debug === 'walls' || new URLSearchParams(window.location.search).get('debug') === 'walls'
+  const debugScene = params.debug === 'scene' || new URLSearchParams(window.location.search).get('debug') === 'scene'
   let alignDebug = null
 
   render(root, homePage())
@@ -162,7 +163,7 @@ export function homeScreen(root, {navigate, params}) {
     const query = new URLSearchParams()
     if (selected) query.set('to', selected.id)
     if (forced) query.set('force', '1')
-    if (params.debug === '1' || params.debug === 'align' || params.debug === 'walls') query.set('debug', params.debug)
+    if (params.debug === '1' || params.debug === 'align' || params.debug === 'walls' || params.debug === 'scene') query.set('debug', params.debug)
     if (params.simulate === '1') query.set('simulate', '1')
     if (params.fieldtest === '1') query.set('fieldtest', '1')
     const text = query.toString()
@@ -327,7 +328,25 @@ export function homeScreen(root, {navigate, params}) {
   /**
    * ?debug=walls: list where the MazeMap route walks through a wall away from a door (report only).
    */
+  /** ?debug=scene (Step 1): build the 3D navigation scene for this route and show what it holds. */
+  async function checkScene(route) {
+    if (!debugScene || !selected || !route?.points) return
+    const name = selected.name
+    const points = [...route.points, ...(route.indoorPoints || []).slice(1)]
+    const host = root.querySelector('.map-home') || root
+    const {showSceneReport} = await import('../../scene/scene-debug.js')
+    showSceneReport(host, null, {name})
+    try {
+      const {loadScene} = await import('../../scene/scene-load.js')
+      const scene = await loadScene(points)
+      if (!disposed) showSceneReport(host, instance?.map, {name, scene})
+    } catch (err) {
+      if (!disposed) showSceneReport(host, null, {name, error: 'Could not build the scene: ' + (err?.message || err)})
+    }
+  }
+
   async function checkWalls(route) {
+    checkScene(route)
     if (!debugWalls || !selected || !route?.points) return
     const name = selected.name
     const points = [...route.points, ...(route.indoorPoints || [])]

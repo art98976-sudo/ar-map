@@ -164,6 +164,14 @@ export const FIRST_USE = {
   tiltMs: 3000,
 }
 
+// The 3D navigation scene (Step 1): MazeMap's floors, walls, doors, stairs and lifts in metres.
+export const SCENE = {
+  indexCellM: 5, // the spatial index's grid cell
+  nearWallM: 6, // "nearest wall" looks this far
+  shaftSearchM: 6, // a level change finds its stair or lift within this distance
+  marginM: 20, // floors are loaded this far around the route's points on that level
+}
+
 // Group B: no line-up step. The arrows show at once and settle as the walk is matched.
 export const LINE_UP = {
   unconfirmedOpacity: 0.8, // until the walked track matches the route (or the user lined them up)
