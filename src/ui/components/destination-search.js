@@ -6,7 +6,7 @@ import {describeDestination, searchDestinations} from '../../map/search.js'
 import {searchMazeMap} from '../../map/mazemap-search.js'
 import {matchTier, rankResults} from '../../map/search-rank.js'
 import {html, render} from '../dom.js'
-import {CATEGORY_ICON, icon} from '../icons.js'
+import {CATEGORY_ICON, icon, iconFor} from '../icons.js'
 
 const ROOM_SEARCH_DELAY_MS = 220
 const POPULAR_IDS = POPULAR.map((d) => d.id)
@@ -83,7 +83,7 @@ export function createDestinationSearch(host, {
         data-index="${index}"
         aria-selected="${index === active ? 'true' : 'false'}"
       >
-        <span class="dsearch__badge" data-category="${dest.category}">${icon(CATEGORY_ICON[dest.category] || 'pin', {size: 20})}</span>
+        <span class="dsearch__badge" data-category="${dest.category}" data-icon="${iconFor(dest)}">${icon(iconFor(dest), {size: 20})}</span>
         <span class="dsearch__text">
           <span class="dsearch__name">${highlight(dest.name, query)}</span>
           ${meta ? html`<span class="dsearch__meta">${meta}</span>` : ''}
@@ -146,7 +146,7 @@ export function createDestinationSearch(host, {
       // One list, ranked together (search-rank.js): our places and MazeMap rooms.
       const results = rankResults(query, [...local, ...rooms.items], {fuzzyIds: fuzzyIds()})
       options = results
-      const empty = !results.length && rooms.state !== 'loading'
+      const empty = !results.length && rooms.state !== 'loading' && rooms.state !== 'offline'
       render(
         panel,
         html`
@@ -156,6 +156,9 @@ export function createDestinationSearch(host, {
           ${rooms.state === 'loading'
             ? html`<p class="dsearch__status"><span class="spinner spinner--dark spinner--sm" aria-hidden="true"></span>Searching rooms…</p>`
             : ''}
+          ${rooms.state === 'offline'
+            ? html`<p class="dsearch__status" data-offline role="status">Offline. Room search is off until you reconnect.</p>`
+            : ''}
           ${rooms.state === 'error' && !local.length
             ? html`<p class="dsearch__status">Room search needs an internet connection.</p>`
             : ''}
@@ -163,8 +166,8 @@ export function createDestinationSearch(host, {
             ? html`
                 <div class="dsearch__empty" role="status">
                   ${icon('search', {size: 28})}
-                  <strong>No results – try a building name or room number</strong>
-                  <span>For example “Library” or “2A73”.</span>
+                  <strong>No room found. Try the room number, like 2B87.</strong>
+                  <span>Or a building name, like “Library”.</span>
                 </div>
               `
             : ''}
@@ -184,8 +187,9 @@ export function createDestinationSearch(host, {
     clearTimeout(timer)
     controller?.abort()
     const q = query.trim()
-    if (q.length < 2 || !searchRooms) {
-      rooms = {state: 'idle', items: []}
+    if (q.length < 2 || !searchRooms || navigator.onLine === false) {
+      // Offline (8.1): room search is off; the places kept on the phone still show.
+      rooms = {state: q.length >= 2 && searchRooms ? 'offline' : 'idle', items: []}
       draw()
       return
     }

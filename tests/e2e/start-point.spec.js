@@ -14,7 +14,7 @@ const FAKE_REAR_CAMERA = () => {
 async function openCard(page, id = 'library') {
   await page.goto(`/#/?to=${id}`)
   await expect(page.locator('.map-pin').first()).toBeAttached({timeout: 45_000})
-  await expect(page.getByRole('button', {name: 'Walk here in AR'})).toBeVisible({timeout: 15_000})
+  await expect(page.locator('[data-ar-choice]')).toBeVisible({timeout: 15_000})
 }
 
 const fromRow = (page) => page.locator('.route-from__row')
@@ -203,7 +203,7 @@ test.describe('field test mode', () => {
     await expect(sheet.getByRole('status')).toContainText(/Copied \d+ rows/)
     const csv = await page.evaluate(() => navigator.clipboard.readText())
     const lines = csv.trimEnd().split(/\r?\n/) // the Windows clipboard turns \n into \r\n
-    expect(lines[0]).toBe('time,elapsed_s,lat,lon,tracked_lat,tracked_lon,gps_accuracy_m,heading_deg,off_route_m,along_m,arrow_bearing_deg,phase,mark')
+    expect(lines[0]).toBe('time,elapsed_s,lat,lon,tracked_lat,tracked_lon,gps_accuracy_m,heading_deg,off_route_m,along_m,arrow_bearing_deg,tracked_heading_deg,heading_gap_deg,match_locked,match_residual_m,lateral_offset_m,fps,phase,mark')
     expect(lines.filter((l) => l.endsWith(',Arrow correct'))).toHaveLength(2)
     expect(lines.length).toBeGreaterThan(6)
     await sheet.getByRole('button', {name: 'Continue'}).click()

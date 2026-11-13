@@ -15,7 +15,7 @@ import {createGuidance} from '../route/guidance.js'
 import {createNavPose, steeredBearing} from '../route/nav-pose.js'
 import {createArrivalDetector, createConfidenceMonitor, createOffRouteMonitor} from '../route/trip-monitors.js'
 import {planRoute} from '../route/route.js'
-import {ARRIVAL, ARROW, COLOURS, CONFIDENCE, OFF_ROUTE, ROUTING} from '../config.js'
+import {ARRIVAL, ARROW, COLOURS, CONFIDENCE, GROUND_ARROWS, OFF_ROUTE, ROUTING} from '../config.js'
 
 /** A fixed start on a campus path, by the loch walkway, when no start was chosen. */
 export const SIM_START = {lat: 56.14525, lng: -3.9201}
@@ -62,8 +62,10 @@ const NOTHING = {type: 'FeatureCollection', features: []}
  * The banner the AR screen would show, most urgent first. Exported for tests.
  * @returns {{text, tone}|null}
  */
-export function simBanner({arrived, uncertain, rerouting, name}) {
+export function simBanner({arrived, trackingLost = false, floorTo = null, uncertain, rerouting, name}) {
   if (arrived) return {text: `You’ve arrived · ${name}`, tone: 'done'}
+  if (trackingLost) return {text: 'Tracking lost. Move slowly', tone: 'warn'}
+  if (floorTo != null) return {text: `Go to Level ${floorTo}`, tone: 'info'}
   if (uncertain) return {text: 'Finding your position. Follow the map for now.', tone: 'warn'}
   if (rerouting) return {text: 'Finding a new route', tone: 'info'}
   return null
@@ -107,6 +109,10 @@ export function createSimulator(map, {from = SIM_START, dest, host = document.bo
     let offset = 0
     let gpsAccuracy = 5
     let swinging = false
+    // 9.1: tracking lost (arrows hide after GROUND_ARROWS.trackingLostS) and a floor change.
+    let trackingOff = false
+    let trackingOffAt = 0
+    let floorTo = null
     let playing = true
     let speed = 1
     let last = null
@@ -178,6 +184,16 @@ export function createSimulator(map, {from = SIM_START, dest, host = document.bo
       swinging = !swinging
       paintButtons()
     }
+    panel.tracking.onclick = () => {
+      trackingOff = !trackingOff
+      trackingOffAt = simT
+      paintButtons()
+    }
+    panel.floor.onclick = () => {
+      // "Go to Level 2", until "I'm on Level 2" is tapped, as at a stair or lift in AR.
+      floorTo = floorTo == null ? 2 : null
+      paintButtons()
+    }
     panel.offset.oninput = () => {
       offset = Number(panel.offset.value)
       panel.offsetLabel.textContent = `${offset} m`
@@ -220,6 +236,9 @@ export function createSimulator(map, {from = SIM_START, dest, host = document.bo
       panel.speed.setAttribute('aria-pressed', String(speed !== 1))
       panel.follow.setAttribute('aria-pressed', String(follow))
       panel.swing.setAttribute('aria-pressed', String(swinging))
+      panel.tracking.setAttribute('aria-pressed', String(trackingOff))
+      panel.floor.textContent = floorTo == null ? 'Floor change' : `I'm on Level ${floorTo}`
+      panel.floor.setAttribute('aria-pressed', String(floorTo != null))
     }
     paintButtons()
 
@@ -264,7 +283,8 @@ export function createSimulator(map, {from = SIM_START, dest, host = document.bo
       if (!arrived && !rerouting && offRoute.update(c.reliable ? fromRoute : null, simT)) reroute(user)
 
       // What the AR screen would draw: no arrow while unsure, close to the end, or arrived.
-      const showArrow = c.reliable && !arrived && !close
+      const trackingLost = trackingOff && simT - trackingOffAt >= GROUND_ARROWS.trackingLostS
+      const showArrow = c.reliable && !arrived && !close && !trackingLost
       setData(map, ID.user, pointOf(user))
       setData(map, ID.target, showArrow ? pointOf(ahead) : NOTHING)
       setData(map, ID.aim, showArrow ? featureOf({type: 'LineString', coordinates: [[user.lng, user.lat], [ahead.lng, ahead.lat]]}) : NOTHING)
@@ -274,7 +294,7 @@ export function createSimulator(map, {from = SIM_START, dest, host = document.bo
         zoomed = true
       }
 
-      const banner = simBanner({arrived, uncertain: !c.reliable, rerouting, name: dest?.name ?? 'your destination'})
+      const banner = simBanner({arrived, trackingLost, floorTo, uncertain: !c.reliable, rerouting, name: dest?.name ?? 'your destination'})
       panel.banner.hidden = !banner
       if (banner) {
         panel.banner.textContent = banner.text
@@ -398,6 +418,8 @@ function buildPanel(host) {
     </div>
     <div class="sim-row">
       <button type="button" data-sim-swing aria-pressed="false">Compass swinging</button>
+      <button type="button" data-sim-tracking aria-pressed="false">Tracking lost</button>
+      <button type="button" data-sim-floor aria-pressed="false">Floor change</button>
     </div>
     <p class="sim-readout" data-sim-readout></p>
     <p class="sim-key"><b style="color:#2563eb">●</b> fake user · <b style="color:${COLOURS.arrowGreen}">➤</b> AR arrow ·
@@ -418,6 +440,8 @@ function buildPanel(host) {
     gps: q('[data-sim-gps]'),
     gpsLabel: q('[data-sim-gps-label]'),
     swing: q('[data-sim-swing]'),
+    tracking: q('[data-sim-tracking]'),
+    floor: q('[data-sim-floor]'),
     readout: q('[data-sim-readout]'),
   }
 }

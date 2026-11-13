@@ -24,6 +24,7 @@ export function infoSheetContent() {
           To plan a walk, your position and destination are sent to the University's map provider, MazeMap. Motion sensors
           and the compass stay on your phone. Recent searches are kept in this browser only.
         </p>
+        <p data-privacy-counts>We count trips anonymously (started, arrived, phone and browser type) to improve the app: no location, destination or ID.</p>
       </section>
 
       <section class="about__block">

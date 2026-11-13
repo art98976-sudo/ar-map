@@ -85,7 +85,9 @@ test.describe('the map home', () => {
     await expect(page.locator('[data-home-sheet]')).toHaveAttribute('data-height', 'half')
     await expect(page.locator('[data-chip-results] .place-row')).toHaveCount(1)
     await chips.getByRole('button', {name: 'Food', exact: true}).click()
-    await expect(page.locator('[data-pin="scran"]')).toBeVisible()
+    // Shown by the filter; close food places may share one numbered cluster (7.3).
+    await expect(page.locator('[data-pin="scran"]:not([hidden])')).toHaveCount(1)
+    await expect(page.locator('.map-pin:not([hidden]):not(.is-merged), .map-cluster').first()).toBeVisible()
     await expect(page.locator('[data-pin="bus-hub"]')).toBeHidden()
     await chips.getByRole('button', {name: 'Food', exact: true}).click()
     await expect(page.locator('.map-pin:not([hidden])')).toHaveCount(24)
@@ -166,7 +168,7 @@ test.describe('at 360 px wide', () => {
     expect(await tooSmall(page)).toEqual([])
 
     await tapPin(page, 'pathfoot')
-    await expect(page.getByRole('button', {name: 'Walk here in AR'})).toBeVisible()
+    await expect(page.locator('[data-ar-choice]')).toBeVisible()
     expect(await overflow(page)).toBeLessThanOrEqual(0)
     expect(await tooSmall(page)).toEqual([])
     await page.getByRole('button', {name: 'Close', exact: true}).click()
@@ -194,7 +196,7 @@ test.describe('the destination card', () => {
     const card = page.locator('[data-card]')
     await expect(card.getByRole('heading', {name: 'Pathfoot Building'})).toBeVisible()
     await expect(card).toContainText('Academic building')
-    await expect(card.getByRole('button', {name: 'Walk here in AR'})).toBeVisible()
+    await expect(card.locator('[data-ar-choice]')).toBeVisible()
     await expect(card.getByRole('button', {name: 'Show route on map'})).toBeVisible()
     await expect(page.locator('[data-pin="pathfoot"]')).toHaveClass(/is-selected/)
   })
@@ -278,12 +280,16 @@ test.describe('the destination card', () => {
 test.describe('phones and browsers that cannot run AR', () => {
   test('desktop: explains AR is for phones and offers the map', async ({page}, testInfo) => {
     test.skip(onlyOn('desktop-chrome')(testInfo))
+    // 8.4: found before any AR button shows. The card says why, and offers the route on the map.
     await page.goto('/#/?to=library')
-    await page.getByRole('button', {name: 'Walk here in AR'}).click()
+    const card = page.locator('[data-card]')
+    await expect(card.locator('[data-ar-unsupported]')).toContainText('AR works on your phone', {timeout: 15_000})
+    await expect(card.getByRole('button', {name: 'Walk here in AR'})).toHaveCount(0)
+    await expect(card.getByRole('button', {name: 'Show route on map'})).toHaveClass(/btn--primary/)
+    // A link straight to the camera still explains, with a copy link and the map.
+    await page.goto('/#/locate?to=library')
     await expect(page.getByRole('heading', {name: 'AR works on your phone'})).toBeVisible()
     await expect(page.getByRole('button', {name: 'Copy link'})).toBeVisible()
-    await page.getByRole('button', {name: 'View 2D map instead'}).click()
-    await expect(page.locator('[data-card]').getByRole('heading', {name: 'Library'})).toBeVisible()
   })
 
   test('in-app browser: asks to open Safari', async ({browser}, testInfo) => {

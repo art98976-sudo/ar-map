@@ -14,7 +14,7 @@ test.describe('place links', () => {
     await page.goto('/#/?to=mm-1002085033')
     await expect(page.locator('.dest-sheet__name')).toHaveText('A3 Lecture Theatre', {timeout: 30_000})
     await expect(page.locator('.dest-sheet__meta')).toContainText('Cottrell Building')
-    await expect(page.getByRole('button', {name: 'Walk here in AR'})).toBeVisible()
+    await expect(page.locator('[data-ar-choice]')).toBeVisible()
     expect(page.url()).toContain('to=mm-1002085033')
   })
 

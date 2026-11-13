@@ -20,6 +20,13 @@ export const FIELD_COLUMNS = [
   'off_route_m',
   'along_m',
   'arrow_bearing_deg',
+  // 9.3: everything on the ?debug=1 status line.
+  'tracked_heading_deg',
+  'heading_gap_deg',
+  'match_locked',
+  'match_residual_m',
+  'lateral_offset_m',
+  'fps',
   'phase',
   'mark',
 ]
@@ -41,6 +48,12 @@ export function rowFrom(stats, {at, startedAt, mark = null}) {
     off_route_m: num(s.distanceFromRouteM ?? s.offRouteM, 2),
     along_m: num(s.userS, 1),
     arrow_bearing_deg: num(s.arrowBearingDeg, 1),
+    tracked_heading_deg: num(s.trackedHeadingDeg, 1),
+    heading_gap_deg: num(s.headingGapDeg, 1),
+    match_locked: s.locked == null ? null : Boolean(s.locked),
+    match_residual_m: num(s.matchResidualM, 2),
+    lateral_offset_m: num(s.lateralOffsetM, 2),
+    fps: num(s.fps, 0),
     phase: s.phase ?? null,
     mark: mark ? FIELD_MARKS[mark] : null,
   }

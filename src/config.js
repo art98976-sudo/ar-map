@@ -46,6 +46,31 @@ export const CARD = {
 }
 
 // Icons on the map for place types that have none yet (src/map/map-icons.js).
+// The opening (7.4): launch screen, then one camera move. Once per session.
+export const OPENING = {
+  launchMs: 1200, // the launch screen shows at most this long
+  moveMs: 1800, // the camera move onto the campus
+  zoomOut: 1.4, // it starts this far out...
+  fromBearing: -25, // ...turned this way
+}
+
+// The home map (7.3): readable pins and softer base colours.
+export const HOME_MAP = {
+  buildingZoom: 17, // below this, one pin per building
+  clusterPx: 48, // pins closer than this on screen merge into a numbered cluster
+  clusterZoomStep: 2, // tapping a cluster zooms in this much
+  labelOffsetEm: 1.6, // building names sit this far below their point, clear of the pin
+  // Softer base colours: [layer, paint property, value]. Missing layers are skipped.
+  soft: [
+    ['land-grass-areas', 'fill-color', 'hsla(108, 32%, 80%, 0.55)'],
+    ['water', 'fill-color', '#d4e8f0'],
+    ['water-shadow', 'fill-color', '#cadeed'],
+    ['waterway', 'line-color', '#d4e8f0'],
+    ['mm-building-fill', 'fill-opacity', 0.75],
+    ['building-outline', 'line-color', 'hsl(35, 8%, 85%)'],
+  ],
+}
+
 export const MAP_ICONS = {
   dotPx: 24, // the stand-in dot, in pixels (drawn at pixelRatio, so 12 px on screen)
   dotColour: [92, 107, 100], // neutral grey-green

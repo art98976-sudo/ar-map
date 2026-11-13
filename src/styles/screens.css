@@ -581,3 +581,74 @@
   flex: none;
   color: var(--c-primary);
 }
+
+/* Pins merged on screen (7.3): hidden, and drawn as one numbered cluster. */
+.map-pin.is-merged {
+  display: none;
+}
+.map-cluster {
+  display: grid;
+  place-items: center;
+  min-width: var(--tap);
+  height: var(--tap);
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: 600 15px/1 var(--font);
+  color: var(--white);
+}
+.map-cluster::before {
+  content: '';
+  grid-area: 1 / 1;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid var(--white);
+  background: var(--green-02);
+  box-shadow: var(--shadow-2);
+}
+.map-cluster {
+  isolation: isolate;
+}
+.map-cluster span {
+  grid-area: 1 / 1;
+  z-index: 1;
+}
+
+/* /#/stats (8.2) */
+.stats__form {
+  display: grid;
+  gap: var(--sp-3);
+  width: 100%;
+}
+.stats__msg {
+  color: var(--c-text-2);
+}
+.stats__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.stats__table th,
+.stats__table td {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--c-border);
+  text-align: left;
+}
+.stats__table td {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.stats__sub {
+  margin-top: var(--sp-3);
+  font-size: var(--fs-emphasis);
+}
+.stats__form .input {
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+  font: inherit;
+  color: var(--c-text);
+  background: var(--c-bg);
+}

@@ -1,6 +1,6 @@
 // Loads the University's MazeMap campus map (campus 2058) on demand.
 // The MazeMap script is ~1 MB, so it downloads only when a map is first shown.
-import {MAZEMAP} from '../config.js'
+import {HOME_MAP, MAZEMAP} from '../config.js'
 import {handleMissingImages} from './map-icons.js'
 
 let ready = null
@@ -75,6 +75,28 @@ function useModernLights(Mazemap) {
 }
 
 /**
+ * The home map's look (7.3): softer greens and water, and building names moved below their
+ * point so a pin never sits on top of one. A layer or property this style lacks is skipped.
+ */
+export function softenBaseMap(map) {
+  for (const [layer, property, value] of HOME_MAP.soft) {
+    try {
+      if (map.getLayer(layer)) map.setPaintProperty(layer, property, value)
+    } catch {
+      // not in this style
+    }
+  }
+  try {
+    if (map.getLayer('mm-building-label')) {
+      map.setLayoutProperty('mm-building-label', 'text-anchor', 'top')
+      map.setLayoutProperty('mm-building-label', 'text-offset', [0, HOME_MAP.labelOffsetEm])
+    }
+  } catch {
+    // not in this style
+  }
+}
+
+/**
  * Create a campus map in `container`.
  * Returns {map, destroy}. `onReady` fires when the map style has loaded.
  */
@@ -114,6 +136,7 @@ export function createCampusMap(Mazemap, container, {onReady, onError, controls 
         onReady?.(map)
         return
       }
+      softenBaseMap(map) // the home map only: the AR map keeps strong colours for sunlight
       // Floor switcher, shown when an indoor building is in view. The screen places and styles it.
       instance.floorBar = new Mazemap.ZLevelBarControl({className: 'mm-floor-bar', autoUpdate: true, maxHeight: 220})
       map.addControl(instance.floorBar, 'bottom-left')

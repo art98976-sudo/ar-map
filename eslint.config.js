@@ -9,7 +9,11 @@ export default [
     languageOptions: {globals: {...globals.browser}},
   },
   {
-    files: ['scripts/**/*.mjs', 'tools/**/*.mjs', '*.config.js', 'tests/**/*.js'],
+    files: ['public/sw.js'],
+    languageOptions: {globals: {...globals.serviceworker}},
+  },
+  {
+    files: ['api/**/*.js', 'scripts/**/*.mjs', 'tools/**/*.mjs', '*.config.js', 'tests/**/*.js'],
     languageOptions: {globals: {...globals.node, ...globals.browser}},
   },
   {

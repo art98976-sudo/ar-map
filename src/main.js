@@ -14,7 +14,10 @@ import {arScreen} from './ui/screens/ar.js'
 import {locateScreen} from './ui/screens/locate.js'
 import {premiumScreen} from './premium/premium.js'
 import {indoorScreen} from './ui/screens/indoor.js'
+import {statsScreen} from './ui/screens/stats.js'
 import {showToast} from './ui/components/toast.js'
+import {startOpening} from './ui/opening.js'
+import {registerServiceWorker} from './offline.js'
 
 const root = document.getElementById('app')
 
@@ -26,6 +29,7 @@ const router = createRouter({
     '/ar': arScreen,
     '/premium': premiumScreen,
     '/indoor': indoorScreen,
+    '/stats': statsScreen,
   },
 })
 
@@ -33,8 +37,10 @@ const router = createRouter({
 window.addEventListener('error', (event) => console.error('[app] error', event.error || event.message))
 window.addEventListener('unhandledrejection', (event) => console.error('[app] unhandled', event.reason))
 
-window.addEventListener('offline', () => showToast('You are offline', {tone: 'warning'}))
+window.addEventListener('offline', () => showToast('Offline, showing saved map', {tone: 'warning'}))
 window.addEventListener('online', () => showToast('Back online', {tone: 'success'}))
 
 document.documentElement.classList.remove('no-js')
+startOpening()
+registerServiceWorker()
 router.start()

@@ -160,6 +160,14 @@ shows "You have arrived".
 
 Every destination has a suggested main entrance. They are **not confirmed yet**: see [ENTRANCES.md](ENTRANCES.md).
 
+## Field testing
+
+Walk the three routes on [docs/field-test-sheet.md](docs/field-test-sheet.md) with one iPhone and one Android phone. Add `?fieldtest=1` to log every reading as a CSV, `?debug=1` for the status line, and `?simulate=1` on a laptop to walk a route with tracking-lost and floor-change buttons.
+
+## Anonymous counts (/#/stats)
+
+Trips started, AR started, line-up confirmed, arrived, ended early, tracking lost and re-routed, with phone and browser type only. To switch counting on, connect Upstash Redis in Vercel (Storage → Upstash, which sets `KV_REST_API_URL` and `KV_REST_API_TOKEN`) and set `STATS_PASSCODE`. Without them the counts are dropped and /#/stats says so.
+
 ## Privacy
 
 The camera feed is processed on the phone and is never uploaded. No sign-in and no personal data.

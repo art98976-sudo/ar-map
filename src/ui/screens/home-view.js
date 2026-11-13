@@ -43,6 +43,7 @@ export const homePage = () => html`
         <button class="round-btn round-btn--flat" type="button" data-action="open-menu" aria-label="More" aria-haspopup="menu" aria-expanded="false">${icon('menu')}</button>
         <div class="home-menu" data-menu role="menu" hidden>
           <button class="home-menu__item" type="button" role="menuitem" data-action="open-info">${icon('info', {size: 20})}<span>About and privacy</span></button>
+          <p class="home-menu__note" role="none">Anonymous trip counts only. No location is kept.</p>
         </div>
       </div>
       <div class="home-sheet__body" data-chip-results aria-live="polite"></div>
@@ -151,7 +152,7 @@ export function placeNotFound(text = 'We couldn’t find that place') {
   `
 }
 
-export function placeCard(place, walkText, {stepFree = false} = {}) {
+export function placeCard(place, walkText, {stepFree = false, arIssue = null} = {}) {
   const room = place.category === 'room' ? describeDestination(place) : ''
   // Never repeat the name underneath it ("Library" / "Library").
   const subtitle = subtitleFor(place.name, room || categoryLabel(place.category))
@@ -188,9 +189,13 @@ export function placeCard(place, walkText, {stepFree = false} = {}) {
       <button class="icon-btn" type="button" data-action="unselect" aria-label="Close">${icon('close', {size: 20})}</button>
     </div>
     <button class="btn btn--primary btn--block" type="button" data-action="show-way" hidden>${icon('map')}<span>Show the way</span></button>
-    <button class="btn btn--primary btn--block" type="button" data-action="walk" aria-label="Walk here in AR">
-      ${icon('camera')}<span>Walk here in AR</span>
-    </button>
+    ${arIssue
+      ? html`<div class="dest-sheet__no-ar" data-ar-choice data-ar-unsupported role="note">
+          <p>${icon('info', {size: 16})}<span><strong>${arIssue.title}.</strong> ${arIssue.body}</span></p>
+        </div>`
+      : html`<button class="btn btn--primary btn--block" type="button" data-action="walk" data-ar-choice aria-label="Walk here in AR">
+          ${icon('camera')}<span>Walk here in AR</span>
+        </button>`}
     <button class="dest-sheet__link" type="button" data-action="route" aria-expanded="false" data-route-link>Show route on map</button>
   `
 }

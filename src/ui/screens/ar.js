@@ -22,6 +22,7 @@ import {markSeen, seen} from '../first-use.js'
 import {paintDebugStats, paintLiveDebug, setStat as setDebugStat, toggleDebugPanel} from './ar-debug.js'
 import {errorCopy} from './ar-errors.js'
 import {statusMessage} from './ar-status.js'
+import {count, newTrip} from '../../stats/counts.js'
 import {errorView, liveView, loadingView} from './ar-view.js'
 
 const MAP_SWIPE_PX = 40
@@ -87,6 +88,12 @@ export function arScreen(root, {navigate, params}) {
   let lineUpOpen = false
   const setStat = (name, text, tone) => setDebugStat(root, name, text, tone)
 
+  // Anonymous counts (8.2): one trip per AR screen.
+  let arrivedYet = false
+  let wasRerouting = false
+  newTrip()
+  count('trip-started')
+
   const actions = {
     'toggle-map': () => {
       if (performance.now() - mapSwipedAt > SWIPE_CLICK_MS) toggleMap()
@@ -96,7 +103,10 @@ export function arScreen(root, {navigate, params}) {
       setStart(GPS_START)
       trip?.switchToLive()
     },
-    exit: () => navigate('/'),
+    exit: () => {
+      if (!arrivedYet) count('ended-early')
+      navigate('/')
+    },
     // "I'm here": the nearby doors, stairs and lifts on the map; the one tapped is where the user is.
     reanchor: () => {
       const choices = trip?.reanchorChoices() ?? []
@@ -124,6 +134,7 @@ export function arScreen(root, {navigate, params}) {
     },
     'looks-right': () => {
       trip?.confirmLineUp()
+      count('lineup-confirmed')
       haptic(20)
     },
     realign: () => {
@@ -248,6 +259,7 @@ export function arScreen(root, {navigate, params}) {
     if (wasHidden && !card.hidden) focusScreen(card)
     if (phase === 'ready') {
       haptic([20, 60, 20])
+      count('ar-started', {onceKey: 'ar-started'})
       showTiltOnce()
     }
   }
@@ -264,6 +276,8 @@ export function arScreen(root, {navigate, params}) {
   }
 
   function onArrived() {
+    if (!arrivedYet) count('arrived')
+    arrivedYet = true
     const host = root.querySelector('[data-arrival]')
     if (!host) return
     // A room inside a building (indoor AR off): stop at the door and carry on, on the indoor map.
@@ -274,6 +288,9 @@ export function arScreen(root, {navigate, params}) {
 
   function onStats(s) {
     fieldTest?.update(s)
+    if (statusMessage(s)?.key === 'tracking') count('tracking-lost', {onceKey: 'tracking-lost'})
+    if (s.rerouting && !wasRerouting) count('rerouted')
+    wasRerouting = Boolean(s.rerouting)
     paintHints(s)
     followMapWhileUncertain(s.positionUncertain)
     if (s.locked && !wasLocked) haptic(18)
@@ -307,6 +324,21 @@ export function arScreen(root, {navigate, params}) {
   }
 
   /** ?debug=1: one line saying why the floor arrows are, or are not, there. */
+  /** 9.2: compass and tracked heading, their gap, match quality, offset from the line, fps. */
+  function debugReadings(s) {
+    const deg = (v) => (Number.isFinite(v) ? `${Math.round(v)}°` : '–')
+    const match = s.locked ? 'locked' : Number.isFinite(s.matchResidualM) ? `${s.matchResidualM.toFixed(1)} m` : '–'
+    const offset = Number.isFinite(s.lateralOffsetM) ? `${s.lateralOffsetM >= 0 ? '+' : ''}${s.lateralOffsetM.toFixed(1)} m` : '–'
+    return [
+      `compass ${deg(s.heading)}`,
+      `tracked ${deg(s.trackedHeadingDeg)}`,
+      `gap ${deg(s.headingGapDeg)}`,
+      `match ${match}`,
+      `offset ${offset}`,
+      `fps ${Number.isFinite(s.fps) ? Math.round(s.fps) : '–'}`,
+    ]
+  }
+
   function paintStatusLine(s) {
     const line = root.querySelector('[data-ar-status]')
     if (!line) return
@@ -318,6 +350,7 @@ export function arScreen(root, {navigate, params}) {
       `chevrons ${s.arrowsVisible ?? 0} visible, ${s.arrowsBlocked ?? 0} blocked`,
       `walls ${s.shellLoaded ? `level ${s.shellLevel}` : 'no'}`,
       `in view ${s.arrowsInView ?? 0}`,
+      ...debugReadings(s),
     ].join(' · ')
   }
 

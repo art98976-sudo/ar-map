@@ -273,6 +273,13 @@ export function createArTrip({
   }
 
   /** Which way the user faces for the arrow and the map: walking has the last word once it has spoken. */
+  /** The tracked heading (the camera in the placed route) and its gap to the compass. */
+  function trackedHeading() {
+    if (!nav?.aligned || !camera) return {trackedHeadingDeg: null, headingGapDeg: null}
+    const tracked = cameraBearing()
+    return {trackedHeadingDeg: tracked, headingGapDeg: heading == null ? null : angleDiff(heading, tracked)}
+  }
+
   function guideHeading() {
     if (directionKnown && (compassOff || matcher.locked || compassStale())) return cameraBearing()
     if (heading != null) return recentHeading()
@@ -865,6 +872,8 @@ export function createArTrip({
         heading,
         headingAccuracy,
         compassSource,
+        // 9.2: the camera's tracked heading beside the compass, and how far apart they are.
+        ...trackedHeading(),
         gpsAccuracy: lastFix?.accuracy ?? null,
         gpsLat: lastFix?.lat ?? null,
         gpsLng: lastFix?.lng ?? null,

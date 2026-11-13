@@ -143,28 +143,42 @@
 .dsearch__option:active {
   background: var(--green-tint-active);
 }
+/* One icon and one tint per kind of place (7.2). The tint is the icon colour; the tile is that
+   colour at 14%. Each colour keeps 4.5:1 against its own tile, in light and in dark. */
 .dsearch__badge {
+  --tint: var(--green-02);
   display: grid;
   place-items: center;
   flex: none;
   width: 40px;
   height: 40px;
   border-radius: 12px;
-  color: var(--green-02);
+  color: var(--tint);
   background: var(--green-01-a16);
+  background: color-mix(in srgb, var(--tint) 14%, transparent);
 }
-.dsearch__badge[data-category='sport'] {
-  color: var(--badge-teal-text);
-  background: var(--badge-teal-bg);
-}
-.dsearch__badge[data-category='room'] {
-  color: var(--badge-blue-text);
-  background: var(--badge-blue-bg);
-}
-.dsearch__badge[data-category='landmark'],
-.dsearch__badge[data-category='living'] {
-  color: var(--badge-amber-text);
-  background: var(--warn-a18);
+[data-category='academic'] { --tint: #3b3f9a; }
+[data-category='room'] { --tint: #2c498a; }
+[data-category='services'] { --tint: #3d4f5c; }
+[data-category='sport'] { --tint: #005e63; }
+[data-category='landmark'] { --tint: #7b5c18; }
+[data-category='living'] { --tint: #7a2e6b; }
+[data-category='food'] { --tint: #8a3b12; }
+[data-category='bus'] { --tint: #9b1c1c; }
+[data-category='town'] { --tint: #4b5b12; }
+[data-category='parking'] { --tint: #1f5f8b; }
+@media (prefers-color-scheme: dark) {
+  .theme-auto .dsearch__badge { --tint: #4fc08d; }
+  .theme-auto [data-category='academic'] { --tint: #a8acff; }
+  .theme-auto [data-category='room'] { --tint: #8fb4ff; }
+  .theme-auto [data-category='services'] { --tint: #b4c4cf; }
+  .theme-auto [data-category='sport'] { --tint: #5fd6dd; }
+  .theme-auto [data-category='landmark'] { --tint: #f0c060; }
+  .theme-auto [data-category='living'] { --tint: #eba3da; }
+  .theme-auto [data-category='food'] { --tint: #f6a77a; }
+  .theme-auto [data-category='bus'] { --tint: #ff9a9a; }
+  .theme-auto [data-category='town'] { --tint: #c8da74; }
+  .theme-auto [data-category='parking'] { --tint: #86c8f2; }
 }
 .dsearch__text {
   display: grid;

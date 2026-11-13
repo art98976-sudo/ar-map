@@ -51,6 +51,8 @@ const PATHS = {
   clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   history: '<path d="M3.5 12a8.5 8.5 0 1 0 2.5-6L3.5 8.5"/><path d="M3.5 4v4.5H8M12 7.5V12l3 2"/>',
   cup: '<path d="M5 8.5h12v6a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5z"/><path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17M9 3v2.5M13 3v2.5"/>',
+  car: '<path d="M5 16.5V12l2-5h10l2 5v4.5M5 16.5h14M5 16.5V19M19 16.5V19M5 12h14"/><path d="M8 14.3h.01M16 14.3h.01"/>',
+  flag: '<path d="M5 21V4M5 4h11l-2 3.5 2 3.5H5"/>',
   bus: '<rect x="4.5" y="3.5" width="15" height="14.5" rx="2.5"/><path d="M4.5 11.5h15M7.5 18v2.5M16.5 18v2.5M8 14.8h.01M16 14.8h.01"/>',
 }
 
@@ -60,13 +62,30 @@ export const CATEGORY_ICON = {
   academic: 'building',
   services: 'info',
   sport: 'dumbbell',
-  landmark: 'pin',
+  landmark: 'flag',
   living: 'home',
   room: 'door',
   food: 'cup',
   bus: 'bus',
-  town: 'pin',
-  parking: 'pin',
+  town: 'map',
+  parking: 'car',
+}
+
+// Rooms say what they are by name: a lecture theatre, a toilet, a study space, a lift.
+const ROOM_KINDS = [
+  [/lecture|theatre|auditorium/i, 'lecture'],
+  [/toilet|\bwc\b|washroom|accessible shower/i, 'toilet'],
+  [/study|library|reading/i, 'study'],
+  [/\blift\b|elevator/i, 'lift'],
+]
+
+/** The icon for a search result or place (7.2): by category, and for rooms by what they are. */
+export function iconFor(dest) {
+  if (dest?.category === 'room') {
+    const text = `${dest.name ?? ''} ${dest.subtitle ?? ''} ${dest.type ?? ''}`
+    return ROOM_KINDS.find(([re]) => re.test(text))?.[1] ?? 'door'
+  }
+  return CATEGORY_ICON[dest?.category] || 'pin'
 }
 
 export function icon(name, {label, size = 24, className = ''} = {}) {

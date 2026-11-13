@@ -156,23 +156,24 @@ test.describe('position confidence on the AR screen', () => {
     await page.goto('/#/locate?to=cottrell&force=1&debug=1')
     await page.getByRole('button', {name: 'Tap to start'}).click({timeout: 30_000})
     await expect(page.locator('[data-stat="phase"]')).toHaveText('ready', {timeout: 90_000})
-    const hint = page.getByText('Finding your position. Follow the map for now.')
+    // The one status slot shows the most urgent message (6.1); the fake camera also loses tracking,
+    // which ranks higher. So the map opening over the camera is what proves "position unsure".
+    const slot = page.locator('[data-status-slot]')
     const map = page.locator('[data-compass-map]')
-    await expect(hint).toBeHidden()
     await expect(map).not.toHaveClass(/is-expanded/)
 
     await context.setGeolocation({...here, accuracy: 40})
     await page.waitForTimeout(1500)
-    await expect(hint).toBeHidden() // not after one bad moment
-    await expect(hint).toBeVisible({timeout: 5000})
-    await expect(map).toHaveClass(/is-expanded/)
-    await page.screenshot({path: testInfo.outputPath("finding-position.png")})
+    await expect(map).not.toHaveClass(/is-expanded/) // not after one bad moment
+    await expect(map).toHaveClass(/is-expanded/, {timeout: 5000})
+    await expect(slot).toHaveText(/Finding your position. Follow the map for now.|Tracking lost. Move slowly/)
+    await page.screenshot({path: testInfo.outputPath('finding-position.png')})
 
     await context.setGeolocation({...here, accuracy: 6})
     await page.waitForTimeout(1500)
-    await expect(hint).toBeVisible() // 3 s of good readings first
-    await expect(hint).toBeHidden({timeout: 5000})
-    await expect(map).not.toHaveClass(/is-expanded/) // put back, as the user had it
+    await expect(map).toHaveClass(/is-expanded/) // 3 s of good readings first
+    await expect(map).not.toHaveClass(/is-expanded/, {timeout: 5000}) // put back, as the user had it
+    await expect(slot).not.toHaveText(/Finding your position/)
     expect(errors).toEqual([])
   })
 })

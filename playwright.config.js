@@ -15,6 +15,8 @@ export default defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:4311',
     trace: 'retain-on-failure',
+    // The service worker (8.1) would answer requests the tests intercept: keep it out of the way.
+    serviceWorkers: 'block',
   },
   webServer: {
     // Always build fresh and use a test-only port, so a forgotten preview server is never reused.

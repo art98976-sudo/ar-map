@@ -560,3 +560,22 @@
   margin: 0;
   accent-color: var(--c-primary);
 }
+
+/* 8.4: AR is not possible on this device; the route on the map takes the main button's place. */
+.dest-sheet__no-ar p {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--fs-sm, 13px);
+  color: var(--text-muted, #5c6b64);
+}
+.dest-sheet__no-ar svg {
+  flex: none;
+  margin-top: 2px;
+}
+.home-menu__note {
+  margin: 0;
+  padding: 6px 16px 10px;
+  font-size: 12px;
+  color: var(--text-muted, #5c6b64);
+}

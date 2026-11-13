@@ -38,6 +38,12 @@ describe('field test log rows', () => {
       off_route_m: 1.23,
       along_m: 42.5,
       arrow_bearing_deg: 95.6,
+      tracked_heading_deg: null,
+      heading_gap_deg: null,
+      match_locked: null,
+      match_residual_m: null,
+      lateral_offset_m: null,
+      fps: null,
       phase: 'ready',
       mark: null,
     })
@@ -90,7 +96,7 @@ describe('field test CSV', () => {
     expect(lines[0]).toBe(FIELD_COLUMNS.join(','))
     expect(lines).toHaveLength(3)
     expect(lines[1].split(',')).toHaveLength(FIELD_COLUMNS.length)
-    expect(lines[2]).toBe('1970-01-01T00:00:01.000Z,1,,,,,,,,,,,At a turn')
+    expect(lines[2]).toBe('1970-01-01T00:00:01.000Z,1,,,,,,,,,,,,,,,,,At a turn')
   })
 
   it('quotes cells with commas or quotes', () => {

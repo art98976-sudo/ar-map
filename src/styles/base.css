@@ -110,3 +110,27 @@ h1:focus,
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Launch screen (7.4): dark green, the app name in white. */
+.launch {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 6px;
+  background: #00432a;
+  color: #fff;
+  font: 600 28px/1.2 var(--font, system-ui, sans-serif);
+  transition: opacity 0.3s ease;
+}
+.launch small {
+  font-size: 14px;
+  font-weight: 500;
+  opacity: 0.85;
+}
+.launch.is-gone {
+  opacity: 0;
+  pointer-events: none;
+}

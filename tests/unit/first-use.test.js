@@ -50,3 +50,33 @@ describe('entrance marker (6.4)', () => {
     expect(markerName({category: 'library', name: 'Library'}, null, places)).toBe('Library')
   })
 })
+
+describe('result icons (7.2)', async () => {
+  const {iconFor} = await import('../../src/ui/icons.js')
+  it('each kind of place has its own icon', () => {
+    const kinds = ['library', 'academic', 'services', 'sport', 'landmark', 'living', 'food', 'bus', 'town', 'parking']
+    const icons = kinds.map((category) => iconFor({category}))
+    expect(new Set(icons).size).toBe(kinds.length)
+  })
+  it('rooms say what they are', () => {
+    expect(iconFor({category: 'room', name: 'Lecture Theatre A4'})).toBe('lecture')
+    expect(iconFor({category: 'room', name: 'Accessible toilet'})).toBe('toilet')
+    expect(iconFor({category: 'room', name: 'Lift 2'})).toBe('lift')
+    expect(iconFor({category: 'room', name: '2B87'})).toBe('door')
+  })
+})
+
+describe('test modes (9.1, 9.3)', async () => {
+  const {simBanner} = await import('../../src/map/simulate.js')
+  const {rowFrom, FIELD_COLUMNS} = await import('../../src/ui/screens/ar-fieldtest.js')
+  it('?simulate=1: tracking lost and a floor change show as in AR, most urgent first', () => {
+    expect(simBanner({trackingLost: true, uncertain: true, name: 'X'}).text).toBe('Tracking lost. Move slowly')
+    expect(simBanner({floorTo: 2, rerouting: true, name: 'X'}).text).toBe('Go to Level 2')
+    expect(simBanner({arrived: true, trackingLost: true, name: 'X'}).text).toBe('You’ve arrived · X')
+  })
+  it('?fieldtest=1 logs the debug readings too', () => {
+    const row = rowFrom({heading: 90, trackedHeadingDeg: 84, headingGapDeg: -6, locked: true, matchResidualM: 0.84, lateralOffsetM: -1.234, fps: 29.6}, {at: 1000, startedAt: 0})
+    expect(row).toMatchObject({tracked_heading_deg: 84, heading_gap_deg: -6, match_locked: true, match_residual_m: 0.84, lateral_offset_m: -1.23, fps: 30})
+    for (const c of ['tracked_heading_deg', 'heading_gap_deg', 'match_residual_m', 'lateral_offset_m', 'fps']) expect(FIELD_COLUMNS).toContain(c)
+  })
+})

@@ -10,6 +10,7 @@ import {showToast} from '../components/toast.js'
 import {deviceIssue} from '../../ar/device.js'
 import {startPermissionRequests} from '../../ar/permissions.js'
 import {seen} from '../first-use.js'
+import {openingMove} from '../opening.js'
 import {createFixWatch, locationPermissionState, readTripFix} from '../../geo/location.js'
 import {DESTINATIONS, findDestination, setCurrentDestination} from '../../map/destinations.js'
 import {fetchPoiDestination, poiIdFrom} from '../../map/poi-lookup.js'
@@ -32,7 +33,7 @@ import {
   startLabel,
 } from '../../route/start-point.js'
 import {onAction, render} from '../dom.js'
-import {GPS, INDOOR, START} from '../../config.js'
+import {GPS, INDOOR, MAZEMAP, START} from '../../config.js'
 import {createSheets} from './home-sheets.js'
 import {doorList, homePage, mapError, mapLoading, placeCard, placeLoading, placeNotFound} from './home-view.js'
 
@@ -342,6 +343,11 @@ export function homeScreen(root, {navigate, params}) {
     const walk = root.querySelector('[data-action="walk"]')
     if (way) way.hidden = !indoor
     if (walk) walk.hidden = indoor
+    // No AR here: the route on the map is the main way on.
+    const link = root.querySelector('[data-route-link]')
+    link?.classList.toggle('btn', !walk && !indoor)
+    link?.classList.toggle('btn--primary', !walk && !indoor)
+    link?.classList.toggle('btn--block', !walk && !indoor)
   }
 
   /** The step-free switch: remembered on this device; the route is planned again without stairs. */
@@ -535,7 +541,8 @@ export function homeScreen(root, {navigate, params}) {
       card.hidden = true
       return
     }
-    render(card, placeCard(selected, walkText(), {stepFree: getStepFree()}))
+    // 8.4: a device that cannot run AR never sees the AR button; the card offers the map.
+    render(card, placeCard(selected, walkText(), {stepFree: getStepFree(), arIssue: deviceIssue(forced)}))
     paintWayButton()
     paintIndoor()
     quietPlan()
@@ -643,6 +650,7 @@ export function homeScreen(root, {navigate, params}) {
         onReady: () => {
           if (disposed) return
           overlay.hidden = true
+          if (params.debug === '1') window.__homeMap = instance.map // inspect it from the console
           pins.addAll()
           fitControls()
           homeSheet.mapReady()
@@ -650,6 +658,7 @@ export function homeScreen(root, {navigate, params}) {
             if (picker.active) picker.moveTo(event.lngLat)
             else if (selected) unselect()
           })
+          if (!selected) openingMove(instance.map, {center: MAZEMAP.center, zoom: MAZEMAP.zoom, bearing: 0, pitch: 0})
           flyToSelected()
           paintStartMarker()
           if (params.start === 'pick' && selected) openStartSheet()

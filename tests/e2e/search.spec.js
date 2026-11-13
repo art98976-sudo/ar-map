@@ -31,7 +31,7 @@ test.describe('destination search', () => {
     await expect(sheet).toBeHidden()
     const card = page.locator('[data-card]')
     await expect(card.getByRole('heading', {name: 'Library'})).toBeVisible()
-    await expect(card.getByRole('button', {name: 'Walk here in AR'})).toBeVisible()
+    await expect(card.locator('[data-ar-choice]')).toBeVisible()
   })
 
   test('the back button closes the sheet and stays on the map', async ({page}) => {
@@ -111,7 +111,7 @@ test.describe('destination search', () => {
     await page.route('https://search.mazemap.com/**', (route) => route.fulfill({json: {result: []}}))
     const sheet = await openSearch(page)
     await sheet.getByRole('combobox').fill('qqqzzz')
-    await expect(sheet.getByText('No results – try a building name or room number')).toBeVisible()
+    await expect(sheet.getByText('No room found. Try the room number, like 2B87.')).toBeVisible()
   })
 
   test('remembers recent searches on this phone, and can clear them', async ({page}) => {
