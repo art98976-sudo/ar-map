@@ -196,6 +196,20 @@ export function setStepFree(on, storage = globalThis.localStorage) {
 }
 
 // ---------- the route for this trip (the AR screen reads it) ----------
+/**
+ * The one distance shown for a trip, on the card, the location screen and the AR pill: the whole
+ * walk to the place, inside the building too for a room (MazeMap's path), else the outdoor walk.
+ */
+export function tripLengthM(route) {
+  return Number.isFinite(route?.totalM) ? route.totalM : (route?.lengthM ?? null)
+}
+
+/** The part of the trip after the AR walk ends at the door (a room with indoor AR off). */
+export function indoorRestM(route, indoorAR = false) {
+  if (indoorAR || !Number.isFinite(route?.totalM) || !Number.isFinite(route?.lengthM)) return 0
+  return Math.max(0, route.totalM - route.lengthM)
+}
+
 export function saveTripRoute(route, storage = globalThis.sessionStorage) {
   try {
     storage.setItem(ROUTE_KEY, JSON.stringify(route))

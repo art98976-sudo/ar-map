@@ -87,6 +87,13 @@ export function softenBaseMap(map) {
     }
   }
   try {
+    // The campus name is a large label at the campus centre: at campus zoom it runs off the
+    // screen edge. Show it only zoomed out, where it fits.
+    if (map.getLayer('mm-campus-label')) map.setLayerZoomRange('mm-campus-label', 0, HOME_MAP.campusLabelMaxZoom)
+  } catch {
+    // not in this style
+  }
+  try {
     if (map.getLayer('mm-building-label')) {
       map.setLayoutProperty('mm-building-label', 'text-anchor', 'top')
       map.setLayoutProperty('mm-building-label', 'text-offset', [0, HOME_MAP.labelOffsetEm])

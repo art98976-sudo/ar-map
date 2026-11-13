@@ -18,7 +18,7 @@ import {
 } from '../../ar/permissions.js'
 import {errorCopy} from './ar-errors.js'
 import {locationErrorCopy} from './locate-errors.js'
-import {googleMapsWalkingUrl, planRoute, saveTripRoute} from '../../route/route.js'
+import {googleMapsWalkingUrl, planRoute, saveTripRoute, tripLengthM, walkingMinutes} from '../../route/route.js'
 import {getStart, isManual, startLabel} from '../../route/start-point.js'
 import {formatDistance} from '../../ar/pin.js'
 import {findDestination} from '../../map/destinations.js'
@@ -187,7 +187,7 @@ export function locateScreen(root, {navigate, params}) {
         return showOffCampus(route.distanceM)
       }
       saveTripRoute({...route, destinationId: destination.id, origin: fix, start: manualStart ? startPoint : null, plannedAt: Date.now()})
-      if (body) body.textContent = `${formatDistance(route.lengthM)} walk, about ${route.minutes} min. Opening the camera…`
+      if (body) body.textContent = `${formatDistance(tripLengthM(route))} walk, about ${walkingMinutes(tripLengthM(route))} min. Opening the camera…`
       continueTimer = setTimeout(() => {
         if (!disposed) navigate(`/ar?${nextQuery}`, {replace: true})
       }, CONTINUE_DELAY_MS)

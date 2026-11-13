@@ -1,7 +1,7 @@
 // The destination pins on the campus map, and the category filter that shows and hides them.
 import {DESTINATIONS} from '../../map/destinations.js'
 import {matchesFilter} from '../../map/filters.js'
-import {clusterPoints, onePerBuilding} from '../../map/pin-clusters.js'
+import {blockedPins, clusterPoints, labelBox, onePerBuilding, sizeAtZoom} from '../../map/pin-clusters.js'
 import {HOME_MAP} from '../../config.js'
 import {html, render} from '../dom.js'
 import {icon, iconFor} from '../icons.js'
@@ -75,7 +75,7 @@ export function createMapPins(root, {getMap, getSelected, canSelect, onSelect}) 
     const groups = clusterPoints(points, HOME_MAP.clusterPx)
     // Moves fire often (the 3D view, a fly-to): only touch the DOM when the groups change.
     const key = groups.map((g) => g.ids.join('+')).join('|')
-    if (key === drawnGroups) return
+    if (key === drawnGroups) return avoidLabels()
     drawnGroups = key
     const alone = new Set(groups.filter((g) => g.ids.length === 1).map((g) => g.ids[0]))
     for (const d of shown) pins.get(d.id).getElement().classList.toggle('is-merged', !alone.has(d.id))
@@ -101,6 +101,44 @@ export function createMapPins(root, {getMap, getSelected, canSelect, onSelect}) 
         el.setAttribute('role', 'button')
         return marker
       })
+    avoidLabels()
+  }
+
+  // The screen's own bars: a pin under them could not be seen or tapped.
+  const BARS = ['.map-search', '[data-rail] .round-btn:not([hidden])', '[data-floor-host] .mm-floor-bar', '[data-home-sheet]', '[data-card]:not([hidden])']
+
+  /**
+   * Building names come before pins, everywhere (7.3): a pin whose dot would cover a name, or
+   * that sits under the search bar, the control stack or the sheet, is hidden until the map moves.
+   */
+  function avoidLabels() {
+    const map = getMap()
+    if (!map) return
+    const box = map.getContainer().getBoundingClientRect()
+    const boxes = []
+    if (map.getLayer('mm-building-label')) {
+      const stops = map.getLayoutProperty('mm-building-label', 'text-size')?.stops
+      const size = stops ? sizeAtZoom(stops, map.getZoom()) : 12
+      for (const f of map.queryRenderedFeatures({layers: ['mm-building-label']})) {
+        if (f.geometry?.type !== 'Point' || !f.properties?.text) continue
+        const {x, y} = map.project(f.geometry.coordinates)
+        boxes.push(labelBox({x, y, text: f.properties.text}, size, {offsetEm: HOME_MAP.labelOffsetEm}))
+      }
+    }
+    for (const sel of BARS) {
+      for (const el of root.querySelectorAll(sel)) {
+        const r = el.getBoundingClientRect()
+        if (r.width) boxes.push({left: r.left - box.left, right: r.right - box.left, top: r.top - box.top, bottom: r.bottom - box.top})
+      }
+    }
+    const selectedId = getSelected()?.id
+    const shown = [...pins.entries()].map(([id, m]) => ({id, el: m.getElement(), m})).filter((p) => !p.el.hidden && !p.el.classList.contains('is-merged'))
+    const all = [
+      ...shown.map((p) => ({id: p.id, el: p.el, keep: p.id === selectedId, ...map.project(p.m.getLngLat())})),
+      ...clusters.map((m, i) => ({id: `cluster-${i}`, el: m.getElement(), ...map.project(m.getLngLat())})),
+    ]
+    const hide = blockedPins(all, boxes, HOME_MAP.pinDotPx)
+    for (const p of all) p.el.classList.toggle('is-blocked', hide.has(p.id))
   }
 
   function scheduleRecluster() {
@@ -128,6 +166,7 @@ export function createMapPins(root, {getMap, getSelected, canSelect, onSelect}) 
         listening = true
         map.on('zoomend', scheduleRecluster)
         map.on('moveend', scheduleRecluster)
+        map.on('idle', avoidLabels) // names arrive with their tiles, after the move
       }
       applyFilter()
     },

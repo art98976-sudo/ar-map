@@ -652,3 +652,8 @@
   color: var(--c-text);
   background: var(--c-bg);
 }
+/* A pin that would cover a building name or sit under a bar (7.3). */
+.map-pin.is-blocked,
+.map-cluster.is-blocked {
+  display: none;
+}

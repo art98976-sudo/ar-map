@@ -14,7 +14,7 @@ import {openingMove} from '../opening.js'
 import {createFixWatch, locationPermissionState, readTripFix} from '../../geo/location.js'
 import {DESTINATIONS, findDestination, setCurrentDestination} from '../../map/destinations.js'
 import {fetchPoiDestination, poiIdFrom} from '../../map/poi-lookup.js'
-import {entranceOf, estimateWalkMinutes, getStepFree, planRoute, saveTripRoute, setStepFree} from '../../route/route.js'
+import {entranceOf, estimateWalkMinutes, getStepFree, planRoute, saveTripRoute, setStepFree, tripLengthM} from '../../route/route.js'
 import {entranceNameFor, estimatedWalkM, indoorLines, locationApproximate, walkSummary} from '../../route/card-text.js'
 import {
   addRecentStart,
@@ -33,7 +33,7 @@ import {
   startLabel,
 } from '../../route/start-point.js'
 import {onAction, render} from '../dom.js'
-import {GPS, INDOOR, MAZEMAP, START} from '../../config.js'
+import {GPS, HOME_MAP, INDOOR, MAZEMAP, START} from '../../config.js'
 import {createSheets} from './home-sheets.js'
 import {doorList, homePage, mapError, mapLoading, placeCard, placeLoading, placeNotFound} from './home-view.js'
 
@@ -305,7 +305,9 @@ export function homeScreen(root, {navigate, params}) {
   function walkText() {
     const start = getStart()
     const from = isManual(start) ? start : fixWatch.fix
-    if (cardRoute) return walkSummary(cardRoute.totalM ?? cardRoute.lengthM) ?? 'On campus'
+    // One number, the same as in AR: the planned route. The straight-line estimate only if planning fails.
+    if (cardRoute) return walkSummary(tripLengthM(cardRoute)) ?? 'On campus'
+    if (planningFor === selected) return 'Working out the walk…'
     if (!from || estimateWalkMinutes(from, selected) == null) return 'On campus'
     return walkSummary(estimatedWalkM(from, entranceOf(selected))) ?? 'On campus'
   }
@@ -389,11 +391,12 @@ export function homeScreen(root, {navigate, params}) {
    */
   async function quietPlan() {
     const dest = selected
-    if (!dest || dest.category !== 'room' || cardRoute || planningFor === dest) return
+    if (!dest || cardRoute || planningFor === dest) return
     const start = getStart()
     const from = isManual(start) ? start : fixWatch.fix
     if (!from) return
     planningFor = dest
+    refreshWalkText()
     try {
       const route = await planRoute(from, dest)
       if (disposed || selected !== dest || route.status !== 'ok') return
@@ -406,6 +409,7 @@ export function homeScreen(root, {navigate, params}) {
       console.warn('[home] could not plan the route for the card', err?.message)
     } finally {
       if (planningFor === dest) planningFor = null
+      refreshWalkText() // the route, or the estimate if planning failed
     }
   }
 
@@ -611,6 +615,28 @@ export function homeScreen(root, {navigate, params}) {
     }
   }
 
+  /** The opening view: HOME_MAP.openOn framed above the sheet and below the search bar. */
+  function campusView(map) {
+    const places = HOME_MAP.openOn.map((id) => DESTINATIONS.find((d) => d.id === id)).filter(Boolean)
+    const fallback = {center: MAZEMAP.center, zoom: MAZEMAP.zoom, bearing: 0, pitch: 0}
+    if (!places.length) return fallback
+    const box = map.getContainer().getBoundingClientRect()
+    const bar = root.querySelector('.map-search')?.getBoundingClientRect()
+    const sheet = root.querySelector('[data-home-sheet]')?.getBoundingClientRect()
+    const pad = HOME_MAP.openPaddingPx
+    const padding = {
+      top: Math.max(0, (bar ? bar.bottom - box.top : 0) + pad),
+      bottom: Math.max(0, (sheet ? box.bottom - sheet.top : 0) + pad),
+      left: pad,
+      right: pad,
+    }
+    const lngs = places.map((p) => p.lng)
+    const lats = places.map((p) => p.lat)
+    const bounds = [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]]
+    const camera = map.cameraForBounds(bounds, {padding, maxZoom: HOME_MAP.openMaxZoom})
+    return camera ? {...fallback, center: camera.center, zoom: camera.zoom} : fallback
+  }
+
   function flyToSelected() {
     const map = instance?.map
     if (!map || !selected || !Number.isFinite(selected.lat)) return
@@ -658,7 +684,12 @@ export function homeScreen(root, {navigate, params}) {
             if (picker.active) picker.moveTo(event.lngLat)
             else if (selected) unselect()
           })
-          if (!selected) openingMove(instance.map, {center: MAZEMAP.center, zoom: MAZEMAP.zoom, bearing: 0, pitch: 0})
+          if (!selected) {
+            // Campus Central and Cottrell in the middle of the map that shows between the search
+            // bar and the sheet; with the opening, the camera ends there.
+            const view = campusView(instance.map)
+            if (!openingMove(instance.map, view)) instance.map.jumpTo(view)
+          }
           flyToSelected()
           paintStartMarker()
           if (params.start === 'pick' && selected) openStartSheet()

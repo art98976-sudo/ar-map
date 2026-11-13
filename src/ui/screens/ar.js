@@ -8,7 +8,7 @@ import {parseUserAgent} from '../../ar/device.js'
 import {DESTINATIONS, findDestination} from '../../map/destinations.js'
 import {entranceNameFor} from '../../route/card-text.js'
 import {GPS_START, isManual, setStart, standHereText} from '../../route/start-point.js'
-import {readTripRoute} from '../../route/route.js'
+import {indoorRestM, readTripRoute, tripLengthM} from '../../route/route.js'
 import {readTripFix} from '../../geo/location.js'
 import {formatDistance} from '../../ar/pin.js'
 import {prefersReducedMotion, showArrival} from '../components/arrival.js'
@@ -202,7 +202,7 @@ export function arScreen(root, {navigate, params}) {
       liveView({
         showDebug,
         routeSource: route.source,
-        pillText: tripPillText(destination.name, route.lengthM),
+        pillText: tripPillText(destination.name, tripLengthM(route)),
         startTitle: manualStart ? standHereText(tripStart) : 'Walk to the path first',
       }),
       'live',
@@ -305,7 +305,7 @@ export function arScreen(root, {navigate, params}) {
     paintEdgeArrow(s.edgeArrowDeg)
     paintIndoorUi(s)
     const pillText = root.querySelector('[data-trip-pill]')
-    if (pillText && s.phase === 'ready') pillText.textContent = tripPillText(destination.name, s.remainingM)
+    if (pillText && s.phase === 'ready') pillText.textContent = tripPillText(destination.name, s.remainingM + indoorRestM(route, INDOOR.indoorAR))
   }
 
   /**

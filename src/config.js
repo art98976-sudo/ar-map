@@ -60,6 +60,12 @@ export const HOME_MAP = {
   clusterPx: 48, // pins closer than this on screen merge into a numbered cluster
   clusterZoomStep: 2, // tapping a cluster zooms in this much
   labelOffsetEm: 1.6, // building names sit this far below their point, clear of the pin
+  pinDotPx: 18, // a pin's dot radius on screen (32 px dot, its white ring and shadow)
+  campusLabelMaxZoom: 14, // the campus name ("UNIVERSITY OF STIRLING") shows only zoomed out, never cut off
+  // The opening view: these places in the middle of the map between the search bar and the sheet.
+  openOn: ['campus-central', 'cottrell'],
+  openPaddingPx: 40, // room around them
+  openMaxZoom: 16, // campus zoom: whole buildings and their names, no indoor detail
   // Softer base colours: [layer, paint property, value]. Missing layers are skipped.
   soft: [
     ['land-grass-areas', 'fill-color', 'hsla(108, 32%, 80%, 0.55)'],
