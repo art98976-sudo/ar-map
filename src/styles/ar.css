@@ -675,3 +675,45 @@
     transform: translateY(-4px);
   }
 }
+
+/* First AR trip only: a phone tilting down to the floor. Still, with reduce-motion. */
+.ar-tilt {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 18px 22px;
+  border-radius: 20px;
+  background: rgba(10, 20, 15, 0.55);
+  pointer-events: none;
+  z-index: 6;
+}
+.ar-tilt[hidden] {
+  display: none;
+}
+.ar-tilt__phone {
+  width: 40px;
+  height: 64px;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 3;
+  transform-origin: 50% 90%;
+  transform: perspective(200px) rotateX(55deg);
+}
+.ar-tilt__floor {
+  width: 96px;
+  height: 16px;
+  fill: rgba(46, 204, 113, 0.55);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ar-tilt__phone {
+    animation: ar-tilt 1.5s ease-in-out 2 both;
+  }
+}
+@keyframes ar-tilt {
+  0% { transform: perspective(200px) rotateX(0deg); }
+  60%, 100% { transform: perspective(200px) rotateX(55deg); }
+}

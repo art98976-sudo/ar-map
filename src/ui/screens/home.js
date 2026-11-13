@@ -9,6 +9,7 @@ import {createHomeSheet} from '../components/home-sheet.js'
 import {showToast} from '../components/toast.js'
 import {deviceIssue} from '../../ar/device.js'
 import {startPermissionRequests} from '../../ar/permissions.js'
+import {seen} from '../first-use.js'
 import {createFixWatch, locationPermissionState, readTripFix} from '../../geo/location.js'
 import {DESTINATIONS, findDestination, setCurrentDestination} from '../../map/destinations.js'
 import {fetchPoiDestination, poiIdFrom} from '../../map/poi-lookup.js'
@@ -718,8 +719,9 @@ export function homeScreen(root, {navigate, params}) {
     'toggle-3d': () => toggle3d(),
     route: () => toggleRoute(),
     walk: () => {
-      // First, inside the tap: iPhone only shows the motion prompt here.
-      if (!deviceIssue(forced)) startPermissionRequests({gps: !isManual(getStart())})
+      // First, inside the tap: iPhone only shows the motion prompt here. The very first time,
+      // the next screen explains the three prompts before asking.
+      if (!deviceIssue(forced) && seen('guide')) startPermissionRequests({gps: !isManual(getStart())})
       setCurrentDestination(selected)
       const next = new URLSearchParams({to: selected.id})
       if (forced) next.set('force', '1')

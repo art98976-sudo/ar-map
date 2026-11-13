@@ -21,6 +21,9 @@ export function errorCopy(code, device = {os: 'other'}) {
         body: ios
           ? 'Motion keeps the arrows fixed to the floor while you walk. Reload, then tap Allow when asked.'
           : 'Motion keeps the arrows fixed to the floor while you walk. Reload, then allow motion when asked.',
+        steps: ios
+          ? ['Tap Reload and allow motion below.', 'Tap Allow when Safari asks about motion.', 'Still no prompt? Close this tab and open the link again.']
+          : ['Tap the icon left of the address bar.', 'Tap Permissions.', 'Turn on Motion sensors.'],
         primary: {action: 'reload', label: 'Reload and allow motion', icon: 'refresh'},
       }
     case 'offline':

@@ -31,6 +31,7 @@ import {isManual} from '../route/start-point.js'
 import {createGuidance, landmarksFrom} from '../route/guidance.js'
 import {createArrivalDetector, createConfidenceMonitor, createOffRouteMonitor} from '../route/trip-monitors.js'
 import {entranceOf, isOnCampus, planRoute} from '../route/route.js'
+import {markerName} from '../route/card-text.js'
 import {COMPASS_GUIDE, GPS, GROUND, GROUND_ARROWS, INDOOR, PIN, ROUTING, SAFETY, SHELL, START, TRIP} from '../config.js'
 
 /** Compass-style bearing of a direction: degrees clockwise from north (or from SLAM -Z). */
@@ -563,7 +564,8 @@ export function createArTrip({
    * moves; the route and arrival stay at the entrance. A room far from the entrance is a data slip.
    */
   function placePinInRoom() {
-    if (!destination.mazemapPoi) return
+    // Indoor AR off: the walk ends at the door, so the marker stays there with the door's name.
+    if (!destination.mazemapPoi || (destination.category === 'room' && !INDOOR.indoorAR)) return
     getRoomCentre(destination.mazemapPoi).then((centre) => {
       const entrance = route.entrance || route.points.at(-1)
       if (!centre || !nav || distanceM(centre, entrance) > PIN.roomMaxM) return
@@ -576,7 +578,8 @@ export function createArTrip({
     THREE = window.THREE
     camera = cam
     xr = XR8
-    nav = createNavScene({THREE, scene, camera, route, origin, name: destination.name, reducedMotion})
+    const name = markerName(destination, route.entrance ?? null, DESTINATIONS, INDOOR.indoorAR)
+    nav = createNavScene({THREE, scene, camera, route, origin, name, reducedMotion})
     placePinInRoom()
     matcher = createRouteMatcher(nav.route)
     guidance = createGuidance(nav.route, {arriveLabel, landmarks})

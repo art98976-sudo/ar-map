@@ -65,7 +65,7 @@ export function bearingAlong(route, s, aheadM = NAV_SCENE.startLookAheadM) {
  * @param o.name   destination name for the pin label
  * @param o.reducedMotion no flow, pulse or bobbing
  */
-export function createNavScene({THREE, scene, camera, route, origin, reducedMotion = false}) {
+export function createNavScene({THREE, scene, camera, route, origin, name = null, reducedMotion = false}) {
   let local = routeToLocal(origin, route.points)
   let entranceLocal = toLocal(origin, route.entrance || route.points.at(-1))
   const lengthOf = (pts) => pts.reduce((sum, p, i) => (i ? sum + Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y) : 0), 0)
@@ -77,7 +77,7 @@ export function createNavScene({THREE, scene, camera, route, origin, reducedMoti
   scene.add(geoRoot)
 
   let turns = findTurns(local, TURNS.minDeg)
-  const pin = createDestinationPin(THREE)
+  const pin = createDestinationPin(THREE, {name})
   // The pin stands at the entrance, or at the room itself once setMarker() knows where it is.
   // Arrival is always judged at the entrance (entranceAnchor): a room can be indoors, upstairs.
   let markerLocal = null
@@ -314,7 +314,7 @@ export function createNavScene({THREE, scene, camera, route, origin, reducedMoti
     const entranceWorld = entranceAnchor.getWorldPosition(new THREE.Vector3())
     const toPinM = Math.hypot(entranceWorld.x - tmp.x, entranceWorld.z - tmp.z)
     const pinWorld = pin.group.getWorldPosition(new THREE.Vector3())
-    pin.update(reducedMotion ? 0 : time, Math.hypot(pinWorld.x - tmp.x, pinWorld.z - tmp.z))
+    pin.update(reducedMotion ? 0 : time, Math.hypot(pinWorld.x - tmp.x, pinWorld.z - tmp.z), tmp)
     if (!pinAllowed) pin.group.visible = false
     const turn = nextTurn(turns, p.s)
     last = {

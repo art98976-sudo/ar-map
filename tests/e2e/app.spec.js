@@ -235,6 +235,7 @@ test.describe('the destination card', () => {
 
   test('Walk here in AR goes straight on, with no permission screen', async ({page}, testInfo) => {
     test.skip(onlyOn('iphone-safari')(testInfo))
+    await page.addInitScript(() => localStorage.setItem('welcomeAR.guideSeen.v1', '1')) // a returning user: the guide was seen
     await page.addInitScript(IPHONE_CAMERA_STUB)
     await page.goto('/#/?to=library')
     await page.getByRole('button', {name: 'Walk here in AR'}).click()
@@ -244,6 +245,7 @@ test.describe('the destination card', () => {
 
   test('asks for motion, camera and location inside the tap', async ({page}, testInfo) => {
     test.skip(onlyOn('iphone-safari')(testInfo))
+    await page.addInitScript(() => localStorage.setItem('welcomeAR.guideSeen.v1', '1')) // a returning user: the guide was seen
     await page.addInitScript(IPHONE_CAMERA_STUB)
     await page.addInitScript(() => {
       window.__asked = []
@@ -302,6 +304,7 @@ test.describe('phones and browsers that cannot run AR', () => {
 test.describe('AR session', () => {
   test('Android: from a pin to the live camera, showing only exit, the pill and the map', async ({page}, testInfo) => {
     test.skip(onlyOn('android-chrome')(testInfo))
+    await page.addInitScript(() => localStorage.setItem('welcomeAR.guideSeen.v1', '1')) // a returning user: the guide was seen
     const errors = watchErrors(page)
     await page.addInitScript(FAKE_REAR_CAMERA)
     await page.goto('/')

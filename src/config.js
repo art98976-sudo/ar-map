@@ -128,6 +128,11 @@ export const SHELL = {
 }
 
 // Safety (Phase 6.6): "Look up while you walk", once per trip.
+/** First use only: the tilt-to-floor animation on the first AR trip. */
+export const FIRST_USE = {
+  tiltMs: 3000,
+}
+
 export const SAFETY = {
   lookUpAfterS: 10, // walking this long with the phone held up in front...
   lookUpForS: 3, // ...shows the reminder for this long
@@ -153,6 +158,8 @@ export const PIN = {
   onTop: 30,
   maxLiftM: 1.5, // the slope of the ground raises or lowers the pin by at most this
   roomMaxM: 80, // the pin moves to the room only if the room is this close to the entrance
+  boardHeightM: 0.32, // the name board on top of the pin (6.4)
+  boardY: 1.75, // its centre above the ground: just over the pin's head
 }
 
 export const GUIDE = {

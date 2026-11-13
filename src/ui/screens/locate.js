@@ -26,6 +26,7 @@ import {showToast} from '../components/toast.js'
 import {focusScreen, haptic, html, onAction, render} from '../dom.js'
 import {CATEGORY_ICON, icon} from '../icons.js'
 import {GPS, START} from '../../config.js'
+import {GUIDE_LINES, markSeen, seen} from '../first-use.js'
 
 const CONTINUE_DELAY_MS = 900
 
@@ -69,14 +70,21 @@ export function locateScreen(root, {navigate, params}) {
     </div>
   `
 
-  // ---------- tap to start: only after a reload ----------
+  // ---------- tap to start: the first time, and after a reload ----------
+  // The first time it is the guide: three lines, one per prompt, in the order the phone asks.
   function showTapToStart() {
+    const first = !seen('guide')
     setView(
       html`
         <div class="page page--narrow page--center locate">
           <div class="locate-card">
             ${destinationCard()}
-            <h1 class="locate-card__title" tabindex="-1">Ready when you are</h1>
+            <h1 class="locate-card__title" tabindex="-1">${first ? 'Before we start' : 'Ready when you are'}</h1>
+            ${first
+              ? html`<ul class="guide-lines" data-guide>
+                  ${GUIDE_LINES.map((l) => html`<li>${icon(l.icon, {size: 20})}<span>${l.text}</span></li>`)}
+                </ul>`
+              : ''}
             <button class="btn btn--primary btn--block" type="button" data-action="tap" aria-label="Tap to start" data-autofocus>
               ${icon('camera')}<span>Tap to start</span>
             </button>
@@ -251,11 +259,11 @@ export function locateScreen(root, {navigate, params}) {
   /** Wait for the answers to the requests made in the tap, then look for a good fix. */
   async function awaitPermissions(pending) {
     tapWatch = pending.gps
-    showWaiting('Tap Allow when your phone asks', 'Your phone asks about motion, the camera and your location.')
+    showWaiting('Tap Allow when your phone asks', 'Your phone asks about the camera, your location and motion.')
     const answer = await settlePermissions(pending)
     if (disposed) return
-    if (answer.motion === 'denied') return showErrorCopy(errorCopy('motion-denied', device))
     if (answer.camera === 'denied') return showErrorCopy(errorCopy('camera-denied', device))
+    if (answer.motion === 'denied') return showErrorCopy(errorCopy('motion-denied', device))
     start()
   }
 
@@ -319,7 +327,10 @@ export function locateScreen(root, {navigate, params}) {
 
   const off = onAction(root, {
     back: () => navigate(`/?to=${encodeURIComponent(destination.id)}`),
-    tap: () => awaitPermissions(startPermissionRequests()),
+    tap: () => {
+      markSeen('guide')
+      awaitPermissions(startPermissionRequests({gps: !manualStart}))
+    },
     retry: () => start(),
     reload: () => window.location.reload(),
     map: () => navigate(`/?to=${encodeURIComponent(destination.id)}`),
@@ -348,7 +359,7 @@ export function locateScreen(root, {navigate, params}) {
     locationPermissionState().then((state) => {
       if (disposed) return
       if (state === 'denied' && !manualStart) showError('denied')
-      else if (permissionsAllowed()) start()
+      else if (permissionsAllowed() && seen('guide')) start()
       else showTapToStart()
     })
   }

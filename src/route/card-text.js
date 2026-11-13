@@ -51,6 +51,15 @@ export function indoorLines(dest, {entranceName, entryLevel = null} = {}) {
   }
 }
 
+/**
+ * What the marker at the end of the AR walk says (6.4). A room, with indoor AR off, ends at the
+ * building's door: the marker names that entrance. Anything else: the place's own name.
+ */
+export function markerName(dest, door, places, indoorAR = false) {
+  if (dest?.category === 'room' && !indoorAR) return entranceNameFor(dest, door, places) ?? dest.name
+  return dest?.name ?? null
+}
+
 /** Is the user's GPS too rough to trust the walk time? */
 export function locationApproximate(fix) {
   return Boolean(fix && Number.isFinite(fix.accuracy) && fix.accuracy > CARD.approximateM)

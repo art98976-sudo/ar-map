@@ -560,3 +560,24 @@
   background: var(--c-skeleton);
   vertical-align: middle;
 }
+
+/* First-time guide: one line per prompt, in the order the phone asks. */
+.guide-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--sp-3);
+  text-align: left;
+}
+.guide-lines li {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  font-size: var(--fs-body);
+  color: var(--c-text);
+}
+.guide-lines li svg {
+  flex: none;
+  color: var(--c-primary);
+}

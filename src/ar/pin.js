@@ -1,7 +1,7 @@
 // Destination marker at the entrance: a map pin standing on the ground, its tip touching the floor,
-// with a pulsing ring and a disc where to stand. No beam into the sky and no label in the air: it
-// shows only within PIN.showWithinM of the destination, at its real size, so it reads as an object
-// on the ground and not as a sign floating over the campus.
+// with a pulsing ring and a disc where to stand, and a small name board on top of the pin (6.4).
+// No beam into the sky: it shows only within PIN.showWithinM of the destination, at its real size,
+// so it reads as an object on the ground and not as a sign floating over the campus.
 import {PIN} from '../config.js'
 
 /** Format a distance for people: "8 m", "120 m", "1.2 km". */
@@ -19,7 +19,40 @@ export function pinVisible(distanceM) {
 
 const HEAD_Y = 1.0 // ball centre: the cone's tip then just touches the ground
 
-export function createDestinationPin(THREE) {
+/** The name board: white text on green, drawn once. Null where there is no 2D canvas (tests). */
+function nameBoard(THREE, name, doc = globalThis.document) {
+  const canvas = name ? doc?.createElement?.('canvas') : null
+  const ctx = canvas?.getContext?.('2d')
+  if (!ctx) return null
+  const fontPx = 56
+  ctx.font = `600 ${fontPx}px Inter, system-ui, sans-serif`
+  const text = name.length > 32 ? `${name.slice(0, 31)}…` : name
+  const pad = 28
+  canvas.width = Math.ceil(ctx.measureText(text).width + pad * 2)
+  canvas.height = fontPx + pad * 2
+  ctx.font = `600 ${fontPx}px Inter, system-ui, sans-serif`
+  ctx.fillStyle = '#00693e'
+  ctx.beginPath()
+  if (ctx.roundRect) ctx.roundRect(0, 0, canvas.width, canvas.height, 24)
+  else ctx.rect(0, 0, canvas.width, canvas.height)
+  ctx.fill()
+  ctx.fillStyle = '#ffffff'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(text, pad, canvas.height / 2)
+  const texture = new THREE.CanvasTexture(canvas)
+  const heightM = PIN.boardHeightM
+  const board = new THREE.Mesh(
+    new THREE.PlaneGeometry((heightM * canvas.width) / canvas.height, heightM),
+    new THREE.MeshBasicMaterial({map: texture, transparent: true, depthTest: false}),
+  )
+  board.name = 'pin-name'
+  board.renderOrder = PIN.onTop + 2
+  board.position.y = PIN.boardY
+  return board
+}
+
+/** @param o.name what the board on the pin says: the entrance's name, or the place's */
+export function createDestinationPin(THREE, {name = null} = {}) {
   const group = new THREE.Group()
   group.name = 'destination-pin'
   group.visible = false
@@ -59,12 +92,22 @@ export function createDestinationPin(THREE) {
   disc.position.y = 0.012
   group.add(disc)
 
+  const board = nameBoard(THREE, name)
+  if (board) group.add(board)
+  const look = new THREE.Vector3()
+
   return {
     group,
-    /** Animate (time in seconds); shown only within PIN.showWithinM of the user. */
-    update(time, distanceM) {
+    board,
+    /** Animate (time in seconds); shown only within PIN.showWithinM of the user. camera: world position. */
+    update(time, distanceM, camera = null) {
       group.visible = pinVisible(distanceM)
       if (!group.visible) return
+      if (board && camera) {
+        // The board stays upright and turns to face the user.
+        board.getWorldPosition(look)
+        board.lookAt(camera.x, look.y, camera.z)
+      }
       for (const ring of rings) {
         const t = (time * 0.6 + ring.userData.offset) % 1
         const s = 1 + t * 2.4

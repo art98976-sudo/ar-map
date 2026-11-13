@@ -17,7 +17,8 @@ import {drawMinimap} from '../components/ar-minimap.js'
 import {createCompassMap} from '../components/compass-map.js'
 import {focusScreen, haptic, onAction, render} from '../dom.js'
 import {icon} from '../icons.js'
-import {GROUND, INDOOR, ROUTING} from '../../config.js'
+import {FIRST_USE, GROUND, INDOOR, ROUTING} from '../../config.js'
+import {markSeen, seen} from '../first-use.js'
 import {paintDebugStats, paintLiveDebug, setStat as setDebugStat, toggleDebugPanel} from './ar-debug.js'
 import {errorCopy} from './ar-errors.js'
 import {statusMessage} from './ar-status.js'
@@ -245,7 +246,21 @@ export function arScreen(root, {navigate, params}) {
     const wasHidden = card.hidden
     card.hidden = phase !== 'await-start' || !manualStart // a trip from GPS starts by itself
     if (wasHidden && !card.hidden) focusScreen(card)
-    if (phase === 'ready') haptic([20, 60, 20])
+    if (phase === 'ready') {
+      haptic([20, 60, 20])
+      showTiltOnce()
+    }
+  }
+
+  /** The first AR trip on this device: a phone tilting to the floor, for 3 s, once. */
+  function showTiltOnce() {
+    const tilt = root.querySelector('[data-tilt]')
+    if (!tilt || seen('tilt')) return
+    markSeen('tilt')
+    tilt.hidden = false
+    setTimeout(() => {
+      tilt.hidden = true
+    }, FIRST_USE.tiltMs)
   }
 
   function onArrived() {

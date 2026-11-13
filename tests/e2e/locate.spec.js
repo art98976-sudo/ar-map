@@ -30,6 +30,23 @@ const failingGps = (code) => {
 }
 
 test.describe('location step', () => {
+  test('first time: one screen says what each permission is for, once', async ({page}, testInfo) => {
+    test.skip(onlyOn('desktop-chrome')(testInfo))
+    await page.addInitScript(controllableGps)
+    await page.goto('/#/locate?to=library&force=1')
+    await expect(page.getByRole('heading', {name: 'Before we start'})).toBeVisible({timeout: 15_000})
+    const lines = page.locator('[data-guide] li')
+    await expect(lines).toHaveText([
+      'We use your camera to show arrows',
+      'We use your location to find the route',
+      'We use motion to keep the arrows on the floor',
+    ])
+    await page.getByRole('button', {name: 'Tap to start'}).click()
+    await page.reload()
+    await expect(page.getByRole('heading', {name: 'Ready when you are'})).toBeVisible({timeout: 15_000})
+    await expect(page.locator('[data-guide]')).toHaveCount(0)
+  })
+
   test('a screen that arrives later takes focus, so a screen reader hears it', async ({page}, testInfo) => {
     test.skip(onlyOn('desktop-chrome', 'android-chrome')(testInfo)) // the iPhone case is under "motion denied"
     await page.addInitScript(() => {
@@ -43,6 +60,7 @@ test.describe('location step', () => {
 
   test('the trip goes map → card → location → camera, with no screen to tap through', async ({page}, testInfo) => {
     test.skip(onlyOn('android-chrome', 'iphone-safari')(testInfo))
+    await page.addInitScript(() => localStorage.setItem('welcomeAR.guideSeen.v1', '1')) // a returning user: the guide was seen
     if (testInfo.project.name === 'iphone-safari') {
       // Desktop WebKit has no camera API; every iPhone does.
       await page.addInitScript(() => {

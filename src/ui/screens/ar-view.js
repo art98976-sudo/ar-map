@@ -90,6 +90,12 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
 
     <div class="arrival" data-arrival hidden></div>
 
+    <!-- First AR trip only: a phone tilting down to the floor, for 3 s. -->
+    <div class="ar-tilt" data-tilt aria-hidden="true" hidden>
+      <svg class="ar-tilt__phone" viewBox="0 0 40 64"><rect x="3" y="3" width="34" height="58" rx="7" /><circle cx="20" cy="54" r="3" /></svg>
+      <svg class="ar-tilt__floor" viewBox="0 0 120 20"><path d="M2 18 L30 2 L90 2 L118 18 Z" /></svg>
+    </div>
+
     <span class="ar-edge-arrow" data-edge-arrow aria-hidden="true" hidden>
       <svg viewBox="0 0 100 46"><path d="M3 43 L50 4 L97 43 L76 43 L50 21 L24 43 Z" /></svg>
     </span>
