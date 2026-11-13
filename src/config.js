@@ -107,6 +107,25 @@ export const GROUND_EXTRAS = {
   pulsePeriodS: 2.5,
 }
 
+// The building shell from MazeMap (src/ar/building-shell.js, mazemap-floor.js).
+export const SHELL = {
+  tileZoom: 18, // MazeMap floor tiles are read at this zoom (about 95 m across here)
+  defaultLevel: 1, // outdoors with no door level known: the ground floor's walls
+  loadRadiusM: 45, // walls and doors this far around the user are loaded...
+  reloadAfterM: 25, // ...and loaded again once the user has walked this far from there
+  wallHeightM: 2.7, // walls stand from the floor to this height
+  doorClearM: 1, // ?debug=walls: a wall crossing this close to a door is the door
+  sameCrossingM: 0.6, // two crossings this close are the two faces of one wall
+  doorMarkerAheadM: 10, // doorway outlines for the doors within this far ahead on the route
+  doorMarkerDepthM: 0.3, // the outline is this deep across the doorway
+  baseLineOpacity: 0.28, // the faint wall base lines shown while lining up
+  lineUpWallsM: 8, // ...for the walls within this far
+  lowFpsWallsM: 15, // when the frame rate drops, only walls within this far stay
+  lowFps: 24, // frames a second below which...
+  lowFpsForS: 3, // ...for this long, the shell (and the arrows) are lightened
+  renderOrder: 5, // the occluder draws before the arrows, so they can test against it
+}
+
 // The destination pin.
 export const PIN = {
   green: 0x006938,

@@ -9,7 +9,9 @@
 import {dedupe, distanceM, findTurns, localBearing, pointAt, projectOntoPolyline, shortestTurn, simplify, toDeg, toLocal, toRad} from '../geo/geo.js'
 import {createDestinationPin} from './pin.js'
 import {createGroundArrows} from './ground-arrows.js'
-import {COLOURS, NAV_SCENE, PIN, ROUTING, TURNS} from '../config.js'
+import {buildShellMeshes, doorCrossings, wallsNear} from './building-shell.js'
+import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js'
+import {COLOURS, NAV_SCENE, PIN, ROUTING, SHELL, TURNS} from '../config.js'
 
 /**
  * Yaw (radians, about +Y) that turns the route frame so that compass heading `headingDeg`
@@ -90,6 +92,25 @@ export function createNavScene({THREE, scene, camera, route, origin, reducedMoti
   arrows.setRoute(local, turns)
   geoRoot.add(arrows.group)
   let pinAllowed = true
+  // The building's walls and doors (building-shell.js): an invisible occluder, a debug wireframe,
+  // wall base lines for the line-up, and green outlines across the doorways on the route.
+  const shellGroup = new THREE.Group()
+  shellGroup.name = 'building-shell'
+  geoRoot.add(shellGroup)
+  let shell = null // {floor, meshes, doors}
+  let occluderOn = false
+  let wireOn = false
+  let baseLines = null
+  const doorMarks = Array.from({length: 3}, (_, i) => {
+    const geo = new THREE.BufferGeometry()
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(15), 3))
+    const line = new THREE.Line(geo, new THREE.LineBasicMaterial({color: 0x4ade80, transparent: true, opacity: 0.85, depthTest: false}))
+    line.name = `doorway-${i}`
+    line.renderOrder = 40
+    line.visible = false
+    geoRoot.add(line)
+    return line
+  })
   // Debug: the floor as the app sees it, a faint 10 m grid under the user.
   const floorGrid = new THREE.GridHelper(10, 20, COLOURS.arrowGreen, COLOURS.arrowGreen)
   floorGrid.material.transparent = true
@@ -200,6 +221,7 @@ export function createNavScene({THREE, scene, camera, route, origin, reducedMoti
   /** A new route, from a reroute. The placement stays, so the walk so far still lines up. */
   function setRoute(next) {
     local = routeToLocal(origin, next.points)
+    if (shell) shell.doors = doorCrossings(local, shell.floor.doors)
     entranceLocal = toLocal(origin, next.entrance || next.points.at(-1))
     totalM = lengthOf(local)
     entranceS = projectOntoPolyline(local, entranceLocal).s
@@ -326,6 +348,85 @@ export function createNavScene({THREE, scene, camera, route, origin, reducedMoti
     updateArrows({userS, slope, show, opacity = 1, dt = 0, time = 0}) {
       return arrows.update({userS, slope, show: show && aligned, opacity, dt, time: reducedMotion ? 0 : time, camera})
     },
+    /**
+     * The walls and doors of the floor in use (route frame, from floorToLocal). Replaces the
+     * floor before. near: optional point and radius to keep only walls near the user (low fps).
+     */
+    setShellFloor(floor, {near = null} = {}) {
+      if (shell) {
+        shell.meshes.dispose()
+        shellGroup.clear()
+      }
+      if (!floor) {
+        shell = null
+        return
+      }
+      const walls = near ? wallsNear(floor, near.point, near.metres) : floor.walls
+      const meshes = buildShellMeshes(THREE, mergeGeometries, floor, {walls})
+      meshes.occluder.visible = occluderOn
+      meshes.wire.visible = wireOn
+      meshes.baseLines.visible = false
+      shellGroup.add(meshes.occluder, meshes.wire)
+      shell = {floor, meshes, doors: doorCrossings(local, floor.doors)}
+    },
+    /** The occluder hides arrows behind walls. Off until the route is confirmed by the user or by walking. */
+    setOccluder(on) {
+      occluderOn = Boolean(on)
+      if (shell) shell.meshes.occluder.visible = occluderOn
+      arrows.setDepthTest(occluderOn && Boolean(shell))
+    },
+    /** ?debug=1: the shell as a see-through wireframe. */
+    setWireframe(on) {
+      wireOn = Boolean(on)
+      if (shell) shell.meshes.wire.visible = wireOn
+    },
+    /** During the line-up: the base lines of the walls near the user, faint on the floor. */
+    showWallLines(on, userPoint) {
+      if (baseLines) {
+        geoRoot.remove(baseLines.baseLines)
+        baseLines.dispose()
+        baseLines = null
+      }
+      if (!on || !shell || !userPoint) return 0
+      const walls = wallsNear(shell.floor, userPoint, SHELL.lineUpWallsM)
+      baseLines = buildShellMeshes(THREE, mergeGeometries, shell.floor, {walls})
+      baseLines.baseLines.visible = true
+      geoRoot.add(baseLines.baseLines)
+      return walls.length
+    },
+    /** Green outlines across the doorways the route goes through within SHELL.doorMarkerAheadM. */
+    updateDoorways(userS) {
+      const ahead = shell ? shell.doors.filter((d) => d.s >= userS - 0.5 && d.s <= userS + SHELL.doorMarkerAheadM) : []
+      doorMarks.forEach((line, i) => {
+        const d = ahead[i]
+        line.visible = Boolean(d)
+        if (!d) return
+        // A rectangle across the doorway, as wide as the door, flat on the floor.
+        const ux = (d.b.x - d.a.x) / (d.widthM || 1)
+        const uy = (d.b.y - d.a.y) / (d.widthM || 1)
+        const half = SHELL.doorMarkerDepthM / 2
+        const nx = -uy * half
+        const ny = ux * half
+        const pts = [
+          [d.a.x + nx, d.a.y + ny],
+          [d.b.x + nx, d.b.y + ny],
+          [d.b.x - nx, d.b.y - ny],
+          [d.a.x - nx, d.a.y - ny],
+          [d.a.x + nx, d.a.y + ny],
+        ]
+        const pos = line.geometry.attributes.position
+        pts.forEach(([x, y], k) => pos.setXYZ(k, x, 0.012, -y))
+        pos.needsUpdate = true
+        line.geometry.computeBoundingSphere()
+      })
+      return ahead.length
+    },
+    get shellLoaded() {
+      return Boolean(shell)
+    },
+    get shellLevel() {
+      return shell?.floor.level ?? null
+    },
     /** Which way the arrows are when none is in view (screen angle), or null. */
     arrowsOffscreen: () => arrows.offscreenHint(camera),
     get turnRingsShown() {
@@ -374,6 +475,12 @@ export function createNavScene({THREE, scene, camera, route, origin, reducedMoti
       floorGrid.geometry.dispose()
       floorGrid.material.dispose()
       pin.dispose()
+      shell?.meshes.dispose()
+      baseLines?.dispose()
+      for (const line of doorMarks) {
+        line.geometry.dispose()
+        line.material.dispose()
+      }
       arrows.dispose()
     },
   }

@@ -92,7 +92,7 @@ test.describe('route and arrows', () => {
     const panel = page.getByRole('region', {name: 'Debug panel'})
     await expect(panel).toBeVisible()
     // The way is drawn on the floor: 3D chevrons in the AR scene. ?debug=1 says why they are there.
-    await expect(page.locator('[data-ar-status]')).toHaveText(/aligned yes · chevrons \d+ visible, \d+ blocked · in view \d+/, {timeout: 30_000})
+    await expect(page.locator('[data-ar-status]')).toHaveText(/aligned yes · chevrons \d+ visible, \d+ blocked · walls (no|level -?\d+) · in view \d+/, {timeout: 30_000})
     await expect(page.locator('[data-ar-status]')).toHaveText(/floor (tap|hits|fallback) \d+\.\d\d m below/)
     // No directions in words, no flat overlay arrows, no numbered turns.
     for (const gone of ['[data-floor-arrows]', '[data-guidance]', '[data-steps]', '[data-start-direction]', '.ar-map__turn']) {

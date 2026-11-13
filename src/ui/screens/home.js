@@ -54,6 +54,7 @@ export function homeScreen(root, {navigate, params}) {
   let sim = null
   // ?debug=align: the model see-through over MazeMap, its origin, and click coordinates.
   const debugAlign = params.debug === 'align' || new URLSearchParams(window.location.search).get('debug') === 'align'
+  const debugWalls = params.debug === 'walls' || new URLSearchParams(window.location.search).get('debug') === 'walls'
   let alignDebug = null
 
   render(root, homePage())
@@ -150,7 +151,7 @@ export function homeScreen(root, {navigate, params}) {
     const query = new URLSearchParams()
     if (selected) query.set('to', selected.id)
     if (forced) query.set('force', '1')
-    if (params.debug === '1' || params.debug === 'align') query.set('debug', params.debug)
+    if (params.debug === '1' || params.debug === 'align' || params.debug === 'walls') query.set('debug', params.debug)
     if (params.simulate === '1') query.set('simulate', '1')
     if (params.fieldtest === '1') query.set('fieldtest', '1')
     const text = query.toString()
@@ -307,6 +308,25 @@ export function homeScreen(root, {navigate, params}) {
     return walkSummary(estimatedWalkM(from, entranceOf(selected))) ?? 'On campus'
   }
 
+  /**
+   * ?debug=walls: list where the MazeMap route walks through a wall away from a door (report only).
+   */
+  async function checkWalls(route) {
+    if (!debugWalls || !selected || !route?.points) return
+    const name = selected.name
+    const points = [...route.points, ...(route.indoorPoints || [])]
+    const host = root.querySelector('.map-home') || root
+    try {
+      const {checkRouteWalls, showWallsReport} = await import('../../map/walls-debug.js')
+      showWallsReport(host, {name, crossings: [], error: 'Checking…'})
+      const crossings = await checkRouteWalls(points)
+      if (!disposed) showWallsReport(host, {name, crossings})
+    } catch (err) {
+      const {showWallsReport} = await import('../../map/walls-debug.js')
+      if (!disposed) showWallsReport(host, {name, crossings: [], error: 'Could not load the walls: ' + (err?.message || err)})
+    }
+  }
+
   /** A room indoors: which door, which level, and whether stairs or a lift are needed. */
   function paintIndoor() {
     if (!selected) return
@@ -338,6 +358,7 @@ export function homeScreen(root, {navigate, params}) {
       const route = await planRoute(from, dest)
       if (disposed || selected !== dest || route.status !== 'ok') return
       cardRoute = route
+      checkWalls(route)
       refreshWalkText()
       paintIndoor()
     } catch (err) {
@@ -535,6 +556,7 @@ export function homeScreen(root, {navigate, params}) {
       drawRouteLine(instance.map, route.points, card.offsetHeight + 40)
       setRouteLink('Hide route', true)
       cardRoute = route
+      checkWalls(route)
       root.querySelector('[data-walk-text]').textContent = walkText()
       paintIndoor()
       if (route.source === 'direct') showToast('Approximate route - no path found', {tone: 'warning'})

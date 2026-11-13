@@ -387,6 +387,18 @@ export function createGroundArrows(THREE) {
       }
       return n
     },
+    /**
+     * With the building shell on: the arrows, strip and rings test depth against the invisible
+     * walls, so they hide behind them and show through doors. Off: always drawn on top.
+     */
+    setDepthTest(on) {
+      group.traverse((o) => {
+        if (o.material) {
+          o.material.depthTest = Boolean(on)
+          o.material.needsUpdate = true
+        }
+      })
+    },
     /** Corner rings drawn now. */
     get ringsShown() {
       return ringsShown

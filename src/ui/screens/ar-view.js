@@ -126,6 +126,7 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
       </dl>
       <div class="ar-debug__floor">
         <button class="btn btn--secondary" type="button" data-action="floor-grid" aria-pressed="false">Floor grid</button>
+        <button class="btn btn--secondary" type="button" data-action="walls-wire" aria-pressed="false">Walls</button>
         <button class="btn btn--secondary" type="button" data-action="floor-down" aria-label="Floor 5 cm lower">Floor −5 cm</button>
         <button class="btn btn--secondary" type="button" data-action="floor-up" aria-label="Floor 5 cm higher">Floor +5 cm</button>
       </div>

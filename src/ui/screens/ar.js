@@ -119,6 +119,12 @@ export function arScreen(root, {navigate, params}) {
       trip?.recalibrate()
       toggleDebugPanel(root, false)
     },
+    // ?debug=1: the building shell (MazeMap walls) as a see-through wireframe.
+    'walls-wire': (_, button) => {
+      const on = button.getAttribute('aria-pressed') !== 'true'
+      button.setAttribute('aria-pressed', String(on))
+      trip?.setWireframe(on)
+    },
     'floor-grid': (_, button) => {
       const on = button.getAttribute('aria-pressed') !== 'true'
       button.setAttribute('aria-pressed', String(on))
@@ -264,6 +270,7 @@ export function arScreen(root, {navigate, params}) {
       `floor ${s.floorSource ?? 'fallback'} ${below}`,
       `aligned ${s.aligned ? 'yes' : 'no'}`,
       `chevrons ${s.arrowsVisible ?? 0} visible, ${s.arrowsBlocked ?? 0} blocked`,
+      `walls ${s.shellLoaded ? `level ${s.shellLevel}` : 'no'}`,
       `in view ${s.arrowsInView ?? 0}`,
     ].join(' · ')
   }

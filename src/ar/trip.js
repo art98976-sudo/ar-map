@@ -23,13 +23,15 @@ import {arrowTarget, arrowYawDeg, createRouteTracker, walkingCorrection} from '.
 import {createNavPose, levelAt, levelsAlong, steeredBearing} from '../route/nav-pose.js'
 import {createNavScene, gpsDistanceToEntrance} from './nav-scene.js'
 import {acceptHit, createFloorFinder, createGroundTracker, FLOOR_GRID, HIT_TYPES} from './ground.js'
+import {floorToLocal} from './building-shell.js'
+import {boxAround, fetchFloor} from './mazemap-floor.js'
 import {createRouteMatcher} from './route-matcher.js'
 import {locationPermissionState, watchLocation} from '../geo/location.js'
 import {isManual} from '../route/start-point.js'
 import {createGuidance, landmarksFrom} from '../route/guidance.js'
 import {createArrivalDetector, createConfidenceMonitor, createOffRouteMonitor} from '../route/trip-monitors.js'
 import {entranceOf, isOnCampus, planRoute} from '../route/route.js'
-import {COMPASS_GUIDE, GPS, GROUND, GROUND_ARROWS, PIN, ROUTING, START, TRIP} from '../config.js'
+import {COMPASS_GUIDE, GPS, GROUND, GROUND_ARROWS, PIN, ROUTING, SHELL, START, TRIP} from '../config.js'
 
 /** Compass-style bearing of a direction: degrees clockwise from north (or from SLAM -Z). */
 function bearing(east, north) {
@@ -616,6 +618,73 @@ export function createArTrip({
     return trackingLostAt != null && time - trackingLostAt <= GROUND_ARROWS.trackingLostS
   }
 
+  // ---------- the building shell: MazeMap's real walls and doors ----------
+  let shellAt = null // {level, centre {lat,lng}} the loaded floor and where it was loaded around
+  let shellLoading = false
+  let shellFloor = null // the floor in route-frame metres
+  let lowFpsSince = null
+  let lowFps = false
+  let wallLinesShown = false
+  let wireOn = false
+
+  /** The floor level the route is on here: its own level indoors, the level of its door outside. */
+  function shellLevel() {
+    const z = navPose.current.floorLevel
+    if (Number.isFinite(z) && z !== 0) return z
+    return Number.isFinite(route.entryLevel) ? route.entryLevel : SHELL.defaultLevel
+  }
+
+  /** Keep the walls and doors around the user loaded, for the floor the route is on. */
+  function updateShell(time) {
+    if (phase !== 'ready' || !nav?.aligned || shellLoading) return
+    const here = trackedPosition()
+    if (!isOnCampus(here)) return
+    const level = shellLevel()
+    if (shellAt && shellAt.level === level && distanceM(shellAt.centre, here) < SHELL.reloadAfterM) return
+    shellLoading = true
+    const centre = {lat: here.lat, lng: here.lng}
+    fetchFloor(level, boxAround(centre, SHELL.loadRadiusM))
+      .then((floor) => {
+        if (stopped || !nav) return
+        shellFloor = floorToLocal(floor, origin)
+        shellAt = {level, centre}
+        nav.setShellFloor(shellFloor, lowFps ? {near: {point: toLocal(origin, centre), metres: SHELL.lowFpsWallsM}} : {})
+        nav.setWireframe(wireOn)
+        wallLinesShown = false
+      })
+      .catch((err) => console.warn('[shell] could not load the walls', err?.message))
+      .finally(() => {
+        shellLoading = false
+      })
+    void time
+  }
+
+  /** The occluder only once the route is confirmed; wall lines while lining up; doorway outlines. */
+  function paintShell(routeS) {
+    if (!nav?.shellLoaded) return
+    const confirmed = compassLocked || Boolean(matcher?.locked)
+    nav.setOccluder(confirmed && arrowsShown)
+    const wantLines = phase === 'ready' && lineUp && !arrived
+    if (wantLines !== wallLinesShown) {
+      wallLinesShown = wantLines
+      nav.showWallLines(wantLines, nav.worldToRoute({x: camera.position.x, z: camera.position.z}))
+    }
+    nav.updateDoorways(arrowsShown ? routeS : -Infinity)
+  }
+
+  /** Below SHELL.lowFps for SHELL.lowFpsForS: keep only the walls near the user. */
+  function watchFps(time) {
+    if (fps == null || lowFps) return
+    if (fps < SHELL.lowFps) {
+      lowFpsSince ??= time
+      if (time - lowFpsSince >= SHELL.lowFpsForS) {
+        lowFps = true
+        if (shellFloor && shellAt) nav.setShellFloor(shellFloor, {near: {point: toLocal(origin, shellAt.centre), metres: SHELL.lowFpsWallsM}})
+        nav.setLowPower?.(true)
+      }
+    } else lowFpsSince = null
+  }
+
   function onTick({dt, time}) {
     if (!nav) return
     startedAt ??= time
@@ -698,6 +767,9 @@ export function createArTrip({
     checkBlocked()
     // Half-transparent while the floor is still a guess; solid once it is found (or tapped).
     nav.updateArrows({userS: routeS, slope: groundNow.slope, show: arrowsShown, opacity: floorNow.found ? 1 : GROUND_ARROWS.guessOpacity, dt, time})
+    updateShell(time)
+    paintShell(routeS)
+    watchFps(time)
     statsTimer += dt
     if (statsTimer >= 0.25) {
       const poseTurn = nav.aligned ? nav.nextTurnAt(routeS) : null
@@ -729,6 +801,9 @@ export function createArTrip({
         distanceFromRouteM: phase === 'ready' && pose.lateralOffsetM != null ? Math.abs(pose.lateralOffsetM) : null,
         lateralOffsetM: phase === 'ready' ? pose.lateralOffsetM : null,
         poseConfident: pose.confident,
+        shellLoaded: Boolean(nav.shellLoaded),
+        shellLevel: nav.shellLevel,
+        lowFps,
         floorLevel: pose.floorLevel,
         lineUp: phase === 'ready' && lineUp && !arrived,
         canRealign: phase === 'ready' && !lineUp && !arrived && Boolean(nav.aligned),
@@ -792,6 +867,11 @@ export function createArTrip({
     onTick,
     mapState,
     setFps: (value) => (fps = value),
+    /** ?debug=1: show the building shell as a see-through wireframe. */
+    setWireframe(on) {
+      wireOn = Boolean(on)
+      nav?.setWireframe(wireOn)
+    },
     /** Debug panel: correct the route now from the latest readings, however small the error. */
     /** The way to walk from where the phone faces, > 0 to the right; null when unknown. Read every frame. */
     get guideDeg() {

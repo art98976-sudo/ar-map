@@ -444,3 +444,29 @@
   margin: calc(var(--sp-1) * -1) 0 var(--sp-2);
   color: var(--c-warning);
 }
+
+/* ---------- ?debug=walls: the route check against MazeMap's walls ---------- */
+.walls-debug {
+  position: absolute;
+  top: calc(var(--safe-top) + var(--bar) + var(--sp-4));
+  left: var(--side);
+  z-index: 6;
+  max-width: min(340px, calc(100% - 2 * var(--side) - var(--tap) - var(--sp-3)));
+  max-height: 40vh;
+  overflow: auto;
+  padding: var(--sp-3);
+  border-radius: var(--radius);
+  background: var(--c-bg);
+  box-shadow: var(--shadow);
+  color: var(--c-text);
+  font: var(--fw-regular) var(--fs-small) / 1.4 var(--font);
+}
+.walls-debug h2 {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-semibold);
+}
+.walls-debug ol {
+  margin: 0;
+  padding-left: 1.2em;
+}
