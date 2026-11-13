@@ -136,7 +136,7 @@ test.describe('route and arrows', () => {
     await page.getByRole('button', {name: 'Tap to start'}).click({timeout: 30_000})
     await expect(page.locator('[data-veil]')).toHaveClass(/is-hidden/, {timeout: 60_000})
     // Headless Chrome's fake camera never tracks.
-    await expect(page.locator('[data-locating]')).toHaveText('Locating you…', {timeout: 15_000})
+    await expect(page.locator('[data-status-slot]')).toHaveText('Locating you…', {timeout: 15_000})
     await expect(page.locator('[data-start]')).toBeHidden()
     // The map always shows. Without ?debug=1 nothing of the debug tools does.
     await expect(page.locator('[data-compass-map]')).toBeVisible()

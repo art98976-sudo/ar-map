@@ -654,3 +654,24 @@
 .ar-map__pick--lift {
   --pick: #7c3aed;
 }
+
+/* The one status slot: a short message with an icon, fading in when it changes. */
+.ar-status-slot {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.ar-status-slot[hidden] {
+  display: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ar-status-slot.is-showing {
+    animation: status-in 220ms ease-out;
+  }
+}
+@keyframes status-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}

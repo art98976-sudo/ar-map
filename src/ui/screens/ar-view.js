@@ -63,14 +63,10 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
 
 
     <div class="ar__hints">
-    <p class="ar__hint" data-floor-hint role="status" hidden>Point your phone at the floor</p>
-    <p class="ar__hint" data-compass-pill role="status" hidden>Wave your phone in a figure-8</p>
-    <p class="ar__hint" data-locating role="status" hidden>Locating you…</p>
+    <!-- One message at a time (ar-status.js): the most urgent only, fading between them. -->
+    <p class="ar__hint ar-status-slot" data-status-slot role="status" aria-live="polite" hidden><span data-status-icon aria-hidden="true"></span><span data-status-text></span></p>
     <button class="ar__hint ar__hint--action" type="button" data-action="go-live" hidden>Switch to live location?</button>
     <button class="ar__hint ar__hint--action" type="button" data-action="repick" hidden>Off route? Choose your start again</button>
-    <p class="ar__hint" data-position-hint role="status" hidden>Finding your position. Follow the map for now.</p>
-    <p class="ar__hint" data-reroute-hint role="status" hidden>Finding a new route</p>
-    <p class="ar__hint" data-approx-hint role="status" ${routeSource === 'direct' ? '' : 'hidden'}>Approximate route - check the 2D map</p>
     </div>
 
     <p class="ar-pill" data-trip-pill>${pillText}</p>

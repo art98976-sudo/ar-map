@@ -97,3 +97,18 @@ describe('arrival', () => {
     expect(prefersReducedMotion({})).toBe(false)
   })
 })
+
+describe('one status message at a time', () => {
+  it('shows only the most urgent, in the brief order', async () => {
+    const {statusMessage} = await import('../../src/ui/screens/ar-status.js')
+    const ready = {phase: 'ready', directionKnown: true, manual: false, source: 'mazemap'}
+    expect(statusMessage({...ready, tracking: 'LIMITED', arrowsShown: false, pointAtFloor: true, positionUncertain: true}).key).toBe('tracking')
+    expect(statusMessage({...ready, tracking: 'NORMAL', pointAtFloor: true, positionUncertain: true}).key).toBe('floor')
+    expect(statusMessage({...ready, tracking: 'NORMAL', positionUncertain: true, rerouting: true}).text).toBe('Finding your position. Follow the map for now.')
+    expect(statusMessage({...ready, tracking: 'NORMAL', rerouting: true, source: 'direct'}).key).toBe('reroute')
+    expect(statusMessage({...ready, tracking: 'NORMAL', source: 'direct', compassPoor: true}).text).toBe('Approximate route')
+    expect(statusMessage({...ready, tracking: 'NORMAL', compassPoor: true}).key).toBe('compass')
+    expect(statusMessage({...ready, tracking: 'NORMAL'})).toBeNull()
+    expect(statusMessage({phase: 'await-start', manual: false}).text).toBe('Locating you…')
+  })
+})

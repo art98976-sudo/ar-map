@@ -20,6 +20,7 @@ import {icon} from '../icons.js'
 import {GROUND, INDOOR, ROUTING} from '../../config.js'
 import {paintDebugStats, paintLiveDebug, setStat as setDebugStat, toggleDebugPanel} from './ar-debug.js'
 import {errorCopy} from './ar-errors.js'
+import {statusMessage} from './ar-status.js'
 import {errorView, liveView, loadingView} from './ar-view.js'
 
 const MAP_SWIPE_PX = 40
@@ -264,8 +265,6 @@ export function arScreen(root, {navigate, params}) {
     wasLocked = s.locked
     paintStartCard(s)
     if (s.debug) paintLiveDebug(root, s)
-    const approx = root.querySelector('[data-approx-hint]')
-    if (approx) approx.hidden = s.source !== 'direct'
     const minimap = root.querySelector('[data-minimap]')
     if (minimap && mapFailed && s.minimap) drawMinimap(minimap, s.minimap)
     paintDebugStats(root, s)
@@ -399,18 +398,23 @@ export function arScreen(root, {navigate, params}) {
   }
 
   /** One thing to do at a time: only the most urgent of these shows. */
+  /** The one status slot: only the most urgent message (ar-status.js), fading from one to the next. */
   function paintHints(s) {
-    const hints = [
-      ['[data-position-hint]', s.positionUncertain],
-      ['[data-reroute-hint]', s.rerouting],
-      ['[data-floor-hint]', s.pointAtFloor],
-      ['[data-compass-pill]', s.compassUnsteady || s.compassPoor],
-      ['[data-locating]', !s.manual && !s.startBlocked && (s.phase === 'await-start' || (s.phase === 'ready' && !s.directionKnown))],
-    ]
-    const wanted = hints.find(([, show]) => show)?.[0]
-    for (const [name] of hints) {
-      const el = root.querySelector(name)
-      if (el) el.hidden = name !== wanted
+    const slot = root.querySelector('[data-status-slot]')
+    if (slot) {
+      const message = statusMessage(s)
+      const key = message?.key ?? ''
+      if (slot.dataset.key !== key) {
+        slot.dataset.key = key
+        slot.classList.remove('is-showing')
+        slot.hidden = !message
+        if (message) {
+          render(slot.querySelector('[data-status-icon]'), icon(message.icon, {size: 18}))
+          slot.querySelector('[data-status-text]').textContent = message.text
+          void slot.offsetWidth // restart the fade
+          slot.classList.add('is-showing')
+        }
+      }
     }
     const live = root.querySelector('[data-action="go-live"]')
     if (live) live.hidden = !s.liveAvailable
