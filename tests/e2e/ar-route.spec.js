@@ -68,10 +68,14 @@ test.describe('route and arrows', () => {
     await expect(page.locator('[data-stat="phase"]')).toHaveText('ready', {timeout: 30_000})
     await expect(page.locator('[data-start]')).toBeHidden()
     await expect(page.locator('[data-compass-map]')).toBeVisible()
-    // Line-up: a drag turns the route, "Looks right" keeps it; "Re-align" opens it again.
+    // Group B: no line-up step. The arrows show at once; "Re-align" opens the drag on demand,
+    // a drag turns the route and "Looks right" keeps it.
     const lineUp = page.getByRole('region', {name: 'Line up the arrows'})
-    await expect(lineUp).toBeVisible({timeout: 10_000})
-    await expect(page.getByRole('button', {name: 'Re-align the arrows with the path'})).toBeHidden()
+    const realign = page.getByRole('button', {name: 'Re-align the arrows with the path'})
+    await expect(realign).toBeVisible({timeout: 10_000})
+    await expect(lineUp).toBeHidden()
+    await realign.click()
+    await expect(lineUp).toBeVisible()
     const box = (await page.locator('.ar').boundingBox())
     await page.mouse.move(box.width * 0.3, box.height * 0.4)
     await page.mouse.down()
@@ -79,12 +83,7 @@ test.describe('route and arrows', () => {
     await page.mouse.up()
     await lineUp.getByRole('button', {name: 'Looks right'}).click()
     await expect(lineUp).toBeHidden()
-    const realign = page.getByRole('button', {name: 'Re-align the arrows with the path'})
     await expect(realign).toBeVisible()
-    await realign.click()
-    await expect(lineUp).toBeVisible()
-    await lineUp.getByRole('button', {name: 'Looks right'}).click()
-    await expect(lineUp).toBeHidden()
     // ?debug=1: the live overlay.
     await expect(page.locator('[data-live="segment"]')).toHaveText(/^\d+°$/, {timeout: 10_000})
     await expect(page.locator('[data-live="look"]')).toHaveText(/^\d+°$/)

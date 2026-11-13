@@ -26,7 +26,7 @@ export function locationErrorCode(err) {
  *   status: 'searching' (no fix yet) | 'weak' (fix, not accurate enough) | 'ready'
  *   indoors: true once we've waited `indoorAfterMs` without ever getting a good fix
  */
-export function createFixGate({goodAccuracyM = GPS.goodAccuracyM, indoorAfterMs = GPS.indoorAfterMs, startedAt = Date.now()} = {}) {
+export function createFixGate({goodAccuracyM = GPS.goodAccuracyM, indoorAfterMs = GPS.indoorAfterMs, askStartAfterMs = GPS.askStartAfterMs, startedAt = Date.now()} = {}) {
   let latest = null
   let everGood = false
 
@@ -37,6 +37,8 @@ export function createFixGate({goodAccuracyM = GPS.goodAccuracyM, indoorAfterMs 
       accuracy: latest?.accuracy ?? null,
       level: latest ? accuracyLevel(latest.accuracy, goodAccuracyM) : null,
       indoors: !ready && !everGood && now - startedAt >= indoorAfterMs,
+      // 20 m or better starts at once; anything worse for 10 s asks for a start instead.
+      askStart: !ready && now - startedAt >= askStartAfterMs,
       fix: latest,
     }
   }

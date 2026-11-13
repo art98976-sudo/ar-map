@@ -6,18 +6,17 @@
 import {permissionsAllowed} from '../../ar/permissions.js'
 import {parseUserAgent} from '../../ar/device.js'
 import {DESTINATIONS, findDestination} from '../../map/destinations.js'
-import {entranceNameFor} from '../../route/card-text.js'
+import {entranceNameFor, tripPillText} from '../../route/card-text.js'
 import {GPS_START, isManual, setStart, standHereText} from '../../route/start-point.js'
 import {indoorRestM, readTripRoute, tripLengthM} from '../../route/route.js'
 import {readTripFix} from '../../geo/location.js'
-import {formatDistance} from '../../ar/pin.js'
 import {prefersReducedMotion, showArrival} from '../components/arrival.js'
 import {showToast} from '../components/toast.js'
 import {drawMinimap} from '../components/ar-minimap.js'
 import {createCompassMap} from '../components/compass-map.js'
 import {focusScreen, haptic, onAction, render} from '../dom.js'
 import {icon} from '../icons.js'
-import {FIRST_USE, GROUND, INDOOR, ROUTING} from '../../config.js'
+import {FIRST_USE, GROUND, INDOOR} from '../../config.js'
 import {markSeen, seen} from '../first-use.js'
 import {paintDebugStats, paintLiveDebug, setStat as setDebugStat, toggleDebugPanel} from './ar-debug.js'
 import {errorCopy} from './ar-errors.js'
@@ -36,10 +35,7 @@ export function arriveLabel({name, category}) {
 }
 
 /** The one line on the AR screen: "Pathfoot · 120 m · 2 min". */
-export function tripPillText(name, metres) {
-  const minutes = Math.max(1, Math.round(metres / ROUTING.walkSpeedMps / 60))
-  return `${name.replace(/ Building$/, '')} · ${formatDistance(metres)} · ${minutes} min`
-}
+export {tripPillText} // moved to card-text.js; the home map trip uses it too
 
 export function arScreen(root, {navigate, params}) {
   const allowDesktop = params.force === '1'

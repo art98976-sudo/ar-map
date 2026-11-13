@@ -164,6 +164,13 @@ export const FIRST_USE = {
   tiltMs: 3000,
 }
 
+// Group B: no line-up step. The arrows show at once and settle as the walk is matched.
+export const LINE_UP = {
+  unconfirmedOpacity: 0.8, // until the walked track matches the route (or the user lined them up)
+  offerAfterS: 10, // still not matching this long after walking far enough: offer Re-align
+  floorPromptAfterS: 3, // "Point your phone at the floor" only once the floor is missing this long
+}
+
 export const SAFETY = {
   lookUpAfterS: 10, // walking this long with the phone held up in front...
   lookUpForS: 3, // ...shows the reminder for this long
@@ -331,6 +338,8 @@ export const GPS = {
   goodAccuracyM: 20,
   // If we never reach a good fix for this long, the user is probably indoors.
   indoorAfterMs: 30_000,
+  // Group B: no good fix within this long, ask the user to pick where they are starting.
+  askStartAfterMs: 10_000,
   // How long one watchPosition attempt may wait before reporting a timeout.
   timeoutMs: 20_000,
   // Enough for a walking time: the home screen stops the GPS after this, to save battery.

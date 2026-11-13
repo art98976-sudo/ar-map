@@ -25,7 +25,7 @@ import {findDestination} from '../../map/destinations.js'
 import {showToast} from '../components/toast.js'
 import {focusScreen, haptic, html, onAction, render} from '../dom.js'
 import {CATEGORY_ICON, icon} from '../icons.js'
-import {GPS, START} from '../../config.js'
+import {GPS} from '../../config.js'
 import {GUIDE_LINES, markSeen, seen} from '../first-use.js'
 
 const CONTINUE_DELAY_MS = 900
@@ -139,7 +139,7 @@ export function locateScreen(root, {navigate, params}) {
     const title = root.querySelector('[data-title]')
     const body = root.querySelector('[data-body]')
     root.querySelector('[data-indoors]').hidden = !s.indoors
-    root.querySelector('[data-choose-start]').hidden = !(s.indoors || (s.status === 'weak' && s.accuracy > START.weakGpsM))
+    root.querySelector('[data-choose-start]').hidden = !(s.indoors || s.askStart)
 
     if (s.status === 'searching') return
     const acc = Math.round(s.accuracy)

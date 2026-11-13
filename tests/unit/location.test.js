@@ -48,6 +48,16 @@ describe('createFixGate', () => {
     expect(gate.update(pos(4), 3000).fix).toMatchObject({lat: 56.1452, lng: -3.9201, accuracy: 4})
   })
 
+  it('Group B: 20 m or better starts at once; worse for 10 s asks for a start', () => {
+    const gate = createFixGate({startedAt: 0})
+    expect(gate.update(pos(15), 500)).toMatchObject({status: 'ready', askStart: false})
+    const weak = createFixGate({startedAt: 0})
+    expect(weak.update(pos(35), 1000).askStart).toBe(false)
+    expect(weak.check(9_999).askStart).toBe(false)
+    expect(weak.check(10_000).askStart).toBe(true)
+    expect(createFixGate({startedAt: 0}).check(10_000).askStart).toBe(true) // no fix at all
+  })
+
   it('goes back to waiting if accuracy gets worse again', () => {
     const gate = createFixGate({startedAt: 0})
     gate.update(pos(8), 1000)

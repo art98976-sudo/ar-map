@@ -11,6 +11,8 @@ export function statusMessage(s) {
     // Tracking lost long enough to hide the arrows.
     [ready && s.tracking && s.tracking !== 'NORMAL' && s.arrowsShown === false, {key: 'tracking', icon: 'alert', text: 'Tracking lost. Move slowly'}],
     [ready && s.pointAtFloor, {key: 'floor', icon: 'arrowDown', text: 'Point your phone at the floor'}],
+    // Group B: the walk has not matched the route for 10 s: the arrows may be off.
+    [ready && s.offerRealign, {key: 'realign', icon: 'drag', text: 'Arrows off the path? Tap Re-align'}],
     [ready && s.positionUncertain, {key: 'position', icon: 'compass', text: 'Finding your position. Follow the map for now.'}],
     [ready && s.rerouting, {key: 'reroute', icon: 'refresh', text: 'Finding a new route'}],
     [ready && s.source === 'direct', {key: 'approximate', icon: 'map', text: 'Approximate route'}],

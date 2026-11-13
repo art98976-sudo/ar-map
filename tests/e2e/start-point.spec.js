@@ -15,6 +15,8 @@ async function openCard(page, id = 'library') {
   await page.goto(`/#/?to=${id}`)
   await expect(page.locator('.map-pin').first()).toBeAttached({timeout: 45_000})
   await expect(page.locator('[data-ar-choice]')).toBeVisible({timeout: 15_000})
+  // The start, swap and step-free are folded into "From my location · Options".
+  await page.locator('[data-action="toggle-options"]').click()
 }
 
 const fromRow = (page) => page.locator('.route-from__row')
@@ -23,7 +25,7 @@ test.describe('starting point', () => {
   test('the From row shows GPS with its accuracy, above the destination', async ({page}, testInfo) => {
     test.skip(onlyOn('desktop-chrome', 'android-chrome')(testInfo))
     await openCard(page)
-    await expect(page.locator('[data-start-text]')).toHaveText(/^Current location · ±\d+ m$/, {timeout: 20_000})
+    await expect(page.locator('[data-start-value]')).toHaveText(/^Current location · ±\d+ m$/, {timeout: 20_000})
     const from = await fromRow(page).boundingBox()
     const to = await page.locator('[data-card] .dest-sheet__name').boundingBox()
     expect(from.y).toBeLessThan(to.y)
@@ -40,11 +42,13 @@ test.describe('starting point', () => {
     await sheet.getByRole('combobox').fill('cottrell')
     await sheet.getByRole('option', {name: /^Cottrell Building/}).click()
     await expect(sheet).toBeHidden()
-    await expect(page.locator('[data-start-text]')).toHaveText('Cottrell main entrance')
+    await expect(page.locator('[data-start-value]')).toHaveText('Cottrell main entrance')
     await expect(fromRow(page)).toBeFocused()
     await page.reload()
-    await expect(page.locator('[data-start-text]')).toHaveText('Cottrell main entrance', {timeout: 45_000})
+    await expect(page.locator('[data-start-value]')).toHaveText('Cottrell main entrance', {timeout: 45_000})
+    await expect(page.locator('[data-start-text]')).toHaveText('Cottrell main entrance') // the folded line says it too
     // And it shows at the top next time, under Recent.
+    await page.locator('[data-action="toggle-options"]').click()
     await fromRow(page).click()
     await expect(sheet.getByRole('heading', {name: 'Recent'})).toBeVisible()
     await expect(sheet.getByRole('option', {name: /^Cottrell Building/})).toBeVisible()
@@ -59,7 +63,7 @@ test.describe('starting point', () => {
     await sheet.getByRole('option', {name: /^Cottrell Building/}).click()
     await page.getByRole('button', {name: 'Swap start and destination'}).click()
     await expect(page.locator('[data-card] .dest-sheet__name')).toHaveText('Cottrell Building')
-    await expect(page.locator('[data-start-text]')).toHaveText('Library main entrance')
+    await expect(page.locator('[data-start-value]')).toHaveText('Library main entrance')
     await expect(page).toHaveURL(/to=cottrell/)
   })
 
@@ -76,7 +80,7 @@ test.describe('starting point', () => {
     await confirm.click()
     await expect(page.locator('[data-card]')).toBeVisible()
     await expect(page.locator('.map-pick-pin')).toHaveCount(0)
-    await expect(page.locator('[data-start-text]')).toHaveText('Pin on the map')
+    await expect(page.locator('[data-start-value]')).toHaveText('Pin on the map')
     await expect(page.locator('.map-start')).toBeVisible()
   })
 
@@ -87,7 +91,7 @@ test.describe('starting point', () => {
     await page.getByRole('button', {name: /Pick on map/}).click()
     await page.getByRole('button', {name: 'Cancel'}).click()
     await expect(page.locator('[data-card]')).toBeVisible()
-    await expect(page.locator('[data-start-text]')).toContainText('Current location')
+    await expect(page.locator('[data-start-value]')).toContainText('Current location')
   })
 
   test('GPS blocked: never stuck, it offers a manual start', async ({page}, testInfo) => {

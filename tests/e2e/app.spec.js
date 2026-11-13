@@ -197,7 +197,7 @@ test.describe('the destination card', () => {
     await expect(card.getByRole('heading', {name: 'Pathfoot Building'})).toBeVisible()
     await expect(card).toContainText('Academic building')
     await expect(card.locator('[data-ar-choice]')).toBeVisible()
-    await expect(card.getByRole('button', {name: 'Show route on map'})).toBeVisible()
+    await expect(card.getByRole('button', {name: 'Show route on map'})).toHaveCount(0) // one button: Go
     await expect(page.locator('[data-pin="pathfoot"]')).toHaveClass(/is-selected/)
   })
 
@@ -218,16 +218,27 @@ test.describe('the destination card', () => {
     await noGps.close()
   })
 
-  test('shows the route on the map, and hides it again', async ({page}, testInfo) => {
+  test('the route is drawn behind the card as soon as it opens, and goes with it', async ({page}, testInfo) => {
     test.skip(onlyOn('desktop-chrome')(testInfo))
-    await page.goto('/')
+    await page.goto('/#/?debug=1')
     await mapReady(page)
     await tapPin(page, 'pathfoot')
-    await page.getByRole('button', {name: 'Show route on map'}).click()
-    const hide = page.getByRole('button', {name: 'Hide route'})
-    await expect(hide).toBeVisible({timeout: 30_000})
-    await hide.click()
-    await expect(page.getByRole('button', {name: 'Show route on map'})).toBeVisible()
+    const drawn = () => page.evaluate(() => Boolean(window.__homeMap?.getLayer('walking-route')))
+    await expect.poll(drawn, {timeout: 30_000}).toBe(true)
+    await page.getByRole('button', {name: 'Close', exact: true}).click()
+    await expect.poll(drawn).toBe(false)
+  })
+
+  test('From my location · Options folds the start, swap and step-free into one line', async ({page}, testInfo) => {
+    test.skip(onlyOn('desktop-chrome')(testInfo))
+    await page.goto('/#/?to=library')
+    const options = page.getByRole('button', {name: /From .* · Options/})
+    await expect(options).toBeVisible({timeout: 30_000})
+    await expect(page.getByRole('switch', {name: 'Step-free route'})).toBeHidden()
+    await options.click()
+    await expect(options).toHaveAttribute('aria-expanded', 'true')
+    await expect(page.getByRole('switch', {name: 'Step-free route'})).toBeVisible()
+    await expect(page.getByRole('button', {name: 'Swap start and destination'})).toBeVisible()
   })
 
   test('#/?to= opens with that place selected', async ({page}) => {
@@ -235,12 +246,12 @@ test.describe('the destination card', () => {
     await expect(page.locator('[data-card]').getByRole('heading', {name: 'Sports Centre'})).toBeVisible()
   })
 
-  test('Walk here in AR goes straight on, with no permission screen', async ({page}, testInfo) => {
+  test('Go goes straight on, with no permission screen', async ({page}, testInfo) => {
     test.skip(onlyOn('iphone-safari')(testInfo))
     await page.addInitScript(() => localStorage.setItem('welcomeAR.guideSeen.v1', '1')) // a returning user: the guide was seen
     await page.addInitScript(IPHONE_CAMERA_STUB)
     await page.goto('/#/?to=library')
-    await page.getByRole('button', {name: 'Walk here in AR'}).click()
+    await page.getByRole('button', {name: 'Go', exact: true}).click()
     await expect(page).toHaveURL(/#\/(locate|ar)\?to=library/, {timeout: 5000})
     await expect(page.getByRole('button', {name: 'Tap to start'})).toHaveCount(0)
   })
@@ -283,9 +294,13 @@ test.describe('phones and browsers that cannot run AR', () => {
     // 8.4: found before any AR button shows. The card says why, and offers the route on the map.
     await page.goto('/#/?to=library')
     const card = page.locator('[data-card]')
-    await expect(card.locator('[data-ar-unsupported]')).toContainText('AR works on your phone', {timeout: 15_000})
-    await expect(card.getByRole('button', {name: 'Walk here in AR'})).toHaveCount(0)
-    await expect(card.getByRole('button', {name: 'Show route on map'})).toHaveClass(/btn--primary/)
+    // Group A: the same Go button, no error. Here it starts the trip on the map.
+    const go = card.getByRole('button', {name: 'Go', exact: true})
+    await expect(go).toHaveAttribute('data-action', 'map-trip', {timeout: 15_000})
+    await go.click()
+    await expect(page.locator('[data-map-trip-text]')).toHaveText(/^Library · \d+ m · \d+ min$/, {timeout: 30_000})
+    await page.getByRole('button', {name: 'End the trip'}).click()
+    await expect(card.getByRole('heading', {name: 'Library'})).toBeVisible()
     // A link straight to the camera still explains, with a copy link and the map.
     await page.goto('/#/locate?to=library')
     await expect(page.getByRole('heading', {name: 'AR works on your phone'})).toBeVisible()
@@ -316,7 +331,7 @@ test.describe('AR session', () => {
     await page.goto('/')
     await mapReady(page)
     await tapPin(page, 'cottrell')
-    await page.getByRole('button', {name: 'Walk here in AR'}).click()
+    await page.getByRole('button', {name: 'Go', exact: true}).click()
     // The engine was fetched while the card was showing, so there may be no loading screen at all.
     await expect(page.locator('canvas[data-canvas]')).toBeVisible({timeout: 60_000})
     await expect(page.locator('[data-veil]')).toHaveClass(/is-hidden/, {timeout: 60_000})

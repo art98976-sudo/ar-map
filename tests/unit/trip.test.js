@@ -460,14 +460,16 @@ describe('the arrows on the real ground', () => {
     }
   }
 
-  it('starts on the phone height minus 1.4 m, with no hits: half-transparent, "Point your phone at the floor"', () => {
+  it('starts on the phone height minus 1.4 m, with no hits: half-transparent; "Point your phone at the floor" only after 3 s', () => {
     const t = start(() => [])
     t.run(0.5)
     near(t.root.position.y, 0.1, 0.001)
-    expect(t.box.stats).toMatchObject({groundSource: 'fallback', floorSource: 'fallback', pointAtFloor: true, arrowsShown: true})
+    expect(t.box.stats).toMatchObject({groundSource: 'fallback', floorSource: 'fallback', pointAtFloor: false, arrowsShown: true})
     near(t.box.stats.floorBelowM, 1.4, 0.001)
     const fill = t.root.getObjectByName('chevron-1').children[2].material
-    near(fill.opacity, 0.5, 0.01)
+    near(fill.opacity, 0.5 * 0.8, 0.01) // a guessed floor, and not yet matched by walking
+    t.run(3)
+    expect(t.box.stats.pointAtFloor).toBe(true)
     t.done()
   })
 
@@ -482,7 +484,7 @@ describe('the arrows on the real ground', () => {
     t.run(2)
     near(t.root.position.y, -0.1, 0.01)
     expect(t.box.stats).toMatchObject({floorSource: 'hits', pointAtFloor: false})
-    near(t.root.getObjectByName('chevron-1').children[2].material.opacity, 1, 0.01)
+    near(t.root.getObjectByName('chevron-1').children[2].material.opacity, 0.8, 0.01) // floor found; 80% until the walk matches
     t.done()
   })
 
@@ -688,9 +690,12 @@ describe('walking beats the compass', () => {
     }
   }
 
-  it('line-up: opens after Start, a drag turns the route about the user, and after "Looks right" the compass never turns it again', () => {
+  it('line-up: no step after Start; Re-align opens it, a drag turns the route about the user, and after "Looks right" the compass never turns it again', () => {
     const t = startTrip(0)
     for (let i = 0; i < 10; i++) t.frame()
+    expect(t.box.stats).toMatchObject({lineUp: false, canRealign: true, arrowsShown: true})
+    expect(t.trip.reopenLineUp()).toBe(true)
+    for (let i = 0; i < 6; i++) t.frame()
     expect(t.box.stats).toMatchObject({lineUp: true, canRealign: false})
     const before = wrapped(t.box.stats.yawDeg)
     // Drag right 30°: the route turns clockwise seen from above, about where the user stands.
@@ -744,7 +749,7 @@ describe('walking beats the compass', () => {
     expect(t.box.stats.floorChange).toEqual({toLevel: 2, up: true})
     expect(t.trip.confirmFloor()).toBe(true)
     for (let i = 0; i < 6; i++) t.frame()
-    expect(t.box.stats).toMatchObject({floorChange: null, lineUp: true, floorLevel: 2})
+    expect(t.box.stats).toMatchObject({floorChange: null, lineUp: false, floorLevel: 2})
     expect(t.box.stats.userS).toBeGreaterThan(20)
     t.done()
   })
@@ -767,15 +772,16 @@ describe('walking beats the compass', () => {
     t.done()
   })
 
-  it('back from the background: the line-up opens again, and the compass still may not turn the route', () => {
+  it('back from the background: no line-up step, and the compass still may not turn the route', () => {
     const t = startTrip(0)
     for (let i = 0; i < 10; i++) t.frame()
+    t.trip.reopenLineUp() // lined up by hand with Re-align
     t.trip.confirmLineUp()
     for (let i = 0; i < 6; i++) t.frame()
     expect(t.box.stats.lineUp).toBe(false)
     t.trip.onResume()
     for (let i = 0; i < 6; i++) t.frame()
-    expect(t.box.stats).toMatchObject({lineUp: true, compassLocked: true, floorSource: 'fallback'})
+    expect(t.box.stats).toMatchObject({lineUp: false, compassLocked: true, floorSource: 'fallback'})
     t.done()
   })
 
@@ -798,7 +804,7 @@ describe('walking beats the compass', () => {
     const arrows = t.scene.getObjectByName('ground-arrows')
     expect(arrows.parent).toBe(root) // in the AR world, not over the screen
     expect(arrows.visible).toBe(true)
-    expect(t.box.stats).toMatchObject({aligned: true, arrowsShown: true, arrowsCreated: 11, pointAtFloor: true, groundSource: 'fallback'})
+    expect(t.box.stats).toMatchObject({aligned: true, arrowsShown: true, arrowsCreated: 11, pointAtFloor: false, groundSource: 'fallback'})
     expect(t.box.stats.arrowsDrawn).toBeGreaterThanOrEqual(9)
     // No floor hit yet: the floor is the phone's height minus 1.4 m, and nothing waits for a hit.
     for (let i = 0; i < 40; i++) t.frame()

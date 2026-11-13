@@ -49,6 +49,7 @@ export const homePage = () => html`
       <div class="home-sheet__body" data-chip-results aria-live="polite"></div>
     </section>
     <section class="dest-sheet" data-card hidden aria-live="polite" aria-label="Selected place"></section>
+    <section class="map-trip theme-auto" data-map-trip hidden aria-label="Trip on the map"></section>
 
     <section class="pick-bar" data-pick-bar aria-label="Pick your start on the map" hidden>
       <p class="pick-bar__text" data-pick-text role="status">Tap the map or drag the pin to where you are.</p>
@@ -158,13 +159,24 @@ export function placeCard(place, walkText, {stepFree = false, arIssue = null} = 
   const subtitle = subtitleFor(place.name, room || categoryLabel(place.category))
   return html`
     ${place.photo ? html`<img class="dest-sheet__photo" src="${place.photo}" alt="" loading="lazy" />` : ''}
-    <div class="route-from">
-      <button class="route-from__row" type="button" data-action="open-start">
-        <span class="route-from__label">From</span>
-        <span class="route-from__value" data-start-text></span>
-        ${icon('chevronRight', {size: 18})}
-      </button>
-      <button class="icon-btn" type="button" data-action="swap" aria-label="Swap start and destination">${icon('swap', {size: 20})}</button>
+    <!-- One line, "From my location · Options": the start, swap and step-free fold inside it. -->
+    <button class="route-options" type="button" data-action="toggle-options" aria-expanded="false" aria-controls="route-options">
+      <span class="route-options__from">From <span data-start-text>my location</span></span>
+      <span class="route-options__more">· Options ${icon('chevronRight', {size: 16, className: 'route-options__chev'})}</span>
+    </button>
+    <div class="route-options__panel" id="route-options" data-options hidden>
+      <div class="route-from">
+        <button class="route-from__row" type="button" data-action="open-start">
+          <span class="route-from__label">From</span>
+          <span class="route-from__value" data-start-value></span>
+          ${icon('chevronRight', {size: 18})}
+        </button>
+        <button class="icon-btn" type="button" data-action="swap" aria-label="Swap start and destination">${icon('swap', {size: 20})}</button>
+      </div>
+      <label class="step-free">
+        <input type="checkbox" role="switch" data-step-free ${stepFree ? 'checked' : ''} />
+        <span>Step-free route</span>
+      </label>
     </div>
     <p class="route-prompt" data-start-prompt hidden>
       We can't find you precisely.
@@ -180,23 +192,15 @@ export function placeCard(place, walkText, {stepFree = false, arIssue = null} = 
         <p class="dest-sheet__walk" data-walk>${icon('footsteps', {size: 16})}<span data-walk-text>${walkText}</span></p>
         <p class="dest-sheet__indoor" data-indoor hidden>${icon('door', {size: 16})}<span data-indoor-text></span></p>
         <p class="dest-sheet__indoor" data-stairs hidden>${icon('lift', {size: 16})}<span>Stairs or lift needed</span></p>
-        <label class="step-free">
-          <input type="checkbox" role="switch" data-step-free ${stepFree ? 'checked' : ''} />
-          <span>Step-free route</span>
-        </label>
         <p class="dest-sheet__indoor" data-step-free-note ${stepFree ? '' : 'hidden'}>${icon('check', {size: 16})}<span>Step-free: no stairs on this route</span></p>
       </div>
       <button class="icon-btn" type="button" data-action="unselect" aria-label="Close">${icon('close', {size: 20})}</button>
     </div>
     <button class="btn btn--primary btn--block" type="button" data-action="show-way" hidden>${icon('map')}<span>Show the way</span></button>
-    ${arIssue
-      ? html`<div class="dest-sheet__no-ar" data-ar-choice data-ar-unsupported role="note">
-          <p>${icon('info', {size: 16})}<span><strong>${arIssue.title}.</strong> ${arIssue.body}</span></p>
-        </div>`
-      : html`<button class="btn btn--primary btn--block" type="button" data-action="walk" data-ar-choice aria-label="Walk here in AR">
-          ${icon('camera')}<span>Walk here in AR</span>
-        </button>`}
-    <button class="dest-sheet__link" type="button" data-action="route" aria-expanded="false" data-route-link>Show route on map</button>
+    <!-- One button. With AR it opens the camera; on a phone or browser without AR, the map trip. -->
+    <button class="btn btn--primary btn--lg btn--block dest-sheet__go" type="button" data-action="${arIssue ? 'map-trip' : 'walk'}" data-go data-ar-choice ${arIssue ? 'data-go-map' : ''}>
+      ${icon(arIssue ? 'map' : 'arrive')}<span>Go</span>
+    </button>
   `
 }
 

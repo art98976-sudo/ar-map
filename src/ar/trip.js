@@ -32,7 +32,7 @@ import {createGuidance, landmarksFrom} from '../route/guidance.js'
 import {createArrivalDetector, createConfidenceMonitor, createOffRouteMonitor} from '../route/trip-monitors.js'
 import {entranceOf, isOnCampus, planRoute} from '../route/route.js'
 import {markerName} from '../route/card-text.js'
-import {COMPASS_GUIDE, GPS, GROUND, GROUND_ARROWS, INDOOR, PIN, ROUTING, SAFETY, SHELL, START, TRIP} from '../config.js'
+import {COMPASS_GUIDE, GPS, GROUND, GROUND_ARROWS, INDOOR, LINE_UP, MATCH, PIN, ROUTING, SAFETY, SHELL, START, TRIP} from '../config.js'
 
 /** Compass-style bearing of a direction: degrees clockwise from north (or from SLAM -Z). */
 function bearing(east, north) {
@@ -302,8 +302,10 @@ export function createArTrip({
     navPose.reset()
     startS = info.s
     restartWindow()
-    // Line the arrows up with the real path by hand, unless the start already knows its facing.
-    lineUp = !facingKnown
+    // Group B: no line-up step. The arrows show at once (dimmed) and the walk lines them up;
+    // "Re-align" opens the drag step on demand. facingKnown is kept for the record.
+    void facingKnown
+    lineUp = false
     lineUpTouched = false
     setPhase('ready', {heading: headingDeg})
   }
@@ -699,6 +701,35 @@ export function createArTrip({
     return null
   }
 
+  // ---------- Group B: no line-up step ----------
+  let unconfirmedSince = null
+  let offerRealign = false
+  let floorMissingSince = null
+
+  /** The arrows are placed for sure: the walked track matches the route, or the user lined them up. */
+  function arrowsConfirmed() {
+    return Boolean(matcher?.confident || matcher?.locked || compassLocked)
+  }
+
+  /**
+   * Still not matching LINE_UP.offerAfterS after walking far enough to tell: offer "Re-align".
+   * Standing still is not "poor": nothing can be matched yet. And the floor prompt waits 3 s.
+   */
+  function watchLineUp(time) {
+    const ready = phase === 'ready' && !arrived && nav?.aligned
+    if (!ready || lineUp || arrowsConfirmed() || (matcher?.walkedM ?? 0) < MATCH.minWalkedM) {
+      unconfirmedSince = null
+      if (arrowsConfirmed()) offerRealign = false
+    } else {
+      unconfirmedSince ??= time
+      if (time - unconfirmedSince >= LINE_UP.offerAfterS) offerRealign = true
+    }
+    if (ready && !floorNow.found) floorMissingSince ??= time
+    else floorMissingSince = null
+  }
+
+  const floorPromptDue = (time) => floorMissingSince != null && time - floorMissingSince >= LINE_UP.floorPromptAfterS
+
   /** Once a frame indoors: is a stair or lift close? Has the walk stopped matching the route? */
   function checkIndoor(time) {
     if (phase !== 'ready' || arrived || !tracker) {
@@ -747,7 +778,7 @@ export function createArTrip({
     lastMatchAt = -Infinity
     offerReanchor = false
     poorSince = null
-    lineUp = true
+    lineUp = false
     lineUpTouched = false
     return true
   }
@@ -846,7 +877,11 @@ export function createArTrip({
     arrowsShown = arrowsWanted(time)
     checkBlocked()
     // Half-transparent while the floor is still a guess; solid once it is found (or tapped).
-    nav.updateArrows({userS: routeS, slope: groundNow.slope, show: arrowsShown, opacity: floorNow.found ? 1 : GROUND_ARROWS.guessOpacity, dt, time, lift: arrowLevelLift()})
+    // 80% until the walked track matches the route, then full (Group B).
+    watchLineUp(time)
+    const floorOpacity = floorNow.found ? 1 : GROUND_ARROWS.guessOpacity
+    const matchOpacity = arrowsConfirmed() ? 1 : LINE_UP.unconfirmedOpacity
+    nav.updateArrows({userS: routeS, slope: groundNow.slope, show: arrowsShown, opacity: floorOpacity * matchOpacity, dt, time, lift: arrowLevelLift()})
     updateShell(time)
     checkIndoor(time)
     watchHeldUp(dt, time)
@@ -906,7 +941,10 @@ export function createArTrip({
         edgeArrowDeg: arrowsShown ? (nav.arrowsOffscreen()?.angleDeg ?? null) : null,
         turnRings: arrowsShown ? nav.turnRingsShown : 0,
         // Until the floor is found (or after tracking is lost): "Point your phone at the floor".
-        pointAtFloor: phase === 'ready' && !arrived && Boolean(nav.aligned) && (!arrowsShown || !floorNow.found),
+        // Only once the floor has been missing for LINE_UP.floorPromptAfterS (3 s).
+        pointAtFloor: phase === 'ready' && !arrived && Boolean(nav.aligned) && floorPromptDue(time),
+        offerRealign: phase === 'ready' && !arrived && offerRealign,
+        arrowsConfirmed: arrowsConfirmed(),
         floorSource: floorNow.source,
         floorBelowM: floorNow.belowPhoneM,
         floorHits: floorNow.hits,
@@ -1029,14 +1067,15 @@ export function createArTrip({
       trackingLostAt = null
       matcher = createRouteMatcher(nav.route)
       lastMatchAt = -Infinity
-      if (phase === 'ready' && !arrived && nav.aligned) {
-        lineUp = true
-        lineUpTouched = false
-      }
+      // Back from the background: the walk lines the arrows up again (dimmed until it does).
+      unconfirmedSince = null
+      offerRealign = false
     },
     /** The "Re-align" button: open the line-up step again. */
     reopenLineUp() {
       if (phase !== 'ready' || arrived || !nav?.aligned) return false
+      offerRealign = false
+      unconfirmedSince = null
       lineUp = true
       lineUpTouched = false
       return true

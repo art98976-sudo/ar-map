@@ -3,7 +3,7 @@
 import {formatDistance} from '../ar/pin.js'
 import {distanceM} from '../geo/geo.js'
 import {normalize} from '../map/search.js'
-import {CARD} from '../config.js'
+import {CARD, ROUTING} from '../config.js'
 import {walkingMinutes} from './route.js'
 
 /** "1 min · 95 m" from a walking distance in metres; null without one. */
@@ -63,4 +63,10 @@ export function markerName(dest, door, places, indoorAR = false) {
 /** Is the user's GPS too rough to trust the walk time? */
 export function locationApproximate(fix) {
   return Boolean(fix && Number.isFinite(fix.accuracy) && fix.accuracy > CARD.approximateM)
+}
+
+/** The trip pill: "Cottrell · 120 m · 2 min". The same words in AR and on the map trip. */
+export function tripPillText(name, metres) {
+  const minutes = Math.max(1, Math.round(metres / ROUTING.walkSpeedMps / 60))
+  return `${name.replace(/ Building$/, '')} · ${formatDistance(metres)} · ${minutes} min`
 }

@@ -136,7 +136,7 @@ export function createMapPins(root, {getMap, getSelected, canSelect, onSelect}) 
     const all = [
       // The selected place, and the places a chip asked for, always show; names win over the rest.
       ...shown.map((p) => ({id: p.id, el: p.el, keep: p.id === selectedId || Boolean(filter), ...map.project(p.m.getLngLat())})),
-      ...clusters.map((m, i) => ({id: `cluster-${i}`, el: m.getElement(), ...map.project(m.getLngLat())})),
+      ...clusters.map((m, i) => ({id: `cluster-${i}`, el: m.getElement(), keep: Boolean(filter), ...map.project(m.getLngLat())})),
     ]
     const hide = blockedPins(all, boxes, HOME_MAP.pinDotPx)
     for (const p of all) p.el.classList.toggle('is-blocked', hide.has(p.id))

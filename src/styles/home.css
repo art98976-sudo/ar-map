@@ -579,3 +579,88 @@
   font-size: 12px;
   color: var(--text-muted, #5c6b64);
 }
+
+/* ---------- Group A: one Go button, options folded into one line ---------- */
+.route-options {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-height: var(--tap);
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--fs-body);
+  color: var(--c-text-2);
+  text-align: left;
+  cursor: pointer;
+}
+.route-options__from {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--c-text);
+}
+.route-options__more {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  color: var(--c-primary);
+  font-weight: 600;
+}
+.route-options__chev {
+  transition: transform var(--t-fast, 0.15s) ease;
+}
+.route-options[aria-expanded='true'] .route-options__chev {
+  transform: rotate(90deg);
+}
+.route-options__panel {
+  display: grid;
+  gap: var(--sp-2);
+  padding: 0 0 var(--sp-2);
+}
+.route-options__panel[hidden] {
+  display: none;
+}
+.dest-sheet__go {
+  min-height: 56px;
+  font-size: 1.125rem;
+}
+.dest-sheet__go[aria-busy='true'] {
+  opacity: 0.7;
+}
+
+/* The map trip: one pill and a close button at the top, the sheet out of the way. */
+.map-trip {
+  position: absolute;
+  z-index: 6;
+  left: calc(var(--safe-left, 0px) + 16px);
+  right: calc(var(--safe-right, 0px) + 16px);
+  top: calc(var(--safe-top, 0px) + 8px);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.map-trip[hidden] {
+  display: none;
+}
+.map-trip__pill {
+  display: flex;
+  flex: 1;
+  gap: 8px;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 16px;
+  border-radius: 999px;
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+  font-weight: 600;
+  box-shadow: var(--shadow);
+}
+[data-map-trip-on] .map-home__top,
+[data-map-trip-on] [data-home-sheet] {
+  display: none;
+}

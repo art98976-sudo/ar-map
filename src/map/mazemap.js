@@ -152,6 +152,7 @@ export function createCampusMap(Mazemap, container, {onReady, onError, controls 
         positionOptions: {enableHighAccuracy: true},
         trackUserLocation: true,
         showUserHeading: true,
+        fitBoundsOptions: {maxZoom: 17.5}, // close enough to see the paths around you
       })
       map.addControl(instance.geolocate, 'bottom-right')
     } catch (err) {

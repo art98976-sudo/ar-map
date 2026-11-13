@@ -2,6 +2,7 @@
 // #/?to=<id> opens with a place selected.
 import {createCampusMap, loadMazeMap} from '../../map/mazemap.js'
 import {clearRouteLine, drawRouteLine} from '../../map/route-line.js'
+import {createMapTrip} from '../components/map-trip.js'
 import {createDestinationSearch} from '../components/destination-search.js'
 import {createMapPicker} from '../components/map-picker.js'
 import {createMapPins} from '../components/map-pins.js'
@@ -43,7 +44,6 @@ export function homeScreen(root, {navigate, params}) {
   let selected = findDestination(params.to)
   let cardRoute = null // the route planned for the card (door, level, whole distance)
   let planningFor = null // the destination a quiet plan is running for
-  let routeRequest = 0
   let disposed = false
   let enginePrefetched = false
   let startMarker = null
@@ -142,6 +142,7 @@ export function homeScreen(root, {navigate, params}) {
     onFix: () => {
       refreshWalkText()
       paintStart()
+      mapTrip?.update(fixWatch.fix)
     },
     onTrouble: () => paintStart(),
   })
@@ -176,6 +177,7 @@ export function homeScreen(root, {navigate, params}) {
   }
 
   function unselect() {
+    endMapTrip()
     selected = null
     clearRoute()
     keepAddressInStep()
@@ -342,14 +344,46 @@ export function homeScreen(root, {navigate, params}) {
   function paintWayButton() {
     const indoor = indoorTrip()
     const way = root.querySelector('[data-action="show-way"]')
-    const walk = root.querySelector('[data-action="walk"]')
+    const go = root.querySelector('[data-go]')
     if (way) way.hidden = !indoor
-    if (walk) walk.hidden = indoor
-    // No AR here: the route on the map is the main way on.
-    const link = root.querySelector('[data-route-link]')
-    link?.classList.toggle('btn', !walk && !indoor)
-    link?.classList.toggle('btn--primary', !walk && !indoor)
-    link?.classList.toggle('btn--block', !walk && !indoor)
+    if (go) go.hidden = indoor
+  }
+
+  // ---------- the map trip: "Go" where AR cannot run ----------
+  let mapTrip = null
+
+  async function startMapTrip() {
+    const dest = selected
+    if (!dest || !instance?.map) return
+    const go = root.querySelector('[data-go]')
+    if (!cardRoute) {
+      if (go) go.setAttribute('aria-busy', 'true')
+      await quietPlan()
+      go?.removeAttribute('aria-busy')
+      if (!cardRoute || selected !== dest) return showToast('Could not plan a route. Try again.', {tone: 'warning'})
+    }
+    endMapTrip()
+    root.dataset.mapTripOn = ''
+    card.hidden = true
+    mapTrip = createMapTrip(root.querySelector('[data-map-trip]'), {map: instance.map, route: cardRoute, dest, onClose: endMapTrip})
+    instance.geolocate?.trigger?.()
+    mapTrip.update(fixWatch.fix)
+  }
+
+  function endMapTrip() {
+    if (!mapTrip) return
+    mapTrip.destroy()
+    mapTrip = null
+    delete root.dataset.mapTripOn
+    if (selected) card.hidden = false
+  }
+
+  /** Plan and draw the route as soon as a card opens: it shows behind the card, with no extra tap. */
+  function drawCardRoute() {
+    const map = instance?.map
+    if (!map || !cardRoute?.points?.length || !selected) return
+    clearRouteLine(map)
+    drawRouteLine(map, cardRoute.points, card.offsetHeight + 40)
   }
 
   /** The step-free switch: remembered on this device; the route is planned again without stairs. */
@@ -360,7 +394,6 @@ export function homeScreen(root, {navigate, params}) {
     const note = root.querySelector('[data-step-free-note]')
     if (note) note.hidden = !box.checked
     clearRoute()
-    setRouteLink('Show route on map')
     cardRoute = null
     refreshWalkText()
     paintIndoor()
@@ -401,6 +434,7 @@ export function homeScreen(root, {navigate, params}) {
       const route = await planRoute(from, dest)
       if (disposed || selected !== dest || route.status !== 'ok') return
       cardRoute = route
+      drawCardRoute()
       checkWalls(route)
       refreshWalkText()
       paintIndoor()
@@ -425,7 +459,9 @@ export function homeScreen(root, {navigate, params}) {
     const start = getStart()
     const manual = isManual(start)
     const text = root.querySelector('[data-start-text]')
-    if (text) text.textContent = manual ? startLabel(start) : gpsText()
+    if (text) text.textContent = manual ? startLabel(start) : 'my location'
+    const value = root.querySelector('[data-start-value]')
+    if (value) value.textContent = manual ? startLabel(start) : gpsText()
     const prompt = root.querySelector('[data-start-prompt]')
     if (prompt) prompt.hidden = manual || !(trouble || fix?.accuracy > START.weakGpsM)
     const live = root.querySelector('[data-action="start-gps"][data-live]')
@@ -455,7 +491,6 @@ export function homeScreen(root, {navigate, params}) {
     cardRoute = null // a new start: a new route
     setStart(start)
     clearRoute()
-    setRouteLink('Show route on map')
     sheets.close({restoreFocus: false})
     showDoors(null)
     paintStart()
@@ -557,7 +592,7 @@ export function homeScreen(root, {navigate, params}) {
 
   function refreshWalkText() {
     const text = root.querySelector('[data-walk-text]')
-    if (text && selected && !root.querySelector('[data-route-link][aria-expanded="true"]')) text.textContent = walkText()
+    if (text && selected) text.textContent = walkText()
   }
 
   function openStartSheet() {
@@ -569,50 +604,7 @@ export function homeScreen(root, {navigate, params}) {
 
   // ---------- route on the map ----------
   function clearRoute() {
-    routeRequest += 1
     if (instance?.map) clearRouteLine(instance.map)
-  }
-
-  function setRouteLink(text, expanded = false) {
-    const link = root.querySelector('[data-route-link]')
-    if (!link) return
-    link.textContent = text
-    link.setAttribute('aria-expanded', String(expanded))
-  }
-
-  async function toggleRoute() {
-    if (root.querySelector('[data-route-link][aria-expanded="true"]')) {
-      clearRoute()
-      setRouteLink('Show route on map')
-      refreshWalkText()
-      return
-    }
-    if (!instance?.map) return showToast('The map is still loading')
-    const request = ++routeRequest
-    const dest = selected
-    setRouteLink('Finding your route…')
-    try {
-      const start = getStart()
-      const from = isManual(start) ? start : await fixWatch.current()
-      const route = await planRoute(from, dest)
-      if (disposed || request !== routeRequest) return
-      if (route.status === 'off-campus') {
-        setRouteLink('Show route on map')
-        return showToast('Routes start once you are in Stirling', {tone: 'warning'})
-      }
-      drawRouteLine(instance.map, route.points, card.offsetHeight + 40)
-      setRouteLink('Hide route', true)
-      cardRoute = route
-      checkWalls(route)
-      root.querySelector('[data-walk-text]').textContent = walkText()
-      paintIndoor()
-      if (route.source === 'direct') showToast('Approximate route - no path found', {tone: 'warning'})
-    } catch (err) {
-      if (disposed || request !== routeRequest) return
-      console.warn('[home] route failed', err)
-      setRouteLink('Show route on map')
-      showToast(err === 'denied' ? 'Turn on location to see the route' : 'Could not plan a route. Try again.', {tone: 'warning'})
-    }
   }
 
   /** The opening view: HOME_MAP.openOn framed above the sheet and below the search bar. */
@@ -691,6 +683,7 @@ export function homeScreen(root, {navigate, params}) {
             if (!openingMove(instance.map, view)) instance.map.jumpTo(view)
           }
           flyToSelected()
+          drawCardRoute() // planned before the map was ready
           paintStartMarker()
           if (params.start === 'pick' && selected) openStartSheet()
           startSimulation()
@@ -757,7 +750,14 @@ export function homeScreen(root, {navigate, params}) {
     },
     retry: () => load(),
     'toggle-3d': () => toggle3d(),
-    route: () => toggleRoute(),
+    'map-trip': () => startMapTrip(),
+    'toggle-options': () => {
+      const btn = root.querySelector('[data-action="toggle-options"]')
+      const panel = root.querySelector('[data-options]')
+      if (!btn || !panel) return
+      panel.hidden = !panel.hidden
+      btn.setAttribute('aria-expanded', String(!panel.hidden))
+    },
     walk: () => {
       // First, inside the tap: iPhone only shows the motion prompt here. The very first time,
       // the next screen explains the three prompts before asking.
