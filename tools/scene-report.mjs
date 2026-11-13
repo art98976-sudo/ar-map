@@ -3,6 +3,7 @@
 // anything missing. Usage: node tools/scene-report.mjs [poiId ...]
 import {loadScene} from '../src/scene/scene-load.js'
 import {sceneSummary} from '../src/scene/scene-data.js'
+import {checkFitted, fitRoute} from '../src/scene/fit-route.js'
 
 const START = {lat: 56.14525, lng: -3.9201}
 const CAMPUS = 2058
@@ -46,6 +47,13 @@ for (const id of ids) {
     const scene = await loadScene(pts)
     console.log(`\n${dest.name} (${dest.building || 'building ?'}, level ${dest.z}) mm-${id}: ${pts.length} route points`)
     for (const row of sceneSummary(scene)) console.log('  ' + row)
+    const raw = checkFitted(scene, {points: scene.route3d})
+    const fitted = fitRoute(scene)
+    const check = checkFitted(scene, fitted)
+    console.log(`  MazeMap route: ${raw.crossings.length} wall crossings, doors up to ${raw.worstDoorOffsetM.toFixed(2)} m off centre, ${raw.minClearM.toFixed(2)} m from walls`)
+    if (check.minClearM < 0.4) console.log(`    closest at (${check.worst.x.toFixed(1)}, ${check.worst.y.toFixed(1)}) level ${check.worst.z}`)
+    console.log(`  Fitted route:  ${check.crossings.length} wall crossings, doors up to ${check.worstDoorOffsetM.toFixed(2)} m off centre, ${check.minClearM.toFixed(2)} m from walls, start kink ${fitted.startSavedM.toFixed(1)} m, ${fitted.repairs.length} repairs (${fitted.repairs.filter((r) => !r.fixed).length} not fixed)`)
+    for (const c of check.crossings) console.log(`    STILL CROSSES a wall on level ${c.level} at (${c.x.toFixed(1)}, ${c.y.toFixed(1)})`)
     for (const p of scene.problems) {
       missing += 1
       console.log('  MISSING: ' + p.text)

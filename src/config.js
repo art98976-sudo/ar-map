@@ -170,6 +170,33 @@ export const SCENE = {
   nearWallM: 6, // "nearest wall" looks this far
   shaftSearchM: 6, // a level change finds its stair or lift within this distance
   marginM: 20, // floors are loaded this far around the route's points on that level
+  doorOnWallM: 0.15, // a wall crossing this close to a door line is the door (doors drawn on a wall's face)
+}
+
+// Step 2: the route fitted to the scene.
+export const FIT = {
+  stepM: 0.5, // the route is looked at every half metre
+  doorReachM: 0.6, // straight through a door this far on each side of its centre
+  clearM: 0.4, // at least this far from any wall
+  corridorMaxM: 3.5, // walls on both sides closer than this together: a corridor, walk its middle
+  lookM: 3, // how far to look sideways for walls
+  smoothN: 3, // sideways moves are averaged over this many points each side (1.5 m)
+  maxShiftM: 1.5, // never move the line more than this sideways
+  simplifyM: 0.25, // the line is simplified to this before its corners are placed and rounded
+  junctionMoveM: 2, // a corner moves to where the legs meet if that is this close
+  cornerM: 1, // corners are rounded with this radius
+  minTurnDeg: 15, // smaller bends are not corners
+  arcStepDeg: 15,
+  repairSearchM: 6, // a stretch through a wall is repaired through a door this close
+  repairSideM: [0.4, 0.8, 1.2, 1.6], // with no door near, tried sideways moves of the stretch
+  clearPasses: 3, // the last clearance pushes, repeated
+  finalSimplifyM: 0.05, // then the extra points that changed nothing are dropped
+  endExemptM: 1, // the first and last metre: where the user stands and the room itself
+  doorClearExemptM: 1, // within this of a door the route passes, the 0.4 m wall clearance does not apply
+  startLookM: 60, // the start kink is looked for in the first this many metres
+  startSnapM: 25, // the start joins the route at its nearest point within this
+  startMinSaveM: 2, // and removed if going straight saves at least this much
+  loadTimeoutMs: 6000, // the floors for fitting: past this, fit outdoors only
 }
 
 // Group B: no line-up step. The arrows show at once and settle as the walk is matched.

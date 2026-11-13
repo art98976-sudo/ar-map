@@ -58,6 +58,7 @@ export function homeScreen(root, {navigate, params}) {
   const debugAlign = params.debug === 'align' || new URLSearchParams(window.location.search).get('debug') === 'align'
   const debugWalls = params.debug === 'walls' || new URLSearchParams(window.location.search).get('debug') === 'walls'
   const debugScene = params.debug === 'scene' || new URLSearchParams(window.location.search).get('debug') === 'scene'
+  const debugRoute = params.debug === 'route' || new URLSearchParams(window.location.search).get('debug') === 'route'
   let alignDebug = null
 
   render(root, homePage())
@@ -163,7 +164,7 @@ export function homeScreen(root, {navigate, params}) {
     const query = new URLSearchParams()
     if (selected) query.set('to', selected.id)
     if (forced) query.set('force', '1')
-    if (params.debug === '1' || params.debug === 'align' || params.debug === 'walls' || params.debug === 'scene') query.set('debug', params.debug)
+    if (params.debug === '1' || params.debug === 'align' || params.debug === 'walls' || params.debug === 'scene' || params.debug === 'route') query.set('debug', params.debug)
     if (params.simulate === '1') query.set('simulate', '1')
     if (params.fieldtest === '1') query.set('fieldtest', '1')
     const text = query.toString()
@@ -347,6 +348,10 @@ export function homeScreen(root, {navigate, params}) {
 
   async function checkWalls(route) {
     checkScene(route)
+    if (debugRoute && selected) {
+      const {showRouteReport} = await import('../../scene/scene-debug.js')
+      if (!disposed) showRouteReport(root.querySelector('.map-home') || root, instance?.map, {name: selected.name, route})
+    }
     if (!debugWalls || !selected || !route?.points) return
     const name = selected.name
     const points = [...route.points, ...(route.indoorPoints || [])]
@@ -412,7 +417,8 @@ export function homeScreen(root, {navigate, params}) {
     const map = instance?.map
     if (!map || !cardRoute?.points?.length || !selected) return
     clearRouteLine(map)
-    drawRouteLine(map, cardRoute.points, card.offsetHeight + 40)
+    // The fitted route, outdoors and inside to the room: the same line the AR arrows follow.
+    drawRouteLine(map, [...cardRoute.points, ...(cardRoute.indoorPoints ?? []).slice(1)], card.offsetHeight + 40)
   }
 
   /** The step-free switch: remembered on this device; the route is planned again without stairs. */

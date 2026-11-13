@@ -75,3 +75,56 @@ export function showSceneReport(host, map, {name, scene, error}) {
   }
   return panel
 }
+
+const RAW = 'route-debug-raw'
+const REPAIRS = 'route-debug-repairs'
+
+/** ?debug=route (Step 2): MazeMap's raw route (grey, dashed) under the fitted one, every repair listed. */
+export function showRouteReport(host, map, {name, route}) {
+  let panel = host.querySelector('[data-route-debug]')
+  if (!panel) {
+    panel = document.createElement('section')
+    panel.className = 'walls-debug'
+    panel.dataset.routeDebug = ''
+    panel.setAttribute('aria-label', 'Route fit check')
+    host.append(panel)
+  }
+  const fit = route?.fitted
+  if (!fit) {
+    render(panel, html`<h2>Route: ${name}</h2><p>${route ? 'Not a MazeMap route: nothing to fit.' : 'Planning…'}</p>`)
+    return panel
+  }
+  const rawM = fit.raw.reduce((m, p, i) => (i ? m + Math.hypot((p.lat - fit.raw[i - 1].lat) * 111320, (p.lng - fit.raw[i - 1].lng) * 111320 * Math.cos((p.lat * Math.PI) / 180)) : 0), 0)
+  render(
+    panel,
+    html`<h2>Route: ${name}</h2>
+      <ul>
+        <li>MazeMap: ${Math.round(rawM)} m (grey dashes). Fitted: ${Math.round(fit.lengthM)} m (green)</li>
+        <li>Doors passed at their centre: ${fit.doors}</li>
+        <li>Start kink removed: ${fit.startSavedM.toFixed(1)} m</li>
+        <li>Floors loaded: ${fit.sceneLoaded ? 'yes' : 'no (fitted outdoors only)'}</li>
+      </ul>
+      ${fit.repairs.length
+        ? html`<h3>Repairs</h3><ol>${fit.repairs.map((r) => html`<li>Level ${r.level}: MazeMap's line went through a wall. ${r.fixed ? (r.door ? `Now through the door (${r.door.width.toFixed(2)} m)` : `Moved ${Math.abs(r.side).toFixed(1)} m sideways`) : 'Could not repair'}</li>`)}</ol>`
+        : html`<p>No repairs: MazeMap's line never went through a wall.</p>`}`,
+  )
+  if (map) {
+    const line = {type: 'Feature', properties: {}, geometry: {type: 'LineString', coordinates: fit.raw.map((p) => [p.lng, p.lat])}}
+    const dots = {type: 'FeatureCollection', features: fit.repairs.map((r) => ({type: 'Feature', properties: {fixed: r.fixed}, geometry: {type: 'Point', coordinates: [r.lng, r.lat]}}))}
+    const draw = () => {
+      if (map.getSource(RAW)) map.getSource(RAW).setData(line)
+      else {
+        map.addSource(RAW, {type: 'geojson', data: line})
+        map.addLayer({id: RAW, type: 'line', source: RAW, paint: {'line-color': '#6b7280', 'line-width': 3, 'line-dasharray': [2, 2]}})
+      }
+      if (map.getSource(REPAIRS)) map.getSource(REPAIRS).setData(dots)
+      else {
+        map.addSource(REPAIRS, {type: 'geojson', data: dots})
+        map.addLayer({id: REPAIRS, type: 'circle', source: REPAIRS, paint: {'circle-radius': 7, 'circle-color': ['case', ['get', 'fixed'], '#f59e0b', '#dc2626'], 'circle-stroke-color': '#fff', 'circle-stroke-width': 2}})
+      }
+    }
+    if (map.isStyleLoaded()) draw()
+    else map.once('idle', draw)
+  }
+  return panel
+}

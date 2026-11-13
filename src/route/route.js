@@ -129,7 +129,7 @@ function lengthOf(points) {
  *   {status: 'off-campus', distanceM}
  *   {status: 'ok', points: [{lat,lng}], lengthM, minutes, source: 'mazemap'|'footpaths'|'direct', entrance}
  */
-export async function planRoute(from, dest, {mazemap = mazemapRoute, graph = loadCampusGraph, townGraph = loadTownGraph, stepFree = getStepFree()} = {}) {
+export async function planRoute(from, dest, {mazemap = mazemapRoute, fit = fitWithScene, graph = loadCampusGraph, townGraph = loadTownGraph, stepFree = getStepFree()} = {}) {
   if (!isInStirling(from)) return {status: 'off-campus', distanceM: distanceM(from, MAZEMAP.center)}
   const to = entranceOf(dest)
   const onCampus = isOnCampus(from) && isOnCampus(to)
@@ -146,12 +146,13 @@ export async function planRoute(from, dest, {mazemap = mazemapRoute, graph = loa
     try {
       // A room: route to its own floor. Step-free: MazeMap's route without stairs.
       const targetZ = dest?.category === 'room' && Number.isFinite(dest.floor) ? dest.floor : 0
-      const mm = await mazemap(from, to, {targetZ, stepFree})
+      // Step 2: the route fitted to MazeMap's own floors is the only route from here on.
+      const mm = await fit(await mazemap(from, to, {targetZ, stepFree}), {from})
       if (mm.points.length >= 2) {
-        if (!mm.indoor) return done(mm.points, 'mazemap')
+        if (!mm.indoor) return done(mm.points, 'mazemap', to, {fitted: mm.fitted})
         // The walk ends at the door; the card also wants the whole way to the room and its floor.
         if (mm.endsIndoor && mm.outdoorPoints.length >= 2) {
-          return done(mm.outdoorPoints, 'mazemap', mm.outdoorPoints.at(-1), {entryLevel: mm.entryLevel, totalM: lengthOf(mm.points), indoorPoints: mm.points.slice(mm.outdoorPoints.length - 1)})
+          return done(mm.outdoorPoints, 'mazemap', mm.outdoorPoints.at(-1), {entryLevel: mm.entryLevel, totalM: lengthOf(mm.points), indoorPoints: mm.points.slice(mm.outdoorPoints.length - 1), fitted: mm.fitted})
         }
         throughBuilding = mm.points
       }
@@ -174,6 +175,17 @@ export async function planRoute(from, dest, {mazemap = mazemapRoute, graph = loa
 
   // 4. Straight line: still useful on open lawns, and the UI says it is approximate.
   return done([from, to], 'direct')
+}
+
+/** The fitting step, loaded only when a MazeMap route is planned (it pulls in the floor tiles). */
+async function fitWithScene(mm, {from} = {}) {
+  try {
+    const {fitMazeMapRoute} = await import('../scene/scene-load.js')
+    return await fitMazeMapRoute(mm, {from})
+  } catch (err) {
+    console.warn('[route] could not fit the route to the building', err?.message)
+    return mm
+  }
 }
 
 // ---------- step-free routes: the choice is remembered on this device ----------

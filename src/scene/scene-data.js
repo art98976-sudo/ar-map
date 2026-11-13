@@ -228,9 +228,26 @@ export function buildScene({route, origin, floors, floorHeightM = INDOOR.floorHe
     nearestWall(level, p, maxM = SCENE.nearWallM) {
       return this.wallsNear(level, p, maxM)[0] ?? null
     },
-    /** Does walking from a to b on a level go through a wall? (The walls are open at doors.) */
+    /**
+     * Does walking from a to b on a level go through a wall? Walls are open at doors; where MazeMap
+     * draws a door on a wall's face, crossing at the door is going through the door, not the wall.
+     */
     crossesWall(level, a, b) {
-      return (out[level]?.wallIndex.crossing(a, b) ?? []).length > 0
+      const f = out[level]
+      if (!f) return false
+      return f.wallIndex.crossing(a, b).some(({hit}) => !f.doorIndex.near(hit, SCENE.doorOnWallM).length)
+    },
+    /** Outdoors: does walking from a to b go into a building (through any loaded floor's outline)? */
+    crossesBuilding(a, b) {
+      for (const f of Object.values(out)) {
+        for (const o of f.outlines) {
+          for (const ring of o.polygon) {
+            for (let i = 1; i < ring.length; i++) if (segmentCross(a, b, ring[i - 1], ring[i])) return true
+          }
+          if (insideRing(b, o.polygon[0])) return true
+        }
+      }
+      return false
     },
     /** Doors whose line passes within r of p, nearest first. */
     doorsNear(level, p, r) {
