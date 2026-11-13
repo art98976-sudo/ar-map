@@ -661,9 +661,51 @@ export function createArTrip({
     return Number.isFinite(route.entryLevel) ? route.entryLevel : SHELL.defaultLevel
   }
 
+  // ---------- Step 4: the walls and doors come from the route's scene ----------
+  let routeScene = null // the scene the route was fitted on (scene-data.js), once loaded
+  let routeSceneLoading = false
+
+  /** Load the scene for the route, once: the same floors the route was fitted to. */
+  function loadRouteScene() {
+    if (routeScene || routeSceneLoading || !route.points?.some((p) => Number.isFinite(p.z) && p.z !== 0)) return
+    routeSceneLoading = true
+    import('../scene/scene-load.js')
+      .then(({loadScene}) => loadScene(route.points, origin))
+      .then((scene) => {
+        if (!stopped) routeScene = scene
+      })
+      .catch((err) => console.warn('[scene] could not load the floors', err?.message))
+      .finally(() => {
+        routeSceneLoading = false
+      })
+  }
+
+  /** The scene's floor for the level the user is on, as the shell (occluder, doorways). */
+  function sceneShell() {
+    const level = shellLevel()
+    if (!routeScene?.floors[level]) return false
+    if (shellAt?.level === level && shellAt.scene) return true
+    shellFloor = {...routeScene.floors[level], level}
+    shellAt = {level, scene: true, centre: trackedPosition()}
+    nav.setShellFloor(shellFloor, lowFps ? {near: {point: nav.worldToRoute({x: camera.position.x, z: camera.position.z}), metres: SHELL.lowFpsWallsM}} : {})
+    nav.setWireframe(wireOn)
+    wallLinesShown = false
+    return true
+  }
+
+  /** Placeholder until Step 5: how sure we are the arrows sit where the scene says (0 to 1). */
+  function alignQuality() {
+    if (compassLocked || matcher?.locked) return 0.9
+    if (matcher?.confident) return 0.75
+    return 0.3
+  }
+
   /** Keep the walls and doors around the user loaded, for the floor the route is on. */
   function updateShell(time) {
-    if (phase !== 'ready' || !nav?.aligned || shellLoading) return
+    if (phase !== 'ready' || !nav?.aligned) return
+    loadRouteScene()
+    if (sceneShell()) return // the route's own scene: nothing to fetch
+    if (shellLoading) return
     const here = trackedPosition()
     if (!isOnCampus(here)) return
     const level = shellLevel()
@@ -689,8 +731,8 @@ export function createArTrip({
   /** The occluder only once the route is confirmed; wall lines while lining up; doorway outlines. */
   function paintShell(routeS) {
     if (!nav?.shellLoaded) return
-    const confirmed = compassLocked || Boolean(matcher?.locked)
-    nav.setOccluder(confirmed && arrowsShown)
+    // Step 4: walls hide arrows only when the alignment is good, so a bad one never hides them.
+    nav.setOccluder(alignQuality() >= SHELL.occluderMinQuality && arrowsShown)
     const wantLines = phase === 'ready' && lineUp && !arrived
     if (wantLines !== wallLinesShown) {
       wallLinesShown = wantLines

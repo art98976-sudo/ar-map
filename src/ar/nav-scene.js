@@ -101,10 +101,10 @@ export function createNavScene({THREE, scene, camera, route, origin, name = null
   let occluderOn = false
   let wireOn = false
   let baseLines = null
-  const doorMarks = Array.from({length: 3}, (_, i) => {
+  const doorMarks = Array.from({length: 4}, (_, i) => {
     const geo = new THREE.BufferGeometry()
     geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(15), 3))
-    const line = new THREE.Line(geo, new THREE.LineBasicMaterial({color: 0x4ade80, transparent: true, opacity: 0.85, depthTest: false}))
+    const line = new THREE.Line(geo, new THREE.LineBasicMaterial({color: 0x4ade80, transparent: true, opacity: SHELL.doorMarkerOpacity, depthTest: false}))
     line.name = `doorway-${i}`
     line.renderOrder = 40
     line.visible = false

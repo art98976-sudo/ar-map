@@ -149,6 +149,8 @@ export const SHELL = {
   doorClearM: 1, // ?debug=walls: a wall crossing this close to a door is the door
   sameCrossingM: 0.6, // two crossings this close are the two faces of one wall
   doorMarkerAheadM: 10, // doorway outlines for the doors within this far ahead on the route
+  doorMarkerOpacity: 0.6, // soft
+  occluderMinQuality: 0.7, // walls hide arrows only when the alignment quality is at least this (Step 4)
   doorMarkerDepthM: 0.3, // the outline is this deep across the doorway
   baseLineOpacity: 0.28, // the faint wall base lines shown while lining up
   lineUpWallsM: 8, // ...for the walls within this far
