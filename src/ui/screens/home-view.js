@@ -203,7 +203,10 @@ export function placeCard(place, walkText, {stepFree = false, arIssue = null, ha
         <p class="dest-sheet__indoor" data-stairs hidden>${icon('lift', {size: 16})}<span>Stairs or lift needed</span></p>
         <p class="dest-sheet__indoor" data-step-free-note ${stepFree ? '' : 'hidden'}>${icon('check', {size: 16})}<span>Step-free: no stairs on this route</span></p>
       </div>
-      <button class="icon-btn" type="button" data-action="unselect" aria-label="Close">${icon('close', {size: 20})}</button>
+      <div class="dest-sheet__tools">
+        <button class="icon-btn" type="button" data-action="share" aria-label="Share ${place.name}">${icon('share', {size: 20})}</button>
+        <button class="icon-btn" type="button" data-action="unselect" aria-label="Close">${icon('close', {size: 20})}</button>
+      </div>
     </div>
     <button class="btn btn--primary btn--block" type="button" data-action="show-way" hidden>${icon('map')}<span>Show the way</span></button>
     <!-- One button. With AR it opens the camera; on a phone or browser without AR, the map trip. -->

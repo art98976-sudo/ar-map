@@ -913,6 +913,14 @@ export function homeScreen(root, {navigate, params}) {
       useStart(start)
     },
     'pick-cancel': () => leavePick(),
+    // Item 9: the phone's share sheet, or the link copied. The link is #/?to=<id>, nothing added.
+    share: async () => {
+      if (!selected) return
+      const {sharePlace} = await import('../share.js')
+      const {result, url} = await sharePlace(selected)
+      if (result === 'copied') showToast('Link copied')
+      else if (result === 'failed') showToast(url, {duration: 8000})
+    },
     'toggle-voice': () => {
       voice.set(!voice.on) // inside the tap: iPhone only lets a page speak after one
       paintVoice()

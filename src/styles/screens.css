@@ -735,3 +735,10 @@
     height: 210mm;
   }
 }
+/* Item 9: Share (and later Save) beside Close on the place card. */
+.dest-sheet__tools {
+  display: flex;
+  flex: none;
+  gap: var(--s-1);
+  align-items: flex-start;
+}
