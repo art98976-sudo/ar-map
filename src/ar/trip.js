@@ -243,6 +243,19 @@ export function createArTrip({
   }
 
   /** Which way the camera faces in the route frame, degrees clockwise from north. */
+  /**
+   * B6: how far to turn from where the phone points to face the end of the route (the entrance,
+   * or the room with indoor AR), -180..180 (> 0 right). Null until the route is placed.
+   */
+  function turnToEndDeg() {
+    if (!nav?.aligned || !camera) return null
+    const here = nav.worldToRoute({x: camera.position.x, z: camera.position.z})
+    const end = nav.route.at(-1)
+    if (Math.hypot(end.x - here.x, end.y - here.y) < 0.5) return null // standing on it
+    const turn = wrap360(bearing(end.x - here.x, end.y - here.y) - cameraBearing())
+    return turn > 180 ? turn - 360 : turn
+  }
+
   function cameraBearing() {
     const here = camera.position
     const f = lookDirection()
@@ -1080,6 +1093,7 @@ export function createArTrip({
          pathBearingDeg: nav.startInfo(bestFix()).pathBearingDeg,
         remainingM: nav.aligned ? remainingM : route.lengthM,
         toPinM: s.toPinM ?? null,
+        endTurnDeg: phase === 'ready' ? turnToEndDeg() : null,
         offRouteM: nav.aligned && pose.lateralOffsetM != null ? Math.abs(pose.lateralOffsetM) : null,
         cameraHeight: camera.position.y,
         groundHeight: groundNow.height,

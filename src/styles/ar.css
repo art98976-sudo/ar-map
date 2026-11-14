@@ -329,6 +329,36 @@
   font-weight: 600;
   letter-spacing: -0.02em;
 }
+/* B6: which way the place is, and its details. */
+.arrival__way {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin: 0 0 var(--s-2);
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--c-primary-tint);
+  color: var(--green-02);
+  font-weight: 600;
+}
+.arrival__way-arrow {
+  display: inline-grid;
+  place-items: center;
+}
+.arrival__about {
+  display: grid;
+  gap: var(--s-1);
+  margin-bottom: var(--s-3);
+  color: var(--text-muted);
+  font-size: var(--fs-sm, 14px);
+}
+.arrival__about p {
+  margin: 0;
+}
+.arrival__where {
+  color: var(--text);
+  font-weight: 600;
+}
 .arrival__confetti {
   position: absolute;
   inset: 0;

@@ -65,6 +65,7 @@ export function arScreen(root, {navigate, params}) {
   }
   const device = parseUserAgent(navigator.userAgent, {maxTouchPoints: navigator.maxTouchPoints})
   let wasLocked = false
+  let lastStats = null // the latest trip stats, for the arrival card
   let wasHeadDown = false // B9: one buzz when "Look up" appears
   let trip = null
   let stopSession = null
@@ -282,10 +283,12 @@ export function arScreen(root, {navigate, params}) {
     // A room inside a building (indoor AR off): stop at the door and carry on, on the indoor map.
     const inside = destination.category === 'room' && !INDOOR.indoorAR
     const entrance = inside ? entranceNameFor(destination, route.entrance ?? null, DESTINATIONS) : null
-    showArrival(host, {name: destination.name, entrance})
+    // B6: which way it is from where the phone points, and the place's details.
+    showArrival(host, {name: destination.name, entrance, turnDeg: lastStats?.endTurnDeg ?? null, place: destination})
   }
 
   function onStats(s) {
+    lastStats = s
     fieldTest?.update(s)
     // GOOD / WEAK / LOST, for the styles (and the B7 fallback arrow to come).
     if (s.trackingState) root.dataset.trackingState = s.trackingState

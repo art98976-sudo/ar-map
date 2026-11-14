@@ -455,6 +455,12 @@ export const BEACON = {
   renderOrder: 30, // after the campus occluders and the chevrons
 }
 
+// B6: the arrival card's "It's on your left" (src/ui/components/arrival.js).
+export const ARRIVAL_CARD = {
+  aheadDeg: 30, // within this of where the phone points: "straight ahead"
+  behindDeg: 150, // this far round or more: "behind you"
+}
+
 // GOOD / WEAK / LOST (src/route/trip-monitors.js trackingState): the one state the AR screen acts on.
 export const TRACKING_STATE = {
   lostAfterS: 2, // world tracking gone this long: LOST (the same moment the floor arrows hide)
