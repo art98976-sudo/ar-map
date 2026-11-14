@@ -167,19 +167,31 @@
 [data-category='bus'] { --tint: #9b1c1c; }
 [data-category='town'] { --tint: #4b5b12; }
 [data-category='parking'] { --tint: #1f5f8b; }
+/* Dark (item 11): the phone's setting unless the menu says Light, or Dark from the menu. */
 @media (prefers-color-scheme: dark) {
-  .theme-auto .dsearch__badge { --tint: #4fc08d; }
-  .theme-auto [data-category='academic'] { --tint: #a8acff; }
-  .theme-auto [data-category='room'] { --tint: #8fb4ff; }
-  .theme-auto [data-category='services'] { --tint: #b4c4cf; }
-  .theme-auto [data-category='sport'] { --tint: #5fd6dd; }
-  .theme-auto [data-category='landmark'] { --tint: #f0c060; }
-  .theme-auto [data-category='living'] { --tint: #eba3da; }
-  .theme-auto [data-category='food'] { --tint: #f6a77a; }
-  .theme-auto [data-category='bus'] { --tint: #ff9a9a; }
-  .theme-auto [data-category='town'] { --tint: #c8da74; }
-  .theme-auto [data-category='parking'] { --tint: #86c8f2; }
+  :root:not([data-theme='light']) .theme-auto .dsearch__badge { --tint: #4fc08d; }
+  :root:not([data-theme='light']) .theme-auto [data-category='academic'] { --tint: #a8acff; }
+  :root:not([data-theme='light']) .theme-auto [data-category='room'] { --tint: #8fb4ff; }
+  :root:not([data-theme='light']) .theme-auto [data-category='services'] { --tint: #b4c4cf; }
+  :root:not([data-theme='light']) .theme-auto [data-category='sport'] { --tint: #5fd6dd; }
+  :root:not([data-theme='light']) .theme-auto [data-category='landmark'] { --tint: #f0c060; }
+  :root:not([data-theme='light']) .theme-auto [data-category='living'] { --tint: #eba3da; }
+  :root:not([data-theme='light']) .theme-auto [data-category='food'] { --tint: #f6a77a; }
+  :root:not([data-theme='light']) .theme-auto [data-category='bus'] { --tint: #ff9a9a; }
+  :root:not([data-theme='light']) .theme-auto [data-category='town'] { --tint: #c8da74; }
+  :root:not([data-theme='light']) .theme-auto [data-category='parking'] { --tint: #86c8f2; }
 }
+:root[data-theme='dark'] .theme-auto .dsearch__badge { --tint: #4fc08d; }
+:root[data-theme='dark'] .theme-auto [data-category='academic'] { --tint: #a8acff; }
+:root[data-theme='dark'] .theme-auto [data-category='room'] { --tint: #8fb4ff; }
+:root[data-theme='dark'] .theme-auto [data-category='services'] { --tint: #b4c4cf; }
+:root[data-theme='dark'] .theme-auto [data-category='sport'] { --tint: #5fd6dd; }
+:root[data-theme='dark'] .theme-auto [data-category='landmark'] { --tint: #f0c060; }
+:root[data-theme='dark'] .theme-auto [data-category='living'] { --tint: #eba3da; }
+:root[data-theme='dark'] .theme-auto [data-category='food'] { --tint: #f6a77a; }
+:root[data-theme='dark'] .theme-auto [data-category='bus'] { --tint: #ff9a9a; }
+:root[data-theme='dark'] .theme-auto [data-category='town'] { --tint: #c8da74; }
+:root[data-theme='dark'] .theme-auto [data-category='parking'] { --tint: #86c8f2; }
 .dsearch__text {
   display: grid;
   flex: 1;

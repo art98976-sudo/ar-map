@@ -6,6 +6,7 @@ import {subtitleFor} from '../../route/card-text.js'
 import {entrancesOf} from '../../route/start-point.js'
 import {html} from '../dom.js'
 import {icon, iconFor} from '../icons.js'
+import {THEMES} from '../theme.js'
 import {APP} from '../../config.js'
 
 // Group C: four chips at rest (Lecture theatres, Toilets, Food, Library), the rest behind "More".
@@ -28,6 +29,9 @@ export const homePage = () => html`
         <button class="home-menu__item" type="button" role="menuitem" data-action="north" aria-label="Turn the map north up" data-north hidden>${icon('north', {size: 20})}<span>North up</span></button>
         <div class="home-menu__floors" data-floor-host aria-label="Floor"></div>
         <button class="home-menu__item" type="button" role="menuitemcheckbox" aria-checked="false" data-action="toggle-voice" data-voice hidden>${icon('volume', {size: 20})}<span>Spoken directions</span></button>
+        <div class="home-menu__themes" role="group" aria-label="Colour theme" data-themes>
+          ${THEMES.map((t) => html`<button class="home-menu__item home-menu__theme" type="button" role="menuitemradio" aria-checked="false" data-action="set-theme" data-theme-choice="${t.id}">${icon(t.id === 'dark' ? 'moon' : t.id === 'light' ? 'sun' : 'phone', {size: 20})}<span>${t.label}</span></button>`)}
+        </div>
         <button class="home-menu__item" type="button" role="menuitem" data-action="open-info">${icon('info', {size: 20})}<span>About and privacy</span></button>
         <p class="home-menu__note" role="none">Anonymous trip counts only. No location is kept.</p>
       </div>
@@ -56,7 +60,7 @@ export const homePage = () => html`
       </div>
       <div class="home-sheet__body" data-chip-results aria-live="polite"></div>
     </section>
-    <section class="dest-sheet" data-card hidden aria-live="polite" aria-label="Selected place"></section>
+    <section class="dest-sheet theme-auto" data-card hidden aria-live="polite" aria-label="Selected place"></section>
     <section class="map-trip theme-auto" data-map-trip hidden aria-label="Trip on the map"></section>
 
     <section class="pick-bar" data-pick-bar aria-label="Pick your start on the map" hidden>
@@ -65,7 +69,7 @@ export const homePage = () => html`
       <button class="btn btn--ghost" type="button" data-action="pick-cancel">Cancel</button>
     </section>
 
-    <div class="sheet" data-start-sheet role="dialog" aria-modal="true" aria-labelledby="start-title" aria-describedby="start-note" hidden>
+    <div class="sheet theme-auto" data-start-sheet role="dialog" aria-modal="true" aria-labelledby="start-title" aria-describedby="start-note" hidden>
       <header class="sheet__bar">
         <h2 class="sheet__title" id="start-title" tabindex="-1">Where are you starting from?</h2>
         <button class="icon-btn" type="button" data-action="close-sheets" aria-label="Close starting point">${icon('close')}</button>
@@ -87,7 +91,7 @@ export const homePage = () => html`
       <div class="start-doors" data-start-doors hidden></div>
     </div>
 
-    <div class="sheet" data-search-sheet role="dialog" aria-modal="true" aria-labelledby="search-title" hidden>
+    <div class="sheet theme-auto" data-search-sheet role="dialog" aria-modal="true" aria-labelledby="search-title" hidden>
       <header class="sheet__bar">
         <h2 class="sheet__title" id="search-title">Where do you want to go?</h2>
         <button class="icon-btn" type="button" data-action="close-sheets" aria-label="Close search">${icon('close')}</button>
@@ -95,7 +99,7 @@ export const homePage = () => html`
       <div data-search></div>
     </div>
 
-    <div class="sheet" data-info-sheet role="dialog" aria-modal="true" aria-labelledby="info-title" hidden>
+    <div class="sheet theme-auto" data-info-sheet role="dialog" aria-modal="true" aria-labelledby="info-title" hidden>
       <header class="sheet__bar sheet__bar--end">
         <button class="icon-btn" type="button" data-action="close-sheets" aria-label="Close about">${icon('close')}</button>
       </header>

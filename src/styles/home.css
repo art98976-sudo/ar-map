@@ -996,3 +996,25 @@
 .map-trip__lost[aria-busy='true'] {
   opacity: 0.7;
 }
+/* Item 11: the colour theme choice in the menu, and the map dimmed in dark (MazeMap has no dark
+   style our content security policy allows, so its canvas is toned down rather than restyled). */
+.home-menu__themes {
+  display: grid;
+  border-block: 1px solid var(--c-border);
+}
+.home-menu__theme[aria-checked='true'] {
+  font-weight: 700;
+  color: var(--c-primary);
+}
+.home-menu__theme[aria-checked='true']::after {
+  content: '✓';
+  margin-left: auto;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .map-home .mapboxgl-canvas {
+    filter: brightness(0.7) contrast(1.1) saturate(0.85);
+  }
+}
+:root[data-theme='dark'] .map-home .mapboxgl-canvas {
+  filter: brightness(0.7) contrast(1.1) saturate(0.85);
+}

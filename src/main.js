@@ -18,6 +18,10 @@ import {registerServiceWorker} from './offline.js'
 import {watchGlobalErrors} from './stats/errors.js'
 import {setStart} from './route/start-point.js'
 import {focusScreen} from './ui/dom.js'
+import {applyTheme, getTheme} from './ui/theme.js'
+
+// Item 11: the chosen theme before anything is drawn, so a dark choice never flashes light.
+applyTheme(getTheme(), {save: false})
 
 /**
  * A screen loaded on first visit, so the map's first load stays light: the counts page, the poster

@@ -1,8 +1,8 @@
 /* Design tokens: the one place colours, type, spacing, corners, shadow and motion are set.
    Components use these names only. Nothing else in the app hard-codes a colour or a size.
 
-   Light is the default. Dark follows the phone's setting, on screens marked .theme-auto
-   (each screen gets the class as it is redesigned; the rest stay light until then). */
+   Light is the default. Dark follows the phone's setting, or the menu's choice (item 11), on
+   parts marked .theme-auto: the map's bars, sheets, menu, place card, dialogs and the map trip. */
 
 @font-face {
   font-family: 'Inter';
@@ -229,9 +229,11 @@
   --t-med: var(--t);
 }
 
-/* ---------- Dark: follows the phone ---------- */
+/* ---------- Dark ----------
+   Item 11: the phone's setting, unless the menu says Light; or Dark from the menu whatever the
+   phone says (src/ui/theme.js sets data-theme on <html>). */
 @media (prefers-color-scheme: dark) {
-  .theme-auto {
+  :root:not([data-theme='light']) .theme-auto {
     color-scheme: dark;
     --c-primary: #4fc08d;
     --c-on-primary: #0f1513;
@@ -259,4 +261,38 @@
     --chevron: var(--c-text-2);
     --map-ground: #18211d;
   }
+}
+:root[data-theme='dark'] .theme-auto {
+    color-scheme: dark;
+    --c-primary: #4fc08d;
+    --c-on-primary: #0f1513;
+    --c-primary-press: #3fa878;
+    --c-primary-tint: rgba(79, 192, 141, 0.16);
+    --c-bg: #0f1513;
+    --c-surface: #18211d;
+    --c-text: #e8eeea;
+    --c-text-2: #9baaa2;
+    --c-border: #2a3631;
+    --c-accent: #6ea8ff; /* #1f6feb is too dim on a dark surface for text */
+    --c-warning: #f0a04b;
+    --c-error: #ff8a80;
+    --c-skeleton: #222d28;
+    --c-scrim: rgba(0, 0, 0, 0.55);
+    --shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    /* Older tints that assumed a white page. */
+    --grey-a07: rgba(232, 238, 234, 0.08);
+    --grey-a10: rgba(232, 238, 234, 0.12);
+    --green-tint-press: var(--c-primary-tint);
+    --green-tint-hover: var(--c-primary-tint);
+    --green-tint-active: var(--c-primary-tint);
+    --paper-veil: rgba(15, 21, 19, 0.86);
+    --placeholder: var(--c-text-2);
+    --chevron: var(--c-text-2);
+    --map-ground: #18211d;
+  }
+
+/* Item 11: a part that follows the theme also sets its own text colour, so headings and other
+   text that inherit (the place name, "Open on your phone for AR") change with its background. */
+.theme-auto {
+  color: var(--c-text);
 }

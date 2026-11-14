@@ -18,6 +18,7 @@ import {handoffUrl, hydrateHandoff, needsHandoff, phoneHandoff} from '../compone
 import {watchContextLoss} from '../webgl-loss.js'
 import {arriveLabel} from './ar.js'
 import {createVoice} from '../voice.js'
+import {applyTheme, getTheme} from '../theme.js'
 import {SAVED_GROUPS, savedGroup, savePlace, unsavePlace} from '../../map/saved.js'
 import {reportError} from '../../stats/errors.js'
 import {addRecent, DESTINATIONS, findDestination, setCurrentDestination} from '../../map/destinations.js'
@@ -155,6 +156,13 @@ export function homeScreen(root, {navigate, params}) {
     item.setAttribute('aria-checked', String(voice.on))
   }
   paintVoice()
+
+  // Item 11: Device setting, Light or Dark (menuitemradio).
+  function paintTheme() {
+    const now = getTheme()
+    for (const b of root.querySelectorAll('[data-theme-choice]')) b.setAttribute('aria-checked', String(b.dataset.themeChoice === now))
+  }
+  paintTheme()
   const onOutside = (event) => {
     if (!menu.hidden && !event.target.closest('[data-menu], [data-action="open-menu"]')) setMenu(false)
   }
@@ -980,6 +988,10 @@ export function homeScreen(root, {navigate, params}) {
       const {result, url} = await sharePlace(selected)
       if (result === 'copied') showToast('Link copied')
       else if (result === 'failed') showToast(url, {duration: 8000})
+    },
+    'set-theme': (_, button) => {
+      applyTheme(button.dataset.themeChoice)
+      paintTheme()
     },
     'toggle-voice': () => {
       voice.set(!voice.on) // inside the tap: iPhone only lets a page speak after one
