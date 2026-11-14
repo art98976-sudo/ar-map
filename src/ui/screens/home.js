@@ -442,8 +442,9 @@ export function homeScreen(root, {navigate, params}) {
     endMapTrip()
     root.dataset.mapTripOn = ''
     card.hidden = true
+    // The trip frames the route itself and runs its own GPS: no geolocate.trigger(), whose camera
+    // fits the GPS accuracy circle (a laptop's ~1 km Wi-Fi fix zooms out to Causewayhead).
     mapTrip = createMapTrip(root.querySelector('[data-map-trip]'), {map: instance.map, route: cardRoute, dest, onClose: endMapTrip})
-    instance.geolocate?.trigger?.()
     mapTrip.update(fixWatch.fix)
   }
 

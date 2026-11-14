@@ -637,19 +637,34 @@
   opacity: 0.7;
 }
 
-/* The map trip: one pill and a close button at the top, the sheet out of the way. */
+/* The map trip: one pill and a close button at the top, the directions at the bottom, the sheet
+   out of the way. The layer itself lets taps through to the map; its bars do not. */
 .map-trip {
   position: absolute;
   z-index: 6;
+  inset: 0;
+  pointer-events: none;
+}
+.map-trip[hidden] {
+  display: none;
+}
+.map-trip__top {
+  position: absolute;
   left: calc(var(--safe-left, 0px) + 16px);
   right: calc(var(--safe-right, 0px) + 16px);
   top: calc(var(--safe-top, 0px) + 8px);
   display: flex;
   gap: 8px;
   align-items: center;
+  pointer-events: auto;
 }
-.map-trip[hidden] {
-  display: none;
+.map-trip__dot {
+  width: 18px;
+  height: 18px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: #1f6feb;
+  box-shadow: 0 0 0 6px rgba(31, 111, 235, 0.2), var(--shadow);
 }
 .map-trip__pill {
   display: flex;
