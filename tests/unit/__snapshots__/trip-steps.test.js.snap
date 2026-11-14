@@ -1,0 +1,11 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`item 2: steps a newcomer can follow (merged) > Pathfoot main entrance to the Library: 15 corners read as 5 to 7 clear steps 1`] = `
+[
+  "Turn right at the Pathfoot Building, then left 20 m later · 25 m",
+  "Turn right, then left 35 m later · 130 m",
+  "Turn right, then right again 30 m later · 405 m",
+  "Turn left, then left again at the Bite 25 m later · 30 m",
+  "Arrive at Library entrance · 60 m",
+]
+`;

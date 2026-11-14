@@ -50,7 +50,7 @@ test('Go: the next turn, and every step on request, by keyboard too', async ({pa
   await expect(page.locator('[data-walk-text]')).toContainText('m', {timeout: 20_000})
   await go.click()
   const panel = page.getByRole('region', {name: 'Directions'})
-  await expect(panel.locator('[data-map-trip-banner]')).toHaveText(/^(In [\d.]+ k?m, (turn|bear) (left|right)( at .+)?|In [\d.]+ k?m, arrive at .+)$/)
+  await expect(panel.locator('[data-map-trip-banner]')).toHaveText(/^(In [\d.]+ k?m, (turn|bear) (left|right)(,? .+)?|In [\d.]+ k?m, arrive at .+)$/)
   const toggle = panel.getByRole('button', {name: 'All steps'})
   await expect(toggle).toHaveAttribute('aria-expanded', 'false')
   await toggle.focus()
