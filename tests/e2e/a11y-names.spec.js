@@ -24,7 +24,7 @@ function unnamed(page) {
       if (el.tagName === 'INPUT' && ['button', 'submit'].includes(el.type)) return el.value
       return el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA' ? el.placeholder || '' : textOf(el)
     }
-    const controls = document.querySelectorAll('button, a[href], [role="button"], [role="menuitem"], [role="switch"], [role="tab"], input:not([type="hidden"]), select, textarea')
+    const controls = document.querySelectorAll('button, a[href], [role="button"], [role^="menuitem"], [role="switch"], [role="tab"], input:not([type="hidden"]), select, textarea')
     const missing = [...controls].filter((el) => visible(el) && !nameOf(el))
     // Images too: an <img> needs alt (empty is fine for decoration); an <svg> outside a named
     // image needs a name or aria-hidden. MazeMap's own map canvas and controls are not ours.

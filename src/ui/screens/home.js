@@ -18,6 +18,7 @@ import {locateForGo, NO_LOCATION_TEXT} from '../../route/go-start.js'
 import {handoffUrl, needsHandoff, phoneHandoff} from '../components/phone-handoff.js'
 import {watchContextLoss} from '../webgl-loss.js'
 import {arriveLabel} from './ar.js'
+import {createTurnAnnouncer, createVoice} from '../voice.js'
 import {reportError} from '../../stats/errors.js'
 import {addRecent, DESTINATIONS, findDestination, setCurrentDestination} from '../../map/destinations.js'
 import {fetchPoiDestination, poiIdFrom} from '../../map/poi-lookup.js'
@@ -140,8 +141,19 @@ export function homeScreen(root, {navigate, params}) {
   function setMenu(open) {
     menu.hidden = !open
     menuButton.setAttribute('aria-expanded', String(open))
-    if (open) menu.querySelector('[role="menuitem"]')?.focus({preventScroll: true})
+    if (open) [...menu.querySelectorAll('[role^="menuitem"]')].find((el) => !el.hidden)?.focus({preventScroll: true})
   }
+
+  // Item 3: spoken directions, off by default, remembered. Only offered where the browser speaks.
+  const voice = createVoice()
+  let announcer = null
+  function paintVoice() {
+    const item = root.querySelector('[data-voice]')
+    if (!item) return
+    item.hidden = !voice.supported
+    item.setAttribute('aria-checked', String(voice.on))
+  }
+  paintVoice()
   const onOutside = (event) => {
     if (!menu.hidden && !event.target.closest('[data-menu], [data-action="open-menu"]')) setMenu(false)
   }
@@ -452,12 +464,23 @@ export function homeScreen(root, {navigate, params}) {
       onClose: endMapTrip,
       arriveLabel: arriveLabel(dest), // "Library entrance", as in AR
       destinations: DESTINATIONS, // corners are named after the places beside them
+      onStep: speakStep,
     })
     mapTrip.update(fixWatch.fix)
   }
 
+  /** Spoken directions for the map trip: each turn as it comes up, again close to it, and arrival. */
+  function speakStep(next) {
+    if (next.type === 'arrived') return voice.say(next.text)
+    announcer ??= createTurnAnnouncer({arriveLabel: arriveLabel(selected ?? {name: ''})})
+    const words = announcer.next(next.manoeuvre, next.distanceM)
+    if (words) voice.say(words)
+  }
+
   function endMapTrip() {
     if (!mapTrip) return
+    voice.stop()
+    announcer = null
     mapTrip.destroy()
     mapTrip = null
     delete root.dataset.mapTripOn
@@ -880,6 +903,10 @@ export function homeScreen(root, {navigate, params}) {
       useStart(start)
     },
     'pick-cancel': () => leavePick(),
+    'toggle-voice': () => {
+      voice.set(!voice.on) // inside the tap: iPhone only lets a page speak after one
+      paintVoice()
+    },
     'open-info': () => {
       setMenu(false)
       sheets.open('info')
@@ -947,6 +974,7 @@ export function homeScreen(root, {navigate, params}) {
   return () => {
     disposed = true
     off()
+    voice.destroy() // the trip ends with the screen: stop talking
     cardWatch?.disconnect()
     window.removeEventListener('resize', liftToasts)
     document.documentElement.style.removeProperty('--toast-above')

@@ -27,6 +27,7 @@ export const homePage = () => html`
         </button>
         <button class="home-menu__item" type="button" role="menuitem" data-action="north" aria-label="Turn the map north up" data-north hidden>${icon('north', {size: 20})}<span>North up</span></button>
         <div class="home-menu__floors" data-floor-host aria-label="Floor"></div>
+        <button class="home-menu__item" type="button" role="menuitemcheckbox" aria-checked="false" data-action="toggle-voice" data-voice hidden>${icon('volume', {size: 20})}<span>Spoken directions</span></button>
         <button class="home-menu__item" type="button" role="menuitem" data-action="open-info">${icon('info', {size: 20})}<span>About and privacy</span></button>
         <p class="home-menu__note" role="none">Anonymous trip counts only. No location is kept.</p>
       </div>

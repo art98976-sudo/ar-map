@@ -26,6 +26,7 @@ import {paintFallback} from './ar-fallback.js'
 import {count, newTrip} from '../../stats/counts.js'
 import {arErrorKind, reportError} from '../../stats/errors.js'
 import {watchContextLoss} from '../webgl-loss.js'
+import {createTurnAnnouncer, createVoice} from '../voice.js'
 import {loadBuildings} from '../../premium/buildings.js'
 import {errorView, liveView, loadingView} from './ar-view.js'
 
@@ -73,6 +74,9 @@ export function arScreen(root, {navigate, params}) {
   let wasHeadDown = false // B9: one buzz when "Look up" appears
   let trip = null
   let stopSession = null
+  // Item 3: spoken directions, switched on or off in the home menu (voice.js).
+  const voice = createVoice()
+  const announcer = createTurnAnnouncer({arriveLabel: arriveLabel(destination ?? {name: ''})})
   let stopArLoss = null // stops watching the AR canvas for a lost WebGL context
   let wakeLock = null
   let disposed = false
@@ -281,6 +285,7 @@ export function arScreen(root, {navigate, params}) {
   }
 
   function onArrived() {
+    if (!arrivedYet) voice.say(`You’ve arrived at ${arriveLabel(destination)}`)
     if (!arrivedYet) count('arrived')
     arrivedYet = true
     const host = root.querySelector('[data-arrival]')
@@ -317,6 +322,11 @@ export function arScreen(root, {navigate, params}) {
     paintEdgeArrow(s.edgeArrowDeg)
     paintFallback(root, s) // B7: WEAK or LOST, one big arrow instead of the floor arrows
     paintIndoorUi(s)
+    // Item 3: spoken directions (if switched on in the menu): each turn as it comes up and close to it.
+    if (s.phase === 'ready' && !s.arrived && s.nextManoeuvre && s.step) {
+      const words = announcer.next(s.nextManoeuvre, s.step.distanceM)
+      if (words) voice.say(words)
+    }
     const pillText = root.querySelector('[data-trip-pill]')
     if (pillText && s.phase === 'ready') pillText.textContent = tripPillText(destination.name, s.remainingM + indoorRestM(route, INDOOR.indoorAR))
   }
@@ -659,6 +669,7 @@ export function arScreen(root, {navigate, params}) {
 
   return () => {
     disposed = true
+    voice.destroy() // the trip ends with the screen: stop talking
     fieldTest?.destroy()
     document.removeEventListener('visibilitychange', onVisibility)
     teardownSession()

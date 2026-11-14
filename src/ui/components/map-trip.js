@@ -87,12 +87,12 @@ export function createMapTrip(host, {map, route, dest, onClose, arriveLabel = de
       iconHost.dataset.icon = next.icon
       render(iconHost, icon(next.icon, {size: 28}))
     }
-    // Screen readers and voice hear each step once, as it becomes the next one, not every metre.
+    // Screen readers hear each step once, as it becomes the next one, not every metre.
     if (next.manoeuvre !== lastStep) {
       lastStep = next.manoeuvre
       host.querySelector('[data-map-trip-announce]').textContent = next.text
-      onStep(next)
     }
+    onStep(next) // every update: spoken directions decide for themselves what is new (voice.js)
     const list = host.querySelector('[data-map-trip-steps]')
     if (!list.hidden) paintList(list)
   }
