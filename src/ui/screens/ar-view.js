@@ -32,6 +32,7 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
             <span class="chip__dot"></span><span data-tracking-label>Starting tracking</span>
           </div>`
         : ''}
+      <button class="ar-lost chip chip--glass" type="button" data-action="im-lost" aria-label="I'm lost: plan again from here and say where I am">${icon('locate', {size: 16})}<span>I'm lost</span></button>
       <button class="ar-realign chip chip--glass" type="button" data-action="realign" aria-label="Re-align the arrows with the path" hidden>
         ${icon('compass', {size: 16})}<span>Re-align</span>
       </button>

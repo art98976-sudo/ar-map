@@ -155,6 +155,22 @@ export function arScreen(root, {navigate, params}) {
     done: () => navigate('/'),
     inside: () => navigate(`/indoor?to=${encodeURIComponent(destination.id)}`),
     'handoff-now': () => openIndoor(),
+    // Item 8: plan again from here, open the map on the walker, and say where they are.
+    'im-lost': async (_, button) => {
+      if (!trip) return
+      button.setAttribute('aria-busy', 'true')
+      try {
+        const [{nearestPlace, lostMessage}, {default: osm}] = await Promise.all([import('../../route/lost.js'), import('../../data/landmarks-osm.json')])
+        const here = await trip.imLost()
+        if (disposed) return
+        const message = here ? lostMessage(nearestPlace(here, {destinations: DESTINATIONS, osm}), here.accuracy) : 'We can’t see where you are yet. Hold the phone up and walk a few steps.'
+        root.querySelector('[data-compass-map]')?.classList.add('is-expanded')
+        showToast(message, {duration: 6000})
+        voice.say(message)
+      } finally {
+        button.removeAttribute('aria-busy')
+      }
+    },
     'handoff-keep': () => {
       handoff.dismissed = true // this trip: no more asking
       stopHandoff()

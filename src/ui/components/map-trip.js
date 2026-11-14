@@ -46,12 +46,13 @@ function defaultMarker() {
  * @param o.watch GPS for the trip (location.js watchLocation): its own, so it runs all the walk
  * @param o.makeMarker the user's dot
  */
-export function createMapTrip(host, {map, route, dest, onClose, arriveLabel = dest.name, destinations = [], osm = null, onStep = () => {}, watch = watchLocation, makeMarker = defaultMarker}) {
+export function createMapTrip(host, {map, route, dest, onClose, onLost = null, arriveLabel = dest.name, destinations = [], osm = null, onStep = () => {}, watch = watchLocation, makeMarker = defaultMarker}) {
   let arrived = false
   let following = false
   let dot = null
   let userS = 0
   let fittingUntil = 0 // the route framing animation runs until then (ms)
+  let lastFix = null // the latest GPS fix, for "I'm lost"
   let lastStep = null // the manoeuvre the banner shows: a new one is announced (and spoken)
   let currentIndex = -1 // item 3: the step the walker is on, highlighted on the map...
   let pickedIndex = null // ...unless they picked another in the list (until the next step begins)
@@ -63,6 +64,7 @@ export function createMapTrip(host, {map, route, dest, onClose, arriveLabel = de
         <div class="map-trip__pill">
           ${icon('footsteps', {size: 18})}<span data-map-trip-text>${tripPillText(dest.name, tripLengthM(route))}</span>
         </div>
+        ${onLost ? html`<button class="map-trip__lost" type="button" data-action="im-lost" aria-label="I'm lost: show where I am and plan again from here">${icon('locate', {size: 18})}<span>I'm lost</span></button>` : ''}
         <button class="round-btn map-trip__close" type="button" data-action="end-map-trip" aria-label="End the trip">${icon('close', {size: 20})}</button>
       </div>
       <section class="map-trip__bottom" data-map-trip-bottom aria-label="Directions">
@@ -180,6 +182,7 @@ export function createMapTrip(host, {map, route, dest, onClose, arriveLabel = de
   const off = onAction(host, {
     'end-map-trip': () => onClose?.(),
     'toggle-steps': toggleSteps,
+    'im-lost': (_, button) => onLost?.(button),
     'show-step': (_, target) => showStep(Number(target.dataset.step)),
   })
   const onKey = (event) => {
@@ -236,6 +239,7 @@ export function createMapTrip(host, {map, route, dest, onClose, arriveLabel = de
     /** A new GPS fix: on the route, follow it and say what is left; off it, keep the route framed. */
     update(fix) {
       if (!fix || arrived) return
+      if (Number.isFinite(fix.lat)) lastFix = fix
       if (Number.isFinite(fix.lat) && Number.isFinite(fix.lng)) {
         dot ??= makeMarker(map)?.addTo?.(map) ?? null
         dot?.setLngLat?.([fix.lng, fix.lat])
@@ -258,6 +262,10 @@ export function createMapTrip(host, {map, route, dest, onClose, arriveLabel = de
       if (onRoute) keepInView(fix)
       else if (following) fitRoute() // walked off the route, or GPS got worse: show the whole walk again
       following = onRoute
+    },
+    /** The latest GPS fix this trip has had, or null. */
+    get lastFix() {
+      return lastFix
     },
     /** Frame the route again (the bottom panel changed size). */
     fit: () => fitRoute(),

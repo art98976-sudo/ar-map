@@ -1136,6 +1136,12 @@ export function createArTrip({
     onTick,
     mapState,
     setFps: (value) => (fps = value),
+    /** Item 8, "I'm lost": plan again from where the user is now. The position used, or null. */
+    async imLost() {
+      const from = manual ? trackedPosition() : lastFix
+      await reroute()
+      return from ? {lat: from.lat, lng: from.lng, accuracy: from.accuracy ?? null} : null
+    },
     /** ?debug=1: show the building shell as a see-through wireframe. */
     setWireframe(on) {
       wireOn = Boolean(on)

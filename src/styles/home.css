@@ -972,3 +972,27 @@
   outline: 3px solid var(--c-primary);
   outline-offset: -3px;
 }
+/* Item 8: "I'm lost" beside the trip pill. */
+.map-trip__lost {
+  display: inline-flex;
+  flex: none;
+  gap: 6px;
+  align-items: center;
+  min-height: var(--tap, 44px);
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface, #fff);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+.map-trip__lost:focus-visible {
+  outline: 3px solid var(--c-primary);
+  outline-offset: 2px;
+}
+.map-trip__lost[aria-busy='true'] {
+  opacity: 0.7;
+}

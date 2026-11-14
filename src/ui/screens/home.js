@@ -471,12 +471,44 @@ export function homeScreen(root, {navigate, params}) {
       route: cardRoute,
       dest,
       onClose: endMapTrip,
+      onLost: (button) => imLost(dest, button), // item 8
       arriveLabel: arriveLabel(dest), // "Library entrance", as in AR
       destinations: DESTINATIONS, // corners are named after the places beside them
       osm,
       onStep: speakStep,
     })
     mapTrip.update(fixWatch.fix)
+  }
+
+  /**
+   * Item 8, "I'm lost": where the walker is (the trip's latest fix, or a fresh one), the nearest
+   * named place, a new route from there, and the map back on them.
+   */
+  async function imLost(dest, button) {
+    button?.setAttribute('aria-busy', 'true')
+    try {
+      const [{nearestPlace, lostMessage}, {default: osm}] = await Promise.all([import('../../route/lost.js'), import('../../data/landmarks-osm.json')])
+      let fix = mapTrip?.lastFix ?? fixWatch.fix
+      if (!fix && navigator.geolocation) fix = await Promise.race([fixWatch.current(), new Promise((r) => setTimeout(() => r(null), 8000))]).catch(() => null)
+      if (disposed || selected !== dest) return
+      if (!fix) {
+        endMapTrip()
+        return askStart() // "We can't see your location. Choose where you're starting from."
+      }
+      const message = lostMessage(nearestPlace(fix, {destinations: DESTINATIONS, osm}), fix.accuracy)
+      const route = await planRoute(fix, dest)
+      if (disposed || selected !== dest) return
+      if (route?.status === 'ok') {
+        cardRoute = route
+        drawCardRoute()
+        await startMapTrip() // the new route, its steps and its framing
+      }
+      instance?.map?.easeTo({center: [fix.lng, fix.lat], zoom: Math.max(instance.map.getZoom(), 17), duration: 600})
+      showToast(route?.status === 'ok' ? message : `${message.replace(' New route from here.', '')} We could not plan a new route.`, {duration: 6000})
+      voice.say(message)
+    } finally {
+      button?.removeAttribute('aria-busy')
+    }
   }
 
   /** Spoken directions for the map trip: each turn as it comes up, again close to it, and arrival. */

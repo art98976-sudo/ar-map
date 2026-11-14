@@ -817,3 +817,13 @@
   opacity: 0.85;
   font-variant-numeric: tabular-nums;
 }
+
+/* Item 8: "I'm lost", under the top row on the left (Re-align is on the right). */
+.ar-lost {
+  position: absolute;
+  top: 56px;
+  left: 0;
+}
+.ar-lost[aria-busy='true'] {
+  opacity: 0.7;
+}
