@@ -8,6 +8,9 @@ test('Go with no location opens "Where are you starting from?"', async ({page}, 
   await page.goto('/#/?to=library')
   const go = page.locator('[data-go]')
   await expect(go).toBeVisible({timeout: 45_000})
+  // A laptop: the card offers the phone, with a QR code drawn on the page.
+  await expect(page.locator('[data-card] [data-handoff]')).toBeVisible()
+  await expect(page.locator('[data-handoff] svg')).toBeVisible()
   await go.click()
   const sheet = page.locator('[data-start-sheet]')
   await expect(sheet).toBeVisible({timeout: 15_000})

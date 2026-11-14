@@ -168,7 +168,8 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
   </div>
 `
 
-export const errorView = (copy) => html`
+/** extra: more below the buttons, e.g. the "Open on your phone" QR panel. */
+export const errorView = (copy, extra = '') => html`
     <div class="page page--narrow page--center error-state">
       <span class="error-state__icon" data-tone="${copy.tone}">${icon(copy.icon, {size: 32})}</span>
       <h1 class="page__title" tabindex="-1">${copy.title}</h1>
@@ -186,5 +187,6 @@ export const errorView = (copy) => html`
           ${icon('map')}<span>View 2D map instead</span>
         </button>
       </div>
+      ${extra}
     </div>
 `

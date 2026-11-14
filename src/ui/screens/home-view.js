@@ -161,7 +161,7 @@ export function placeNotFound(text = 'We couldn’t find that place') {
   `
 }
 
-export function placeCard(place, walkText, {stepFree = false, arIssue = null} = {}) {
+export function placeCard(place, walkText, {stepFree = false, arIssue = null, handoff = null} = {}) {
   const room = place.category === 'room' ? describeDestination(place) : ''
   // Never repeat the name underneath it ("Library" / "Library").
   const subtitle = subtitleFor(place.name, room || categoryLabel(place.category))
@@ -209,6 +209,7 @@ export function placeCard(place, walkText, {stepFree = false, arIssue = null} = 
     <button class="btn btn--primary btn--lg btn--block dest-sheet__go" type="button" data-action="${arIssue ? 'map-trip' : 'walk'}" data-go data-ar-choice ${arIssue ? 'data-go-map' : ''}>
       ${icon(arIssue ? 'map' : 'arrive')}<span>Go</span>
     </button>
+    ${handoff ?? ''}
   `
 }
 

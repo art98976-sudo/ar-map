@@ -213,3 +213,38 @@
 .toast--warning {
   background: var(--toast-warning-bg);
 }
+
+/* ---------- "Open on your phone for AR": QR handoff from a laptop (phone-handoff.js) ---------- */
+.handoff {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin-top: var(--s-3);
+  padding: var(--s-3);
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.12));
+  border-radius: var(--r-md);
+  background: var(--surface);
+  text-align: left;
+}
+.handoff__code {
+  flex: none;
+  width: 112px;
+  margin: 0;
+  /* The code is black on white whatever the theme, so phone cameras read it. */
+  background: #fff;
+  border-radius: 8px;
+}
+.handoff__code svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.handoff__title {
+  margin: 0 0 var(--s-1);
+  font-size: var(--fs-md, 1rem);
+}
+.handoff__body {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}

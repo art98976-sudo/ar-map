@@ -23,6 +23,7 @@ import {getStart, isManual, startLabel} from '../../route/start-point.js'
 import {formatDistance} from '../../ar/pin.js'
 import {findDestination} from '../../map/destinations.js'
 import {showToast} from '../components/toast.js'
+import {handoffUrl, needsHandoff, phoneHandoff} from '../components/phone-handoff.js'
 import {focusScreen, haptic, html, onAction, render} from '../dom.js'
 import {CATEGORY_ICON, icon} from '../icons.js'
 import {GPS} from '../../config.js'
@@ -269,10 +270,12 @@ export function locateScreen(root, {navigate, params}) {
 
   // ---------- errors ----------
   function showError(code) {
-    showErrorCopy(locationErrorCopy(code, device))
+    // No geolocation in this browser: also offer the phone, where AR works.
+    const extra = needsHandoff({hasGeolocation: code !== 'unsupported'}) ? phoneHandoff(handoffUrl(destination?.id)) : ''
+    showErrorCopy(locationErrorCopy(code, device), extra)
   }
 
-  function showErrorCopy(copy) {
+  function showErrorCopy(copy, extra = '') {
     if (disposed) return
     stop()
     tapWatch?.stop()
@@ -295,6 +298,7 @@ export function locateScreen(root, {navigate, params}) {
               ${icon('map')}<span>View 2D map instead</span>
             </button>
           </div>
+          ${extra}
         </div>
       `,
       'error',
@@ -319,6 +323,7 @@ export function locateScreen(root, {navigate, params}) {
                 </button>`
               : ''}
           </div>
+          ${needsHandoff({issueCode: issue.code}) ? phoneHandoff(handoffUrl(destination?.id)) : ''}
         </div>
       `,
       'unsupported',

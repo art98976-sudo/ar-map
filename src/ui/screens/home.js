@@ -15,6 +15,7 @@ import {seen} from '../first-use.js'
 import {openingMove} from '../opening.js'
 import {createFixWatch, locationPermissionState, readTripFix} from '../../geo/location.js'
 import {locateForGo, NO_LOCATION_TEXT} from '../../route/go-start.js'
+import {handoffUrl, needsHandoff, phoneHandoff} from '../components/phone-handoff.js'
 import {addRecent, DESTINATIONS, findDestination, setCurrentDestination} from '../../map/destinations.js'
 import {fetchPoiDestination, poiIdFrom} from '../../map/poi-lookup.js'
 import {entranceOf, estimateWalkMinutes, getStepFree, planRoute, saveTripRoute, setStepFree, tripLengthM} from '../../route/route.js'
@@ -668,7 +669,10 @@ export function homeScreen(root, {navigate, params}) {
       focusGo()
     }
     // 8.4: a device that cannot run AR never sees the AR button; the card offers the map.
-    render(card, placeCard(selected, walkText(), {stepFree: getStepFree(), arIssue: deviceIssue(forced)}))
+    const arIssue = deviceIssue(forced)
+    // A laptop, or no location here: a QR code to carry on with AR on a phone.
+    const handoff = needsHandoff({issueCode: arIssue?.code, hasGeolocation: Boolean(navigator.geolocation)}) ? phoneHandoff(handoffUrl(selected.id)) : null
+    render(card, placeCard(selected, walkText(), {stepFree: getStepFree(), arIssue, handoff}))
     paintWayButton()
     paintIndoor()
     quietPlan()
