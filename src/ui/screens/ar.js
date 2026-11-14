@@ -64,6 +64,7 @@ export function arScreen(root, {navigate, params}) {
   }
   const device = parseUserAgent(navigator.userAgent, {maxTouchPoints: navigator.maxTouchPoints})
   let wasLocked = false
+  let wasHeadDown = false // B9: one buzz when "Look up" appears
   let trip = null
   let stopSession = null
   let wakeLock = null
@@ -295,6 +296,8 @@ export function arScreen(root, {navigate, params}) {
     followMapWhileUncertain(s.positionUncertain)
     if (s.locked && !wasLocked) haptic(18)
     wasLocked = s.locked
+    if (s.headDown && !wasHeadDown) haptic([40, 60, 40])
+    wasHeadDown = Boolean(s.headDown)
     paintStartCard(s)
     if (s.debug) paintLiveDebug(root, s)
     const minimap = root.querySelector('[data-minimap]')

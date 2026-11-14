@@ -29,7 +29,7 @@ import {createRouteMatcher} from './route-matcher.js'
 import {locationPermissionState, watchLocation} from '../geo/location.js'
 import {isManual} from '../route/start-point.js'
 import {createGuidance, landmarksFrom} from '../route/guidance.js'
-import {createArrivalDetector, createConfidenceMonitor, createOffRouteMonitor, trackingState} from '../route/trip-monitors.js'
+import {createArrivalDetector, createConfidenceMonitor, createHeadDownMonitor, createOffRouteMonitor, trackingState} from '../route/trip-monitors.js'
 import {entranceOf, isOnCampus, planRoute} from '../route/route.js'
 import {markerName} from '../route/card-text.js'
 import {COMPASS_GUIDE, GPS, GROUND, GROUND_ARROWS, INDOOR, LINE_UP, MATCH, PIN, ROUTING, SAFETY, SCENE_FLOOR, SHELL, START, TRIP} from '../config.js'
@@ -821,6 +821,28 @@ export function createArTrip({
   let lookUpShown = false
   let lookUpUntil = -Infinity
 
+  // B9: walking fast with the phone pointed at the ground.
+  const headDown = createHeadDownMonitor()
+  let headDownNow = false
+  let speedMps = 0
+  let lastCam = null
+
+  function watchHeadDown(dt, time) {
+    if (phase !== 'ready' || arrived || tracking !== 'NORMAL' || !camera || !(dt > 0)) {
+      lastCam = null
+      headDownNow = false
+      return
+    }
+    const p = camera.position
+    if (lastCam) {
+      const step = Math.hypot(p.x - lastCam.x, p.z - lastCam.z) / dt
+      // A jump (SLAM recovering) is not walking: leave the speed as it was.
+      if (step <= MATCH.maxSpeedMps) speedMps += (step - speedMps) * (1 - Math.exp(-dt / SAFETY.speedEaseS))
+    }
+    lastCam = {x: p.x, z: p.z}
+    headDownNow = headDown.update({time, speedMps, downY: -lookDirection().y})
+  }
+
   /** Walking for 10 s with the phone held up in front: remind the user to look up, once per trip. */
   function watchHeldUp(dt, time) {
     if (lookUpShown || phase !== 'ready' || arrived || tracking !== 'NORMAL' || !camera) return
@@ -974,6 +996,7 @@ export function createArTrip({
     updateShell(time)
     checkIndoor(time)
     watchHeldUp(dt, time)
+    watchHeadDown(dt, time)
     paintShell(routeS)
     watchFps(time)
     statsTimer += dt
@@ -1017,6 +1040,8 @@ export function createArTrip({
         lateralOffsetM: phase === 'ready' ? pose.lateralOffsetM : null,
         poseConfident: pose.confident,
         lookUp: time < lookUpUntil,
+        headDown: headDownNow,
+        walkingSpeedMps: speedMps,
         shellLoaded: Boolean(nav.shellLoaded),
         buildingsLoaded: nav.buildings.length,
         insideBuilding: nav.insideBuilding,

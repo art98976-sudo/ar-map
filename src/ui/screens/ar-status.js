@@ -8,7 +8,8 @@ export function statusMessage(s) {
   if (!s) return null
   const ready = s.phase === 'ready' && !s.arrived
   const rules = [
-    // Safety first: walking for a while with the phone held up.
+    // Safety first: walking fast looking down at the phone (B9), or a while with it held up.
+    [ready && s.headDown, {key: 'head-down', icon: 'alert', text: 'Look up. Watch where you’re walking'}],
     [ready && s.lookUp, {key: 'look-up', icon: 'alert', text: 'Look up while you walk'}],
     // Tracking lost long enough to hide the arrows.
     [ready && (s.trackingState === 'LOST' || (s.tracking && s.tracking !== 'NORMAL' && s.arrowsShown === false)), {key: 'tracking', icon: 'alert', text: 'Tracking lost. Move slowly'}],

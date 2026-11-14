@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest'
-import {ARRIVAL, CONFIDENCE, OFF_ROUTE, TRACKING_STATE} from '../../src/config.js'
-import {createArrivalDetector, createConfidenceMonitor, createOffRouteMonitor, trackingState} from '../../src/route/trip-monitors.js'
+import {ARRIVAL, CONFIDENCE, OFF_ROUTE, SAFETY, TRACKING_STATE} from '../../src/config.js'
+import {createArrivalDetector, createConfidenceMonitor, createHeadDownMonitor, createOffRouteMonitor, trackingState} from '../../src/route/trip-monitors.js'
 
 const STEP = 0.1 // ten readings a second
 /** Feed a monitor readings from `from` to `to` seconds; returns the last result. */
@@ -170,5 +170,33 @@ describe('GOOD / WEAK / LOST', () => {
   it('a webcam in test mode is never WEAK or LOST for tracking alone', () => {
     expect(trackingState({tracking: 'LIMITED', lostForS: 60, testMode: true})).toBe('GOOD')
     expect(trackingState({tracking: 'LIMITED', lostForS: 60, testMode: true, positionOk: false})).toBe('WEAK')
+  })
+})
+
+describe('B9: walking fast, looking down', () => {
+  const feed = (m, from, to, reading) => {
+    let r = false
+    for (let t = from; t < to - 1e-9; t += STEP) r = m.update({time: Number(t.toFixed(3)), ...reading})
+    return r
+  }
+  const fastDown = {speedMps: SAFETY.fastMps + 0.3, downY: SAFETY.downMinY + 0.1}
+  it('says "Look up" after headDownForS of fast walking pointed down, for lookUpForS', () => {
+    const m = createHeadDownMonitor()
+    expect(feed(m, 0, SAFETY.headDownForS - 0.2, fastDown)).toBe(false)
+    expect(feed(m, SAFETY.headDownForS - 0.2, SAFETY.headDownForS + 0.2, fastDown)).toBe(true)
+    expect(m.update({time: SAFETY.headDownForS + SAFETY.lookUpForS + 0.5, speedMps: 0, downY: 0})).toBe(false)
+  })
+  it('not for a slow walk, nor with the phone held up', () => {
+    const m = createHeadDownMonitor()
+    expect(feed(m, 0, 10, {speedMps: SAFETY.fastMps - 0.4, downY: 0.95})).toBe(false)
+    expect(feed(m, 10, 20, {speedMps: 2.5, downY: 0.3})).toBe(false)
+  })
+  it('waits headDownCooldownS before saying it again', () => {
+    const m = createHeadDownMonitor()
+    feed(m, 0, SAFETY.headDownForS + 0.2, fastDown)
+    const end = SAFETY.headDownForS + SAFETY.lookUpForS + 1
+    expect(feed(m, end, end + 5, fastDown)).toBe(false)
+    const later = SAFETY.headDownForS + SAFETY.headDownCooldownS + 1
+    expect(feed(m, later, later + SAFETY.headDownForS + 0.2, fastDown)).toBe(true)
   })
 })

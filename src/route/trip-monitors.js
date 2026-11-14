@@ -5,7 +5,32 @@
 // - createOffRouteMonitor: has the user left the route long enough to plan a new one?
 // - createArrivalDetector: has the user reached the destination?
 import {angleDiff} from '../geo/geo.js'
-import {ARRIVAL, CONFIDENCE, OFF_ROUTE, TRACKING_STATE} from '../config.js'
+import {ARRIVAL, CONFIDENCE, OFF_ROUTE, SAFETY, TRACKING_STATE} from '../config.js'
+
+/**
+ * B9: walking fast with the phone pointed at the ground. Feed it every frame:
+ *   update({time, speedMps, downY}) -> true while "Look up" should show.
+ * downY: how far down the camera looks (0 level, 1 straight down). After SAFETY.headDownForS of
+ * fast walking pointed down, the nudge shows for SAFETY.lookUpForS, then not again for
+ * SAFETY.headDownCooldownS.
+ */
+export function createHeadDownMonitor() {
+  let since = null
+  let showUntil = -Infinity
+  let quietUntil = -Infinity
+  return {
+    update({time, speedMps, downY}) {
+      const risky = Number.isFinite(speedMps) && speedMps >= SAFETY.fastMps && downY >= SAFETY.downMinY
+      since = risky ? (since ?? time) : null
+      if (since != null && time - since >= SAFETY.headDownForS && time >= quietUntil) {
+        showUntil = time + SAFETY.lookUpForS
+        quietUntil = time + SAFETY.headDownCooldownS
+        since = null
+      }
+      return time < showUntil
+    },
+  }
+}
 
 /**
  * One word for how well the trip knows where the user is, for the screen to act on:
