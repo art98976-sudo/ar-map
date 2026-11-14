@@ -829,3 +829,104 @@
   flex-basis: 100%;
   padding-right: var(--side);
 }
+
+/* Item 2: the next turn and the list of every step, at the bottom of the map trip. */
+.map-trip__bottom {
+  position: absolute;
+  left: calc(var(--safe-left, 0px) + 16px);
+  right: calc(var(--safe-right, 0px) + 16px);
+  bottom: calc(var(--safe-bottom, 0px) + 16px);
+  max-width: 560px;
+  margin: 0 auto;
+  border-radius: var(--r-lg, 20px);
+  background: var(--surface, #fff);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  pointer-events: auto;
+}
+.map-trip__next {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 12px 12px 16px;
+}
+.map-trip__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+}
+.map-trip__banner {
+  flex: 1;
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.map-trip__steps-btn {
+  display: inline-flex;
+  flex: none;
+  gap: 4px;
+  align-items: center;
+  min-height: var(--tap, 44px);
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.map-trip__steps-btn:focus-visible {
+  outline: 3px solid var(--c-primary);
+  outline-offset: 2px;
+}
+.map-trip__steps-btn[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+.map-trip__steps {
+  max-height: min(40vh, 320px);
+  margin: 0;
+  padding: 0 16px 12px;
+  overflow-y: auto;
+  border-top: 1px solid var(--line);
+  list-style: none;
+}
+.map-trip__steps[hidden] {
+  display: none;
+}
+.map-trip__step {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.map-trip__step:last-child {
+  border-bottom: 0;
+}
+.map-trip__step[data-done] {
+  color: var(--text-muted);
+}
+.map-trip__step[aria-current='step'] {
+  font-weight: 700;
+}
+.map-trip__step-text {
+  flex: 1;
+}
+.map-trip__step-walk {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .map-trip__steps-btn svg {
+    transition: transform 0.2s ease;
+  }
+}

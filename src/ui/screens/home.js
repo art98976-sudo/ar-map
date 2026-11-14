@@ -17,6 +17,7 @@ import {createFixWatch, locationPermissionState, readTripFix} from '../../geo/lo
 import {locateForGo, NO_LOCATION_TEXT} from '../../route/go-start.js'
 import {handoffUrl, needsHandoff, phoneHandoff} from '../components/phone-handoff.js'
 import {watchContextLoss} from '../webgl-loss.js'
+import {arriveLabel} from './ar.js'
 import {reportError} from '../../stats/errors.js'
 import {addRecent, DESTINATIONS, findDestination, setCurrentDestination} from '../../map/destinations.js'
 import {fetchPoiDestination, poiIdFrom} from '../../map/poi-lookup.js'
@@ -444,7 +445,14 @@ export function homeScreen(root, {navigate, params}) {
     card.hidden = true
     // The trip frames the route itself and runs its own GPS: no geolocate.trigger(), whose camera
     // fits the GPS accuracy circle (a laptop's ~1 km Wi-Fi fix zooms out to Causewayhead).
-    mapTrip = createMapTrip(root.querySelector('[data-map-trip]'), {map: instance.map, route: cardRoute, dest, onClose: endMapTrip})
+    mapTrip = createMapTrip(root.querySelector('[data-map-trip]'), {
+      map: instance.map,
+      route: cardRoute,
+      dest,
+      onClose: endMapTrip,
+      arriveLabel: arriveLabel(dest), // "Library entrance", as in AR
+      destinations: DESTINATIONS, // corners are named after the places beside them
+    })
     mapTrip.update(fixWatch.fix)
   }
 
