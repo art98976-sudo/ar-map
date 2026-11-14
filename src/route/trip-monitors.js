@@ -55,10 +55,12 @@ export function trackingState({tracking = 'NORMAL', lostForS = 0, positionOk = t
  * stays put; a compass upset by steel or a building moves alone, and the difference swings.
  *
  * The arrow goes after unreliableAfterS of bad readings, and comes back after reliableAfterS of
- * good ones, so one bad reading does not make it flicker.
+ * good ones, so one bad reading does not make it flicker. GPS also has two thresholds: worse than
+ * maxGpsAccuracyM is bad, but once unreliable only recoverGpsAccuracyM or better is good again.
  */
 export function createConfidenceMonitor(config = CONFIDENCE) {
   const {maxGpsAccuracyM, maxHeadingSwingDeg, swingWindowS, unreliableAfterS, reliableAfterS} = config
+  const recoverGpsAccuracyM = config.recoverGpsAccuracyM ?? maxGpsAccuracyM
   let window = [] // {time, gap}: compass minus camera yaw
   let badSince = null
   let goodSince = null
@@ -88,7 +90,9 @@ export function createConfidenceMonitor(config = CONFIDENCE) {
      * @returns {{reliable, reason: 'gps'|'compass'|null, gpsBad, swingDeg}}
      */
     update({time, gpsAccuracy = null, useGps = true, heading = null, cameraYawDeg = null, useCompass = true}) {
-      const gpsBad = useGps && !(Number.isFinite(gpsAccuracy) && gpsAccuracy <= maxGpsAccuracyM)
+      // Hysteresis: once unreliable, GPS has to be clearly better (recoverGpsAccuracyM) to count as good.
+      const gpsLimit = reliable ? maxGpsAccuracyM : recoverGpsAccuracyM
+      const gpsBad = useGps && !(Number.isFinite(gpsAccuracy) && gpsAccuracy <= gpsLimit)
       if (useCompass && Number.isFinite(heading) && Number.isFinite(cameraYawDeg)) {
         window.push({time, gap: angleDiff(cameraYawDeg, heading)})
         window = window.filter((s) => time - s.time <= swingWindowS)

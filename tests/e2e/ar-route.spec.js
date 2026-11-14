@@ -166,14 +166,14 @@ test.describe('position confidence on the AR screen', () => {
     await page.waitForTimeout(1500)
     await expect(map).not.toHaveClass(/is-expanded/) // not after one bad moment
     await expect(map).toHaveClass(/is-expanded/, {timeout: 5000})
-    await expect(slot).toHaveText(/Finding your position. Follow the map for now.|Tracking lost. Move slowly/)
+    await expect(slot).toHaveText(/Low GPS accuracy \(±40 m\)\. Follow the arrow and the map\.|Tracking lost\. Move slowly/)
     await page.screenshot({path: testInfo.outputPath('finding-position.png')})
 
     await context.setGeolocation({...here, accuracy: 6})
     await page.waitForTimeout(1500)
     await expect(map).toHaveClass(/is-expanded/) // 3 s of good readings first
     await expect(map).not.toHaveClass(/is-expanded/, {timeout: 5000}) // put back, as the user had it
-    await expect(slot).not.toHaveText(/Finding your position/)
+    await expect(slot).not.toHaveText(/Low GPS accuracy/)
     expect(errors).toEqual([])
   })
 })

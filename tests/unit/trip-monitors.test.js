@@ -44,6 +44,39 @@ describe('confidence: GPS', () => {
     expect(run(createConfidenceMonitor(), 0, 4, () => ({gpsAccuracy: null})).reliable).toBe(false)
     expect(run(createConfidenceMonitor(), 0, 10, () => ({gpsAccuracy: 80, useGps: false})).reliable).toBe(true)
   })
+
+  it('has a 5 m band: hidden past 20 m, back only at 15 m or better', () => {
+    expect(CONFIDENCE.recoverGpsAccuracyM).toBe(15)
+    const m = createConfidenceMonitor()
+    expect(run(m, 0, 3.2, () => ({gpsAccuracy: 25}))).toMatchObject({reliable: false, reason: 'gps'})
+    // 18 m is fine for staying on the ground arrows, but not for coming back to them.
+    expect(run(m, 3.2, 20, () => ({gpsAccuracy: 18}))).toMatchObject({reliable: false, reason: 'gps', gpsBad: true})
+    expect(run(m, 20, 23.2, () => ({gpsAccuracy: 15}))).toMatchObject({reliable: true, reason: null})
+    // And back on them, 18 m keeps them: no flicker for GPS hovering between the two numbers.
+    expect(run(m, 23.2, 40, () => ({gpsAccuracy: 18}))).toMatchObject({reliable: true, gpsBad: false})
+  })
+
+  it('GPS hovering around 20 m never makes the arrows flicker', () => {
+    const m = createConfidenceMonitor()
+    let changes = 0
+    let last = true
+    run(m, 0, 60, (t) => {
+      const r = m.reliable
+      if (r !== last) changes++
+      last = r
+      return {gpsAccuracy: Math.floor(t) % 2 ? 22 : 17} // 17 m and 22 m, a second each
+    })
+    expect(changes).toBe(0) // never 3 s of bad in a row: the arrows stay
+    const n = createConfidenceMonitor()
+    run(n, 0, 4, () => ({gpsAccuracy: 30})) // hidden
+    expect(run(n, 4, 60, (t) => ({gpsAccuracy: Math.floor(t) % 2 ? 22 : 17})).reliable).toBe(false) // never 3 s at 15 m: stays hidden
+  })
+
+  it('a monitor with one GPS number has no band', () => {
+    const m = createConfidenceMonitor({...CONFIDENCE, recoverGpsAccuracyM: undefined})
+    run(m, 0, 3.2, () => ({gpsAccuracy: 25}))
+    expect(run(m, 3.2, 6.4, () => ({gpsAccuracy: 18})).reliable).toBe(true)
+  })
 })
 
 describe('confidence: compass', () => {

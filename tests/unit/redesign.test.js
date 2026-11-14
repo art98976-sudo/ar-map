@@ -112,3 +112,16 @@ describe('one status message at a time', () => {
     expect(statusMessage({phase: 'await-start', manual: false})).toBeNull()
   })
 })
+
+describe('item 6: the hint while the floor arrows are hidden', async () => {
+  const {positionHint, statusMessage} = await import('../../src/ui/screens/ar-status.js')
+  const ready = {phase: 'ready', arrived: false, tracking: 'NORMAL', positionUncertain: true}
+  it('says GPS is the cause, with its error, when it is', () => {
+    expect(positionHint({positionReason: 'gps', gpsAccuracy: 33.6})).toBe('Low GPS accuracy (±34 m). Follow the arrow and the map.')
+    expect(positionHint({positionReason: 'gps', gpsAccuracy: null})).toBe('Low GPS accuracy. Follow the arrow and the map.')
+    expect(statusMessage({...ready, positionReason: 'gps', gpsAccuracy: 40})).toMatchObject({key: 'position', text: 'Low GPS accuracy (±40 m). Follow the arrow and the map.'})
+  })
+  it('keeps the general words for the compass', () => {
+    expect(statusMessage({...ready, positionReason: 'compass'}).text).toBe('Finding your position. Follow the map for now.')
+  })
+})

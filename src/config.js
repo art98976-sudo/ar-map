@@ -428,8 +428,14 @@ export const COMPASS_MAP = {
 // Unreliable: GPS worse than maxGpsAccuracyM, or the compass swinging more than maxHeadingSwingDeg
 // within swingWindowS while the phone itself is not turning. After unreliableAfterS of that, the
 // arrow hides and the 2D map takes over; it comes back after reliableAfterS of good readings.
+// Two GPS numbers, so accuracy hovering around one cannot make the arrows flicker: worse than
+// maxGpsAccuracyM hides them; once hidden, GPS must reach recoverGpsAccuracyM to bring them back.
+// 20 m: the 68% radius past which the ground route can sit on the wrong path or the far side of a
+// building (paths are 2-4 m wide, buildings 20-30 m apart). 15 m: a phone outdoors usually reports
+// 5-10 m, so a real recovery passes it quickly; a fix hovering at 18-22 m does not.
 export const CONFIDENCE = {
   maxGpsAccuracyM: 20,
+  recoverGpsAccuracyM: 15,
   maxHeadingSwingDeg: 40,
   swingWindowS: 2,
   unreliableAfterS: 3,

@@ -15,6 +15,7 @@ import {createGuidance} from '../route/guidance.js'
 import {createNavPose, steeredBearing} from '../route/nav-pose.js'
 import {createArrivalDetector, createConfidenceMonitor, createOffRouteMonitor} from '../route/trip-monitors.js'
 import {planRoute} from '../route/route.js'
+import {positionHint} from '../ui/screens/ar-status.js'
 import {ARRIVAL, ARROW, COLOURS, CONFIDENCE, GROUND_ARROWS, OFF_ROUTE, ROUTING} from '../config.js'
 
 /** A fixed start on a campus path, by the loch walkway, when no start was chosen. */
@@ -62,11 +63,11 @@ const NOTHING = {type: 'FeatureCollection', features: []}
  * The banner the AR screen would show, most urgent first. Exported for tests.
  * @returns {{text, tone}|null}
  */
-export function simBanner({arrived, trackingLost = false, floorTo = null, uncertain, rerouting, name}) {
+export function simBanner({arrived, trackingLost = false, floorTo = null, uncertain, uncertainReason = null, gpsAccuracy = null, rerouting, name}) {
   if (arrived) return {text: `You’ve arrived · ${name}`, tone: 'done'}
   if (trackingLost) return {text: 'Tracking lost. Move slowly', tone: 'warn'}
   if (floorTo != null) return {text: `Go to Level ${floorTo}`, tone: 'info'}
-  if (uncertain) return {text: 'Finding your position. Follow the map for now.', tone: 'warn'}
+  if (uncertain) return {text: positionHint({positionReason: uncertainReason, gpsAccuracy}), tone: 'warn'}
   if (rerouting) return {text: 'Finding a new route', tone: 'info'}
   return null
 }
@@ -294,7 +295,7 @@ export function createSimulator(map, {from = SIM_START, dest, host = document.bo
         zoomed = true
       }
 
-      const banner = simBanner({arrived, trackingLost, floorTo, uncertain: !c.reliable, rerouting, name: dest?.name ?? 'your destination'})
+      const banner = simBanner({arrived, trackingLost, floorTo, uncertain: !c.reliable, uncertainReason: c.reason, gpsAccuracy, rerouting, name: dest?.name ?? 'your destination'})
       panel.banner.hidden = !banner
       if (banner) {
         panel.banner.textContent = banner.text

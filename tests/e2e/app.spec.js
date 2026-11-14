@@ -485,7 +485,7 @@ test.describe('arrow test mode', () => {
     await panel.getByLabel('GPS accuracy').fill('35')
     await page.waitForTimeout(2000)
     await expect(banner).toBeHidden()
-    await expect(banner).toHaveText('Finding your position. Follow the map for now.', {timeout: 3000})
+    await expect(banner).toHaveText('Low GPS accuracy (±35 m). Follow the arrow and the map.', {timeout: 3000})
     await expect(readout).toContainText('arrow hidden')
     await panel.getByLabel('GPS accuracy').fill('6')
     await page.waitForTimeout(2000)

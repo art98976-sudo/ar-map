@@ -3,6 +3,16 @@
 // Group C: only messages that ask the user to do something. "Finding a new route", "Approximate
 // route" and "Locating you…" are gone: the arrows and the map already show it, and nobody can act.
 
+/**
+ * Why the floor arrows are hidden while the position is unsure. GPS: say so, with its error, since
+ * the simple arrow and the distance carry on. Otherwise (the compass), the general words. Pure.
+ */
+export function positionHint({positionReason = null, gpsAccuracy = null} = {}) {
+  if (positionReason !== 'gps') return 'Finding your position. Follow the map for now.'
+  const error = Number.isFinite(gpsAccuracy) ? ` (±${Math.round(gpsAccuracy)} m)` : ''
+  return `Low GPS accuracy${error}. Follow the arrow and the map.`
+}
+
 /** The message for these trip stats, or null. {key, icon, text}. */
 export function statusMessage(s) {
   if (!s) return null
@@ -15,7 +25,7 @@ export function statusMessage(s) {
     [ready && (s.trackingState === 'LOST' || (s.tracking && s.tracking !== 'NORMAL' && s.arrowsShown === false)), {key: 'tracking', icon: 'alert', text: 'Tracking lost. Move slowly'}],
     // Group B: the walk has not matched the route for 10 s: the arrows may be off.
     [ready && s.offerRealign, {key: 'realign', icon: 'drag', text: 'Arrows off the path? Tap Re-align'}],
-    [ready && s.positionUncertain, {key: 'position', icon: 'compass', text: 'Finding your position. Follow the map for now.'}],
+    [ready && s.positionUncertain, {key: 'position', icon: 'compass', text: positionHint(s)}],
     // Indoors, the walk keeps missing the route: the user can say where they are.
     [ready && s.offerReanchor, {key: 'reanchor', icon: 'pin', text: "Lost? Tap I'm here"}],
     [s.compassUnsteady || s.compassPoor, {key: 'compass', icon: 'compass', text: 'Wave your phone in a figure-8'}],
