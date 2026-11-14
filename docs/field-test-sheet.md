@@ -4,7 +4,7 @@ Use this sheet on campus with **one iPhone (Safari)** and **one Android phone (C
 
 Before you start:
 
-- Open the live link with `?fieldtest=1` added, for example `https://stirling-welcome-ar.vercel.app/?fieldtest=1#/?to=library`. The phone then records a log you can save as a CSV at the end of each walk.
+- The field-test recorder is a developer tool, so the live site does not have it. Make a field-test preview first: run `npm run deploy:fieldtest` and open the preview link it prints. Previews sit behind your Vercel login, so sign in on the phone once. Then add `?fieldtest=1`, for example `https://<preview>.vercel.app/?fieldtest=1#/?to=library`. The phone records a log, once a second, which you save as a CSV file at the end of each walk (Finish, then **Download CSV**).
 - Add `?debug=1` to show the status line at the top of the camera view.
 - Write down the phone model, its OS version, the browser, the weather and the time of day.
 
