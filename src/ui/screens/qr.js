@@ -12,12 +12,15 @@ export function shortLink(id, origin = globalThis.location?.origin ?? '') {
   return `${origin}/p/${encodeURIComponent(id)}`
 }
 
-/** The QR code as an SVG string. Error correction M: a scuffed poster still scans. */
+/**
+ * The QR code as an SVG string. Error correction M: a scuffed poster still scans. The SVG itself is
+ * hidden from screen readers: whoever shows it names the code on its wrapper (role="img").
+ */
 export function qrSvg(text) {
   const qr = qrcode(0, 'M')
   qr.addData(text)
   qr.make()
-  return qr.createSvgTag({cellSize: 8, margin: 4, scalable: true})
+  return qr.createSvgTag({cellSize: 8, margin: 4, scalable: true}).replace('<svg ', '<svg aria-hidden="true" focusable="false" ')
 }
 
 export function qrScreen(root, {navigate, params}) {
@@ -32,7 +35,7 @@ export function qrScreen(root, {navigate, params}) {
         <div class="page page--narrow page--center qr-page">
           <h1 class="page__title" tabindex="-1">${dest.name}</h1>
           ${dest.building && dest.building !== dest.name ? html`<p class="page__lede">${dest.building}</p>` : ''}
-          <figure class="qr-page__code" aria-label="QR code for ${dest.name}">${raw(qrSvg(link))}</figure>
+          <figure class="qr-page__code" role="img" aria-label="QR code for ${dest.name}">${raw(qrSvg(link))}</figure>
           <p class="qr-page__hint">Scan to walk here with arrows on the ground</p>
           <p class="qr-page__link" data-qr-link>${link}</p>
           <div class="qr-page__actions">
