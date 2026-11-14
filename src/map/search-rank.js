@@ -6,6 +6,7 @@
 // and duplicates of the same room are left out. Pure: no network, no DOM.
 import {distanceM} from '../geo/geo.js'
 import {normalize} from './search.js'
+import {inBuilding} from './timetable.js'
 
 export const MATCH = {exact: 0, starts: 1, word: 2, contains: 3, fuzzy: 4}
 
@@ -83,7 +84,7 @@ const sameSpot = (a, b, metres) =>
  * Rank places for a query. `items` may mix our own destinations and MazeMap rooms; fuzzyIds are
  * our own places that matched only with a typo ("libary"). Returns the list to show, best first.
  */
-export function rankResults(rawQuery, items, {limit = 12, fuzzyIds = new Set()} = {}) {
+export function rankResults(rawQuery, items, {limit = 12, fuzzyIds = new Set(), building = null} = {}) {
   const q = String(rawQuery || '').trim()
   if (!q) return []
   const wantsCode = q.includes('/')
@@ -98,13 +99,15 @@ export function rankResults(rawQuery, items, {limit = 12, fuzzyIds = new Set()} 
     let tier = matchTier(dest, q)
     if (tier == null && fuzzyIds.has(dest.id)) tier = MATCH.fuzzy
     if (tier == null) continue
-    scored.push({dest, tier, kind: kindTier(dest), event: isEventLabel(dest)})
+    scored.push({dest, tier, kind: kindTier(dest), event: isEventLabel(dest), elsewhere: building ? !inBuilding(dest, building) : false})
   }
   // An event label goes when a permanent room is in the same place.
   const permanent = scored.filter((r) => !r.event)
   const kept = scored.filter((r) => !r.event || !permanent.some((p) => sameSpot(p.dest, r.dest, 12)))
   kept.sort(
     (a, b) =>
+      // Item 7: "Cottrell 4B49": rooms in the building named come first.
+      Number(a.elsewhere) - Number(b.elsewhere) ||
       a.tier - b.tier ||
       a.kind - b.kind ||
       Number(a.event) - Number(b.event) ||

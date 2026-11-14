@@ -5,6 +5,7 @@ import {DESTINATIONS, POPULAR, TOWN_PLACES, addRecent, clearRecent, getRecent} f
 import {describeDestination, searchDestinations} from '../../map/search.js'
 import {searchMazeMap} from '../../map/mazemap-search.js'
 import {matchTier, rankResults} from '../../map/search-rank.js'
+import {timetableQuery} from '../../map/timetable.js'
 import {html, render} from '../dom.js'
 import {CATEGORY_ICON, icon, iconFor} from '../icons.js'
 
@@ -30,6 +31,7 @@ export function createDestinationSearch(host, {
   let query = ''
   let local = []
   let rooms = {state: 'idle', items: []} // idle | loading | done | error
+  let timetable = {room: '', building: null, changed: false} // item 7: the query as a timetable writes it
   // Our places found only through a typo ("libary"): ranked after real matches.
   const fuzzyIds = () => new Set(local.filter((d) => matchTier(d, query) == null).map((d) => d.id))
   let options = [] // flat list of selectable results, in display order
@@ -144,7 +146,7 @@ export function createDestinationSearch(host, {
       )
     } else {
       // One list, ranked together (search-rank.js): our places and MazeMap rooms.
-      const results = rankResults(query, [...local, ...rooms.items], {fuzzyIds: fuzzyIds()})
+      const results = rankResults(timetable.room || query, [...local, ...rooms.items], {fuzzyIds: fuzzyIds(), building: timetable.building})
       options = results
       const empty = !results.length && rooms.state !== 'loading' && rooms.state !== 'offline'
       render(
@@ -182,7 +184,11 @@ export function createDestinationSearch(host, {
 
   // ---------- behaviour ----------
   function runSearch() {
+    // Item 7: a room as a timetable writes it ("Cottrell 4B49", "LT A3"): the room part to search
+    // for, and its building to list first (map/timetable.js).
+    timetable = searchRooms ? timetableQuery(query) : {room: query, building: null, changed: false}
     local = searchDestinations(places, query, {popular: POPULAR_IDS, limit: searchRooms ? 6 : 12})
+    if (timetable.changed && !local.length) local = searchDestinations(places, timetable.room, {popular: POPULAR_IDS, limit: 6})
     active = -1
     clearTimeout(timer)
     controller?.abort()
@@ -198,7 +204,7 @@ export function createDestinationSearch(host, {
     timer = setTimeout(async () => {
       controller = new AbortController()
       try {
-        const found = await searchMazeMap(q, {signal: controller.signal, rows: 14})
+        const found = await searchMazeMap(timetable.room || q, {signal: controller.signal, rows: 14})
         if (q !== query.trim()) return
         // Ranking (and removing repeats of our own places) happens when the list is drawn.
         rooms = {state: 'done', items: found}
