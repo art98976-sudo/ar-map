@@ -64,3 +64,32 @@ test('Go: the next turn, and every step on request, by keyboard too', async ({pa
   await expect(toggle).toHaveAttribute('aria-expanded', 'false')
   await expect(toggle).toBeFocused()
 })
+
+test('a step in the list shows its stretch on the map; the current one is shown by itself', async ({page}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-chrome')
+  await page.addInitScript((start) => sessionStorage.setItem('welcomeAR.start.v1', JSON.stringify(start)), PATHFOOT)
+  await page.goto('/#/?to=library&debug=1')
+  await expect(page.locator('[data-walk-text]')).toContainText('m', {timeout: 45_000})
+  await page.locator('[data-go]').click()
+  const stretchOnMap = () => page.evaluate(() => window.__homeMap.getSource('trip-step')?._data?.geometry?.coordinates?.length ?? 0)
+  await expect.poll(stretchOnMap).toBeGreaterThan(1) // the current step, at once
+  await page.getByRole('button', {name: 'All steps'}).click()
+  const steps = page.locator('[data-map-trip-steps] [data-action="show-step"]')
+  const third = steps.nth(2)
+  await third.focus()
+  await page.keyboard.press('Enter')
+  await expect(third).toHaveAttribute('aria-pressed', 'true')
+  await expect(third).toBeFocused()
+  await page.waitForTimeout(1200)
+  const inView = await page.evaluate(() => {
+    const map = window.__homeMap
+    const coords = map.getSource('trip-step')._data.geometry.coordinates
+    const box = map.getContainer().getBoundingClientRect()
+    return coords.every(([lng, lat]) => {
+      const p = map.project([lng, lat])
+      return p.x >= 0 && p.x <= box.width && p.y >= 0 && p.y <= box.height
+    })
+  })
+  expect(inView).toBe(true)
+  await page.screenshot({path: testInfo.outputPath('step-picked.png')})
+})

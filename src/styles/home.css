@@ -945,3 +945,30 @@
   font-size: var(--fs-sm);
   font-weight: 400;
 }
+/* Item 3: each step is a button that shows its stretch on the map. */
+.map-trip__step {
+  padding: 0;
+}
+.map-trip__step-btn {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  min-height: var(--tap, 44px);
+  padding: 10px 4px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.map-trip__step-btn[aria-pressed='true'] {
+  background: rgba(217, 119, 6, 0.14);
+  box-shadow: inset 4px 0 0 #d97706;
+}
+.map-trip__step-btn:focus-visible {
+  outline: 3px solid var(--c-primary);
+  outline-offset: -3px;
+}

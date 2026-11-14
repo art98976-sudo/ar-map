@@ -53,6 +53,8 @@ export function createMapTrip(host, {map, route, dest, onClose, arriveLabel = de
   let userS = 0
   let fittingUntil = 0 // the route framing animation runs until then (ms)
   let lastStep = null // the manoeuvre the banner shows: a new one is announced (and spoken)
+  let currentIndex = -1 // item 3: the step the walker is on, highlighted on the map...
+  let pickedIndex = null // ...unless they picked another in the list (until the next step begins)
   const steps = createTripSteps(route, {arriveLabel, destinations, destinationId: dest.id, osm})
   render(
     host,
@@ -93,23 +95,76 @@ export function createMapTrip(host, {map, route, dest, onClose, arriveLabel = de
       host.querySelector('[data-map-trip-announce]').textContent = next.text
     }
     onStep(next) // every update: spoken directions decide for themselves what is new (voice.js)
+    if (next.index !== currentIndex) {
+      currentIndex = next.index
+      pickedIndex = null
+      highlightStep(currentIndex)
+    }
     const list = host.querySelector('[data-map-trip-steps]')
     if (!list.hidden) paintList(list)
   }
 
+  /** The list; each step is a button that shows its stretch on the map (item 3). */
   function paintList(list) {
-    render(
-      list,
-      steps.list(userS).map(
-        (s) => html`
-          <li class="map-trip__step" ${s.current ? raw('aria-current="step"') : ''} ${s.done ? raw('data-done') : ''}>
+    const shown = pickedIndex ?? currentIndex
+    const markup = html`${steps.list(userS).map(
+      (s, i) => html`
+        <li class="map-trip__step" ${s.current ? raw('aria-current="step"') : ''} ${s.done ? raw('data-done') : ''}>
+          <button class="map-trip__step-btn" type="button" data-action="show-step" data-step="${i}" aria-pressed="${i === shown ? 'true' : 'false'}">
             <span class="map-trip__step-icon">${icon(s.icon, {size: 20})}</span>
             <span class="map-trip__step-text">${s.detail ? html`<span class="map-trip__step-detail">${s.detail}</span>` : ''}${s.text}</span>
             <span class="map-trip__step-walk">${s.walkText}</span>
-          </li>
-        `,
-      ),
-    )
+          </button>
+        </li>
+      `,
+    )}`.value
+    if (list.dataset.markup === markup) return // a GPS fix that changes nothing keeps the focus where it is
+    const focused = list.contains(document.activeElement) ? document.activeElement.dataset.step : null
+    list.innerHTML = markup
+    list.dataset.markup = markup
+    if (focused != null) list.querySelector(`[data-step="${focused}"]`)?.focus({preventScroll: true})
+  }
+
+  // ---------- item 3: a step's stretch, highlighted on the map ----------
+  const STEP_LAYER = 'trip-step'
+  const reduceMotion = () => Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
+
+  function highlightStep(i) {
+    const pts = steps.stretch(i)
+    if (!map?.addSource || pts.length < 2) return
+    const data = {type: 'Feature', properties: {}, geometry: {type: 'LineString', coordinates: pts.map((p) => [p.lng, p.lat])}}
+    try {
+      if (map.getSource?.(STEP_LAYER)) map.getSource(STEP_LAYER).setData(data)
+      else {
+        map.addSource(STEP_LAYER, {type: 'geojson', data})
+        map.addLayer({id: `${STEP_LAYER}-casing`, type: 'line', source: STEP_LAYER, layout: {'line-cap': 'round', 'line-join': 'round'}, paint: {'line-color': '#ffffff', 'line-width': 12}})
+        map.addLayer({id: STEP_LAYER, type: 'line', source: STEP_LAYER, layout: {'line-cap': 'round', 'line-join': 'round'}, paint: {'line-color': '#d97706', 'line-width': 7}})
+      }
+    } catch {
+      // the map is changing style: the next step paints it
+    }
+  }
+
+  function clearHighlight() {
+    try {
+      for (const id of [STEP_LAYER, `${STEP_LAYER}-casing`]) if (map?.getLayer?.(id)) map.removeLayer(id)
+      if (map?.getSource?.(STEP_LAYER)) map.removeSource(STEP_LAYER)
+    } catch {
+      // map already gone
+    }
+  }
+
+  /** A step picked in the list: show its stretch, framed clear of the bars. */
+  function showStep(i) {
+    const pts = steps.stretch(i)
+    if (pts.length < 2) return
+    pickedIndex = i
+    highlightStep(i)
+    const {padding} = frame()
+    fittingUntil = Date.now() + 900 // a GPS fix must not pull the map away mid-move
+    map.fitBounds?.(routeBounds(pts), {padding, maxZoom: 19, duration: reduceMotion() ? 0 : 600})
+    const list = host.querySelector('[data-map-trip-steps]')
+    if (list && !list.hidden) paintList(list)
   }
 
   function toggleSteps() {
@@ -122,7 +177,11 @@ export function createMapTrip(host, {map, route, dest, onClose, arriveLabel = de
     if (!following) fitRoute() // the panel changed height: keep the route clear of it
   }
 
-  const off = onAction(host, {'end-map-trip': () => onClose?.(), 'toggle-steps': toggleSteps})
+  const off = onAction(host, {
+    'end-map-trip': () => onClose?.(),
+    'toggle-steps': toggleSteps,
+    'show-step': (_, target) => showStep(Number(target.dataset.step)),
+  })
   const onKey = (event) => {
     const list = host.querySelector('[data-map-trip-steps]')
     if (event.key === 'Escape' && list && !list.hidden) {
@@ -207,6 +266,7 @@ export function createMapTrip(host, {map, route, dest, onClose, arriveLabel = de
     },
     destroy() {
       off()
+      clearHighlight()
       host.removeEventListener('keydown', onKey)
       stopWatch()
       window.removeEventListener('resize', onResize)

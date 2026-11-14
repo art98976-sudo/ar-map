@@ -165,3 +165,19 @@ describe('item 1: steps describe what the walker can see', async () => {
     expect(a.next(second, 130)).toBe(`${second.detail}. In 130 m, ${stepLine(second, 'X').charAt(0).toLowerCase()}${stepLine(second, 'X').slice(1)}`)
   })
 })
+
+describe('item 3: a step stretch, for the map', async () => {
+  const {readFileSync} = await import('node:fs')
+  const {DESTINATIONS} = await import('../../src/map/destinations.js')
+  const {distanceM} = await import('../../src/geo/geo.js')
+  it('runs from the end of the step before to the step itself, end to end', () => {
+    const route = JSON.parse(readFileSync('tests/fixtures/route-pathfoot-library.json', 'utf8'))
+    const s = createTripSteps(route, {arriveLabel: 'Library entrance', destinations: DESTINATIONS, destinationId: 'library'})
+    const first = s.stretch(0)
+    expect(distanceM(first[0], route.points[0])).toBeLessThan(1)
+    const all = s.manoeuvres.map((_, i) => s.stretch(i))
+    for (let i = 1; i < all.length; i++) expect(distanceM(all[i - 1].at(-1), all[i][0])).toBeLessThan(1) // no gaps
+    expect(distanceM(all.at(-1).at(-1), route.points.at(-1))).toBeLessThan(1)
+    expect(s.stretch(99)).toEqual([])
+  })
+})

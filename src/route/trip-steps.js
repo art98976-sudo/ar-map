@@ -3,7 +3,7 @@
 // campus places near each corner. Works from GPS when the walker is on the route, and with no GPS
 // at all (a laptop) as the first step and a static list. Pure: no map, no DOM.
 import {createGuidance, landmarkPhrase, landmarksFrom, roundDistance} from './guidance.js'
-import {pointAt, projectOntoPolyline, toLocal} from '../geo/geo.js'
+import {fromLocal, pointAt, polylineLength, projectOntoPolyline, toLocal} from '../geo/geo.js'
 import {GUIDE} from '../config.js'
 
 export const NEAR_M = 15 // spoken directions: within this of a turn, "Turn left now"
@@ -291,6 +291,20 @@ export function createTripSteps(route, {arriveLabel, destinations = [], destinat
       const next = second ? step.then : step
       const distanceM = Math.max(0, next.s - userS)
       return {icon: next.type === 'arrive' ? 'arrive' : next.type, text: turnBanner(next, distanceM, arriveLabel), detail: second ? null : (step.detail ?? null), type: next.type, distanceM, manoeuvre: next, index}
+    },
+    /**
+     * Item 3: the stretch of route a step covers (from the step before to its last turn), as
+     * {lat, lng} points every few metres, for highlighting it on the map.
+     */
+    stretch(i) {
+      const m = manoeuvres[i]
+      if (!m) return []
+      const from = i ? endOf(manoeuvres[i - 1]) : 0
+      const to = Math.min(endOf(m), polylineLength(local))
+      const pts = []
+      for (let s = from; s < to; s += 3) pts.push(pointAt(local, s))
+      pts.push(pointAt(local, to))
+      return pts.map((p) => fromLocal(origin, p))
     },
     /** Every step: {icon, text, walkText (from the step before), done, current, fromS, toS}. */
     list(userS = 0) {
