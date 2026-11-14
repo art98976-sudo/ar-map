@@ -85,6 +85,8 @@ tests/e2e/           Playwright
 ## Deploying (Vercel)
 
 `vercel.json` holds the build settings, security headers and the camera/motion permissions policy.
+Why the content security policy allows what it does (`'unsafe-eval'` is for MazeMap only):
+[docs/SECURITY.md](docs/SECURITY.md).
 Import the GitHub repository in Vercel with **Root Directory** left as the repository root.
 Every push to a branch gets a preview URL.
 
