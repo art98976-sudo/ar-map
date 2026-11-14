@@ -18,14 +18,10 @@ export function loadMazeMap() {
   if (window.Mazemap?.Map) return Promise.resolve(window.Mazemap)
   if (ready) return ready
 
-  ready = new Promise((resolve, reject) => {
-    if (!document.querySelector('link[data-mazemap]')) {
-      const css = document.createElement('link')
-      css.rel = 'stylesheet'
-      css.href = `${MAZEMAP.scriptBase}mazemap.min.css`
-      css.dataset.mazemap = ''
-      document.head.appendChild(css)
-    }
+  // The map must not be created before its stylesheet has loaded, or Mapbox warns "This page
+  // appears to be missing CSS declarations for Mapbox GL JS" and its controls draw unstyled.
+  const styled = stylesheetLoaded()
+  const scripted = new Promise((resolve, reject) => {
     const script = document.createElement('script')
     script.src = `${MAZEMAP.scriptBase}mazemap.min.js`
     script.async = true
@@ -45,11 +41,46 @@ export function loadMazeMap() {
       reject(new MapLoadError(navigator.onLine ? 'network' : 'offline', 'The campus map could not be downloaded.'))
     }
     document.head.appendChild(script)
-  }).catch((err) => {
-    ready = null // allow "Try again"
-    throw err
   })
+  ready = Promise.all([scripted, styled])
+    .then(([Mazemap]) => Mazemap)
+    .catch((err) => {
+      ready = null // allow "Try again"
+      throw err
+    })
   return ready
+}
+
+/**
+ * Add MazeMap's stylesheet (once) and resolve when it has loaded. A sheet already there and loaded
+ * resolves at once; one that fails rejects, so the screen shows its "Try again".
+ */
+export function stylesheetLoaded(doc = document, href = `${MAZEMAP.scriptBase}mazemap.min.css`, timeoutMs = MAZEMAP.loadTimeoutMs) {
+  let css = doc.querySelector('link[data-mazemap]')
+  if (css?.dataset.loaded === '1') return Promise.resolve()
+  if (!css) {
+    css = doc.createElement('link')
+    css.rel = 'stylesheet'
+    css.href = href
+    css.dataset.mazemap = ''
+    doc.head.appendChild(css)
+  } else if (css.sheet) {
+    css.dataset.loaded = '1' // added and loaded earlier
+    return Promise.resolve()
+  }
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new MapLoadError('timeout', 'The campus map is taking too long to load.')), timeoutMs)
+    css.addEventListener('load', () => {
+      clearTimeout(timer)
+      css.dataset.loaded = '1'
+      resolve()
+    }, {once: true})
+    css.addEventListener('error', () => {
+      clearTimeout(timer)
+      css.remove() // "Try again" adds it afresh
+      reject(new MapLoadError(navigator.onLine ? 'network' : 'offline', 'The campus map could not be downloaded.'))
+    }, {once: true})
+  })
 }
 
 /**
