@@ -1,7 +1,6 @@
 // "Open on your phone for AR": a QR code of this place's link, for a laptop or a browser without
 // location or a rear camera. The code is drawn here (qrcode-generator), so nothing is fetched.
-import {qrSvg} from '../screens/qr.js'
-import {html, raw} from '../dom.js'
+import {html} from '../dom.js'
 
 /** The link the phone opens: this site, with the place's card. Pure. */
 export function handoffUrl(destId, origin = globalThis.location?.origin ?? '') {
@@ -50,7 +49,7 @@ const demoVideo = () => html`
 /** The panel. url: from handoffUrl(). */
 export const phoneHandoff = (url) => html`
   <section class="handoff" aria-labelledby="handoff-title" data-handoff>
-    <figure class="handoff__code" role="img" aria-label="QR code that opens this place on your phone">${raw(qrSvg(url))}</figure>
+    <figure class="handoff__code" role="img" aria-label="QR code that opens this place on your phone" data-qr-url="${url}"></figure>
     <div class="handoff__text">
       <h2 class="handoff__title" id="handoff-title">Open on your phone for AR</h2>
       <p class="handoff__body">Scan with your phone’s camera to follow arrows on the ground. The map here still works.</p>
@@ -58,6 +57,20 @@ export const phoneHandoff = (url) => html`
     ${demoVideo()}
   </section>
 `
+
+/**
+ * Draw the QR codes and wire the demo videos inside root. The QR library loads only here, so phones
+ * (which never see this panel) do not download it. Returns stop().
+ */
+export function hydrateHandoff(root, win = globalThis.window) {
+  const figures = [...(root?.querySelectorAll?.('[data-qr-url]') ?? [])]
+  if (figures.length) {
+    import('../screens/qr.js').then(({qrSvg}) => {
+      for (const f of figures) if (f.isConnected && !f.firstChild) f.innerHTML = qrSvg(f.dataset.qrUrl)
+    })
+  }
+  return startDemoVideos(root, win)
+}
 
 /**
  * What the demo video should do now. Pure.

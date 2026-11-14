@@ -12,7 +12,7 @@ import {indoorRestM, readTripRoute, tripLengthM} from '../../route/route.js'
 import {readTripFix} from '../../geo/location.js'
 import {prefersReducedMotion, showArrival} from '../components/arrival.js'
 import {showToast} from '../components/toast.js'
-import {handoffUrl, needsHandoff, phoneHandoff} from '../components/phone-handoff.js'
+import {handoffUrl, hydrateHandoff, needsHandoff, phoneHandoff} from '../components/phone-handoff.js'
 import {drawMinimap} from '../components/ar-minimap.js'
 import {createCompassMap} from '../components/compass-map.js'
 import {focusScreen, haptic, onAction, render} from '../dom.js'
@@ -606,6 +606,7 @@ export function arScreen(root, {navigate, params}) {
     // No rear camera here: a QR code to carry on with a phone that has one.
     const extra = needsHandoff({cameraMissing: code === 'camera-missing'}) ? phoneHandoff(handoffUrl(destination?.id)) : ''
     setView(errorView(errorCopy(code, device), extra), 'error')
+    if (extra) hydrateHandoff(root)
   }
 
   // ---------- flow ----------

@@ -23,7 +23,7 @@ import {getStart, isManual, startLabel} from '../../route/start-point.js'
 import {formatDistance} from '../../ar/pin.js'
 import {findDestination} from '../../map/destinations.js'
 import {showToast} from '../components/toast.js'
-import {handoffUrl, needsHandoff, phoneHandoff, startDemoVideos} from '../components/phone-handoff.js'
+import {handoffUrl, hydrateHandoff, needsHandoff, phoneHandoff} from '../components/phone-handoff.js'
 import {arErrorKind, locationErrorKind, reportError} from '../../stats/errors.js'
 import {focusScreen, haptic, html, onAction, render} from '../dom.js'
 import {CATEGORY_ICON, icon} from '../icons.js'
@@ -278,6 +278,7 @@ export function locateScreen(root, {navigate, params}) {
     // No geolocation in this browser: also offer the phone, where AR works.
     const extra = needsHandoff({hasGeolocation: code !== 'unsupported'}) ? phoneHandoff(handoffUrl(destination?.id)) : ''
     showErrorCopy(locationErrorCopy(code, device), extra)
+    if (extra) hydrateHandoff(root)
   }
 
   function showErrorCopy(copy, extra = '') {
@@ -333,7 +334,7 @@ export function locateScreen(root, {navigate, params}) {
       `,
       'unsupported',
     )
-    startDemoVideos(root) // item 10: the AR demo beside the QR code, wide screens only
+    hydrateHandoff(root) // the QR code, and the AR demo beside it on wide screens
   }
 
   const off = onAction(root, {

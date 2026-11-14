@@ -25,12 +25,17 @@ describe('needsHandoff', () => {
 })
 
 describe('phoneHandoff', () => {
-  it('draws the QR code inline, with a label, and loads nothing', () => {
+  it('draws the QR code locally once the QR library has loaded, with a label, fetching nothing', async () => {
+    const {hydrateHandoff} = await import('../../src/ui/components/phone-handoff.js')
     const markup = phoneHandoff('https://x.test/#/?to=library').value
-    expect(markup).toContain('<svg')
+    expect(markup).toContain('data-qr-url="https://x.test/#/?to=library"')
+    document.body.innerHTML = `<div id="h">${markup}</div>`
+    hydrateHandoff(document.getElementById('h'), {innerWidth: 390, matchMedia: () => ({matches: false})})
+    await new Promise((r) => setTimeout(r, 50))
+    expect(document.querySelector('[data-qr-url] svg')).not.toBeNull()
     expect(markup).toContain('Open on your phone for AR')
     expect(markup).toMatch(/aria-label="QR code/)
-    expect(markup).not.toMatch(/<img|https?:\/\/(?!www\.w3\.org)/)
+    expect(markup).not.toMatch(/<img|src="https?:/) // the code is drawn here, nothing is fetched
   })
 })
 

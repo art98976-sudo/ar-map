@@ -12,15 +12,39 @@ import {createRouter} from './ui/router.js'
 import {homeScreen} from './ui/screens/home.js'
 import {arScreen} from './ui/screens/ar.js'
 import {locateScreen} from './ui/screens/locate.js'
-import {premiumScreen} from './premium/premium.js'
-import {indoorScreen} from './ui/screens/indoor.js'
-import {statsScreen} from './ui/screens/stats.js'
-import {qrScreen} from './ui/screens/qr.js'
 import {showToast} from './ui/components/toast.js'
 import {startOpening} from './ui/opening.js'
 import {registerServiceWorker} from './offline.js'
 import {watchGlobalErrors} from './stats/errors.js'
 import {setStart} from './route/start-point.js'
+import {focusScreen} from './ui/dom.js'
+
+/**
+ * A screen loaded on first visit, so the map's first load stays light: the counts page, the poster
+ * and sign pages (and their QR library), the indoor map and /premium.
+ */
+function lazyScreen(load, name) {
+  return (root, ctx) => {
+    let cleanup = null
+    let gone = false
+    root.innerHTML = '<div class="page page--narrow page--center"><p role="status">Loading…</p></div>'
+    load()
+      .then((module) => {
+        if (gone) return
+        root.replaceChildren()
+        cleanup = module[name](root, ctx)
+        focusScreen(root)
+      })
+      .catch((err) => {
+        console.error('[app] screen failed to load', err)
+        if (!gone) root.innerHTML = '<div class="page page--narrow page--center"><p role="alert">This page could not load. Check your connection and try again.</p></div>'
+      })
+    return () => {
+      gone = true
+      if (typeof cleanup === 'function') cleanup()
+    }
+  }
+}
 
 const root = document.getElementById('app')
 
@@ -49,10 +73,10 @@ const router = createRouter({
     '/': homeScreen,
     '/locate': locateScreen,
     '/ar': arScreen,
-    '/premium': premiumScreen,
-    '/indoor': indoorScreen,
-    '/stats': statsScreen,
-    '/qr': qrScreen,
+    '/premium': lazyScreen(() => import('./premium/premium.js'), 'premiumScreen'),
+    '/indoor': lazyScreen(() => import('./ui/screens/indoor.js'), 'indoorScreen'),
+    '/stats': lazyScreen(() => import('./ui/screens/stats.js'), 'statsScreen'),
+    '/qr': lazyScreen(() => import('./ui/screens/qr.js'), 'qrScreen'),
   },
 })
 

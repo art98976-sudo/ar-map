@@ -14,7 +14,7 @@ import {seen} from '../first-use.js'
 import {openingMove} from '../opening.js'
 import {createFixWatch, locationPermissionState, readTripFix} from '../../geo/location.js'
 import {locateForGo, NO_LOCATION_TEXT} from '../../route/go-start.js'
-import {handoffUrl, needsHandoff, phoneHandoff, startDemoVideos} from '../components/phone-handoff.js'
+import {handoffUrl, hydrateHandoff, needsHandoff, phoneHandoff} from '../components/phone-handoff.js'
 import {watchContextLoss} from '../webgl-loss.js'
 import {arriveLabel} from './ar.js'
 import {createVoice} from '../voice.js'
@@ -722,7 +722,7 @@ export function homeScreen(root, {navigate, params}) {
     const handoff = needsHandoff({issueCode: arIssue?.code, hasGeolocation: Boolean(navigator.geolocation)}) ? phoneHandoff(handoffUrl(selected.id)) : null
     render(card, placeCard(selected, walkText(), {stepFree: getStepFree(), arIssue, handoff, savedIn: savedGroup(selected.id), groups: SAVED_GROUPS}))
     stopDemo()
-    stopDemo = startDemoVideos(card) // item 10: the AR demo beside the QR code, wide screens only
+    stopDemo = hydrateHandoff(card) // the QR code, and the AR demo beside it on wide screens
     paintWayButton()
     paintIndoor()
     quietPlan()
