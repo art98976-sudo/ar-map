@@ -48,7 +48,7 @@ export function createFpsGuard(map, onDrop, {now = () => performance.now(), stor
       } catch {
         // private mode: it is only remembered for this page
       }
-      console.info(`[premium] ${Math.round(fps)} fps: turning off ${effect}`)
+      if (__DEV_TOOLS__) console.info(`[premium] ${Math.round(fps)} fps: turning off ${effect}`) // gone from production builds
       onDrop(effect)
     }
   }

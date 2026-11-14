@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "check": "npm run lint && npm test && npm run build && npm run test:e2e",
-    "scene:report": "node tools/scene-report.mjs"
+    "scene:report": "node tools/scene-report.mjs",
+    "build:test": "vite build --mode test"
   },
   "engines": {
     "node": ">=20"

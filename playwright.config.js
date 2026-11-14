@@ -20,7 +20,9 @@ export default defineConfig({
   },
   webServer: {
     // Always build fresh and use a test-only port, so a forgotten preview server is never reused.
-    command: 'npm run build && npm run preview -- --host 127.0.0.1 --port 4311',
+    // A test build: the production build plus the developer tools (?simulate=1, ?debug=...,
+    // ?fieldtest=1) the tests drive. tests/unit/dev-tools.test.js checks production has none of them.
+    command: 'npm run build:test && npm run preview -- --host 127.0.0.1 --port 4311',
     url: 'http://127.0.0.1:4311',
     reuseExistingServer: false,
     timeout: 120_000,

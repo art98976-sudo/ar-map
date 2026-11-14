@@ -6,7 +6,8 @@ export default [
   js.configs.recommended,
   {
     files: ['src/**/*.js'],
-    languageOptions: {globals: {...globals.browser}},
+    // __DEV_TOOLS__ is set by vite.config.js at build time (offline.js declares __BUILD_ID__ itself).
+    languageOptions: {globals: {...globals.browser, __DEV_TOOLS__: 'readonly'}},
   },
   {
     files: ['public/sw.js'],

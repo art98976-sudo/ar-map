@@ -136,7 +136,7 @@ export async function planRoute(from, dest, {mazemap = mazemapRoute, fit = fitWi
   const done = (points, source, target = to, extra = {}) => {
     const pts = anchor(points, from, target)
     const lengthM = lengthOf(pts)
-    console.info('[route]', source, pts.length, 'points')
+    if (__DEV_TOOLS__) console.info('[route]', source, pts.length, 'points') // gone from production builds
     return {status: 'ok', points: pts, lengthM, minutes: walkingMinutes(lengthM), source, entrance: target, stepFree: Boolean(stepFree), ...extra}
   }
 

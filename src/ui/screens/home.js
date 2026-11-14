@@ -63,13 +63,15 @@ export function homeScreen(root, {navigate, params}) {
   let modelLoad = null
   let show3d = false
   // ?simulate=1 (before or after the #): a fake walk to the chosen place, to test the AR arrow.
-  const simulate = params.simulate === '1' || new URLSearchParams(window.location.search).get('simulate') === '1'
+  // Developer tools only (__DEV_TOOLS__, vite.config.js): a production build has none of them.
+  const devParam = (name, value) => __DEV_TOOLS__ && (params[name] === value || new URLSearchParams(window.location.search).get(name) === value)
+  const simulate = devParam('simulate', '1')
   let sim = null
   // ?debug=align: the model see-through over MazeMap, its origin, and click coordinates.
-  const debugAlign = params.debug === 'align' || new URLSearchParams(window.location.search).get('debug') === 'align'
-  const debugWalls = params.debug === 'walls' || new URLSearchParams(window.location.search).get('debug') === 'walls'
-  const debugScene = params.debug === 'scene' || new URLSearchParams(window.location.search).get('debug') === 'scene'
-  const debugRoute = params.debug === 'route' || new URLSearchParams(window.location.search).get('debug') === 'route'
+  const debugAlign = devParam('debug', 'align')
+  const debugWalls = devParam('debug', 'walls')
+  const debugScene = devParam('debug', 'scene')
+  const debugRoute = devParam('debug', 'route')
   let alignDebug = null
 
   render(root, homePage())
@@ -234,6 +236,7 @@ export function homeScreen(root, {navigate, params}) {
     const dest = selected
     const token = {}
     sim = token
+    if (!__DEV_TOOLS__) return
     import('../../map/simulate.js').then(({createSimulator, SIM_START}) => {
       if (sim !== token || disposed || instance?.map !== map) return
       sim = createSimulator(map, {from: isManual(start) ? {lat: start.lat, lng: start.lng} : SIM_START, dest, host: root})
@@ -249,7 +252,7 @@ export function homeScreen(root, {navigate, params}) {
   async function startAlignDebug() {
     stopAlignDebug()
     const map = instance?.map
-    if (!debugAlign || !map || disposed) return
+    if (!__DEV_TOOLS__ || !debugAlign || !map || disposed) return
     show3d = true
     paint3dButton(!model)
     try {
@@ -353,7 +356,7 @@ export function homeScreen(root, {navigate, params}) {
    */
   /** ?debug=scene (Step 1): build the 3D navigation scene for this route and show what it holds. */
   async function checkScene(route) {
-    if (!debugScene || !selected || !route?.points) return
+    if (!__DEV_TOOLS__ || !debugScene || !selected || !route?.points) return
     const name = selected.name
     const points = [...route.points, ...(route.indoorPoints || []).slice(1)]
     const host = root.querySelector('.map-home') || root
@@ -369,6 +372,7 @@ export function homeScreen(root, {navigate, params}) {
   }
 
   async function checkWalls(route) {
+    if (!__DEV_TOOLS__) return
     checkScene(route)
     if (debugRoute && selected) {
       const {showRouteReport} = await import('../../scene/scene-debug.js')

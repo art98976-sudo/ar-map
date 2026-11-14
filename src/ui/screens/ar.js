@@ -46,7 +46,8 @@ export function arScreen(root, {navigate, params}) {
   const allowDesktop = params.force === '1'
   const showDebug = params.debug === '1' || new URLSearchParams(window.location.search).get('debug') === '1'
   // ?fieldtest=1: a readout, a once-a-second log and marker buttons for walking a route (ar-fieldtest.js).
-  const fieldTestOn = params.fieldtest === '1' || new URLSearchParams(window.location.search).get('fieldtest') === '1'
+  // Developer tools only (__DEV_TOOLS__, vite.config.js): not in a production build.
+  const fieldTestOn = __DEV_TOOLS__ && (params.fieldtest === '1' || new URLSearchParams(window.location.search).get('fieldtest') === '1')
   // Every trip starts with a destination. Without one, go and pick it first.
   const destination = findDestination(params.to)
   if (!destination) {
@@ -78,7 +79,7 @@ export function arScreen(root, {navigate, params}) {
   let offAction = () => {}
   let fieldTest = null
   let mapOpenedForPosition = false // the 2D map was opened because the position is uncertain
-  if (fieldTestOn) {
+  if (__DEV_TOOLS__ && fieldTestOn) {
     import('./ar-fieldtest.js').then(({createFieldTest}) => {
       if (disposed) return
       fieldTest = createFieldTest({haptic})

@@ -10,9 +10,17 @@ const siteHeaders = Object.fromEntries(
     .map((h) => [h.key, h.value]),
 )
 
-export default defineConfig({
-  // One id per build: the service worker keeps one set of files per build (public/sw.js).
-  define: {__BUILD_ID__: JSON.stringify(process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) || String(Date.now()))},
+// Developer tools (?simulate=1, ?debug=align|scene|route|walls, ?fieldtest=1) and info logs.
+// On for `npm run dev`, unit tests and `vite build --mode test` (the browser tests and the field-test
+// preview); off for the production build, where their code is not even emitted.
+export const devToolsFor = (command, mode, env = process.env) => command === 'serve' || mode === 'test' || env.VITE_DEV_TOOLS === '1'
+
+export default defineConfig(({command, mode}) => ({
+  define: {
+    // One id per build: the service worker keeps one set of files per build (public/sw.js).
+    __BUILD_ID__: JSON.stringify(process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) || String(Date.now())),
+    __DEV_TOOLS__: JSON.stringify(devToolsFor(command, mode)),
+  },
   server: {
     host: true, // reachable from a phone on the same Wi-Fi
     port: 5173,
@@ -35,4 +43,4 @@ export default defineConfig({
     include: ['tests/unit/**/*.test.js'],
     setupFiles: ['tests/unit/setup.js'],
   },
-})
+}))
