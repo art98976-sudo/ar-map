@@ -514,7 +514,15 @@ export function createArTrip({
     const user = nav.worldToRoute({x: here.x, z: here.z})
     const ahead = nav.worldToRoute({x: here.x + f.x, z: here.z + f.z})
     const [a, b] = nav.route
+    // Raw GPS against the fused position (the dot on the route), in the route frame.
+    const fused = tracker ? pointAt(nav.route, tracker.shownS) : null
+    const raw = lastFix ? toLocal(origin, lastFix) : null
+    const gap = (p, q) => (p && q ? Math.hypot(p.x - q.x, p.y - q.y) : null)
     return {
+      fused,
+      raw,
+      rawToFusedM: gap(raw, fused),
+      trackedToFusedM: nav.aligned ? gap(user, fused) : null,
       beta,
       cameraYawDeg: bearing(f.x, -f.z),
       firstSegmentDeg: bearing(b.x - a.x, b.y - a.y),

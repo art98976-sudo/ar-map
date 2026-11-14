@@ -368,7 +368,7 @@
   top: calc(var(--safe-top) + 120px);
   left: var(--s-3);
   z-index: 4;
-  width: 148px;
+  width: 172px; /* the ?debug=1 rows: state, raw vs fused, offsets */
   padding: var(--s-2);
   border-radius: var(--r-md);
   background: var(--ar-panel-72);

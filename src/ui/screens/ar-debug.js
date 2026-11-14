@@ -35,7 +35,15 @@ export function paintDebugStats(root, s) {
 
 export function paintLiveDebug(root, s) {
   const deg = (v) => (v == null ? '–' : `${Math.round(v)}°`)
+  const metres = (v) => (v == null ? '–' : `${v.toFixed(1)} m`)
   const live = {
+    state: s.trackingState ?? '–',
+    gps: s.gpsAccuracy == null ? '–' : `±${Math.round(s.gpsAccuracy)} m ${s.gpsUse ?? ''}`.trim(),
+    jumps: String(s.gpsRejected ?? 0),
+    raw: metres(s.debug.rawToFusedM),
+    slam: metres(s.debug.trackedToFusedM),
+    gap: deg(s.headingGapDeg),
+    fix: deg(s.matchYawDeg),
     compass: deg(s.heading),
     source: s.compassSource ?? '–',
     beta: deg(s.debug.beta),
