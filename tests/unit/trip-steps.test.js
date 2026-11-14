@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest'
 import {fromLocal} from '../../src/geo/geo.js'
-import {createTripSteps, stepLine, turnBanner} from '../../src/route/trip-steps.js'
+import {createTripSteps, createTurnAnnouncer, stepLine, turnBanner} from '../../src/route/trip-steps.js'
 
 // Item 2: turn-by-turn on the map trip, from the route's own shape and the places beside it.
 const ORIGIN = {lat: 56.1487, lng: -3.927}
@@ -41,7 +41,7 @@ describe('createTripSteps', () => {
   it('with no GPS (a laptop): the first step, and a static list from the start', () => {
     const s = steps()
     expect(s.banner().text).toBe('In 100 m, turn left at the Cottrell Building')
-    expect(s.list().map(({fromS: _from, toS: _to, ...rest}) => rest)).toEqual([
+    expect(s.list().map(({fromS: _from, toS: _to, detail: _detail, ...rest}) => rest)).toEqual([
       {icon: 'left', text: 'Turn left at the Cottrell Building', walkText: '100 m', done: false, current: true},
       {icon: 'right', text: 'Turn right', walkText: '80 m', done: false, current: false},
       {icon: 'arrive', text: 'Arrive at Library entrance', walkText: '60 m', done: false, current: false},
@@ -102,5 +102,66 @@ describe('item 2: steps a newcomer can follow (merged)', async () => {
     const first = s.manoeuvres[0]
     expect(s.banner(0).text).toMatch(/^In 25 m, turn right at the Pathfoot Building, then left 20 m later$/)
     expect(s.banner(first.s + 5).text).toMatch(/^In 1\d m, turn left$/)
+  })
+})
+
+describe('item 1: steps describe what the walker can see', async () => {
+  const {readFileSync} = await import('node:fs')
+  const {describeSteps, seenFrom} = await import('../../src/route/trip-steps.js')
+  const {DESTINATIONS} = await import('../../src/map/destinations.js')
+  const {fromLocal} = await import('../../src/geo/geo.js')
+  const O = {lat: 56.145, lng: -3.92}
+  const ll = (x, y) => {
+    const p = fromLocal(O, {x, y})
+    return [p.lat, p.lng]
+  }
+  // A route north 200 m, then right (east) 100 m.
+  const ROUTE = [{x: 0, y: 0}, {x: 0, y: 200}, {x: 100, y: 200}]
+  const steps = () => [{s: 200, angle: 90, type: 'right', landmark: null}, {s: 300, angle: 0, type: 'arrive', landmark: null}]
+  const square = (x, y, r) => [ll(x - r, y - r), ll(x + r, y - r), ll(x + r, y + r), ll(x - r, y + r)]
+  const seen = (osm) => seenFrom(osm, O)
+
+  it('names a turn onto a named road', () => {
+    const [turn] = describeSteps(steps(), ROUTE, seen({paths: [{name: 'Hermitage Road', kind: 'road', pts: [ll(0, 200), ll(150, 200)]}], areas: []}))
+    expect(stepLine(turn, 'X')).toBe('Turn right onto Hermitage Road')
+  })
+  it('a long stretch along a road: "Follow the path beside ..., past Airthrey Loch"', () => {
+    const osm = {paths: [{name: 'University Road West', kind: 'road', pts: [ll(18, 0), ll(18, 200)]}], areas: [{name: 'Airthrey Loch', kind: 'water', pts: square(-60, 100, 30)}]}
+    const [turn] = describeSteps(steps(), ROUTE, seen(osm))
+    expect(turn.detail).toBe('Follow the path beside University Road West, past Airthrey Loch')
+  })
+  it('passing a building says on which side', () => {
+    const left = describeSteps(steps(), ROUTE, seen({paths: [], areas: [{name: 'Gannochy Sports Centre', kind: 'building', pts: square(-40, 100, 15)}]}))
+    expect(left[0].detail).toBe('Pass the Sports Centre on your left')
+    const right = describeSteps(steps(), ROUTE, seen({paths: [], areas: [{name: 'Colin Bell Building', kind: 'building', pts: square(40, 100, 15)}]}))
+    expect(right[0].detail).toBe('Pass the Colin Bell Building on your right')
+  })
+  it('a corner beside a building is named by it; else a building ahead after the turn', () => {
+    expect(stepLine(describeSteps(steps(), ROUTE, seen({paths: [], areas: [{name: 'Iris Murdoch Building', kind: 'building', pts: square(-25, 225, 10)}]}))[0], 'X')).toBe('Turn right at the Iris Murdoch Building')
+    expect(stepLine(describeSteps(steps(), ROUTE, seen({paths: [], areas: [{name: 'Library', kind: 'building', pts: square(60, 230, 10)}]}))[0], 'X')).toBe('Turn right towards the Library')
+  })
+  it('nothing named nearby: a bare turn, as before', () => {
+    expect(stepLine(describeSteps(steps(), ROUTE, seen({paths: [], areas: [{name: 'Library', kind: 'building', pts: square(400, 400, 10)}]}))[0], 'X')).toBe('Turn right')
+  })
+
+  it('Pathfoot main entrance to the Library, with the campus data: named, 5 to 7 steps', () => {
+    const route = JSON.parse(readFileSync('tests/fixtures/route-pathfoot-library.json', 'utf8'))
+    const osm = JSON.parse(readFileSync('src/data/landmarks-osm.json', 'utf8'))
+    const s = createTripSteps(route, {arriveLabel: 'Library entrance', destinations: DESTINATIONS, destinationId: 'library', osm})
+    const list = s.list()
+    expect(list.length).toBeGreaterThanOrEqual(5)
+    expect(list.length).toBeLessThanOrEqual(7)
+    const bare = list.filter((x) => /^(Turn|Bear) (left|right)(, then (left|right|bear left|bear right)( again)? \d+ m later)?$/.test(x.text))
+    expect(bare.length).toBeLessThanOrEqual(1) // was 11 of 13
+    expect(list.map((x) => (x.detail ? `(${x.detail}) ` : '') + `${x.text} · ${x.walkText}`)).toMatchSnapshot()
+  })
+
+  it('spoken directions use the same words, with the stretch first', () => {
+    const route = JSON.parse(readFileSync('tests/fixtures/route-pathfoot-library.json', 'utf8'))
+    const osm = JSON.parse(readFileSync('src/data/landmarks-osm.json', 'utf8'))
+    const s = createTripSteps(route, {arriveLabel: 'Library entrance', destinations: DESTINATIONS, destinationId: 'library', osm})
+    const a = createTurnAnnouncer({arriveLabel: 'Library entrance'})
+    const second = s.manoeuvres[1]
+    expect(a.next(second, 130)).toBe(`${second.detail}. In 130 m, ${stepLine(second, 'X').charAt(0).toLowerCase()}${stepLine(second, 'X').slice(1)}`)
   })
 })

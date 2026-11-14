@@ -938,3 +938,10 @@
 .indoor__why[hidden] {
   display: none;
 }
+/* Item 1 (round 3): what the stretch before a step passes, above the step itself. */
+.map-trip__step-detail {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 400;
+}

@@ -46,14 +46,14 @@ function defaultMarker() {
  * @param o.watch GPS for the trip (location.js watchLocation): its own, so it runs all the walk
  * @param o.makeMarker the user's dot
  */
-export function createMapTrip(host, {map, route, dest, onClose, arriveLabel = dest.name, destinations = [], onStep = () => {}, watch = watchLocation, makeMarker = defaultMarker}) {
+export function createMapTrip(host, {map, route, dest, onClose, arriveLabel = dest.name, destinations = [], osm = null, onStep = () => {}, watch = watchLocation, makeMarker = defaultMarker}) {
   let arrived = false
   let following = false
   let dot = null
   let userS = 0
   let fittingUntil = 0 // the route framing animation runs until then (ms)
   let lastStep = null // the manoeuvre the banner shows: a new one is announced (and spoken)
-  const steps = createTripSteps(route, {arriveLabel, destinations, destinationId: dest.id})
+  const steps = createTripSteps(route, {arriveLabel, destinations, destinationId: dest.id, osm})
   render(
     host,
     html`
@@ -104,7 +104,7 @@ export function createMapTrip(host, {map, route, dest, onClose, arriveLabel = de
         (s) => html`
           <li class="map-trip__step" ${s.current ? raw('aria-current="step"') : ''} ${s.done ? raw('data-done') : ''}>
             <span class="map-trip__step-icon">${icon(s.icon, {size: 20})}</span>
-            <span class="map-trip__step-text">${s.text}</span>
+            <span class="map-trip__step-text">${s.detail ? html`<span class="map-trip__step-detail">${s.detail}</span>` : ''}${s.text}</span>
             <span class="map-trip__step-walk">${s.walkText}</span>
           </li>
         `,

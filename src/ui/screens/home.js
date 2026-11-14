@@ -453,7 +453,11 @@ export function homeScreen(root, {navigate, params}) {
       if (!cardRoute) return showToast('Could not plan a route. Try again.', {tone: 'warning'})
     }
     // The map trip (and its turn-by-turn) loads on Go, keeping the first screen light.
-    const [{createMapTrip}, {createTurnAnnouncer}] = await Promise.all([import('../components/map-trip.js'), import('../../route/trip-steps.js')])
+    const [{createMapTrip}, {createTurnAnnouncer}, {default: osm}] = await Promise.all([
+      import('../components/map-trip.js'),
+      import('../../route/trip-steps.js'),
+      import('../../data/landmarks-osm.json'), // named roads, buildings and the loch, for the steps
+    ])
     if (disposed || selected !== dest) return
     endMapTrip()
     announcer = createTurnAnnouncer({arriveLabel: arriveLabel(dest)})
@@ -468,6 +472,7 @@ export function homeScreen(root, {navigate, params}) {
       onClose: endMapTrip,
       arriveLabel: arriveLabel(dest), // "Library entrance", as in AR
       destinations: DESTINATIONS, // corners are named after the places beside them
+      osm,
       onStep: speakStep,
     })
     mapTrip.update(fixWatch.fix)

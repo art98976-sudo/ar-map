@@ -77,6 +77,7 @@ export function arScreen(root, {navigate, params}) {
   // Item 3: spoken directions, switched on or off in the home menu (voice.js).
   const voice = createVoice()
   let announcer = null // loaded with the AR trip (route/trip-steps.js)
+  let spokenSteps = null // the same steps as the map trip's list, for what is said
   let stopArLoss = null // stops watching the AR canvas for a lost WebGL context
   let wakeLock = null
   let disposed = false
@@ -364,8 +365,9 @@ export function arScreen(root, {navigate, params}) {
     paintIndoorUi(s)
     if (handoff.lib && !handoff.shown && !arrivedYet && handoff.lib.atEntrance({dest: destination, route, userS: s.userS, phase: s.phase, dismissed: handoff.dismissed, doorS: handoff.doorS})) startHandoff()
     // Item 3: spoken directions (if switched on in the menu): each turn as it comes up and close to it.
-    if (announcer && s.phase === 'ready' && !s.arrived && s.nextManoeuvre && s.step) {
-      const words = announcer.next(s.nextManoeuvre, s.step.distanceM)
+    if (announcer && spokenSteps && s.phase === 'ready' && !s.arrived && Number.isFinite(s.userS)) {
+      const next = spokenSteps.banner(s.userS)
+      const words = announcer.next(next.manoeuvre, next.distanceM)
       if (words) voice.say(words)
     }
     const pillText = root.querySelector('[data-trip-pill]')
@@ -628,7 +630,13 @@ export function arScreen(root, {navigate, params}) {
     const canvas = root.querySelector('[data-canvas]')
     // The phone took the GPU away and did not give it back: "Tap to reload AR", not a black screen.
     stopArLoss = watchContextLoss(canvas, {giveUpMs: 2000, onLost: () => !disposed && showError('webgl-lost')})
-    const [{createArTrip}, {createTurnAnnouncer}] = await Promise.all([import('../../ar/trip.js'), import('../../route/trip-steps.js')])
+    const [{createArTrip}, {createTurnAnnouncer, createTripSteps}, {default: osm}] = await Promise.all([
+      import('../../ar/trip.js'),
+      import('../../route/trip-steps.js'),
+      import('../../data/landmarks-osm.json'),
+    ])
+    // Spoken directions say the same merged, named steps as the map trip's list (item 1, round 3).
+    spokenSteps = route?.points?.length >= 2 ? createTripSteps(route, {arriveLabel: arriveLabel(destination), destinations: DESTINATIONS, destinationId: destination.id, osm}) : null
     announcer = createTurnAnnouncer({arriveLabel: arriveLabel(destination)})
     handoff.lib = await import('../../route/entrance-handoff.js')
     handoff.doorS = handoff.lib.doorAlongM(route)

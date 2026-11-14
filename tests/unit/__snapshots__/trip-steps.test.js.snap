@@ -1,5 +1,15 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`item 1: steps describe what the walker can see > Pathfoot main entrance to the Library, with the campus data: named, 5 to 7 steps 1`] = `
+[
+  "Turn right at the Pathfoot Building, then left 20 m later onto Pathfoot Road · 25 m",
+  "(Follow Pathfoot Road) Turn right, then left 35 m later onto the path beside University Road West · 130 m",
+  "(Follow the path beside University Road West, past Airthrey Loch) Turn right, then right again 30 m later · 405 m",
+  "Turn left, then left again at the Bite 25 m later · 30 m",
+  "Arrive at Library entrance · 60 m",
+]
+`;
+
 exports[`item 2: steps a newcomer can follow (merged) > Pathfoot main entrance to the Library: 15 corners read as 5 to 7 clear steps 1`] = `
 [
   "Turn right at the Pathfoot Building, then left 20 m later · 25 m",
