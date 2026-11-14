@@ -1,6 +1,6 @@
 // Home is the campus map: pins, a search bar, category chips and a card for the chosen place.
 // #/?to=<id> opens with a place selected.
-import {createCampusMap, loadMazeMap} from '../../map/mazemap.js'
+import {createCampusMap, loadMazeMap, planWhenStyleLoaded} from '../../map/mazemap.js'
 import {clearRouteLine, drawRouteLine} from '../../map/route-line.js'
 import {createMapTrip} from '../components/map-trip.js'
 import {createDestinationSearch} from '../components/destination-search.js'
@@ -41,6 +41,7 @@ import {doorList, homePage, mapError, mapLoading, placeCard, placeLoading, place
 export function homeScreen(root, {navigate, params}) {
   const forced = params.force === '1'
   let instance = null
+  let mapReady = false // the map's style has loaded: it can take the route line
   let selected = findDestination(params.to)
   let cardRoute = null // the route planned for the card (door, level, whole distance)
   let planningFor = null // the destination a quiet plan is running for
@@ -415,7 +416,8 @@ export function homeScreen(root, {navigate, params}) {
   /** Plan and draw the route as soon as a card opens: it shows behind the card, with no extra tap. */
   function drawCardRoute() {
     const map = instance?.map
-    if (!map || !cardRoute?.points?.length || !selected) return
+    // A map still loading its style cannot take the line yet: onReady draws it.
+    if (!map || !mapReady || !cardRoute?.points?.length || !selected) return
     clearRouteLine(map)
     // The fitted route, outdoors and inside to the room: the same line the AR arrows follow.
     drawRouteLine(map, [...cardRoute.points, ...(cardRoute.indoorPoints ?? []).slice(1)], card.offsetHeight + 40)
@@ -466,8 +468,8 @@ export function homeScreen(root, {navigate, params}) {
     planningFor = dest
     refreshWalkText()
     try {
-      const route = await planRoute(from, dest)
-      if (disposed || selected !== dest || route.status !== 'ok') return
+      const route = await planWhenStyleLoaded(instance?.map, () => planRoute(from, dest))
+      if (!route || disposed || selected !== dest || route.status !== 'ok') return
       cardRoute = route
       drawCardRoute()
       checkWalls(route)
@@ -705,10 +707,12 @@ export function homeScreen(root, {navigate, params}) {
       show3d = false
       paint3dButton()
       instance?.destroy()
+      mapReady = false
       pins.clear()
       instance = createCampusMap(Mazemap, root.querySelector('[data-map]'), {
         onReady: () => {
           if (disposed) return
+          mapReady = true
           overlay.hidden = true
           if (params.debug === '1') window.__homeMap = instance.map // inspect it from the console
           pins.addAll()

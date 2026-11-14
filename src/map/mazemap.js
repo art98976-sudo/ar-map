@@ -104,6 +104,37 @@ export function softenBaseMap(map) {
 }
 
 /**
+ * Wait until the map's style can take sources and layers: adding one earlier throws "Style is
+ * not done loading". Resolves true once the style is ready, or false after `timeoutMs` (a map
+ * that never loads must not hold the caller for ever).
+ */
+export function whenStyleLoaded(map, {timeoutMs = MAZEMAP.loadTimeoutMs} = {}) {
+  if (map.isStyleLoaded()) return Promise.resolve(true)
+  return new Promise((resolve) => {
+    const finish = (loaded) => {
+      clearTimeout(timer)
+      map.off('load', onReady)
+      map.off('idle', onReady)
+      resolve(loaded)
+    }
+    const onReady = () => finish(true)
+    const timer = setTimeout(() => finish(false), timeoutMs)
+    map.on('load', onReady)
+    map.on('idle', onReady)
+  })
+}
+
+/**
+ * Plan a route only once the map's style has loaded, so the route line is never added to a
+ * style that is still loading. With no map yet (its script is still downloading) the plan runs
+ * at once: the screen draws the line when the map is ready.
+ */
+export async function planWhenStyleLoaded(map, plan, options) {
+  if (map) await whenStyleLoaded(map, options)
+  return plan()
+}
+
+/**
  * Create a campus map in `container`.
  * Returns {map, destroy}. `onReady` fires when the map style has loaded.
  */
