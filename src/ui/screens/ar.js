@@ -22,6 +22,7 @@ import {paintDebugStats, paintLiveDebug, setStat as setDebugStat, toggleDebugPan
 import {errorCopy} from './ar-errors.js'
 import {statusMessage} from './ar-status.js'
 import {count, newTrip} from '../../stats/counts.js'
+import {loadBuildings} from '../../premium/buildings.js'
 import {errorView, liveView, loadingView} from './ar-view.js'
 
 const MAP_SWIPE_PX = 40
@@ -560,7 +561,7 @@ export function arScreen(root, {navigate, params}) {
     const canvas = root.querySelector('[data-canvas]')
     const {createArTrip} = await import('../../ar/trip.js')
     if (disposed) return
-    trip = createArTrip({route, origin, destination, allowDesktop, debug: showDebug, arriveLabel: arriveLabel(destination), onPhase, onStats, onArrived, onTurnClose: () => haptic(30), onTurnNow: () => haptic([30, 50, 30]), startPoint: tripStart, autoStart: !manualStart, reducedMotion: prefersReducedMotion(), onEnterCampus: () => showToast('Welcome to campus', {tone: 'success'})})
+    trip = createArTrip({route, origin, destination, allowDesktop, debug: showDebug, arriveLabel: arriveLabel(destination), onPhase, onStats, onArrived, onTurnClose: () => haptic(30), onTurnNow: () => haptic([30, 50, 30]), startPoint: tripStart, autoStart: !manualStart, reducedMotion: prefersReducedMotion(), onEnterCampus: () => showToast('Welcome to campus', {tone: 'success'}), loadCampus: loadBuildings})
     wireMapSwipe()
     wireFloorTap()
     wireLineUpDrag()

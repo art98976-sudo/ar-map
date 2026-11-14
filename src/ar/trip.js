@@ -61,6 +61,9 @@ export function createArTrip({
   onTurnNow,
   onTurnPassed,
   onEnterCampus,
+  // B1/B4: () => Promise of MazeMap's building FeatureCollection (premium/buildings.js loadBuildings),
+  // for the campus occluders and labels. None: no buildings (tests, offline).
+  loadCampus = null,
 }) {
   // Indoor AR on: the arrows carry on through the door, along MazeMap's indoor route to the room.
   let route = INDOOR.indoorAR && firstRoute.indoorPoints?.length >= 2 ? {...firstRoute, points: [...firstRoute.points, ...firstRoute.indoorPoints.slice(1)], entrance: firstRoute.indoorPoints.at(-1)} : firstRoute
@@ -608,6 +611,12 @@ export function createArTrip({
     xr = XR8
     const name = markerName(destination, route.entrance ?? null, DESTINATIONS, INDOOR.indoorAR)
     nav = createNavScene({THREE, scene, camera, route, origin, name, reducedMotion})
+    const navNow = nav
+    loadCampus?.()
+      .then((collection) => {
+        if (nav === navNow && !stopped) nav.setBuildings(collection)
+      })
+      .catch((err) => console.warn('[trip] campus buildings not loaded', err?.message))
     heightAt = createHeightProfile(route.points, nav.route, origin)
     placePinInRoom()
     matcher = createRouteMatcher(nav.route)
@@ -1009,6 +1018,9 @@ export function createArTrip({
         poseConfident: pose.confident,
         lookUp: time < lookUpUntil,
         shellLoaded: Boolean(nav.shellLoaded),
+        buildingsLoaded: nav.buildings.length,
+        insideBuilding: nav.insideBuilding,
+        beaconShown: nav.beaconShown,
         // Indoors: the stair or lift ahead ("Go to Level n"), and whether to offer "I'm here".
         floorChange: floorChange ? {toLevel: floorChange.toLevel, up: floorChange.up} : null,
         offerReanchor,

@@ -10,6 +10,8 @@ import {dedupe, distanceM, findTurns, localBearing, pointAt, projectOntoPolyline
 import {createDestinationPin} from './pin.js'
 import {createGroundArrows} from './ground-arrows.js'
 import {buildShellMeshes, doorCrossings, wallsNear} from './building-shell.js'
+import {buildOccluder, buildingsToLocal, insideRing} from './campus-buildings.js'
+import {createBeacon} from './beacon.js'
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js'
 import {COLOURS, NAV_SCENE, PIN, ROUTING, SHELL, TURNS} from '../config.js'
 
@@ -99,6 +101,17 @@ export function createNavScene({THREE, scene, camera, route, origin, name = null
   geoRoot.add(shellGroup)
   let shell = null // {floor, meshes, doors}
   let occluderOn = false
+  // B1: the campus buildings as occluders (setBuildings), off while the user is inside one.
+  let campus = null // {buildings, mesh}
+  let insideBuilding = false
+  // B5: the beacon over the entrance, seen from far away.
+  const beacon = createBeacon(THREE)
+  beacon.group.position.set(entranceLocal.x, 0, -entranceLocal.y)
+  geoRoot.add(beacon.group)
+  const paintCampus = () => {
+    if (campus?.mesh) campus.mesh.visible = occluderOn && !insideBuilding
+    arrows.setDepthTest(occluderOn && Boolean(shell || campus?.mesh))
+  }
   let wireOn = false
   let baseLines = null
   const doorMarks = Array.from({length: 4}, (_, i) => {
@@ -243,6 +256,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name = null
     arrows.setRoute(local, turns)
     pin.group.position.set(pinAt().x, pin.group.position.y, -pinAt().y)
     entranceAnchor.position.set(entranceLocal.x, 0, -entranceLocal.y)
+    beacon.group.position.set(entranceLocal.x, beacon.group.position.y, -entranceLocal.y)
   }
 
   /** Stand the pin at this {lat, lng} (the destination room), or back at the entrance with null. */
@@ -321,6 +335,16 @@ export function createNavScene({THREE, scene, camera, route, origin, name = null
     const pinWorld = pin.group.getWorldPosition(new THREE.Vector3())
     pin.update(reducedMotion ? 0 : time, Math.hypot(pinWorld.x - tmp.x, pinWorld.z - tmp.z), tmp)
     if (!pinAllowed) pin.group.visible = false
+    beacon.update(reducedMotion ? 0 : time, toPinM, pinAllowed)
+    if (campus) {
+      // Inside a building (its outline, as drawn): its occluder would hide everything, so all go.
+      const here = worldToRoute(tmp)
+      const inside = campus.buildings.some((b) => insideRing(here, b.ring))
+      if (inside !== insideBuilding) {
+        insideBuilding = inside
+        paintCampus()
+      }
+    }
     const turn = nextTurn(turns, p.s)
     last = {
       s: p.s,
@@ -394,7 +418,36 @@ export function createNavScene({THREE, scene, camera, route, origin, name = null
     setOccluder(on) {
       occluderOn = Boolean(on)
       if (shell) shell.meshes.occluder.visible = occluderOn
-      arrows.setDepthTest(occluderOn && Boolean(shell))
+      paintCampus()
+    },
+    /**
+     * B1: the campus buildings (a MazeMap building FeatureCollection, from loadBuildings) as
+     * invisible occluders. They follow setOccluder, like the walls. Returns how many.
+     */
+    setBuildings(collection) {
+      if (campus) {
+        geoRoot.remove(campus.mesh)
+        campus.mesh?.geometry.dispose()
+        campus.mesh?.material.dispose()
+        campus = null
+      }
+      const buildings = buildingsToLocal(collection, origin)
+      if (!buildings.length) return 0
+      const mesh = buildOccluder(THREE, mergeGeometries, buildings)
+      if (mesh) geoRoot.add(mesh)
+      campus = {buildings, mesh}
+      paintCampus()
+      return buildings.length
+    },
+    /** The buildings in the route frame (for the AR labels), or []. */
+    get buildings() {
+      return campus?.buildings ?? []
+    },
+    get insideBuilding() {
+      return insideBuilding
+    },
+    get beaconShown() {
+      return beacon.group.visible
     },
     /** ?debug=1: the shell as a see-through wireframe. */
     setWireframe(on) {
@@ -500,6 +553,9 @@ export function createNavScene({THREE, scene, camera, route, origin, name = null
       floorGrid.geometry.dispose()
       floorGrid.material.dispose()
       pin.dispose()
+      beacon.dispose()
+      campus?.mesh?.geometry.dispose()
+      campus?.mesh?.material.dispose()
       shell?.meshes.dispose()
       baseLines?.dispose()
       for (const line of doorMarks) {

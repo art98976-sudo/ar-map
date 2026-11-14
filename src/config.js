@@ -427,6 +427,28 @@ export const CONFIDENCE = {
   reliableAfterS: 3,
 }
 
+// The campus buildings in AR (src/ar/campus-buildings.js): invisible occluders and name labels.
+export const BUILDINGS = {
+  insetM: 1.5, // outlines pulled in this far, so alignment error near a wall never hides the route
+  belowM: 3, // occluders reach this far under the ground (the campus slopes)
+  withinM: 1500, // buildings further than this from the trip start are left out
+  defaultHeightM: 8,
+  renderOrder: -10, // drawn first: their depth hides what is behind them
+  insideMarginM: 2, // the user inside a building's outline (plus this): its occluders are off
+}
+
+// The destination beacon (src/ar/beacon.js): a pillar of light over the entrance.
+export const BEACON = {
+  colour: '#006938', // University green
+  coreColour: '#3ddc84', // the bright middle, so it reads against a grey sky
+  heightM: 40,
+  radiusM: 0.9,
+  constantWidthFromM: 80, // further than this it is drawn wider, so it keeps its width on screen
+  hideWithinM: 25, // closer, the pin (PIN.showWithinM 30) shows where to stand and the beacon is gone...
+  fadeInM: 40, // ...fully there again from this far
+  renderOrder: 30, // after the campus occluders and the chevrons
+}
+
 // GOOD / WEAK / LOST (src/route/trip-monitors.js trackingState): the one state the AR screen acts on.
 export const TRACKING_STATE = {
   lostAfterS: 2, // world tracking gone this long: LOST (the same moment the floor arrows hide)
