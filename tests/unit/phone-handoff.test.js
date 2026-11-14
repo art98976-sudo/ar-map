@@ -33,3 +33,46 @@ describe('phoneHandoff', () => {
     expect(markup).not.toMatch(/<img|https?:\/\/(?!www\.w3\.org)/)
   })
 })
+
+describe('item 10: the AR demo video', async () => {
+  const {DEMO_VIDEO, demoState, startDemoVideos} = await import('../../src/ui/components/phone-handoff.js')
+  it('is in the panel, muted, looping, lazy, with a poster and captions, from this site only', () => {
+    const markup = phoneHandoff('https://x.test/#/?to=library').value
+    expect(markup).toMatch(/<video[^>]*\bmuted\b[^>]*\bloop\b[^>]*\bplaysinline\b[^>]*preload="none"/s)
+    expect(markup).toContain(`data-src="${DEMO_VIDEO.src}"`)
+    expect(markup).not.toMatch(/<video[^>]*\ssrc=/s) // not fetched until on screen
+    expect(markup).toContain(`poster="${DEMO_VIDEO.poster}"`)
+    expect(markup).toMatch(/<track kind="captions" srclang="en-GB"[^>]*default/)
+    for (const path of [DEMO_VIDEO.src, DEMO_VIDEO.poster, DEMO_VIDEO.captions]) expect(path.startsWith('/media/')).toBe(true)
+  })
+  it('plays only on a wide screen while visible; poster only with reduced motion; gone if the file fails', () => {
+    expect(demoState({widthPx: 390, visible: true, reducedMotion: false})).toBe('none')
+    expect(demoState({widthPx: 1440, visible: true, reducedMotion: false})).toBe('play')
+    expect(demoState({widthPx: 1440, visible: false, reducedMotion: false})).toBe('pause')
+    expect(demoState({widthPx: 1440, visible: true, reducedMotion: true})).toBe('poster')
+    expect(demoState({widthPx: 1440, visible: true, reducedMotion: false, failed: true})).toBe('none')
+  })
+  it('fetches the file only once it is on screen, and hides the slot if it fails', () => {
+    document.body.innerHTML = `<div id="host">${phoneHandoff('https://x.test/').value}</div>`
+    let observed = null
+    const win = {
+      innerWidth: 1440,
+      matchMedia: () => ({matches: false}),
+      IntersectionObserver: class {
+        constructor(cb) { observed = cb }
+        observe() {}
+        disconnect() {}
+      },
+    }
+    const host = document.getElementById('host')
+    const video = host.querySelector('video')
+    video.play = () => Promise.resolve()
+    video.pause = () => {}
+    startDemoVideos(host, win)
+    expect(video.getAttribute('src')).toBeNull()
+    observed([{target: video, isIntersecting: true}])
+    expect(video.getAttribute('src')).toBe(DEMO_VIDEO.src)
+    video.dispatchEvent(new Event('error'))
+    expect(host.querySelector('[data-demo]').hidden).toBe(true)
+  })
+})

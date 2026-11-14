@@ -248,3 +248,32 @@
   color: var(--text-muted);
   font-size: var(--fs-sm);
 }
+
+/* Item 10: the AR demo video beside the QR code, on wide screens only (phone-handoff.js). */
+.handoff__demo {
+  display: none;
+  margin: 0;
+}
+@media (min-width: 900px) {
+  .handoff {
+    flex-wrap: wrap;
+  }
+  .handoff__demo:not([hidden]) {
+    display: block;
+    flex: 1 1 100%;
+  }
+}
+.handoff__video {
+  display: block;
+  width: 100%;
+  max-height: 280px;
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  background: #005734;
+  object-fit: cover;
+}
+.handoff__caption {
+  margin-top: var(--s-1);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}

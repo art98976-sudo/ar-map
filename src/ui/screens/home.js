@@ -14,7 +14,7 @@ import {seen} from '../first-use.js'
 import {openingMove} from '../opening.js'
 import {createFixWatch, locationPermissionState, readTripFix} from '../../geo/location.js'
 import {locateForGo, NO_LOCATION_TEXT} from '../../route/go-start.js'
-import {handoffUrl, needsHandoff, phoneHandoff} from '../components/phone-handoff.js'
+import {handoffUrl, needsHandoff, phoneHandoff, startDemoVideos} from '../components/phone-handoff.js'
 import {watchContextLoss} from '../webgl-loss.js'
 import {arriveLabel} from './ar.js'
 import {createVoice} from '../voice.js'
@@ -54,6 +54,7 @@ export function homeScreen(root, {navigate, params}) {
   let cardRoute = null // the route planned for the card (door, level, whole distance)
   let planningFor = null // the destination a quiet plan is running for
   let planning = Promise.resolve() // that plan, for Go to wait on
+  let stopDemo = () => {} // the demo video's watcher on the place card
   let goAfterStart = false // the start sheet opened by Go: Go is next once a start is chosen
   let locationPermission = 'unknown' // read once at start, so the Go tap can decide without waiting
   let disposed = false
@@ -714,6 +715,8 @@ export function homeScreen(root, {navigate, params}) {
     // A laptop, or no location here: a QR code to carry on with AR on a phone.
     const handoff = needsHandoff({issueCode: arIssue?.code, hasGeolocation: Boolean(navigator.geolocation)}) ? phoneHandoff(handoffUrl(selected.id)) : null
     render(card, placeCard(selected, walkText(), {stepFree: getStepFree(), arIssue, handoff}))
+    stopDemo()
+    stopDemo = startDemoVideos(card) // item 10: the AR demo beside the QR code, wide screens only
     paintWayButton()
     paintIndoor()
     quietPlan()
@@ -977,6 +980,7 @@ export function homeScreen(root, {navigate, params}) {
     disposed = true
     off()
     voice.destroy() // the trip ends with the screen: stop talking
+    stopDemo()
     cardWatch?.disconnect()
     window.removeEventListener('resize', liftToasts)
     document.documentElement.style.removeProperty('--toast-above')
