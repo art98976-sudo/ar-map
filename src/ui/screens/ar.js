@@ -284,6 +284,9 @@ export function arScreen(root, {navigate, params}) {
 
   function onStats(s) {
     fieldTest?.update(s)
+    // GOOD / WEAK / LOST, for the styles (and the B7 fallback arrow to come).
+    if (s.trackingState) root.dataset.trackingState = s.trackingState
+    else delete root.dataset.trackingState
     if (statusMessage(s)?.key === 'tracking') count('tracking-lost', {onceKey: 'tracking-lost'})
     if (s.rerouting && !wasRerouting) count('rerouted')
     wasRerouting = Boolean(s.rerouting)

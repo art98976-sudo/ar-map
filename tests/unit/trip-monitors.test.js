@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest'
-import {ARRIVAL, CONFIDENCE, OFF_ROUTE} from '../../src/config.js'
-import {createArrivalDetector, createConfidenceMonitor, createOffRouteMonitor} from '../../src/route/trip-monitors.js'
+import {ARRIVAL, CONFIDENCE, OFF_ROUTE, TRACKING_STATE} from '../../src/config.js'
+import {createArrivalDetector, createConfidenceMonitor, createOffRouteMonitor, trackingState} from '../../src/route/trip-monitors.js'
 
 const STEP = 0.1 // ten readings a second
 /** Feed a monitor readings from `from` to `to` seconds; returns the last result. */
@@ -153,5 +153,22 @@ describe('arrival', () => {
     const arrival = createArrivalDetector()
     for (let i = 0; i < 5; i++) expect(arrival.update(0.1, 5, 100)).toBe(false)
     for (let i = 0; i < 100; i++) expect(arrival.update(0.1, 30, 8.1)).toBe(false)
+  })
+})
+
+describe('GOOD / WEAK / LOST', () => {
+  it('is GOOD when tracking is normal and the position is reliable', () => {
+    expect(trackingState({tracking: 'NORMAL', positionOk: true})).toBe('GOOD')
+  })
+  it('is WEAK when the position is unreliable, or tracking has only just dropped', () => {
+    expect(trackingState({tracking: 'NORMAL', positionOk: false})).toBe('WEAK')
+    expect(trackingState({tracking: 'LIMITED', lostForS: TRACKING_STATE.lostAfterS - 0.5})).toBe('WEAK')
+  })
+  it('is LOST once tracking has been gone longer than lostAfterS', () => {
+    expect(trackingState({tracking: 'LIMITED', lostForS: TRACKING_STATE.lostAfterS + 0.5})).toBe('LOST')
+  })
+  it('a webcam in test mode is never WEAK or LOST for tracking alone', () => {
+    expect(trackingState({tracking: 'LIMITED', lostForS: 60, testMode: true})).toBe('GOOD')
+    expect(trackingState({tracking: 'LIMITED', lostForS: 60, testMode: true, positionOk: false})).toBe('WEAK')
   })
 })

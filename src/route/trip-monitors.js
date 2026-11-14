@@ -5,7 +5,21 @@
 // - createOffRouteMonitor: has the user left the route long enough to plan a new one?
 // - createArrivalDetector: has the user reached the destination?
 import {angleDiff} from '../geo/geo.js'
-import {ARRIVAL, CONFIDENCE, OFF_ROUTE} from '../config.js'
+import {ARRIVAL, CONFIDENCE, OFF_ROUTE, TRACKING_STATE} from '../config.js'
+
+/**
+ * One word for how well the trip knows where the user is, for the screen to act on:
+ *   'LOST'  world tracking has been gone longer than TRACKING_STATE.lostAfterS: the arrows are hidden
+ *   'WEAK'  tracking just dropped, or the position or heading is unreliable (the confidence monitor)
+ *   'GOOD'  everything agrees
+ * A webcam in test mode never tracks, so there tracking alone never makes it WEAK or LOST.
+ */
+export function trackingState({tracking = 'NORMAL', lostForS = 0, positionOk = true, testMode = false} = {}) {
+  const trackingOk = testMode || tracking === 'NORMAL'
+  if (!trackingOk && lostForS > TRACKING_STATE.lostAfterS) return 'LOST'
+  if (!trackingOk || !positionOk) return 'WEAK'
+  return 'GOOD'
+}
 
 /**
  * Unreliable while GPS is worse than maxGpsAccuracyM, or while the compass swings more than

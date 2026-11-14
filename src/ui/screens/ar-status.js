@@ -11,7 +11,7 @@ export function statusMessage(s) {
     // Safety first: walking for a while with the phone held up.
     [ready && s.lookUp, {key: 'look-up', icon: 'alert', text: 'Look up while you walk'}],
     // Tracking lost long enough to hide the arrows.
-    [ready && s.tracking && s.tracking !== 'NORMAL' && s.arrowsShown === false, {key: 'tracking', icon: 'alert', text: 'Tracking lost. Move slowly'}],
+    [ready && (s.trackingState === 'LOST' || (s.tracking && s.tracking !== 'NORMAL' && s.arrowsShown === false)), {key: 'tracking', icon: 'alert', text: 'Tracking lost. Move slowly'}],
     // Group B: the walk has not matched the route for 10 s: the arrows may be off.
     [ready && s.offerRealign, {key: 'realign', icon: 'drag', text: 'Arrows off the path? Tap Re-align'}],
     [ready && s.positionUncertain, {key: 'position', icon: 'compass', text: 'Finding your position. Follow the map for now.'}],

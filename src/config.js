@@ -124,7 +124,7 @@ export const GROUND_ARROWS = {
   blockMarginM: 0.6, // a surface this much nearer than a chevron hides it
   blockChecksPerFrame: 3, // blocked tests, chevrons taken in turn
   blockEaseS: 0.3, // fade in and out over about this, so nothing flickers
-  trackingLostS: 2, // tracking lost longer than this: hide them, "Point your phone at the floor"
+  trackingLostS: 2, // keep equal to TRACKING_STATE.lostAfterS. Tracking lost longer than this: hide them, "Point your phone at the floor"
 }
 
 
@@ -425,6 +425,11 @@ export const CONFIDENCE = {
   swingWindowS: 2,
   unreliableAfterS: 3,
   reliableAfterS: 3,
+}
+
+// GOOD / WEAK / LOST (src/route/trip-monitors.js trackingState): the one state the AR screen acts on.
+export const TRACKING_STATE = {
+  lostAfterS: 2, // world tracking gone this long: LOST (the same moment the floor arrows hide)
 }
 
 // Going off the route, and arriving.

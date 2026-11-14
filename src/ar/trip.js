@@ -29,7 +29,7 @@ import {createRouteMatcher} from './route-matcher.js'
 import {locationPermissionState, watchLocation} from '../geo/location.js'
 import {isManual} from '../route/start-point.js'
 import {createGuidance, landmarksFrom} from '../route/guidance.js'
-import {createArrivalDetector, createConfidenceMonitor, createOffRouteMonitor} from '../route/trip-monitors.js'
+import {createArrivalDetector, createConfidenceMonitor, createOffRouteMonitor, trackingState} from '../route/trip-monitors.js'
 import {entranceOf, isOnCampus, planRoute} from '../route/route.js'
 import {markerName} from '../route/card-text.js'
 import {COMPASS_GUIDE, GPS, GROUND, GROUND_ARROWS, INDOOR, LINE_UP, MATCH, PIN, ROUTING, SAFETY, SCENE_FLOOR, SHELL, START, TRIP} from '../config.js'
@@ -989,6 +989,11 @@ export function createArTrip({
         ...trackedLatLng(),
         arrowBearingDeg: phase === 'ready' && !arrived ? arrowBearingDeg : null,
         positionUncertain: phase === 'ready' && !arrived && !positionOk,
+        // GOOD / WEAK / LOST while guiding, null before Start and after arrival.
+        trackingState:
+          phase === 'ready' && !arrived
+            ? trackingState({tracking, lostForS: trackingLostAt != null ? time - trackingLostAt : 0, positionOk, testMode: allowDesktop})
+            : null,
         positionReason: confidenceNow.reason,
         headingSwingDeg: confidenceNow.swingDeg,
         distanceFromRouteM: phase === 'ready' && pose.lateralOffsetM != null ? Math.abs(pose.lateralOffsetM) : null,
