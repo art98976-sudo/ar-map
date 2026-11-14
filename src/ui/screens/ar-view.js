@@ -96,6 +96,13 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
       <svg class="ar-tilt__floor" viewBox="0 0 120 20"><path d="M2 18 L30 2 L90 2 L118 18 Z" /></svg>
     </div>
 
+    <div class="ar-fallback" data-fallback aria-live="polite" hidden>
+      <span class="ar-fallback__arrow" data-fallback-arrow aria-hidden="true">
+        <svg viewBox="0 0 100 120"><path d="M50 4 L94 64 L66 64 L66 116 L34 116 L34 64 L6 64 Z" /></svg>
+      </span>
+      <p class="ar-fallback__text" data-fallback-text></p>
+    </div>
+
     <span class="ar-edge-arrow" data-edge-arrow aria-hidden="true" hidden>
       <svg viewBox="0 0 100 46"><path d="M3 43 L50 4 L97 43 L76 43 L50 21 L24 43 Z" /></svg>
     </span>

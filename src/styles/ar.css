@@ -535,6 +535,60 @@
 }
 
 /* ---------- No arrow in view: one small chevron at the edge, pointing the way to them ---------- */
+/* B7: one big arrow over the camera while tracking is WEAK or LOST (ar-fallback.js). */
+.ar-fallback {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  top: 34%;
+  display: grid;
+  justify-items: center;
+  gap: var(--s-2);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.ar-fallback[hidden],
+.ar-fallback__arrow[hidden] {
+  display: none;
+}
+.ar:has(.ar-map.is-expanded) .ar-fallback {
+  top: calc((100dvh - 55dvh) / 2);
+}
+.ar-fallback__arrow {
+  display: block;
+  width: 96px;
+  height: 116px;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5));
+  transition: transform 300ms ease-out;
+}
+.ar-fallback__arrow svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: var(--green-02);
+  stroke: #fff;
+  stroke-width: 5;
+  stroke-linejoin: round;
+}
+.ar-fallback__text {
+  margin: 0;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.ar-fallback__text:empty {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ar-fallback__arrow {
+    transition: none;
+  }
+}
+
 .ar-edge-arrow {
   position: absolute;
   z-index: 5;

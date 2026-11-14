@@ -21,6 +21,7 @@ import {markSeen, seen} from '../first-use.js'
 import {paintDebugStats, paintLiveDebug, setStat as setDebugStat, toggleDebugPanel} from './ar-debug.js'
 import {errorCopy} from './ar-errors.js'
 import {statusMessage} from './ar-status.js'
+import {paintFallback} from './ar-fallback.js'
 import {count, newTrip} from '../../stats/counts.js'
 import {loadBuildings} from '../../premium/buildings.js'
 import {errorView, liveView, loadingView} from './ar-view.js'
@@ -306,6 +307,7 @@ export function arScreen(root, {navigate, params}) {
     paintStatusLine(s)
     paintLineUp(Boolean(s.lineUp), s.canRealign)
     paintEdgeArrow(s.edgeArrowDeg)
+    paintFallback(root, s) // B7: WEAK or LOST, one big arrow instead of the floor arrows
     paintIndoorUi(s)
     const pillText = root.querySelector('[data-trip-pill]')
     if (pillText && s.phase === 'ready') pillText.textContent = tripPillText(destination.name, s.remainingM + indoorRestM(route, INDOOR.indoorAR))
