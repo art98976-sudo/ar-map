@@ -16,6 +16,8 @@ import {openingMove} from '../opening.js'
 import {createFixWatch, locationPermissionState, readTripFix} from '../../geo/location.js'
 import {locateForGo, NO_LOCATION_TEXT} from '../../route/go-start.js'
 import {handoffUrl, needsHandoff, phoneHandoff} from '../components/phone-handoff.js'
+import {watchContextLoss} from '../webgl-loss.js'
+import {reportError} from '../../stats/errors.js'
 import {addRecent, DESTINATIONS, findDestination, setCurrentDestination} from '../../map/destinations.js'
 import {fetchPoiDestination, poiIdFrom} from '../../map/poi-lookup.js'
 import {entranceOf, estimateWalkMinutes, getStepFree, planRoute, saveTripRoute, setStepFree, tripLengthM} from '../../route/route.js'
@@ -39,13 +41,14 @@ import {
 import {onAction, render} from '../dom.js'
 import {GPS, HOME_MAP, INDOOR, MAZEMAP, START} from '../../config.js'
 import {createSheets} from './home-sheets.js'
-import {doorList, homePage, mapError, mapLoading, placeCard, placeLoading, placeNotFound} from './home-view.js'
+import {doorList, homePage, mapError, mapLoading, mapLost, placeCard, placeLoading, placeNotFound} from './home-view.js'
 
 export function homeScreen(root, {navigate, params}) {
   const forced = params.force === '1'
   let instance = null
   let mapReady = false // the map's style has loaded: it can take the route line
   let labelBlockers = null // keeps labels clear of the logos, and the logos above the sheet or card
+  let stopMapLoss = null // stops watching the map canvas for a lost WebGL context
   let selected = findDestination(params.to)
   let cardRoute = null // the route planned for the card (door, level, whole distance)
   let planningFor = null // the destination a quiet plan is running for
@@ -768,6 +771,8 @@ export function homeScreen(root, {navigate, params}) {
       paint3dButton()
       labelBlockers?.destroy()
       labelBlockers = null
+      stopMapLoss?.()
+      stopMapLoss = null
       instance?.destroy()
       mapReady = false
       pins.clear()
@@ -778,6 +783,21 @@ export function homeScreen(root, {navigate, params}) {
           overlay.hidden = true
           if (params.debug === '1') window.__homeMap = instance.map // inspect it from the console
           quietIndoorLabels(instance.map)
+          // The phone took the GPU away: wait for it back, else offer a reload (not a black map).
+          stopMapLoss = watchContextLoss(instance.map.getCanvas?.(), {
+            onLost: () => {
+              if (disposed) return
+              reportError('webgl-lost')
+              render(overlay, mapLost())
+              overlay.hidden = false
+              overlay.querySelector('[data-autofocus]')?.focus({preventScroll: true})
+            },
+            onRestored: () => {
+              if (disposed) return
+              if (overlay.querySelector('[data-action="retry"]')) overlay.hidden = true
+              instance?.map?.triggerRepaint?.()
+            },
+          })
           labelBlockers = createLabelBlockers(instance.map, {
             host: root.querySelector('.map-home'),
             panels: [root.querySelector('[data-home-sheet]'), card, root.querySelector('[data-pick-bar]')],
@@ -932,6 +952,7 @@ export function homeScreen(root, {navigate, params}) {
     stopAlignDebug()
     model?.destroy()
     labelBlockers?.destroy()
+    stopMapLoss?.()
     instance?.destroy()
   }
 }

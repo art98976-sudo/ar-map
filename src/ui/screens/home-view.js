@@ -239,6 +239,18 @@ export const mapError = (offline) => html`
     </div>
 `
 
+/** The map's WebGL context was lost and not given back: a black or frozen map otherwise. */
+export const mapLost = () => html`
+    <div class="map-home__error" role="alert">
+      <span class="error-state__icon" data-tone="warn">${icon('map', {size: 28})}</span>
+      <h2>The map stopped</h2>
+      <p>Your device paused the map’s graphics, often to save memory.</p>
+      <button class="btn btn--primary btn--block" type="button" data-action="retry" data-autofocus>
+        ${icon('refresh')}<span>Tap to reload the map</span>
+      </button>
+    </div>
+`
+
 /** The sheet at rest (Group C): three "Nearest" shortcuts, then the last 3 places. */
 export const restView = (recent) => html`
   <div class="home-rest__nearest" role="group" aria-label="Nearest to you">

@@ -177,3 +177,19 @@ test.describe('position confidence on the AR screen', () => {
     expect(errors).toEqual([])
   })
 })
+
+test('AR WebGL context lost and not given back: "Tap to reload AR", not a black screen', async ({page}, testInfo) => {
+  test.setTimeout(180_000)
+  test.skip(onlyOn('android-chrome')(testInfo))
+  await page.addInitScript(FAKE_REAR_CAMERA)
+  await page.goto('/#/locate?to=cottrell&force=1&debug=1')
+  await page.getByRole('button', {name: 'Tap to start'}).click({timeout: 30_000})
+  await expect(page.locator('[data-stat="camera"]')).toHaveText('Working', {timeout: 60_000})
+  await page.evaluate(() => {
+    const canvas = document.querySelector('[data-canvas]')
+    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl')
+    gl.getExtension('WEBGL_lose_context').loseContext()
+  })
+  await expect(page.getByRole('heading', {name: 'AR paused'})).toBeVisible({timeout: 10_000})
+  await expect(page.getByRole('button', {name: 'Tap to reload AR'})).toBeVisible()
+})

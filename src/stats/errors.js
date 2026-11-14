@@ -15,6 +15,7 @@ export function arErrorKind(code) {
   if (code === 'camera-denied' || code === 'camera-missing' || code === 'camera-failed') return 'camera'
   if (code === 'motion-denied') return 'motion'
   if (code === 'runtime') return 'ar-stopped'
+  if (code === 'webgl-lost') return 'webgl-lost'
   if (code === 'offline' || code === 'timeout') return null // the connection, not the app
   return 'engine-load'
 }

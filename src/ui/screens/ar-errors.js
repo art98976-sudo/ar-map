@@ -58,6 +58,14 @@ export function errorCopy(code, device = {os: 'other'}) {
         body: 'Another app may be using it. Close other camera apps, then try again.',
         primary: {action: 'reload', label: 'Try again', icon: 'refresh'},
       }
+    case 'webgl-lost':
+      return {
+        icon: 'camera',
+        tone: 'warn',
+        title: 'AR paused',
+        body: 'Your phone stopped the 3D graphics, often to save memory or after a while in the background.',
+        primary: {action: 'reload', label: 'Tap to reload AR', icon: 'refresh'},
+      }
     case 'runtime':
       return {
         icon: 'alert',
