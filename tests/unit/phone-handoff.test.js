@@ -1,4 +1,4 @@
-import {describe, expect, it} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 import {handoffUrl, needsHandoff, phoneHandoff} from '../../src/ui/components/phone-handoff.js'
 
 describe('handoffUrl', () => {
@@ -31,8 +31,7 @@ describe('phoneHandoff', () => {
     expect(markup).toContain('data-qr-url="https://x.test/#/?to=library"')
     document.body.innerHTML = `<div id="h">${markup}</div>`
     hydrateHandoff(document.getElementById('h'), {innerWidth: 390, matchMedia: () => ({matches: false})})
-    await new Promise((r) => setTimeout(r, 50))
-    expect(document.querySelector('[data-qr-url] svg')).not.toBeNull()
+    await vi.waitFor(() => expect(document.querySelector('[data-qr-url] svg')).not.toBeNull(), {timeout: 5000}) // the QR library loads first
     expect(markup).toContain('Open on your phone for AR')
     expect(markup).toMatch(/aria-label="QR code/)
     expect(markup).not.toMatch(/<img|src="https?:/) // the code is drawn here, nothing is fetched
