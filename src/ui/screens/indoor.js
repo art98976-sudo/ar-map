@@ -59,6 +59,7 @@ export function indoorScreen(root, {navigate, params}) {
         </div>
       </header>
       <section class="indoor__card" data-indoor-card aria-live="polite">
+        <p class="indoor__why" data-indoor-why hidden></p>
         <p data-indoor-step>Loading the indoor map…</p>
         <button class="btn btn--primary btn--block" type="button" data-action="done">Done</button>
       </section>
@@ -79,18 +80,25 @@ export function indoorScreen(root, {navigate, params}) {
       return
     }
     root.querySelector('[data-indoor-name]').textContent = dest.name
+    // Item 7: from AR at the entrance, open on the door's floor and say why the map took over.
+    const startFloor = Number.isFinite(Number(params.floor)) && params.floor !== undefined && params.floor !== '' ? Number(params.floor) : null
+    const why = root.querySelector('[data-indoor-why]')
+    if (why && params.from === 'ar') {
+      why.textContent = `You’re inside: GPS can’t see you here, so the floor plan shows the way${startFloor != null ? `, starting on Level ${startFloor}` : ''}.`
+      why.hidden = false
+    }
     root.querySelector('[data-indoor-meta]').textContent = [dest.building, dest.floor != null ? `Level ${dest.floor}` : null].filter(Boolean).join(' · ')
     const [Mazemap, points] = await Promise.all([loadMazeMap(), indoorRoute(dest).catch(() => null)])
     if (disposed) return
     instance = createCampusMap(Mazemap, root.querySelector('[data-map]'), {
-      options: {zLevel: dest.floor ?? 1, center: {lng: dest.lng, lat: dest.lat}, zoom: 19},
+      options: {zLevel: startFloor ?? dest.floor ?? 1, center: {lng: dest.lng, lat: dest.lat}, zoom: 19},
       onReady: (map) => {
         if (disposed) return
         const step = root.querySelector('[data-indoor-step]')
         if (points?.length >= 2) {
           map.addSource(ROUTE, {type: 'geojson', data: routeByFloor(points)})
           map.addLayer({id: ROUTE, type: 'line', source: ROUTE, layout: {'line-cap': 'round', 'line-join': 'round'}, paint: {'line-color': ROUTE_BLUE, 'line-width': 6}})
-          const showFloor = () => map.setFilter(ROUTE, ['==', ['get', 'z'], map.getZLevel?.() ?? dest.floor])
+          const showFloor = () => map.setFilter(ROUTE, ['==', ['get', 'z'], map.getZLevel?.() ?? startFloor ?? dest.floor])
           showFloor()
           map.on('zlevel', showFloor)
           // You start here: the door.

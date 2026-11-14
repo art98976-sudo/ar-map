@@ -26,6 +26,7 @@ import {paintFallback} from './ar-fallback.js'
 import {count, newTrip} from '../../stats/counts.js'
 import {arErrorKind, reportError} from '../../stats/errors.js'
 import {watchContextLoss} from '../webgl-loss.js'
+import {atEntrance, doorAlongM, entryFloor, handoffLine, HANDOFF, indoorLink} from '../../route/entrance-handoff.js'
 import {createVoice} from '../voice.js'
 import {loadBuildings} from '../../premium/buildings.js'
 import {errorView, liveView, loadingView} from './ar-view.js'
@@ -99,6 +100,8 @@ export function arScreen(root, {navigate, params}) {
 
   // Anonymous counts (8.2): one trip per AR screen.
   let arrivedYet = false
+  // Item 7: at the entrance of a room's building, hand over to the indoor map (entrance-handoff.js).
+  const handoff = {doorS: doorAlongM(route), floor: entryFloor(route, destination), shown: false, dismissed: false, timer: null}
   let wasRerouting = false
   newTrip()
   count('trip-started')
@@ -151,6 +154,11 @@ export function arScreen(root, {navigate, params}) {
     },
     done: () => navigate('/'),
     inside: () => navigate(`/indoor?to=${encodeURIComponent(destination.id)}`),
+    'handoff-now': () => openIndoor(),
+    'handoff-keep': () => {
+      handoff.dismissed = true // this trip: no more asking
+      stopHandoff()
+    },
     'start-walk': () => {
       const result = trip?.start()
       const note = root.querySelector('[data-start-note]')
@@ -284,6 +292,39 @@ export function arScreen(root, {navigate, params}) {
     }, FIRST_USE.tiltMs)
   }
 
+  /** At the entrance: the card, its one line, and a countdown to the indoor map on the door's floor. */
+  function startHandoff() {
+    handoff.shown = true
+    const card = root.querySelector('[data-handoff-card]')
+    if (!card) return
+    const entranceName = entranceNameFor(destination, route.entrance ?? null, DESTINATIONS)
+    const line = handoffLine({entranceName, floor: handoff.floor})
+    card.querySelector('[data-handoff-line]').textContent = line
+    card.hidden = false
+    voice.say(line)
+    haptic([20, 60, 20])
+    let left = HANDOFF.countdownS
+    const paint = () => (card.querySelector('[data-handoff-count]').textContent = `Opening in ${left} s`)
+    paint()
+    handoff.timer = setInterval(() => {
+      left -= 1
+      if (left <= 0) return openIndoor()
+      paint()
+    }, 1000)
+  }
+
+  function stopHandoff() {
+    clearInterval(handoff.timer)
+    handoff.timer = null
+    const card = root.querySelector('[data-handoff-card]')
+    if (card) card.hidden = true
+  }
+
+  function openIndoor() {
+    stopHandoff()
+    navigate(indoorLink(destination.id, handoff.floor))
+  }
+
   function onArrived() {
     if (!arrivedYet) voice.say(`You’ve arrived at ${arriveLabel(destination)}`)
     if (!arrivedYet) count('arrived')
@@ -322,6 +363,7 @@ export function arScreen(root, {navigate, params}) {
     paintEdgeArrow(s.edgeArrowDeg)
     paintFallback(root, s) // B7: WEAK or LOST, one big arrow instead of the floor arrows
     paintIndoorUi(s)
+    if (!handoff.shown && !arrivedYet && atEntrance({dest: destination, route, userS: s.userS, phase: s.phase, dismissed: handoff.dismissed, doorS: handoff.doorS})) startHandoff()
     // Item 3: spoken directions (if switched on in the menu): each turn as it comes up and close to it.
     if (announcer && s.phase === 'ready' && !s.arrived && s.nextManoeuvre && s.step) {
       const words = announcer.next(s.nextManoeuvre, s.step.distanceM)
@@ -671,6 +713,7 @@ export function arScreen(root, {navigate, params}) {
   return () => {
     disposed = true
     voice.destroy() // the trip ends with the screen: stop talking
+    clearInterval(handoff.timer)
     fieldTest?.destroy()
     document.removeEventListener('visibilitychange', onVisibility)
     teardownSession()

@@ -801,3 +801,19 @@
   0% { transform: perspective(200px) rotateX(0deg); }
   60%, 100% { transform: perspective(200px) rotateX(55deg); }
 }
+
+/* Item 7: at the entrance, the indoor map takes over (entrance-handoff.js). */
+.ar-handoff__line {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+}
+.ar-handoff__count {
+  margin: 0;
+  font-size: 14px;
+  text-align: center;
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}

@@ -930,3 +930,11 @@
     transition: transform 0.2s ease;
   }
 }
+/* Item 7: why the indoor map took over from AR. */
+.indoor__card .indoor__why {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.indoor__why[hidden] {
+  display: none;
+}

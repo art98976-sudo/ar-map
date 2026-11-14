@@ -46,6 +46,13 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
       <button class="btn btn--primary btn--block" type="button" data-action="confirm-floor" data-floor-button>I'm on Level 2</button>
     </section>
 
+    <section class="ar-floor ar-handoff" data-handoff-card aria-labelledby="handoff-line" hidden>
+      <p class="ar-handoff__line" id="handoff-line" role="status" aria-live="polite" data-handoff-line></p>
+      <p class="ar-handoff__count" data-handoff-count></p>
+      <button class="btn btn--primary btn--block" type="button" data-action="handoff-now">${icon('map')}<span>Open the indoor map now</span></button>
+      <button class="btn btn--secondary btn--block" type="button" data-action="handoff-keep">Keep using AR</button>
+    </section>
+
     <section class="ar-pick" data-pick hidden>
       <p>Tap where you are on the map: a door, a stair or a lift.</p>
       <button class="btn btn--secondary btn--block" type="button" data-action="pick-cancel">Cancel</button>
