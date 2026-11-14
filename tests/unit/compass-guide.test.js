@@ -226,6 +226,31 @@ describe('where the dot is on the route', () => {
     t.fix({x: 200, y: 10}, 5)
     near(t.s, 10)
   })
+  it('throws away a GPS jump that SLAM did not walk', () => {
+    const t = createRouteTracker(rightTurn, 10)
+    expect(t.fix({x: 0, y: 10}, 5)).toBe('used')
+    // Standing still, the next fix lands 30 m on: far more than 5 + 5 + 5 m of error and margin.
+    expect(t.fix({x: 0, y: 40}, 5)).toBe('jump')
+    near(t.s, 10)
+    expect(t.rejectedFixes).toBe(1)
+  })
+  it('accepts the same move once SLAM has walked it', () => {
+    const toRoute = ({x, z}) => ({x, y: -z})
+    const t = createRouteTracker(rightTurn, 10)
+    t.fix({x: 0, y: 10}, 5)
+    t.walk({x: 0, z: -10}, toRoute)
+    for (let z = 11; z <= 30; z += 1) t.walk({x: 0, z: -z}, toRoute)
+    expect(t.fix({x: 0, y: 40}, 5)).toBe('used')
+    expect(t.rejectedFixes).toBe(0)
+  })
+  it('believes GPS again after several jumps in a row', () => {
+    const t = createRouteTracker(rightTurn, 10)
+    t.fix({x: 0, y: 10}, 5)
+    expect(t.fix({x: 0, y: 40}, 5)).toBe('jump')
+    expect(t.fix({x: 0, y: 40}, 5)).toBe('jump')
+    expect(t.fix({x: 0, y: 40}, 5)).toBe('used')
+    expect(t.s).toBeGreaterThan(10)
+  })
   it('a route that doubles back cannot snap the dot to the other side', () => {
     const hairpin = [{x: 0, y: 0}, {x: 0, y: 100}, {x: 5, y: 100}, {x: 5, y: 0}]
     const t = createRouteTracker(hairpin, 10)

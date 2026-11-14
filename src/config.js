@@ -293,6 +293,10 @@ export const TRACK = {
   windowM: 15, // GPS can only move the user this far (plus its error) along the route
   gainAt5M: 0.35, // SLAM carries the distance: each fix only nudges it, less if it is poor
   easeS: 0.4,
+  // A GPS fix that moved further than SLAM walked since the last fix used (plus both fixes' error
+  // and this margin) is a jump and is thrown away...
+  jumpMarginM: 5,
+  jumpTrustAfter: 3, // ...unless this many in a row agree with each other: then GPS is believed again
 }
 
 export const MATCH = {

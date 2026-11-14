@@ -100,6 +100,7 @@ export function createArTrip({
   let steadyAnchorDeg = null
   let unsteadySince = null
   let lastFix = null
+  let lastFixUse = null // what the route tracker did with it: 'used', 'poor' or 'jump'
   let fps = null
   let statsTimer = 0
   let matcher = null
@@ -903,8 +904,9 @@ export function createArTrip({
         }
       } else if (lastFix && lastFix !== fedFix) {
         fedFix = lastFix
-        tracker.fix(toLocal(origin, lastFix), lastFix.accuracy)
-        noteCampus(lastFix)
+        lastFixUse = tracker.fix(toLocal(origin, lastFix), lastFix.accuracy)
+        // A jump SLAM did not walk says nothing about where the user is, campus edge included.
+        if (lastFixUse !== 'jump') noteCampus(lastFix)
       }
       tracker.tick(dt)
       // The one pose for this frame. Everything below, and the map and arrow, read only this.
@@ -983,6 +985,8 @@ export function createArTrip({
         gpsAccuracy: lastFix?.accuracy ?? null,
         gpsLat: lastFix?.lat ?? null,
         gpsLng: lastFix?.lng ?? null,
+        gpsUse: lastFixUse,
+        gpsRejected: tracker?.rejectedFixes ?? 0,
         ...trackedLatLng(),
         arrowBearingDeg: phase === 'ready' && !arrived ? arrowBearingDeg : null,
         positionUncertain: phase === 'ready' && !arrived && !positionOk,

@@ -78,6 +78,11 @@ export function createRouteTracker(route, startS = 0) {
   let s = Math.max(0, Math.min(total, startS))
   let shown = s
   let last = null
+  // GPS jumps: SLAM's walked distance since the last fix used bounds how far the next fix may move.
+  let walkedM = 0 // every step SLAM counted as walking, any direction
+  let lastFix = null // {point, accuracyM, walkedM}: the last fix that was used
+  let disagreeing = 0 // fixes in a row that disagreed with SLAM
+  let rejected = 0
 
   function direction() {
     const a = pointAt(route, Math.max(0, s - 1))
@@ -105,17 +110,39 @@ export function createRouteTracker(route, startS = 0) {
           along = cos >= TRACK.sidewaysCos ? step : cos <= TRACK.backwardsCos ? -step : 0
         }
         s = Math.max(0, Math.min(total, s + along))
+        walkedM += step
       }
       last = {x: pos.x, z: pos.z}
     },
-    /** A new GPS fix in the route frame. */
+    /**
+     * A new GPS fix in the route frame. Returns 'used', 'poor' (too inaccurate or too far from the
+     * route) or 'jump': it moved further from the last fix used than SLAM says the user has walked,
+     * allowing for both fixes' errors. After TRACK.jumpTrustAfter jumps in a row GPS is believed
+     * again (SLAM may be the one that drifted), and that fix is used.
+     */
     fix(point, accuracyM) {
-      if (!Number.isFinite(accuracyM) || accuracyM > TRACK.goodAccuracyM) return
+      if (!Number.isFinite(accuracyM) || accuracyM > TRACK.goodAccuracyM) return 'poor'
+      if (lastFix) {
+        const moved = Math.hypot(point.x - lastFix.point.x, point.y - lastFix.point.y)
+        const allowed = walkedM - lastFix.walkedM + accuracyM + lastFix.accuracyM + TRACK.jumpMarginM
+        if (moved > allowed && disagreeing + 1 < TRACK.jumpTrustAfter) {
+          disagreeing += 1
+          rejected += 1
+          return 'jump'
+        }
+      }
+      disagreeing = 0
+      lastFix = {point: {x: point.x, y: point.y}, accuracyM, walkedM}
       const reach = TRACK.windowM + accuracyM
       const from = Math.max(0, s - reach)
       const hit = projectOntoPolyline(polylineSlice(route, from, s + reach), point)
-      if (hit.offset > reach) return
+      if (hit.offset > reach) return 'poor'
       s = Math.max(0, Math.min(total, s + (from + hit.s - s) * Math.min(1, (TRACK.gainAt5M * 5) / Math.max(5, accuracyM))))
+      return 'used'
+    },
+    /** GPS fixes thrown away as jumps, this trip. */
+    get rejectedFixes() {
+      return rejected
     },
     /** Walking has shown where the user really is: move there without easing the estimate. */
     set(value) {
