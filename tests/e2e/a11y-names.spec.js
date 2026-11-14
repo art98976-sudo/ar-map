@@ -44,7 +44,7 @@ async function mapReady(page) {
 }
 
 test.describe('every control has a name', () => {
-  test.beforeEach(async ({browserName}, testInfo) => test.skip(testInfo.project.name !== 'desktop-chrome' && testInfo.project.name !== 'android-chrome'))
+  test.beforeEach(async ({browserName: _browser}, testInfo) => test.skip(testInfo.project.name !== 'desktop-chrome' && testInfo.project.name !== 'android-chrome'))
 
   test('home: map, menu, search, a building card, its options and the start sheet', async ({page}) => {
     await page.goto('/')
