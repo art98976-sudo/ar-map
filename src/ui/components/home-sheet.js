@@ -6,6 +6,7 @@
 import {QUICK_CHIPS} from '../../map/filters.js'
 import {loadRoomTypes, pinPlaces, roomTypeDestinations, searchPlaces, toRows} from '../../map/quick-places.js'
 import {getRecent} from '../../map/destinations.js'
+import {savedByGroup} from '../../map/saved.js'
 import {render} from '../dom.js'
 import {chipLoading, chipResults, restView} from '../screens/home-view.js'
 
@@ -206,10 +207,12 @@ export function createHomeSheet(root, {getMap, getFrom, pins, onPick}) {
   // ---------- at rest: "Nearest" shortcuts and Recent ----------
   const rest = sheet.querySelector('[data-rest]')
   let recent = []
+  let saved = [] // item 12: [{id, label, places}]
   function paintRest() {
     if (!rest) return
     recent = getRecent().slice(0, RECENT_AT_REST)
-    render(rest, restView(recent))
+    saved = savedByGroup()
+    render(rest, restView(recent, saved))
     setHeight(height, {animate: false}) // the peek is as tall as what it shows
   }
   async function pickNearest(kind, button) {
@@ -228,6 +231,9 @@ export function createHomeSheet(root, {getMap, getFrom, pins, onPick}) {
   const onRestClick = (event) => {
     const near = event.target.closest('[data-nearest]')
     if (near) return pickNearest(near.dataset.nearest, near)
+    const pinned = event.target.closest('[data-saved]')
+    const savedDest = pinned && saved.flatMap((g) => g.places).find((d) => d.id === pinned.dataset.saved)
+    if (savedDest) return onPick(savedDest, {go: true})
     const row = event.target.closest('[data-recent]')
     const dest = row && recent[Number(row.dataset.recent)]
     if (dest) onPick(dest, {go: true})

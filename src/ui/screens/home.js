@@ -18,6 +18,7 @@ import {handoffUrl, needsHandoff, phoneHandoff, startDemoVideos} from '../compon
 import {watchContextLoss} from '../webgl-loss.js'
 import {arriveLabel} from './ar.js'
 import {createVoice} from '../voice.js'
+import {SAVED_GROUPS, savedGroup, savePlace, unsavePlace} from '../../map/saved.js'
 import {reportError} from '../../stats/errors.js'
 import {addRecent, DESTINATIONS, findDestination, setCurrentDestination} from '../../map/destinations.js'
 import {fetchPoiDestination, poiIdFrom} from '../../map/poi-lookup.js'
@@ -719,7 +720,7 @@ export function homeScreen(root, {navigate, params}) {
     const arIssue = deviceIssue(forced)
     // A laptop, or no location here: a QR code to carry on with AR on a phone.
     const handoff = needsHandoff({issueCode: arIssue?.code, hasGeolocation: Boolean(navigator.geolocation)}) ? phoneHandoff(handoffUrl(selected.id)) : null
-    render(card, placeCard(selected, walkText(), {stepFree: getStepFree(), arIssue, handoff}))
+    render(card, placeCard(selected, walkText(), {stepFree: getStepFree(), arIssue, handoff, savedIn: savedGroup(selected.id), groups: SAVED_GROUPS}))
     stopDemo()
     stopDemo = startDemoVideos(card) // item 10: the AR demo beside the QR code, wide screens only
     paintWayButton()
@@ -913,6 +914,33 @@ export function homeScreen(root, {navigate, params}) {
       useStart(start)
     },
     'pick-cancel': () => leavePick(),
+    // Item 12: Save. Not saved: choose My lectures, My halls or Other places. Saved: remove it.
+    save: (_, button) => {
+      if (!selected) return
+      const group = savedGroup(selected.id)
+      const choices = card.querySelector('[data-save-groups]')
+      if (group) {
+        unsavePlace(selected.id)
+        button.setAttribute('aria-pressed', 'false')
+        showToast(`Removed from ${SAVED_GROUPS.find((g) => g.id === group).label}`)
+        return homeSheet.refreshRest()
+      }
+      const open = choices.hidden
+      choices.hidden = !open
+      button.setAttribute('aria-expanded', String(open))
+      if (open) choices.querySelector('button')?.focus({preventScroll: true})
+    },
+    'save-to': (_, chip) => {
+      if (!selected) return
+      savePlace(selected, chip.dataset.group)
+      const button = card.querySelector('[data-save]')
+      card.querySelector('[data-save-groups]').hidden = true
+      button?.setAttribute('aria-pressed', 'true')
+      button?.setAttribute('aria-expanded', 'false')
+      button?.focus({preventScroll: true})
+      showToast(`Saved to ${SAVED_GROUPS.find((g) => g.id === chip.dataset.group).label}`)
+      homeSheet.refreshRest()
+    },
     // Item 9: the phone's share sheet, or the link copied. The link is #/?to=<id>, nothing added.
     share: async () => {
       if (!selected) return

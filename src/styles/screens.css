@@ -742,3 +742,16 @@
   gap: var(--s-1);
   align-items: flex-start;
 }
+/* Item 12: Save, and where to. */
+.dest-sheet__save[aria-pressed='true'] svg {
+  fill: currentColor;
+  color: var(--c-primary);
+}
+.save-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+.save-groups[hidden] {
+  display: none;
+}

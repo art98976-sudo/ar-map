@@ -162,7 +162,7 @@ export function placeNotFound(text = 'We couldn’t find that place') {
   `
 }
 
-export function placeCard(place, walkText, {stepFree = false, arIssue = null, handoff = null} = {}) {
+export function placeCard(place, walkText, {stepFree = false, arIssue = null, handoff = null, savedIn = null, groups = []} = {}) {
   const room = place.category === 'room' ? describeDestination(place) : ''
   // Never repeat the name underneath it ("Library" / "Library").
   const subtitle = subtitleFor(place.name, room || categoryLabel(place.category))
@@ -204,9 +204,13 @@ export function placeCard(place, walkText, {stepFree = false, arIssue = null, ha
         <p class="dest-sheet__indoor" data-step-free-note ${stepFree ? '' : 'hidden'}>${icon('check', {size: 16})}<span>Step-free: no stairs on this route</span></p>
       </div>
       <div class="dest-sheet__tools">
+        <button class="icon-btn dest-sheet__save" type="button" data-action="save" data-save aria-pressed="${savedIn ? 'true' : 'false'}" aria-label="Save ${place.name}" aria-expanded="false" aria-controls="save-groups">${icon('star', {size: 20})}</button>
         <button class="icon-btn" type="button" data-action="share" aria-label="Share ${place.name}">${icon('share', {size: 20})}</button>
         <button class="icon-btn" type="button" data-action="unselect" aria-label="Close">${icon('close', {size: 20})}</button>
       </div>
+    </div>
+    <div class="save-groups" id="save-groups" role="group" aria-label="Save to" data-save-groups hidden>
+      ${groups.map((g) => html`<button class="chip" type="button" data-action="save-to" data-group="${g.id}">${g.label}</button>`)}
     </div>
     <button class="btn btn--primary btn--block" type="button" data-action="show-way" hidden>${icon('map')}<span>Show the way</span></button>
     <!-- One button. With AR it opens the camera; on a phone or browser without AR, the map trip. -->
@@ -255,13 +259,21 @@ export const mapLost = () => html`
     </div>
 `
 
-/** The sheet at rest (Group C): three "Nearest" shortcuts, then the last 3 places. */
-export const restView = (recent) => html`
+/** The sheet at rest (Group C): three "Nearest" shortcuts, the saved places (item 12), then the last 3 places. */
+export const restView = (recent, saved = []) => html`
   <div class="home-rest__nearest" role="group" aria-label="Nearest to you">
     <button class="home-rest__near" type="button" data-nearest="toilet">${icon('toilet', {size: 18})}<span>Nearest toilet</span></button>
     <button class="home-rest__near" type="button" data-nearest="cafe">${icon('cup', {size: 18})}<span>Nearest café</span></button>
     <button class="home-rest__near" type="button" data-nearest="lift">${icon('lift', {size: 18})}<span>Nearest lift</span></button>
   </div>
+  ${saved.map(
+    (g) => html`<section class="home-rest__recent" aria-label="${g.label}">
+        <h2 class="home-rest__title">${icon('star', {size: 16})}${g.label}</h2>
+        <ul class="home-rest__list">
+          ${g.places.map((d) => html`<li><button class="home-rest__row" type="button" data-saved="${d.id}">${icon(iconFor(d), {size: 18})}<span>${d.name}</span></button></li>`)}
+        </ul>
+      </section>`,
+  )}
   ${recent.length
     ? html`<section class="home-rest__recent" aria-label="Recent">
         <h2 class="home-rest__title">${icon('history', {size: 16})}Recent</h2>
