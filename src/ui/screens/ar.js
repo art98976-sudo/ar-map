@@ -26,7 +26,6 @@ import {paintFallback} from './ar-fallback.js'
 import {count, newTrip} from '../../stats/counts.js'
 import {arErrorKind, reportError} from '../../stats/errors.js'
 import {watchContextLoss} from '../webgl-loss.js'
-import {atEntrance, doorAlongM, entryFloor, handoffLine, HANDOFF, indoorLink} from '../../route/entrance-handoff.js'
 import {createVoice} from '../voice.js'
 import {loadBuildings} from '../../premium/buildings.js'
 import {errorView, liveView, loadingView} from './ar-view.js'
@@ -101,7 +100,7 @@ export function arScreen(root, {navigate, params}) {
   // Anonymous counts (8.2): one trip per AR screen.
   let arrivedYet = false
   // Item 7: at the entrance of a room's building, hand over to the indoor map (entrance-handoff.js).
-  const handoff = {doorS: doorAlongM(route), floor: entryFloor(route, destination), shown: false, dismissed: false, timer: null}
+  const handoff = {doorS: null, floor: null, shown: false, dismissed: false, timer: null, lib: null} // lib: loaded with the trip
   let wasRerouting = false
   newTrip()
   count('trip-started')
@@ -298,12 +297,12 @@ export function arScreen(root, {navigate, params}) {
     const card = root.querySelector('[data-handoff-card]')
     if (!card) return
     const entranceName = entranceNameFor(destination, route.entrance ?? null, DESTINATIONS)
-    const line = handoffLine({entranceName, floor: handoff.floor})
+    const line = handoff.lib.handoffLine({entranceName, floor: handoff.floor})
     card.querySelector('[data-handoff-line]').textContent = line
     card.hidden = false
     voice.say(line)
     haptic([20, 60, 20])
-    let left = HANDOFF.countdownS
+    let left = handoff.lib.HANDOFF.countdownS
     const paint = () => (card.querySelector('[data-handoff-count]').textContent = `Opening in ${left} s`)
     paint()
     handoff.timer = setInterval(() => {
@@ -322,7 +321,7 @@ export function arScreen(root, {navigate, params}) {
 
   function openIndoor() {
     stopHandoff()
-    navigate(indoorLink(destination.id, handoff.floor))
+    navigate(handoff.lib.indoorLink(destination.id, handoff.floor))
   }
 
   function onArrived() {
@@ -363,7 +362,7 @@ export function arScreen(root, {navigate, params}) {
     paintEdgeArrow(s.edgeArrowDeg)
     paintFallback(root, s) // B7: WEAK or LOST, one big arrow instead of the floor arrows
     paintIndoorUi(s)
-    if (!handoff.shown && !arrivedYet && atEntrance({dest: destination, route, userS: s.userS, phase: s.phase, dismissed: handoff.dismissed, doorS: handoff.doorS})) startHandoff()
+    if (handoff.lib && !handoff.shown && !arrivedYet && handoff.lib.atEntrance({dest: destination, route, userS: s.userS, phase: s.phase, dismissed: handoff.dismissed, doorS: handoff.doorS})) startHandoff()
     // Item 3: spoken directions (if switched on in the menu): each turn as it comes up and close to it.
     if (announcer && s.phase === 'ready' && !s.arrived && s.nextManoeuvre && s.step) {
       const words = announcer.next(s.nextManoeuvre, s.step.distanceM)
@@ -631,6 +630,9 @@ export function arScreen(root, {navigate, params}) {
     stopArLoss = watchContextLoss(canvas, {giveUpMs: 2000, onLost: () => !disposed && showError('webgl-lost')})
     const [{createArTrip}, {createTurnAnnouncer}] = await Promise.all([import('../../ar/trip.js'), import('../../route/trip-steps.js')])
     announcer = createTurnAnnouncer({arriveLabel: arriveLabel(destination)})
+    handoff.lib = await import('../../route/entrance-handoff.js')
+    handoff.doorS = handoff.lib.doorAlongM(route)
+    handoff.floor = handoff.lib.entryFloor(route, destination)
     if (disposed) return
     trip = createArTrip({route, origin, destination, allowDesktop, debug: showDebug, arriveLabel: arriveLabel(destination), onPhase, onStats, onArrived, onTurnClose: () => haptic(30), onTurnNow: () => haptic([30, 50, 30]), startPoint: tripStart, autoStart: !manualStart, reducedMotion: prefersReducedMotion(), onEnterCampus: () => showToast('Welcome to campus', {tone: 'success'}), loadCampus: loadBuildings})
     wireMapSwipe()

@@ -112,6 +112,8 @@ export function startLabel(start) {
 /** The one short line on the AR screen: where to stand, and which way to face. */
 export function standHereText(start) {
   if (start.type === 'map') return 'Stand where you put the pin.'
+  // A calibration sign (markers.js): back to the sign, so AR starts facing the right way.
+  if (start.markerId) return start.headingDeg == null ? `Stand in front of the ${start.name} sign.` : `Stand with your back to the ${start.name} sign, facing ${compassPoint(start.headingDeg)}.`
   const at = `Stand at ${landmarkPhrase(startLabel(start))}`
   if (start.facing) return `${at}, facing ${start.facing}.`
   if (start.headingDeg == null) return `${at}.`

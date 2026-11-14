@@ -75,6 +75,10 @@
     {
       "source": "/p/:id",
       "destination": "/index.html"
+    },
+    {
+      "source": "/c/:id",
+      "destination": "/index.html"
     }
   ]
 }

@@ -1,0 +1,81 @@
+{
+  "about": "Calibration signs (item 8). facingDeg: the compass direction the sign face points (true north), from the building centre to the door; to be checked on site (checked: true). See docs/SIGNS.md.",
+  "markers": [
+    {
+      "id": "cottrell-main",
+      "label": "Cottrell main entrance",
+      "place": "cottrell",
+      "serves": [
+        "cottrell"
+      ],
+      "lat": 56.144904,
+      "lng": -3.920317,
+      "facingDeg": 20,
+      "mountHeightM": 1.4,
+      "floor": 0,
+      "checked": false,
+      "note": "Beside the main doors (the A3 entrance foyer), on the wall to the right as you face the doors."
+    },
+    {
+      "id": "atrium",
+      "label": "Atrium entrance",
+      "place": "atrium",
+      "serves": [
+        "atrium"
+      ],
+      "lat": 56.145956,
+      "lng": -3.919276,
+      "facingDeg": 91,
+      "mountHeightM": 1.4,
+      "floor": 0,
+      "checked": false,
+      "note": "Beside the Atrium doors, on the wall to the right as you face the doors."
+    },
+    {
+      "id": "andrew-miller-main",
+      "label": "Andrew Miller main entrance",
+      "place": "library",
+      "serves": [
+        "library",
+        "campus-central"
+      ],
+      "lat": 56.145454,
+      "lng": -3.919805,
+      "facingDeg": 190,
+      "mountHeightM": 1.4,
+      "floor": 0,
+      "checked": false,
+      "note": "The door into the Andrew Miller Building used for both the Library and Campus Central. On the wall to the right of the doors."
+    },
+    {
+      "id": "pathfoot-main",
+      "label": "Pathfoot main entrance",
+      "place": "pathfoot",
+      "serves": [
+        "pathfoot"
+      ],
+      "lat": 56.148705,
+      "lng": -3.926991,
+      "facingDeg": 194,
+      "mountHeightM": 1.4,
+      "floor": 0,
+      "checked": false,
+      "note": "Beside the main doors, on the wall to the right as you face the doors."
+    },
+    {
+      "id": "bus-hub",
+      "label": "Bus Hub",
+      "place": "bus-hub",
+      "serves": [
+        "bus-hub"
+      ],
+      "lat": 56.143862,
+      "lng": -3.921099,
+      "facingDeg": null,
+      "mountHeightM": 1.4,
+      "floor": 0,
+      "checked": false,
+      "note": "On the shelter end panel facing the footpath to campus. Facing direction to be measured on site."
+    }
+  ]
+}

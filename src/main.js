@@ -20,12 +20,28 @@ import {showToast} from './ui/components/toast.js'
 import {startOpening} from './ui/opening.js'
 import {registerServiceWorker} from './offline.js'
 import {watchGlobalErrors} from './stats/errors.js'
+import {setStart} from './route/start-point.js'
 
 const root = document.getElementById('app')
 
 // Group D: the short link on a poster, /p/<id>, opens that place's card with Go ready.
 const short = /^\/p\/([\w.-]+)\/?$/.exec(window.location.pathname)
 if (short) window.history.replaceState(null, '', `/#/?${new URLSearchParams({to: decodeURIComponent(short[1]), go: '1'})}`)
+
+// Item 8: a calibration sign, /c/<id>: start the trip exactly there (place and direction), then
+// ask where to. An unknown sign just opens the map.
+const signPath = /^\/c\/([\w.-]+)\/?$/.exec(window.location.pathname)
+// The sign data loads only for a sign's link; the screens wait for it (no top-level await, which
+// would split the start-up code into many small files).
+const signReady = signPath
+  ? import('./route/markers.js')
+      .then(({findMarker, markerStart}) => {
+        const marker = findMarker(decodeURIComponent(signPath[1]))
+        if (marker) setStart(markerStart(marker))
+        window.history.replaceState(null, '', marker ? `/#/?${new URLSearchParams({sign: marker.id})}` : '/#/')
+      })
+      .catch(() => window.history.replaceState(null, '', '/#/'))
+  : Promise.resolve()
 
 const router = createRouter({
   root,
@@ -52,4 +68,4 @@ window.addEventListener('online', () => showToast('Back online', {tone: 'success
 document.documentElement.classList.remove('no-js')
 startOpening()
 registerServiceWorker()
-router.start()
+signReady.then(() => router.start())

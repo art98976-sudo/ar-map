@@ -77,8 +77,33 @@ export function qrScreen(root, {navigate, params}) {
     },
   })
 
+  /** Item 8: /#/qr?marker=<id>, the A5 calibration sign, ready to print. */
+  async function showSign(markerId) {
+    const [{findMarker, markerUrl}, {signSvg}] = await Promise.all([import('../../route/markers.js'), import('../sign.js')])
+    if (disposed) return
+    const marker = findMarker(markerId)
+    if (!marker) return showMissing()
+    const url = markerUrl(marker.id)
+    render(
+      root,
+      html`
+        <div class="page page--narrow page--center qr-page sign-page">
+          <h1 class="page__title" tabindex="-1">Sign: ${marker.label}</h1>
+          <div class="sign-page__sheet">${raw(signSvg({marker, qr: qrSvg(url), url}))}</div>
+          <p class="qr-page__hint">Print on A5, portrait, at 100%. Mount it as described in docs/SIGNS.md.</p>
+          <div class="qr-page__actions">
+            <button class="btn btn--primary btn--block" type="button" data-action="print">${icon('external')}<span>Print</span></button>
+            <button class="btn btn--ghost" type="button" data-action="home">Back to the map</button>
+          </div>
+        </div>
+      `,
+    )
+    focusScreen(root)
+  }
+
   const known = findDestination(id)
-  if (known) show(known)
+  if (params.marker) showSign(params.marker).catch(() => !disposed && showMissing())
+  else if (known) show(known)
   else if (poiIdFrom(id)) {
     render(root, html`<div class="page page--narrow page--center"><p role="status">Finding the place…</p></div>`)
     fetchPoiDestination(poiIdFrom(id))

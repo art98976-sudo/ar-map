@@ -706,3 +706,32 @@
     width: 12cm;
   }
 }
+
+/* Item 8: the A5 calibration sign page (/#/qr?marker=<id>). On paper, only the sign prints. */
+.sign-page__sheet {
+  width: min(100%, 420px);
+  margin: 0 auto;
+  box-shadow: var(--shadow-2);
+}
+.sign-page__sheet svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+@media print {
+  @page {
+    size: A5 portrait;
+    margin: 0;
+  }
+  .sign-page > :not(.sign-page__sheet) {
+    display: none !important;
+  }
+  .sign-page__sheet {
+    width: 148mm;
+    box-shadow: none;
+  }
+  .sign-page__sheet svg {
+    width: 148mm;
+    height: 210mm;
+  }
+}

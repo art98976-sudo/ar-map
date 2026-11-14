@@ -968,6 +968,15 @@ export function homeScreen(root, {navigate, params}) {
 
   drawCard()
   lookUpLinkedRoom()
+  // Item 8: arrived from a calibration sign (/c/<id>): the start is set there; ask where to.
+  if (params.sign && !selected) {
+    import('../../route/markers.js').then(({findMarker}) => {
+      const sign = findMarker(params.sign)
+      if (!sign || disposed || selected) return
+      showToast(`Starting at the ${sign.label} sign. Where to?`, {duration: 5000})
+      sheets.open('search')
+    })
+  }
   load()
   // A reload keeps the history entry of a sheet that was open.
   if (window.history.state?.sheet) sheets.show(window.history.state.sheet)
