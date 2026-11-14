@@ -455,6 +455,26 @@ export const BEACON = {
   renderOrder: 30, // after the campus occluders and the chevrons
 }
 
+// B4: names pinned to the campus in AR (src/ar/world-labels.js).
+export const LABELS = {
+  buildingWithinM: 400, // building names this close...
+  buildingMinM: 15, // ...but not when standing right by it (the name would be overhead)
+  entranceWithinM: 40, // door names only this close
+  withinM: 1500, // doors further than this from the trip start are left out
+  sameDoorM: 3, // two places' doors closer than this are one door, named once
+  aboveRoofM: 3, // a building's name floats this far above its estimated roof
+  entranceHeightM: 2.6, // a door's name, about head height plus a bit
+  buildingScreen: 0.045, // label height as a share of its distance: about the same size on screen
+  entranceScreen: 0.035,
+  minHeightM: 0.35,
+  maxHeightM: 18,
+  gapPx: 6, // labels at least this far apart on screen, or the further one fades out
+  layoutEveryS: 0.3, // laid out again this often
+  fadeS: 0.25,
+  buildingColour: '#006938',
+  renderOrder: 35, // after the beacon
+}
+
 // B6: the arrival card's "It's on your left" (src/ui/components/arrival.js).
 export const ARRIVAL_CARD = {
   aheadDeg: 30, // within this of where the phone points: "straight ahead"

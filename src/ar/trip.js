@@ -27,7 +27,8 @@ import {anchorsNear, floorToLocal} from './building-shell.js'
 import {boxAround, fetchFloor} from './mazemap-floor.js'
 import {createRouteMatcher} from './route-matcher.js'
 import {locationPermissionState, watchLocation} from '../geo/location.js'
-import {isManual} from '../route/start-point.js'
+import {entrancesOf, isManual, PLACE_LIST} from '../route/start-point.js'
+import {entranceLabels} from './world-labels.js'
 import {createGuidance, landmarksFrom} from '../route/guidance.js'
 import {createArrivalDetector, createConfidenceMonitor, createHeadDownMonitor, createOffRouteMonitor, trackingState} from '../route/trip-monitors.js'
 import {entranceOf, isOnCampus, planRoute} from '../route/route.js'
@@ -627,7 +628,10 @@ export function createArTrip({
     const navNow = nav
     loadCampus?.()
       .then((collection) => {
-        if (nav === navNow && !stopped) nav.setBuildings(collection)
+        if (nav !== navNow || stopped) return
+        // B4: the doors of our places, named; the destination's building name laid out first.
+        const entrances = entranceLabels(PLACE_LIST, origin, entrancesOf)
+        nav.setBuildings(collection, {entrances, destinationName: destination.building || destination.name})
       })
       .catch((err) => console.warn('[trip] campus buildings not loaded', err?.message))
     heightAt = createHeightProfile(route.points, nav.route, origin)
@@ -1059,6 +1063,7 @@ export function createArTrip({
         buildingsLoaded: nav.buildings.length,
         insideBuilding: nav.insideBuilding,
         beaconShown: nav.beaconShown,
+        labelsShown: nav.labelsShown,
         // Indoors: the stair or lift ahead ("Go to Level n"), and whether to offer "I'm here".
         floorChange: floorChange ? {toLevel: floorChange.toLevel, up: floorChange.up} : null,
         offerReanchor,

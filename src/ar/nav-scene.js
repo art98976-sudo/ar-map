@@ -12,6 +12,7 @@ import {createGroundArrows} from './ground-arrows.js'
 import {buildShellMeshes, doorCrossings, wallsNear} from './building-shell.js'
 import {buildOccluder, buildingsToLocal, insideRing} from './campus-buildings.js'
 import {createBeacon} from './beacon.js'
+import {createWorldLabels} from './world-labels.js'
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js'
 import {COLOURS, NAV_SCENE, PIN, ROUTING, SHELL, TURNS} from '../config.js'
 
@@ -103,6 +104,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name = null
   let occluderOn = false
   // B1: the campus buildings as occluders (setBuildings), off while the user is inside one.
   let campus = null // {buildings, mesh}
+  let labels = null // B4: building and door names
   let insideBuilding = false
   // B5: the beacon over the entrance, seen from far away.
   const beacon = createBeacon(THREE)
@@ -336,6 +338,10 @@ export function createNavScene({THREE, scene, camera, route, origin, name = null
     pin.update(reducedMotion ? 0 : time, Math.hypot(pinWorld.x - tmp.x, pinWorld.z - tmp.z), tmp)
     if (!pinAllowed) pin.group.visible = false
     beacon.update(reducedMotion ? 0 : time, toPinM, pinAllowed)
+    if (labels) {
+      labels.setVisible(pinAllowed)
+      labels.update(dt, time, camera, {width: globalThis.innerWidth || 390, height: globalThis.innerHeight || 844})
+    }
     if (campus) {
       // Inside a building (its outline, as drawn): its occluder would hide everything, so all go.
       const here = worldToRoute(tmp)
@@ -424,7 +430,9 @@ export function createNavScene({THREE, scene, camera, route, origin, name = null
      * B1: the campus buildings (a MazeMap building FeatureCollection, from loadBuildings) as
      * invisible occluders. They follow setOccluder, like the walls. Returns how many.
      */
-    setBuildings(collection) {
+    setBuildings(collection, {entrances = [], destinationName = ''} = {}) {
+      labels?.dispose()
+      labels = null
       if (campus) {
         geoRoot.remove(campus.mesh)
         campus.mesh?.geometry.dispose()
@@ -436,6 +444,8 @@ export function createNavScene({THREE, scene, camera, route, origin, name = null
       const mesh = buildOccluder(THREE, mergeGeometries, buildings)
       if (mesh) geoRoot.add(mesh)
       campus = {buildings, mesh}
+      // B4: their names, and the named doors, pinned to the campus.
+      labels = createWorldLabels(THREE, {parent: geoRoot, buildings, entrances, destinationName})
       paintCampus()
       return buildings.length
     },
@@ -445,6 +455,9 @@ export function createNavScene({THREE, scene, camera, route, origin, name = null
     },
     get insideBuilding() {
       return insideBuilding
+    },
+    get labelsShown() {
+      return labels?.shownCount ?? 0
     },
     get beaconShown() {
       return beacon.group.visible
@@ -554,6 +567,7 @@ export function createNavScene({THREE, scene, camera, route, origin, name = null
       floorGrid.material.dispose()
       pin.dispose()
       beacon.dispose()
+      labels?.dispose()
       campus?.mesh?.geometry.dispose()
       campus?.mesh?.material.dispose()
       shell?.meshes.dispose()
