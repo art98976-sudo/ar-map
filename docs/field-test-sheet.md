@@ -123,3 +123,21 @@ A phone passes a route when:
 - the walk was finished by following the arrows alone.
 
 If anything fails, write what you saw and where, and attach the CSV.
+
+## Arrow drift: the five fixed routes (item 9)
+
+Walk each route from its start with the field-test preview, `?fieldtest=1` added to the
+link. Pick the route in the panel's **Route** list before you set off (a walk to a route's
+destination picks it for you). Every row of the CSV then starts with the route id, so five
+walks can go into one spreadsheet. Each row also has the GPS accuracy, the compass heading, the
+distance from the planned path (`off_route_m`) and the frame rate, once a second.
+
+| Id | From | To (link) |
+|---|---|---|
+| R1 | Bus Hub | Library entrance (`#/?to=library`) |
+| R2 | Pathfoot main entrance | Cottrell main entrance (`#/?to=cottrell`) |
+| R3 | Cottrell main entrance | Sports Centre (`#/?to=sports-centre`) |
+| R4 | Library entrance | Pathfoot main entrance (`#/?to=pathfoot`) |
+| R5 | Campus Central | Bus Hub (`#/?to=bus-hub`) |
+
+The routes live in `FIELD_ROUTES` in `src/ui/screens/ar-fieldtest.js`; change them there.

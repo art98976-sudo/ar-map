@@ -27,6 +27,7 @@ describe('field test log rows', () => {
   it('records every value, rounded, with a timestamp', () => {
     const row = rowFrom(STATS, {at: Date.UTC(2026, 10, 11, 12, 0, 3), startedAt: Date.UTC(2026, 10, 11, 12, 0, 0)})
     expect(row).toEqual({
+      route_id: null,
       time: '2026-11-11T12:00:03.000Z',
       elapsed_s: 3,
       lat: 56.1451235,
@@ -96,7 +97,7 @@ describe('field test CSV', () => {
     expect(lines[0]).toBe(FIELD_COLUMNS.join(','))
     expect(lines).toHaveLength(3)
     expect(lines[1].split(',')).toHaveLength(FIELD_COLUMNS.length)
-    expect(lines[2]).toBe('1970-01-01T00:00:01.000Z,1,,,,,,,,,,,,,,,,,At a turn')
+    expect(lines[2]).toBe(',1970-01-01T00:00:01.000Z,1,,,,,,,,,,,,,,,,,At a turn')
   })
 
   it('quotes cells with commas or quotes', () => {
@@ -200,5 +201,37 @@ describe('field test panel', () => {
     vi.stubGlobal('navigator', {clipboard: {writeText}})
     expect(await copyText('a,b')).toBe(true)
     expect(writeText).toHaveBeenCalledWith('a,b')
+  })
+})
+
+describe('item 9: the five fixed routes and the CSV file', async () => {
+  const {FIELD_ROUTES, csvFileName, routeForDestination, downloadText} = await import('../../src/ui/screens/ar-fieldtest.js')
+  it('has five routes, each to a real destination, and guesses the route from it', () => {
+    expect(FIELD_ROUTES.map((r) => r.id)).toEqual(['R1', 'R2', 'R3', 'R4', 'R5'])
+    expect(routeForDestination('cottrell')).toBe('R2')
+    expect(routeForDestination('scran')).toBeNull()
+  })
+  it('writes the chosen route into every row from then on, and keeps it over a reload', () => {
+    const storage = memoryStorage()
+    const log = createFieldLog({storage, now: () => 0})
+    log.add(null)
+    log.setRoute('R3')
+    log.add(null)
+    log.setRoute('nope') // not one of the five: no route
+    log.add(null)
+    expect(log.rows.map((r) => r.route_id)).toEqual([null, 'R3', null])
+    log.setRoute('R5')
+    expect(createFieldLog({storage, now: () => 0}).route).toBe('R5')
+    expect(toCsv(log.rows).split('\n')[0].startsWith('route_id,time,')).toBe(true)
+  })
+  it('names the file by route and time', () => {
+    expect(csvFileName('R2', new Date(Date.UTC(2026, 10, 14, 15, 30)))).toBe('fieldtest-R2-2026-11-14T1530.csv')
+    expect(csvFileName(null, new Date(Date.UTC(2026, 10, 14, 9, 5)))).toBe('fieldtest-walk-2026-11-14T0905.csv')
+  })
+  it('downloads the CSV as a file', () => {
+    const clicked = []
+    const doc = {body: {append: () => {}}, createElement: () => ({click() { clicked.push(this.download) }, remove() {}})}
+    expect(downloadText('a,b\n', 'x.csv', doc)).toBe(true)
+    expect(clicked).toEqual(['x.csv'])
   })
 })

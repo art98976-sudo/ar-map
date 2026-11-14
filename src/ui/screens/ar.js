@@ -86,7 +86,7 @@ export function arScreen(root, {navigate, params}) {
   if (__DEV_TOOLS__ && fieldTestOn) {
     import('./ar-fieldtest.js').then(({createFieldTest}) => {
       if (disposed) return
-      fieldTest = createFieldTest({haptic})
+      fieldTest = createFieldTest({haptic, destinationId: destination.id})
       mountFieldTest()
     })
   }

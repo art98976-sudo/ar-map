@@ -16,7 +16,8 @@
     "test:e2e": "playwright test",
     "check": "npm run lint && npm test && npm run build && npm run test:e2e",
     "scene:report": "node tools/scene-report.mjs",
-    "build:test": "vite build --mode test"
+    "build:test": "vite build --mode test",
+    "deploy:fieldtest": "vercel deploy --project stirling-welcome-ar --scope art98976-sudos-projects --build-env VITE_DEV_TOOLS=1 --yes"
   },
   "engines": {
     "node": ">=20"

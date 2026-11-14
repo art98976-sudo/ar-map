@@ -2,13 +2,29 @@
 // - live readout: GPS accuracy, compass heading, distance from and along the route, arrow bearing
 // - one sample a second, in memory (and in sessionStorage, so a reload mid-walk keeps it)
 // - three big buttons that add a marked row: "Arrow correct", "Arrow wrong", "At a turn"
-// - Finish: a summary, and the whole log as CSV for the clipboard
+// - Finish: a summary, and the whole log as CSV: a downloaded .csv file, or the clipboard
+// - Item 9: which of the five fixed test routes is being walked, in every row (route_id)
+//
+// Developer tools only: not in a production build (__DEV_TOOLS__). On campus, use the field-test
+// preview (npm run deploy:fieldtest; docs/field-test-sheet.md).
 //
 // Loaded only when the address asks for it. Its panel keeps to the screen's side edges, clear of
 // the arrows (bottom), the step card and trip pill (top) and the mini-map (bottom left).
 
 export const FIELD_MARKS = Object.freeze({correct: 'Arrow correct', wrong: 'Arrow wrong', turn: 'At a turn'})
+
+// The five fixed routes for measuring arrow drift (docs/field-test-sheet.md). Walk each one from
+// its start; "to" is the destination id the walk is planned to.
+export const FIELD_ROUTES = Object.freeze([
+  {id: 'R1', name: 'Bus Hub to Library entrance', to: 'library'},
+  {id: 'R2', name: 'Pathfoot main entrance to Cottrell main entrance', to: 'cottrell'},
+  {id: 'R3', name: 'Cottrell main entrance to Sports Centre', to: 'sports-centre'},
+  {id: 'R4', name: 'Library entrance to Pathfoot main entrance', to: 'pathfoot'},
+  {id: 'R5', name: 'Campus Central to Bus Hub', to: 'bus-hub'},
+])
+
 export const FIELD_COLUMNS = [
+  'route_id',
   'time',
   'elapsed_s',
   'lat',
@@ -34,9 +50,10 @@ const STORE_KEY = 'welcomeAR.fieldtest.v1'
 const num = (v, digits) => (Number.isFinite(v) ? Number(v.toFixed(digits)) : null)
 
 /** One log row from the trip's stats. mark: null for a timed sample, else a FIELD_MARKS key. */
-export function rowFrom(stats, {at, startedAt, mark = null}) {
+export function rowFrom(stats, {at, startedAt, mark = null, route = null}) {
   const s = stats ?? {}
   return {
+    route_id: route || null,
     time: new Date(at).toISOString(),
     elapsed_s: num((at - startedAt) / 1000, 1),
     lat: num(s.gpsLat, 7),
@@ -72,6 +89,17 @@ export function summarise(rows) {
   return {gpsAccuracy: stat('gps_accuracy_m'), offRoute: stat('off_route_m'), marks, samples: samples.length, rows: rows.length, durationS: last?.elapsed_s ?? 0}
 }
 
+/** The route a walk is planned to, from its destination id: R1..R5, or null. */
+export function routeForDestination(destinationId) {
+  return FIELD_ROUTES.find((r) => r.to === destinationId)?.id ?? null
+}
+
+/** The name for the downloaded file: fieldtest-R2-2026-11-14T1530.csv. */
+export function csvFileName(route, at = new Date()) {
+  const stamp = at.toISOString().slice(0, 16).replace(':', '')
+  return `fieldtest-${route || 'walk'}-${stamp}.csv`
+}
+
 /** The log as CSV: a header row, then one line per row. */
 export function toCsv(rows) {
   const cell = (v) => {
@@ -87,11 +115,12 @@ export function createFieldLog({storage = globalThis.sessionStorage, now = () =>
   const saved = readSaved(storage)
   const rows = Array.isArray(saved?.rows) ? saved.rows : []
   let startedAt = Number.isFinite(saved?.startedAt) ? saved.startedAt : now()
+  let route = typeof saved?.route === 'string' ? saved.route : null
   const restored = rows.length
 
   function save() {
     try {
-      storage?.setItem(STORE_KEY, JSON.stringify({startedAt, rows}))
+      storage?.setItem(STORE_KEY, JSON.stringify({startedAt, rows, route}))
     } catch {
       // storage full or blocked: the log is still in memory
     }
@@ -102,8 +131,16 @@ export function createFieldLog({storage = globalThis.sessionStorage, now = () =>
     get rows() {
       return rows
     },
+    /** The fixed route being walked (FIELD_ROUTES id), written into every row from now on. */
+    get route() {
+      return route
+    },
+    setRoute(id) {
+      route = FIELD_ROUTES.some((r) => r.id === id) ? id : null
+      save()
+    },
     add(stats, mark = null) {
-      const row = rowFrom(stats, {at: now(), startedAt, mark})
+      const row = rowFrom(stats, {at: now(), startedAt, mark, route})
       rows.push(row)
       save()
       return row
@@ -125,6 +162,23 @@ function readSaved(storage) {
     return JSON.parse(storage?.getItem(STORE_KEY) || 'null')
   } catch {
     return null
+  }
+}
+
+/** Save text as a file (a download): works on iPhone Safari (Files) and Android Chrome (Downloads). */
+export function downloadText(text, name, doc = document) {
+  try {
+    const url = URL.createObjectURL(new Blob([text], {type: 'text/csv'}))
+    const link = doc.createElement('a')
+    link.href = url
+    link.download = name
+    doc.body.append(link)
+    link.click()
+    link.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 10_000)
+    return true
+  } catch {
+    return false
   }
 }
 
@@ -162,8 +216,9 @@ const fmt = (v, unit, digits = 1) => (Number.isFinite(v) ? `${v.toFixed(digits)}
  * @param o.haptic  vibrate on a tap (dom.js haptic)
  * @returns {mount(host), update(stats), destroy()}
  */
-export function createFieldTest({haptic = () => {}, storage, intervalMs = 1000} = {}) {
+export function createFieldTest({haptic = () => {}, storage, intervalMs = 1000, destinationId = null} = {}) {
   const log = createFieldLog({storage})
+  if (!log.route && destinationId) log.setRoute(routeForDestination(destinationId)) // a guess; the picker changes it
   let latest = null
   let ui = null
   const timer = setInterval(() => log.add(latest), intervalMs)
@@ -175,6 +230,12 @@ export function createFieldTest({haptic = () => {}, storage, intervalMs = 1000} 
     root.innerHTML = `
       <section class="fieldtest__readout" aria-label="Field test readings">
         <p class="fieldtest__title"><span class="fieldtest__rec" aria-hidden="true"></span>Field test · <span data-ft-count>0</span></p>
+        <label class="fieldtest__route">Route
+          <select data-ft-route>
+            <option value="">None</option>
+            ${FIELD_ROUTES.map((r) => `<option value="${r.id}">${r.id}: ${r.name}</option>`).join('')}
+          </select>
+        </label>
         <dl>
           <dt>GPS</dt><dd data-ft="gps">–</dd>
           <dt>Heading</dt><dd data-ft="heading">–</dd>
@@ -196,7 +257,8 @@ export function createFieldTest({haptic = () => {}, storage, intervalMs = 1000} 
           <p class="fieldtest__status" data-ft-status role="status"></p>
           <textarea class="fieldtest__csv" data-ft-csv readonly hidden aria-label="Log as CSV"></textarea>
           <div class="fieldtest__actions">
-            <button type="button" class="fieldtest__primary" data-ft-copy>Copy CSV</button>
+            <button type="button" class="fieldtest__primary" data-ft-download>Download CSV</button>
+            <button type="button" data-ft-copy>Copy CSV</button>
             <button type="button" data-ft-continue>Continue</button>
             <button type="button" data-ft-clear>Clear log</button>
           </div>
@@ -218,6 +280,15 @@ export function createFieldTest({haptic = () => {}, storage, intervalMs = 1000} 
       })
     }
     q('[data-ft-finish]').addEventListener('click', openSummary)
+    const routeSelect = q('[data-ft-route]')
+    routeSelect.value = log.route ?? ''
+    routeSelect.addEventListener('change', () => log.setRoute(routeSelect.value))
+    q('[data-ft-download]').addEventListener('click', () => {
+      const name = csvFileName(log.route)
+      ui.status.textContent = downloadText(toCsv(log.rows), name)
+        ? `Saved ${log.rows.length} rows as ${name}.`
+        : 'This browser would not save the file. Use Copy CSV instead.'
+    })
     q('[data-ft-continue]').addEventListener('click', () => {
       ui.sheet.hidden = true
     })
@@ -261,7 +332,7 @@ export function createFieldTest({haptic = () => {}, storage, intervalMs = 1000} 
     paintSummary()
     ui.csv.hidden = true
     ui.sheet.hidden = false
-    ui.sheet.querySelector('[data-ft-copy]').focus()
+    ui.sheet.querySelector('[data-ft-download]').focus()
   }
 
   function paintSummary() {
@@ -362,6 +433,7 @@ const STYLE = `
 .fieldtest__summary dt{color:#4b5563}
 .fieldtest__summary dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums}
 .fieldtest__status{min-height:1.35em;margin:4px 0 8px;color:#166534}
+.fieldtest__route{display:flex;flex-direction:column;gap:2px;font-size:11px;margin:4px 0}.fieldtest__route select{font:inherit;font-size:12px;max-width:100%;min-height:32px}
 .fieldtest__csv{width:100%;height:120px;font:11px/1.3 ui-monospace,monospace;margin-bottom:8px;-webkit-user-select:text;user-select:text}
 .fieldtest__csv[hidden]{display:none}
 .fieldtest__actions{display:flex;flex-wrap:wrap;gap:8px}
