@@ -62,6 +62,7 @@ export function showArrival(host, {name, entrance = null, turnDeg = null, place 
               <span>${entrance ? 'The door is' : 'It’s'} ${way}</span>
             </p>`
           : ''}
+        <div class="arrival__entrance" data-arrival-entrance hidden></div>
         ${where || about
           ? html`<div class="arrival__about" data-arrival-about>
               ${where ? html`<p class="arrival__where">${where}</p>` : ''}
@@ -77,4 +78,6 @@ export function showArrival(host, {name, entrance = null, turnDeg = null, place 
   host.hidden = false
   host.querySelector('[data-action]')?.focus({preventScroll: true})
   haptic(40)
+  // Item 10: which door, and a photo of it (loaded now, kept offline by the service worker).
+  if (place?.id) import('./entrance-photo.js').then(({showEntrance}) => showEntrance(host.querySelector('[data-arrival-entrance]'), place.id))
 }

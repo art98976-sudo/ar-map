@@ -1,0 +1,61 @@
+{
+  "about": "Item 10: the door each place is reached by, and its photo (to be supplied: public/media/entrances/<id>.jpg, 4:3, about 800 x 600, under 120 kB). Until a photo exists the placeholder shows.",
+  "placeholder": "/media/entrances/placeholder.svg",
+  "photos": {
+    "library": {
+      "entrance": "Andrew Miller Building main entrance (for the Library)",
+      "photo": "/media/entrances/library.jpg",
+      "alt": "The Andrew Miller Building main entrance, seen from the path"
+    },
+    "campus-central": {
+      "entrance": "Andrew Miller Building main entrance (for Campus Central)",
+      "photo": "/media/entrances/campus-central.jpg",
+      "alt": "The Andrew Miller Building main entrance, seen from the path"
+    },
+    "atrium": {
+      "entrance": "Atrium entrance",
+      "photo": "/media/entrances/atrium.jpg",
+      "alt": "The Atrium entrance, seen from the path"
+    },
+    "cottrell": {
+      "entrance": "Cottrell main entrance",
+      "photo": "/media/entrances/cottrell.jpg",
+      "alt": "The Cottrell main entrance, seen from the path"
+    },
+    "pathfoot": {
+      "entrance": "Pathfoot main entrance",
+      "photo": "/media/entrances/pathfoot.jpg",
+      "alt": "The Pathfoot main entrance, seen from the path"
+    },
+    "sports-centre": {
+      "entrance": "Sports Centre entrance",
+      "photo": "/media/entrances/sports-centre.jpg",
+      "alt": "The Sports Centre entrance, seen from the path"
+    },
+    "logie": {
+      "entrance": "Logie Lecture Theatre entrance",
+      "photo": "/media/entrances/logie.jpg",
+      "alt": "The Logie Lecture Theatre entrance, seen from the path"
+    },
+    "union": {
+      "entrance": "Students’ Union entrance",
+      "photo": "/media/entrances/union.jpg",
+      "alt": "The Students’ Union entrance, seen from the path"
+    },
+    "macrobert": {
+      "entrance": "Macrobert Arts Centre entrance",
+      "photo": "/media/entrances/macrobert.jpg",
+      "alt": "The Macrobert Arts Centre entrance, seen from the path"
+    },
+    "iris-murdoch": {
+      "entrance": "Iris Murdoch Building entrance",
+      "photo": "/media/entrances/iris-murdoch.jpg",
+      "alt": "The Iris Murdoch Building entrance, seen from the path"
+    },
+    "bus-hub": {
+      "entrance": "Bus Hub shelters",
+      "photo": "/media/entrances/bus-hub.jpg",
+      "alt": "The Bus Hub shelters, seen from the path"
+    }
+  }
+}

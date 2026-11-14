@@ -75,6 +75,7 @@ export function createMapTrip(host, {map, route, dest, onClose, onLost = null, a
             <span>All steps</span>${icon('chevronDown', {size: 18})}
           </button>
         </div>
+        <div class="map-trip__entrance" data-map-trip-entrance hidden></div>
         <ol class="map-trip__steps" id="map-trip-steps" data-map-trip-steps hidden></ol>
         <p class="sr-only" role="status" aria-live="polite" data-map-trip-announce></p>
       </section>
@@ -253,6 +254,8 @@ export function createMapTrip(host, {map, route, dest, onClose, onLost = null, a
       if (onRoute && mapTripArrived(route, fix)) {
         arrived = true
         if (text) text.textContent = `You’ve arrived · ${dest.name}`
+        // Item 10: which door, and a photo of it.
+        import('./entrance-photo.js').then(({showEntrance}) => showEntrance(host.querySelector('[data-map-trip-entrance]'), dest.id))
         host.querySelector('[data-map-trip-banner]').textContent = `You’ve arrived at ${arriveLabel}`
         host.querySelector('[data-map-trip-announce]').textContent = `You’ve arrived at ${arriveLabel}`
         onStep({type: 'arrived', text: `You’ve arrived at ${arriveLabel}`})

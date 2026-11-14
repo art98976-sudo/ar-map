@@ -62,7 +62,8 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/api/')) return // counts and anything live
   if (request.mode === 'navigate') {
     event.respondWith(networkFirst(request, '/index.html'))
-  } else if (/^\/(assets|fonts|external)\//.test(url.pathname)) {
+  } else if (/^\/(assets|fonts|external|media\/entrances)\//.test(url.pathname)) {
+    // Entrance photos (item 10) too: seen once on arrival, kept for the walk back offline.
     event.respondWith(cacheFirst(request))
   } else {
     event.respondWith(networkFirst(request))

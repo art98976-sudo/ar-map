@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <!-- Placeholder until a photo of the door is supplied (item 10). -->
+  <rect width="400" height="300" fill="#e6efe9"/>
+  <rect x="150" y="70" width="100" height="170" rx="6" fill="#ffffff" stroke="#006938" stroke-width="6"/>
+  <circle cx="230" cy="160" r="6" fill="#006938"/>
+  <rect x="120" y="240" width="160" height="8" rx="4" fill="#9fcc69"/>
+  <text x="200" y="280" fill="#3a3c39" font-family="Inter, Arial, sans-serif" font-size="16" text-anchor="middle">Photo of the door coming soon</text>
+</svg>

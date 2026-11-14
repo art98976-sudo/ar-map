@@ -277,3 +277,55 @@
   color: var(--text-muted);
   font-size: var(--fs-sm);
 }
+
+/* Item 10: the door on arrival (entrance-photo.js). */
+.entrance-photo {
+  margin: 0;
+}
+.entrance-photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 200px;
+  aspect-ratio: 4 / 3;
+  border-radius: 12px;
+  object-fit: cover;
+  background: #e6efe9;
+}
+.entrance-photo figcaption {
+  margin-top: var(--s-1);
+  font-weight: 600;
+}
+[data-arrival-entrance][hidden],
+[data-map-trip-entrance][hidden] {
+  display: none;
+}
+.map-trip__entrance {
+  padding: 0 16px 12px;
+}
+
+/* Item 10: the door on arrival (entrance-photo.js). */
+.entrance-photo {
+  margin: 0;
+}
+.entrance-photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 200px;
+  aspect-ratio: 4 / 3;
+  border-radius: 12px;
+  object-fit: cover;
+  background: #e6efe9;
+}
+.entrance-photo figcaption {
+  margin-top: var(--s-1);
+  font-weight: 600;
+}
+[data-arrival-entrance][hidden],
+[data-map-trip-entrance][hidden] {
+  display: none;
+}
+.map-trip__entrance {
+  padding: 0 16px 12px;
+}
