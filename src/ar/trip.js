@@ -905,8 +905,7 @@ export function createArTrip({
       } else if (lastFix && lastFix !== fedFix) {
         fedFix = lastFix
         lastFixUse = tracker.fix(toLocal(origin, lastFix), lastFix.accuracy)
-        // A jump SLAM did not walk says nothing about where the user is, campus edge included.
-        if (lastFixUse !== 'jump') noteCampus(lastFix)
+        noteCampus(lastFix) // the campus edge has its own guard against stray fixes (TRIP.campusFixes)
       }
       tracker.tick(dt)
       // The one pose for this frame. Everything below, and the map and arrow, read only this.
