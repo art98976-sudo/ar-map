@@ -1,7 +1,8 @@
 // Home is the campus map: pins, a search bar, category chips and a card for the chosen place.
 // #/?to=<id> opens with a place selected.
-import {createCampusMap, loadMazeMap, planWhenStyleLoaded} from '../../map/mazemap.js'
+import {createCampusMap, loadMazeMap, planWhenStyleLoaded, quietIndoorLabels} from '../../map/mazemap.js'
 import {clearRouteLine, drawRouteLine} from '../../map/route-line.js'
+import {createLabelBlockers} from '../../map/label-blockers.js'
 import {createMapTrip} from '../components/map-trip.js'
 import {createDestinationSearch} from '../components/destination-search.js'
 import {createMapPicker} from '../components/map-picker.js'
@@ -42,6 +43,7 @@ export function homeScreen(root, {navigate, params}) {
   const forced = params.force === '1'
   let instance = null
   let mapReady = false // the map's style has loaded: it can take the route line
+  let labelBlockers = null // keeps labels clear of the logos, and the logos above the sheet or card
   let selected = findDestination(params.to)
   let cardRoute = null // the route planned for the card (door, level, whole distance)
   let planningFor = null // the destination a quiet plan is running for
@@ -706,6 +708,8 @@ export function homeScreen(root, {navigate, params}) {
       modelLoad = null
       show3d = false
       paint3dButton()
+      labelBlockers?.destroy()
+      labelBlockers = null
       instance?.destroy()
       mapReady = false
       pins.clear()
@@ -715,6 +719,12 @@ export function homeScreen(root, {navigate, params}) {
           mapReady = true
           overlay.hidden = true
           if (params.debug === '1') window.__homeMap = instance.map // inspect it from the console
+          quietIndoorLabels(instance.map)
+          labelBlockers = createLabelBlockers(instance.map, {
+            host: root.querySelector('.map-home'),
+            panels: [root.querySelector('[data-home-sheet]'), card, root.querySelector('[data-pick-bar]')],
+            overlays: ['.mapboxgl-ctrl-logo', '.mapboxgl-ctrl-attrib', '.mazemap-ctrl-logo-wrapper', '[data-rail]', '.map-search', '[data-action="open-menu"]'],
+          })
           pins.addAll()
           fitControls()
           homeSheet.mapReady()
@@ -857,6 +867,7 @@ export function homeScreen(root, {navigate, params}) {
     stopSimulation()
     stopAlignDebug()
     model?.destroy()
+    labelBlockers?.destroy()
     instance?.destroy()
   }
 }

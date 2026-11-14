@@ -148,9 +148,13 @@
 .map-home .mapboxgl-ctrl-geolocate {
   display: none;
 }
-.map-home .mapboxgl-ctrl-bottom-left,
+/* The logos and credits sit just above the sheet or the place card, never under them
+   (label-blockers.js measures which one lies over each corner). */
+.map-home .mapboxgl-ctrl-bottom-left {
+  bottom: var(--credits-left-px, var(--sheet-px, 120px));
+}
 .map-home .mapboxgl-ctrl-bottom-right {
-  bottom: var(--sheet-px, 120px);
+  bottom: var(--credits-right-px, var(--sheet-px, 120px));
 }
 
 /* ---------- Bottom sheet ---------- */

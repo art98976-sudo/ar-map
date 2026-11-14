@@ -62,6 +62,14 @@ export const HOME_MAP = {
   labelOffsetEm: 1.6, // building names sit this far below their point, clear of the pin
   pinDotPx: 18, // a pin's dot radius on screen (32 px dot, its white ring and shadow)
   campusLabelMaxZoom: 14, // the campus name ("UNIVERSITY OF STIRLING") shows only zoomed out, never cut off
+  // Below this zoom the floor plans are too small to read: no stairs or lift icons, no room labels.
+  indoorZoom: 17,
+  outdoorFloorId: 1027233, // MazeMap's ground "floor" on this campus: car parks, cafés and other outdoor places
+  stairLiftIcons: [833, 834], // MazeMap's icon numbers for stairs and lifts
+  // Labels keep clear of the logos, credits and buttons (label-blockers.js).
+  blockerPadPx: 4, // room around each of them
+  blockerEdgePx: 16, // the strip along each screen edge and along the top of the sheet or card
+  creditsCornerPx: 110, // how wide a bottom corner the logos take
   // The opening view: these places in the middle of the map between the search bar and the sheet.
   openOn: ['campus-central', 'cottrell'],
   openPaddingPx: 40, // room around them

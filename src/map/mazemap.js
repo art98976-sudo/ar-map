@@ -104,6 +104,27 @@ export function softenBaseMap(map) {
 }
 
 /**
+ * Which MazeMap place labels show: everything from indoor zoom up; below it only outdoor places
+ * (car parks, cafés), never a stairs or lift icon or a room label.
+ */
+export function indoorLabelFilter({indoorZoom = HOME_MAP.indoorZoom, outdoorFloorId = HOME_MAP.outdoorFloorId, stairLiftIcons = HOME_MAP.stairLiftIcons} = {}) {
+  return [
+    'any',
+    ['>=', ['zoom'], indoorZoom],
+    ['all', ['==', ['get', 'floorId'], outdoorFloorId], ['match', ['coalesce', ['get', 'icon'], -1], stairLiftIcons, false, true]],
+  ]
+}
+
+/** The home map only: hide stairs and lift icons and room labels until the floor plan can be read. */
+export function quietIndoorLabels(map) {
+  try {
+    if (map.getLayer('mm-poi-label')) map.setFilter('mm-poi-label', indoorLabelFilter())
+  } catch (err) {
+    console.warn('[map] could not quieten the indoor labels', err?.message)
+  }
+}
+
+/**
  * Wait until the map's style can take sources and layers: adding one earlier throws "Style is
  * not done loading". Resolves true once the style is ready, or false after `timeoutMs` (a map
  * that never loads must not hold the caller for ever).
