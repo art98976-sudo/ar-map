@@ -4,6 +4,8 @@
 export const EVENTS = ['trip-started', 'ar-started', 'lineup-confirmed', 'arrived', 'ended-early', 'tracking-lost', 'rerouted']
 export const DEVICES = ['ios', 'android', 'other']
 export const BROWSERS = ['safari', 'chrome', 'firefox', 'samsung', 'other']
+// {event: 'error', kind}: which kind of failure, nothing else (src/stats/errors.js keeps the same list).
+export const ERROR_KINDS = ['js', 'promise', 'webgl-lost', 'camera', 'motion', 'location', 'engine-load', 'ar-stopped']
 
 export function storeConfig(env = process.env) {
   const url = env.KV_REST_API_URL || env.UPSTASH_REDIS_REST_URL
@@ -24,6 +26,7 @@ export async function pipeline(store, commands) {
 
 /** The keys to add one to for a body, or null if the body is not one we count. */
 export function keysFor(body) {
+  if (body?.event === 'error') return ERROR_KINDS.includes(body.kind) ? [`count:error:${body.kind}`] : null
   if (!body || !EVENTS.includes(body.event)) return null
   const keys = [`count:${body.event}`]
   if (body.event === 'trip-started') {
@@ -37,4 +40,5 @@ export const ALL_KEYS = [
   ...EVENTS.map((e) => `count:${e}`),
   ...DEVICES.map((d) => `count:device:${d}`),
   ...BROWSERS.map((b) => `count:browser:${b}`),
+  ...ERROR_KINDS.map((k) => `count:error:${k}`),
 ]

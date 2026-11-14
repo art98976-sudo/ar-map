@@ -12,6 +12,18 @@ const LABELS = {
   rerouted: 'Re-routed',
 }
 
+// Anonymous error counts (src/stats/errors.js): page loads where each kind happened at least once.
+const ERROR_LABELS = {
+  js: 'Script error',
+  promise: 'Unhandled promise',
+  'webgl-lost': '3D graphics lost',
+  camera: 'Camera failed or blocked',
+  motion: 'Motion sensors blocked',
+  location: 'Location failed or blocked',
+  'engine-load': 'AR engine did not load',
+  'ar-stopped': 'AR stopped',
+}
+
 export function statsScreen(root, {navigate}) {
   let disposed = false
 
@@ -68,6 +80,10 @@ export function statsScreen(root, {navigate}) {
           <h2 class="stats__sub">Browsers</h2>
           <table class="stats__table">
             <tbody>${rows('browser:', ['safari', 'chrome', 'samsung', 'firefox', 'other'].map((key) => ({key, label: key[0].toUpperCase() + key.slice(1)})))}</tbody>
+          </table>
+          <h2 class="stats__sub">Errors</h2>
+          <table class="stats__table">
+            <tbody>${rows('error:', Object.entries(ERROR_LABELS).map(([key, label]) => ({key, label})))}</tbody>
           </table>
           <button class="btn btn--ghost" type="button" data-action="home">Back to the map</button>
         </div>

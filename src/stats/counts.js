@@ -39,7 +39,11 @@ export function count(event, {onceKey = null, nav = globalThis.navigator, local 
     if (once.has(onceKey)) return false
     once.add(onceKey)
   }
-  const body = countBody(event, deviceLabels(nav?.userAgent, nav?.maxTouchPoints))
+  return send(countBody(event, deviceLabels(nav?.userAgent, nav?.maxTouchPoints)), {nav, local})
+}
+
+/** Send one body to /api/count with sendBeacon. False when not sent (local, no beacon, a failure). */
+export function send(body, {nav = globalThis.navigator, local = isLocal()} = {}) {
   if (!body || !nav?.sendBeacon || local) return false
   try {
     return nav.sendBeacon('/api/count', new Blob([JSON.stringify(body)], {type: 'application/json'}))

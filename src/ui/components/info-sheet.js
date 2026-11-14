@@ -25,6 +25,7 @@ export function infoSheetContent() {
           and the compass stay on your phone. Recent searches are kept in this browser only.
         </p>
         <p data-privacy-counts>We count trips anonymously (started, arrived, phone and browser type) to improve the app: no location, destination or ID.</p>
+        <p data-privacy-errors>If something goes wrong, we count only the kind of problem (for example “camera blocked” or “3D graphics lost”), never any details, location, route or ID.</p>
       </section>
 
       <section class="about__block">

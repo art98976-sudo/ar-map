@@ -24,6 +24,7 @@ import {formatDistance} from '../../ar/pin.js'
 import {findDestination} from '../../map/destinations.js'
 import {showToast} from '../components/toast.js'
 import {handoffUrl, needsHandoff, phoneHandoff} from '../components/phone-handoff.js'
+import {arErrorKind, locationErrorKind, reportError} from '../../stats/errors.js'
 import {focusScreen, haptic, html, onAction, render} from '../dom.js'
 import {CATEGORY_ICON, icon} from '../icons.js'
 import {GPS} from '../../config.js'
@@ -263,13 +264,17 @@ export function locateScreen(root, {navigate, params}) {
     showWaiting('Tap Allow when your phone asks', 'Your phone asks about the camera, your location and motion.')
     const answer = await settlePermissions(pending)
     if (disposed) return
-    if (answer.camera === 'denied') return showErrorCopy(errorCopy('camera-denied', device))
-    if (answer.motion === 'denied') return showErrorCopy(errorCopy('motion-denied', device))
+    for (const code of ['camera-denied', 'motion-denied']) {
+      if (answer[code.split('-')[0]] !== 'denied') continue
+      reportError(arErrorKind(code)) // 'camera' or 'motion' only
+      return showErrorCopy(errorCopy(code, device))
+    }
     start()
   }
 
   // ---------- errors ----------
   function showError(code) {
+    reportError(locationErrorKind(code)) // 'location' only: no position, place or id
     // No geolocation in this browser: also offer the phone, where AR works.
     const extra = needsHandoff({hasGeolocation: code !== 'unsupported'}) ? phoneHandoff(handoffUrl(destination?.id)) : ''
     showErrorCopy(locationErrorCopy(code, device), extra)

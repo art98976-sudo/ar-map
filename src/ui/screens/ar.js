@@ -24,6 +24,7 @@ import {errorCopy} from './ar-errors.js'
 import {statusMessage} from './ar-status.js'
 import {paintFallback} from './ar-fallback.js'
 import {count, newTrip} from '../../stats/counts.js'
+import {arErrorKind, reportError} from '../../stats/errors.js'
 import {loadBuildings} from '../../premium/buildings.js'
 import {errorView, liveView, loadingView} from './ar-view.js'
 
@@ -545,6 +546,7 @@ export function arScreen(root, {navigate, params}) {
   // ---------- error ----------
   function showError(code) {
     teardownSession()
+    reportError(arErrorKind(code)) // the kind only: camera, motion, engine-load...
     // No rear camera here: a QR code to carry on with a phone that has one.
     const extra = needsHandoff({cameraMissing: code === 'camera-missing'}) ? phoneHandoff(handoffUrl(destination?.id)) : ''
     setView(errorView(errorCopy(code, device), extra), 'error')

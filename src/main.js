@@ -19,6 +19,7 @@ import {qrScreen} from './ui/screens/qr.js'
 import {showToast} from './ui/components/toast.js'
 import {startOpening} from './ui/opening.js'
 import {registerServiceWorker} from './offline.js'
+import {watchGlobalErrors} from './stats/errors.js'
 
 const root = document.getElementById('app')
 
@@ -42,6 +43,8 @@ const router = createRouter({
 // Never leave a blank screen: report unexpected errors and keep the app usable.
 window.addEventListener('error', (event) => console.error('[app] error', event.error || event.message))
 window.addEventListener('unhandledrejection', (event) => console.error('[app] unhandled', event.reason))
+// And count them anonymously: the kind only, never the message (src/stats/errors.js).
+watchGlobalErrors(window)
 
 window.addEventListener('offline', () => showToast('Offline, showing saved map', {tone: 'warning'}))
 window.addEventListener('online', () => showToast('Back online', {tone: 'success'}))
