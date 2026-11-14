@@ -1,11 +1,9 @@
 // Spoken directions (item 3): each turn and the arrival, read aloud in an en-GB voice through the
 // Web Speech API. Off by default; the choice is remembered on this device. Speech happens on the
 // phone: no text leaves it. Where the browser cannot speak, nothing is offered and nothing fails.
-import {turnBanner} from '../route/trip-steps.js'
-import {landmarkPhrase} from '../route/guidance.js'
+// What to say for each turn is createTurnAnnouncer (route/trip-steps.js), loaded with the trip.
 
 const KEY = 'welcomeAR.voice.v1'
-export const NEAR_M = 15 // within this of a turn: "Turn left now"
 
 /** Is speech there at all? */
 export function speechSupported(win = globalThis) {
@@ -17,35 +15,6 @@ export function pickVoice(voices = []) {
   const lang = (v) => String(v.lang || '').replace('_', '-').toLowerCase()
   const gb = voices.filter((v) => lang(v) === 'en-gb')
   return gb.find((v) => v.localService) ?? gb[0] ?? voices.find((v) => lang(v).startsWith('en')) ?? null
-}
-
-/**
- * What to say for the next manoeuvre, once per stage: when it becomes the next one ("In 80 m,
- * turn left at the Atrium") and again close to it ("Turn left now at the Atrium"). Pure: feed it
- * the next manoeuvre and how far it is; it returns the words, or null when nothing new.
- */
-export function createTurnAnnouncer({arriveLabel, nearM = NEAR_M}) {
-  const said = new Map() // manoeuvre -> 'ahead' | 'near'
-  return {
-    next(manoeuvre, distanceM) {
-      if (!manoeuvre || !Number.isFinite(distanceM)) return null
-      const stage = said.get(manoeuvre)
-      if (manoeuvre.type === 'arrive') {
-        if (stage) return null
-        said.set(manoeuvre, 'ahead')
-        return turnBanner(manoeuvre, distanceM, arriveLabel)
-      }
-      if (distanceM <= nearM) {
-        if (stage === 'near') return null
-        said.set(manoeuvre, 'near')
-        const verb = {left: 'Turn left', right: 'Turn right', 'slight-left': 'Bear left', 'slight-right': 'Bear right'}[manoeuvre.type] ?? 'Continue'
-        return `${verb} now${manoeuvre.landmark ? ` at ${landmarkPhrase(manoeuvre.landmark)}` : ''}`
-      }
-      if (stage) return null
-      said.set(manoeuvre, 'ahead')
-      return turnBanner(manoeuvre, distanceM, arriveLabel)
-    },
-  }
 }
 
 /** Is the switch on? Remembered between visits. */

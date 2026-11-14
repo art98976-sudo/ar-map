@@ -26,7 +26,7 @@ import {paintFallback} from './ar-fallback.js'
 import {count, newTrip} from '../../stats/counts.js'
 import {arErrorKind, reportError} from '../../stats/errors.js'
 import {watchContextLoss} from '../webgl-loss.js'
-import {createTurnAnnouncer, createVoice} from '../voice.js'
+import {createVoice} from '../voice.js'
 import {loadBuildings} from '../../premium/buildings.js'
 import {errorView, liveView, loadingView} from './ar-view.js'
 
@@ -76,7 +76,7 @@ export function arScreen(root, {navigate, params}) {
   let stopSession = null
   // Item 3: spoken directions, switched on or off in the home menu (voice.js).
   const voice = createVoice()
-  const announcer = createTurnAnnouncer({arriveLabel: arriveLabel(destination ?? {name: ''})})
+  let announcer = null // loaded with the AR trip (route/trip-steps.js)
   let stopArLoss = null // stops watching the AR canvas for a lost WebGL context
   let wakeLock = null
   let disposed = false
@@ -323,7 +323,7 @@ export function arScreen(root, {navigate, params}) {
     paintFallback(root, s) // B7: WEAK or LOST, one big arrow instead of the floor arrows
     paintIndoorUi(s)
     // Item 3: spoken directions (if switched on in the menu): each turn as it comes up and close to it.
-    if (s.phase === 'ready' && !s.arrived && s.nextManoeuvre && s.step) {
+    if (announcer && s.phase === 'ready' && !s.arrived && s.nextManoeuvre && s.step) {
       const words = announcer.next(s.nextManoeuvre, s.step.distanceM)
       if (words) voice.say(words)
     }
@@ -587,7 +587,8 @@ export function arScreen(root, {navigate, params}) {
     const canvas = root.querySelector('[data-canvas]')
     // The phone took the GPU away and did not give it back: "Tap to reload AR", not a black screen.
     stopArLoss = watchContextLoss(canvas, {giveUpMs: 2000, onLost: () => !disposed && showError('webgl-lost')})
-    const {createArTrip} = await import('../../ar/trip.js')
+    const [{createArTrip}, {createTurnAnnouncer}] = await Promise.all([import('../../ar/trip.js'), import('../../route/trip-steps.js')])
+    announcer = createTurnAnnouncer({arriveLabel: arriveLabel(destination)})
     if (disposed) return
     trip = createArTrip({route, origin, destination, allowDesktop, debug: showDebug, arriveLabel: arriveLabel(destination), onPhase, onStats, onArrived, onTurnClose: () => haptic(30), onTurnNow: () => haptic([30, 50, 30]), startPoint: tripStart, autoStart: !manualStart, reducedMotion: prefersReducedMotion(), onEnterCampus: () => showToast('Welcome to campus', {tone: 'success'}), loadCampus: loadBuildings})
     wireMapSwipe()

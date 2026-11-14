@@ -6,6 +6,8 @@ import {createGuidance, landmarkPhrase, landmarksFrom, roundDistance} from './gu
 import {projectOntoPolyline, toLocal} from '../geo/geo.js'
 import {GUIDE} from '../config.js'
 
+export const NEAR_M = 15 // spoken directions: within this of a turn, "Turn left now"
+
 const VERB = {left: 'turn left', right: 'turn right', 'slight-left': 'bear left', 'slight-right': 'bear right'}
 const capital = (text) => text.charAt(0).toUpperCase() + text.slice(1)
 
@@ -65,6 +67,35 @@ export function createTripSteps(route, {arriveLabel, destinations = [], destinat
         done: i < current,
         current: i === current,
       }))
+    },
+  }
+}
+
+/**
+ * What to say for the next manoeuvre, once per stage: when it becomes the next one ("In 80 m,
+ * turn left at the Atrium") and again close to it ("Turn left now at the Atrium"). Pure: feed it
+ * the next manoeuvre and how far it is; it returns the words, or null when nothing new.
+ */
+export function createTurnAnnouncer({arriveLabel, nearM = NEAR_M}) {
+  const said = new Map() // manoeuvre -> 'ahead' | 'near'
+  return {
+    next(manoeuvre, distanceM) {
+      if (!manoeuvre || !Number.isFinite(distanceM)) return null
+      const stage = said.get(manoeuvre)
+      if (manoeuvre.type === 'arrive') {
+        if (stage) return null
+        said.set(manoeuvre, 'ahead')
+        return turnBanner(manoeuvre, distanceM, arriveLabel)
+      }
+      if (distanceM <= nearM) {
+        if (stage === 'near') return null
+        said.set(manoeuvre, 'near')
+        const verb = {left: 'Turn left', right: 'Turn right', 'slight-left': 'Bear left', 'slight-right': 'Bear right'}[manoeuvre.type] ?? 'Continue'
+        return `${verb} now${manoeuvre.landmark ? ` at ${landmarkPhrase(manoeuvre.landmark)}` : ''}`
+      }
+      if (stage) return null
+      said.set(manoeuvre, 'ahead')
+      return turnBanner(manoeuvre, distanceM, arriveLabel)
     },
   }
 }

@@ -3,7 +3,6 @@
 import {createCampusMap, loadMazeMap, planWhenStyleLoaded, quietIndoorLabels} from '../../map/mazemap.js'
 import {clearRouteLine, drawRouteLine} from '../../map/route-line.js'
 import {createLabelBlockers} from '../../map/label-blockers.js'
-import {createMapTrip} from '../components/map-trip.js'
 import {createDestinationSearch} from '../components/destination-search.js'
 import {createMapPicker} from '../components/map-picker.js'
 import {createMapPins} from '../components/map-pins.js'
@@ -18,7 +17,7 @@ import {locateForGo, NO_LOCATION_TEXT} from '../../route/go-start.js'
 import {handoffUrl, needsHandoff, phoneHandoff} from '../components/phone-handoff.js'
 import {watchContextLoss} from '../webgl-loss.js'
 import {arriveLabel} from './ar.js'
-import {createTurnAnnouncer, createVoice} from '../voice.js'
+import {createVoice} from '../voice.js'
 import {reportError} from '../../stats/errors.js'
 import {addRecent, DESTINATIONS, findDestination, setCurrentDestination} from '../../map/destinations.js'
 import {fetchPoiDestination, poiIdFrom} from '../../map/poi-lookup.js'
@@ -452,7 +451,11 @@ export function homeScreen(root, {navigate, params}) {
       if (disposed || selected !== dest) return
       if (!cardRoute) return showToast('Could not plan a route. Try again.', {tone: 'warning'})
     }
+    // The map trip (and its turn-by-turn) loads on Go, keeping the first screen light.
+    const [{createMapTrip}, {createTurnAnnouncer}] = await Promise.all([import('../components/map-trip.js'), import('../../route/trip-steps.js')])
+    if (disposed || selected !== dest) return
     endMapTrip()
+    announcer = createTurnAnnouncer({arriveLabel: arriveLabel(dest)})
     root.dataset.mapTripOn = ''
     card.hidden = true
     // The trip frames the route itself and runs its own GPS: no geolocate.trigger(), whose camera
@@ -472,8 +475,7 @@ export function homeScreen(root, {navigate, params}) {
   /** Spoken directions for the map trip: each turn as it comes up, again close to it, and arrival. */
   function speakStep(next) {
     if (next.type === 'arrived') return voice.say(next.text)
-    announcer ??= createTurnAnnouncer({arriveLabel: arriveLabel(selected ?? {name: ''})})
-    const words = announcer.next(next.manoeuvre, next.distanceM)
+    const words = announcer?.next(next.manoeuvre, next.distanceM)
     if (words) voice.say(words)
   }
 

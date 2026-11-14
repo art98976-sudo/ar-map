@@ -1,5 +1,6 @@
 import {describe, expect, it, vi} from 'vitest'
-import {createTurnAnnouncer, createVoice, pickVoice, speechSupported, voiceOn} from '../../src/ui/voice.js'
+import {createVoice, pickVoice, speechSupported, voiceOn} from '../../src/ui/voice.js'
+import {createTurnAnnouncer} from '../../src/route/trip-steps.js'
 
 // Item 3: spoken directions. Off by default, remembered, never over itself, quiet when hidden.
 function memoryStorage(initial = {}) {
