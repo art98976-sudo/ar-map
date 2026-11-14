@@ -41,7 +41,8 @@ survives a reload). **Finish** shows a summary and copies the whole log as CSV.
 |---|---|
 | `npm run dev` | Dev server with live reload |
 | `npm run dev:phone` | Dev server + HTTPS tunnel + QR code for your phone |
-| `npm run build` | Production build into `dist/` |
+| `npm run build` | Production build into `dist/`: no developer tools (`?simulate=1`, `?debug=align`, `?fieldtest=1`...) and no info logs |
+| `npm run build:test` | The same build with the developer tools on (the e2e tests use it) |
 | `npm run preview` | Serve the production build on port 4310 |
 | `npm test` | Unit tests (Vitest) |
 | `npm run test:e2e` | End-to-end tests (Playwright): desktop Chrome, Android Chrome, iPhone Safari |
