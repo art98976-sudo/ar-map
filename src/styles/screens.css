@@ -474,6 +474,16 @@
 .dest-sheet__link[hidden] {
   display: none;
 }
+/* Why the start sheet opened by itself: Go found no location. */
+.start-note {
+  margin: 0 var(--s-4) var(--s-2);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.start-note[hidden] {
+  display: none;
+}
 .start-options,
 .start-doors {
   display: grid;

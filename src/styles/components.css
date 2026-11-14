@@ -175,7 +175,8 @@
 .toast-region {
   position: fixed;
   left: 50%;
-  bottom: calc(var(--safe-bottom) + 24px);
+  /* --toast-above: set by a screen whose bottom panel holds a main button (the card's Go). */
+  bottom: var(--toast-above, calc(var(--safe-bottom) + 24px));
   z-index: 100;
   display: grid;
   gap: var(--s-2);

@@ -64,11 +64,12 @@ export const homePage = () => html`
       <button class="btn btn--ghost" type="button" data-action="pick-cancel">Cancel</button>
     </section>
 
-    <div class="sheet" data-start-sheet role="dialog" aria-modal="true" aria-labelledby="start-title" hidden>
+    <div class="sheet" data-start-sheet role="dialog" aria-modal="true" aria-labelledby="start-title" aria-describedby="start-note" hidden>
       <header class="sheet__bar">
         <h2 class="sheet__title" id="start-title" tabindex="-1">Where are you starting from?</h2>
         <button class="icon-btn" type="button" data-action="close-sheets" aria-label="Close starting point">${icon('close')}</button>
       </header>
+      <p class="start-note" id="start-note" data-start-note role="status" hidden></p>
       <div data-start-choices>
         <div class="start-options">
           <button class="start-option" type="button" data-action="start-gps">

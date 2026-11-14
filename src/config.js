@@ -410,6 +410,9 @@ export const GPS = {
 export const START = {
   weakGpsM: 25, // GPS worse than this: suggest choosing a start instead
   liveGpsM: 15, // GPS this good, a few times running: offer to switch back to it
+  // "Go" from "my location" with no fix yet: wait this long (the permission prompt included),
+  // then ask where the walk starts instead of failing.
+  goLocateMs: 10_000,
 }
 
 export const COMPASS_MAP = {

@@ -14,6 +14,7 @@ import {startPermissionRequests} from '../../ar/permissions.js'
 import {seen} from '../first-use.js'
 import {openingMove} from '../opening.js'
 import {createFixWatch, locationPermissionState, readTripFix} from '../../geo/location.js'
+import {locateForGo, NO_LOCATION_TEXT} from '../../route/go-start.js'
 import {addRecent, DESTINATIONS, findDestination, setCurrentDestination} from '../../map/destinations.js'
 import {fetchPoiDestination, poiIdFrom} from '../../map/poi-lookup.js'
 import {entranceOf, estimateWalkMinutes, getStepFree, planRoute, saveTripRoute, setStepFree, tripLengthM} from '../../route/route.js'
@@ -47,6 +48,9 @@ export function homeScreen(root, {navigate, params}) {
   let selected = findDestination(params.to)
   let cardRoute = null // the route planned for the card (door, level, whole distance)
   let planningFor = null // the destination a quiet plan is running for
+  let planning = Promise.resolve() // that plan, for Go to wait on
+  let goAfterStart = false // the start sheet opened by Go: Go is next once a start is chosen
+  let locationPermission = 'unknown' // read once at start, so the Go tap can decide without waiting
   let disposed = false
   let enginePrefetched = false
   let startMarker = null
@@ -135,6 +139,17 @@ export function homeScreen(root, {navigate, params}) {
     if (!menu.hidden && !event.target.closest('[data-menu], [data-action="open-menu"]')) setMenu(false)
   }
   document.addEventListener('pointerdown', onOutside)
+
+  // Toasts sit just above the place card, never over its Go button.
+  function liftToasts() {
+    const style = document.documentElement.style
+    const top = card.hidden ? 0 : card.getBoundingClientRect().top
+    if (top > 0) style.setProperty('--toast-above', `${Math.round(window.innerHeight - top + 12)}px`)
+    else style.removeProperty('--toast-above')
+  }
+  const cardWatch = typeof ResizeObserver === 'function' ? new ResizeObserver(liftToasts) : null
+  cardWatch?.observe(card)
+  window.addEventListener('resize', liftToasts)
 
   /** MazeMap's floor bar goes in the right-hand rail; north only shows on a turned map. */
   function fitControls() {
@@ -395,9 +410,26 @@ export function homeScreen(root, {navigate, params}) {
     const go = root.querySelector('[data-go]')
     if (!cardRoute) {
       if (go) go.setAttribute('aria-busy', 'true')
+      // "From my location" with no position: ask where the walk starts, not a route error.
+      if (!isManual(getStart())) {
+        const got = await locateForGo({
+          fix: fixWatch.fix,
+          current: () => fixWatch.current(),
+          hasGeolocation: Boolean(navigator.geolocation),
+          permission: await locationPermissionState(),
+          trouble: fixWatch.trouble,
+          timeoutMs: START.goLocateMs,
+        })
+        if (disposed || selected !== dest) return go?.removeAttribute('aria-busy')
+        if (!got.fix) {
+          go?.removeAttribute('aria-busy')
+          return askStart()
+        }
+      }
       await quietPlan()
       go?.removeAttribute('aria-busy')
-      if (!cardRoute || selected !== dest) return showToast('Could not plan a route. Try again.', {tone: 'warning'})
+      if (disposed || selected !== dest) return
+      if (!cardRoute) return showToast('Could not plan a route. Try again.', {tone: 'warning'})
     }
     endMapTrip()
     root.dataset.mapTripOn = ''
@@ -461,14 +493,21 @@ export function homeScreen(root, {navigate, params}) {
    * For a room, plan the route quietly as soon as there is a start, so the card can name the door
    * the route really uses, the level it comes in at, and the whole distance to the room.
    */
-  async function quietPlan() {
+  function quietPlan() {
     const dest = selected
-    if (!dest || cardRoute || planningFor === dest) return
+    if (!dest || cardRoute) return Promise.resolve()
+    // Already planning for this place: Go waits for that plan rather than giving up on it.
+    if (planningFor === dest) return planning
     const start = getStart()
     const from = isManual(start) ? start : fixWatch.fix
-    if (!from) return
+    if (!from) return Promise.resolve()
     planningFor = dest
     refreshWalkText()
+    planning = planFor(dest, from)
+    return planning
+  }
+
+  async function planFor(dest, from) {
     try {
       const route = await planWhenStyleLoaded(instance?.map, () => planRoute(from, dest))
       if (!route || disposed || selected !== dest || route.status !== 'ok') return
@@ -534,7 +573,9 @@ export function homeScreen(root, {navigate, params}) {
     showDoors(null)
     paintStart()
     refreshWalkText()
-    root.querySelector('.route-from__row')?.focus({preventScroll: true})
+    if (goAfterStart && selected) focusGo()
+    else root.querySelector('.route-from__row')?.focus({preventScroll: true})
+    goAfterStart = false
   }
 
   function chooseStartPlace(place) {
@@ -641,11 +682,24 @@ export function homeScreen(root, {navigate, params}) {
     if (text && selected) text.textContent = walkText()
   }
 
-  function openStartSheet() {
+  /** note: one line above the choices, e.g. why we are asking (no location for Go). */
+  function openStartSheet(note = '') {
     showDoors(null)
+    const line = startSheet.querySelector('[data-start-note]')
+    if (line) {
+      line.textContent = note
+      line.hidden = !note
+    }
+    if (!note) goAfterStart = false
     sheets.open('start')
     paintStart()
     startSheet.querySelector('#start-title').focus({preventScroll: true})
+  }
+
+  /** Go with no position: choose a start, then Go is ready to tap again. */
+  function askStart() {
+    goAfterStart = true
+    openStartSheet(NO_LOCATION_TEXT)
   }
 
   // ---------- route on the map ----------
@@ -822,6 +876,8 @@ export function homeScreen(root, {navigate, params}) {
       btn.setAttribute('aria-expanded', String(!panel.hidden))
     },
     walk: () => {
+      // "From my location" where location is blocked or missing: ask for a start, not a dead end.
+      if (!isManual(getStart()) && !fixWatch.fix && (!navigator.geolocation || locationPermission === 'denied')) return askStart()
       // First, inside the tap: iPhone only shows the motion prompt here. The very first time,
       // the next screen explains the three prompts before asking.
       if (!deviceIssue(forced) && seen('guide')) startPermissionRequests({gps: !isManual(getStart())})
@@ -847,12 +903,16 @@ export function homeScreen(root, {navigate, params}) {
   // A reload keeps the history entry of a sheet that was open.
   if (window.history.state?.sheet) sheets.show(window.history.state.sheet)
   locationPermissionState().then((state) => {
+    locationPermission = state
     if (!disposed && state === 'granted' && !(fixWatch.fix?.accuracy <= GPS.goodAccuracyM)) fixWatch.ensure()
   })
 
   return () => {
     disposed = true
     off()
+    cardWatch?.disconnect()
+    window.removeEventListener('resize', liftToasts)
+    document.documentElement.style.removeProperty('--toast-above')
     document.removeEventListener('keydown', onKey)
     card.removeEventListener('change', onStepFree)
     sheets.destroy()
