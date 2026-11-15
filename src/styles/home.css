@@ -1021,11 +1021,5 @@
   content: '✓';
   margin-inline-start: auto;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .map-home .mapboxgl-canvas {
-    filter: brightness(0.7) contrast(1.1) saturate(0.85);
-  }
-}
-:root[data-theme='dark'] .map-home .mapboxgl-canvas {
-  filter: brightness(0.7) contrast(1.1) saturate(0.85);
-}
+/* Dark mode keeps the map as MazeMap draws it: a dimming filter turned the coloured rooms (lecture
+   theatres blue, open areas green) grey and the room codes hard to read. Only the interface is dark. */
