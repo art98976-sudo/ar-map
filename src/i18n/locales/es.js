@@ -223,6 +223,8 @@ export const STRINGS = {
   'card.saveTo': 'Guardar en',
   'card.showWay': 'Mostrar el camino',
   'card.go': 'Ir',
+  'card.walkAr': 'Caminar con RA',
+  'card.mapDirections': 'Indicaciones en el mapa',
   'card.onCampus': 'En el campus',
   'card.working': 'Calculando el trayecto…',
   'share.text': '{name}, campus de la University of Stirling',

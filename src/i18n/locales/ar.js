@@ -223,6 +223,8 @@ export const STRINGS = {
   'card.saveTo': 'الحفظ في',
   'card.showWay': 'عرض الطريق',
   'card.go': 'انطلق',
+  'card.walkAr': 'المشي مع الواقع المعزز',
+  'card.mapDirections': 'الاتجاهات على الخريطة',
   'card.onCampus': 'داخل الحرم الجامعي',
   'card.working': 'جارٍ حساب المسار…',
   'share.text': '{name}، الحرم الجامعي لـ University of Stirling',

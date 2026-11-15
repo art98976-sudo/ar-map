@@ -636,9 +636,22 @@
 .route-options__panel[hidden] {
   display: none;
 }
+.dest-sheet__actions {
+  display: grid;
+  gap: 8px;
+}
+.dest-sheet__actions[hidden] {
+  display: none;
+}
 .dest-sheet__go {
   min-height: 56px;
   font-size: 1.125rem;
+}
+.dest-sheet__map {
+  min-height: 48px;
+}
+.dest-sheet__map[aria-busy='true'] {
+  opacity: 0.7;
 }
 .dest-sheet__go[aria-busy='true'] {
   opacity: 0.7;

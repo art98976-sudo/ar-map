@@ -218,6 +218,8 @@ export const STRINGS = {
   'card.saveTo': '收藏到',
   'card.showWay': '显示路线',
   'card.go': '出发',
+  'card.walkAr': '用 AR 步行导航',
+  'card.mapDirections': '地图路线',
   'card.onCampus': '在校园内',
   'card.working': '正在计算步行路线…',
   'share.text': '{name}，University of Stirling 校园',

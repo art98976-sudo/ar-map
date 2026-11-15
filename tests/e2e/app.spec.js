@@ -262,7 +262,7 @@ test.describe('the destination card', () => {
     await page.addInitScript(() => localStorage.setItem('welcomeAR.guideSeen.v1', '1')) // a returning user: the guide was seen
     await page.addInitScript(IPHONE_CAMERA_STUB)
     await page.goto('/#/?to=library')
-    await page.getByRole('button', {name: 'Go', exact: true}).click()
+    await page.getByRole('button', {name: 'Walk with AR', exact: true}).click()
     await expect(page).toHaveURL(/#\/(locate|ar)\?to=library/, {timeout: 5000})
     await expect(page.getByRole('button', {name: 'Tap to start'})).toHaveCount(0)
   })
@@ -342,7 +342,7 @@ test.describe('AR session', () => {
     await page.goto('/')
     await mapReady(page)
     await tapPin(page, 'cottrell')
-    await page.getByRole('button', {name: 'Go', exact: true}).click()
+    await page.getByRole('button', {name: 'Walk with AR', exact: true}).click()
     // The engine was fetched while the card was showing, so there may be no loading screen at all.
     await expect(page.locator('canvas[data-canvas]')).toBeVisible({timeout: 60_000})
     await expect(page.locator('[data-veil]')).toHaveClass(/is-hidden/, {timeout: 60_000})

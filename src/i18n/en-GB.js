@@ -183,6 +183,8 @@ export default {
   'card.saveTo': 'Save to',
   'card.showWay': 'Show the way',
   'card.go': 'Go',
+  'card.walkAr': 'Walk with AR',
+  'card.mapDirections': 'Map directions',
   'card.onCampus': 'On campus',
   'card.working': 'Working out the walk…',
   'share.text': '{name}, University of Stirling campus',

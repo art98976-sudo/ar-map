@@ -36,3 +36,28 @@ test.describe('item 3: opens at indoor zoom', () => {
     expect((await view(page)).zoom).toBeCloseTo(saved.zoom, 1)
   })
 })
+
+test.describe('item 6: Walk with AR first on a phone that runs AR', () => {
+  test('Android: Walk with AR is the primary button, Map directions starts the map trip', async ({page}, testInfo) => {
+    test.skip(testInfo.project.name !== 'android-chrome')
+    await page.goto('/#/?to=library')
+    const card = page.locator('[data-card]')
+    const walk = card.getByRole('button', {name: 'Walk with AR', exact: true})
+    await expect(walk).toBeVisible({timeout: 45_000})
+    await expect(walk).toHaveAttribute('data-go', '')
+    await expect(walk).toHaveClass(/btn--primary/)
+    const map = card.getByRole('button', {name: 'Map directions', exact: true})
+    await expect(map).toHaveClass(/btn--secondary/)
+    await map.click()
+    await expect(page.locator('[data-map-trip-text]')).toHaveText(/^Library · \d+ m · \d+ min$/, {timeout: 30_000})
+  })
+
+  test('desktop: only the one map button', async ({page}, testInfo) => {
+    phoneOnly(testInfo)
+    await page.goto('/#/?to=library')
+    const card = page.locator('[data-card]')
+    await expect(card.locator('[data-go]')).toHaveAttribute('data-action', 'map-trip', {timeout: 45_000})
+    await expect(card.getByRole('button', {name: 'Walk with AR'})).toHaveCount(0)
+    await expect(card.getByRole('button', {name: 'Map directions'})).toHaveCount(0)
+  })
+})

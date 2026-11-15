@@ -231,10 +231,20 @@ export function placeCard(place, walkText, {stepFree = false, arIssue = null, ha
       ${groups.map((g) => html`<button class="chip" type="button" data-action="save-to" data-group="${g.id}">${g.label}</button>`)}
     </div>
     <button class="btn btn--primary btn--block" type="button" data-action="show-way" hidden>${icon('map')}<span>${t('card.showWay')}</span></button>
-    <!-- One button. With AR it opens the camera; on a phone or browser without AR, the map trip. -->
-    <button class="btn btn--primary btn--lg btn--block dest-sheet__go" type="button" data-action="${arIssue ? 'map-trip' : 'walk'}" data-go data-ar-choice ${arIssue ? 'data-go-map' : ''}>
-      ${icon(arIssue ? 'map' : 'arrive')}<span>${t('card.go')}</span>
-    </button>
+    <!-- A phone that runs AR: "Walk with AR" first, "Map directions" under it. A phone or browser
+         without AR: one button, the map trip. data-go is always the first (primary) button. -->
+    <div class="dest-sheet__actions" data-go-actions>
+      ${arIssue
+        ? html`<button class="btn btn--primary btn--lg btn--block dest-sheet__go" type="button" data-action="map-trip" data-go data-ar-choice data-go-map>
+            ${icon('map')}<span>${t('card.go')}</span>
+          </button>`
+        : html`<button class="btn btn--primary btn--lg btn--block dest-sheet__go" type="button" data-action="walk" data-go data-ar-choice>
+              ${icon('arrive')}<span>${t('card.walkAr')}</span>
+            </button>
+            <button class="btn btn--secondary btn--block dest-sheet__map" type="button" data-action="map-trip" data-map-directions>
+              ${icon('map')}<span>${t('card.mapDirections')}</span>
+            </button>`}
+    </div>
     ${handoff ?? ''}
   `
 }

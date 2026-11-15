@@ -70,7 +70,7 @@ test.describe('location step', () => {
       })
     }
     await page.goto('/#/?to=library')
-    await page.getByRole('button', {name: 'Go', exact: true}).click()
+    await page.getByRole('button', {name: 'Walk with AR', exact: true}).click()
     // That tap asked for everything. The fix is good (±6 m), so it plans the walk and opens the camera.
     await expect(page).toHaveURL(/#\/ar\?to=library/, {timeout: 30_000})
   })

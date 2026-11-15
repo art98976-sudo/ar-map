@@ -466,18 +466,18 @@ export function homeScreen(root, {navigate, params, refresh = () => {}}) {
   function paintWayButton() {
     const indoor = indoorTrip()
     const way = root.querySelector('[data-action="show-way"]')
-    const go = root.querySelector('[data-go]')
+    const go = root.querySelector('[data-go-actions]') // Walk with AR and Map directions, or the one map button
     if (way) way.hidden = !indoor
     if (go) go.hidden = indoor
   }
 
-  // ---------- the map trip: "Go" where AR cannot run ----------
+  // ---------- the map trip: "Map directions", and "Go" where AR cannot run ----------
   let mapTrip = null
 
   async function startMapTrip() {
     const dest = selected
     if (!dest || !instance?.map) return
-    const go = root.querySelector('[data-go]')
+    const go = card.querySelector('[data-action="map-trip"]') // the button that was tapped
     if (!cardRoute) {
       if (go) go.setAttribute('aria-busy', 'true')
       // "From my location" with no position: ask where the walk starts, not a route error.
