@@ -89,6 +89,22 @@
   background: var(--c-primary);
   color: var(--c-on-primary);
 }
+.map-3d {
+  font-size: var(--fs-body);
+  font-weight: var(--fw-semibold);
+}
+/* The compass: its needle points north while the map is turned. */
+.map-north svg {
+  transform: rotate(var(--bearing, 0deg));
+}
+.map-north[hidden] {
+  display: none;
+}
+/* MazeMap's own floor list may be taller than a short screen: it scrolls inside the rail. */
+.map-rail .mm-floor-bar .btns-container {
+  max-height: max(88px, min(220px, calc(100dvh - var(--sheet-px, 120px) - 300px))) !important;
+  overflow-y: auto;
+}
 .map-3d__spinner {
   width: 18px;
   height: 18px;
@@ -104,7 +120,7 @@
 .map-rail__floors:empty {
   display: none;
 }
-:is(.map-rail, .home-menu__floors) .mm-floor-bar {
+.map-rail .mm-floor-bar {
   position: static !important;
   margin: 0 !important;
   width: var(--tap) !important;
@@ -115,20 +131,20 @@
   overflow: hidden;
   font-family: var(--font) !important;
 }
-:is(.map-rail, .home-menu__floors) .mm-floor-bar * {
+.map-rail .mm-floor-bar * {
   font-family: var(--font) !important;
 }
-:is(.map-rail, .home-menu__floors) .mm-floor-bar ul,
-:is(.map-rail, .home-menu__floors) .mm-floor-bar li {
+.map-rail .mm-floor-bar ul,
+.map-rail .mm-floor-bar li {
   margin: 0;
   padding: 0;
   list-style: none;
   border: 0 !important;
   background: transparent !important;
 }
-:is(.map-rail, .home-menu__floors) .mm-floor-bar li,
-:is(.map-rail, .home-menu__floors) .mm-floor-bar button,
-:is(.map-rail, .home-menu__floors) .mm-floor-bar [class*='z-level'] {
+.map-rail .mm-floor-bar li,
+.map-rail .mm-floor-bar button,
+.map-rail .mm-floor-bar [class*='z-level'] {
   display: grid !important;
   place-items: center;
   min-width: var(--tap) !important;
@@ -139,10 +155,10 @@
   font-weight: var(--fw-medium) !important;
   line-height: 1 !important;
 }
-:is(.map-rail, .home-menu__floors) .mm-floor-bar .active,
-:is(.map-rail, .home-menu__floors) .mm-floor-bar .selected,
-:is(.map-rail, .home-menu__floors) .mm-floor-bar [class*='active'],
-:is(.map-rail, .home-menu__floors) .mm-floor-bar [aria-selected='true'] {
+.map-rail .mm-floor-bar .active,
+.map-rail .mm-floor-bar .selected,
+.map-rail .mm-floor-bar [class*='active'],
+.map-rail .mm-floor-bar [aria-selected='true'] {
   background: var(--c-primary) !important;
   color: var(--c-on-primary) !important;
   border-radius: var(--radius-round);
@@ -433,7 +449,7 @@
   position: relative;
   z-index: 1;
 }
-:is(.map-rail, .home-menu__floors) .mm-floor-bar button + button {
+.map-rail .mm-floor-bar button + button {
   border-top: 0 !important;
 }
 
@@ -728,49 +744,6 @@
   max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 88px);
   overflow-y: auto;
   overscroll-behavior: contain;
-}
-.home-menu__floors:empty {
-  display: none;
-}
-.home-menu__floors {
-  padding: var(--sp-1) var(--sp-2);
-}
-.home-menu__floors .mm-floor-bar {
-  position: static !important;
-}
-.home-menu .map-3d[aria-pressed='true'] {
-  color: var(--c-primary);
-}
-.home-menu__floors {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-}
-.home-menu__floors::before {
-  content: attr(aria-label); /* "Floor", in the language in use (item 13) */
-  flex: none;
-  padding-inline-start: var(--sp-2);
-  color: var(--c-text-2);
-  font-size: var(--fs-body);
-}
-.home-menu__floors .mm-floor-bar {
-  width: auto !important;
-  box-shadow: none !important;
-  background: var(--c-surface) !important;
-}
-.home-menu__floors .mm-floor-bar .btns-container {
-  display: flex !important;
-  flex-direction: row-reverse;
-  max-height: none !important;
-}
-.home-menu__floors .mm-floor-bar li,
-.home-menu__floors .mm-floor-bar button {
-  width: 40px !important;
-  min-height: 40px !important;
-}
-.home-menu__floors .mm-floor-bar button + button,
-.home-menu__floors .mm-floor-bar li + li {
-  border-top: 0 !important;
 }
 
 /* Group C: the sheet at rest. Three "Nearest" shortcuts, then the last 3 places. */

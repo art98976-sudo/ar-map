@@ -37,6 +37,41 @@ test.describe('item 3: opens at indoor zoom', () => {
   })
 })
 
+test.describe('item 4: the map controls on the right edge', () => {
+  test('north only on a turned map (tap: north up), floors only in a building, 3D beside them', async ({page}, testInfo) => {
+    phoneOnly(testInfo)
+    await page.setViewportSize({width: 390, height: 844})
+    await page.goto('/#/?debug=1')
+    await mapReady(page)
+    const rail = page.locator('[data-rail]')
+    const north = rail.getByRole('button', {name: 'Turn the map north up'})
+    await expect(rail.getByRole('button', {name: 'Show 3D buildings'})).toBeVisible()
+    await expect(rail.getByRole('button', {name: 'Show my location'})).toBeVisible()
+    await expect(north).toBeHidden()
+
+    // The floor bar lives in the rail, and the menu no longer holds any map control.
+    await expect(page.locator('[data-rail] [data-floor-host] .mm-floor-bar')).toBeAttached({timeout: 15_000})
+    await page.getByRole('button', {name: 'Menu', exact: true}).click()
+    const menu = page.locator('[data-menu]')
+    await expect(menu.locator('.mm-floor-bar, [data-action="toggle-3d"], [data-action="north"]')).toHaveCount(0)
+    await page.keyboard.press('Escape')
+
+    // Turn the map: the compass shows, its needle turned; a tap (or Enter) brings north up.
+    await page.evaluate(() => window.__homeMap.setBearing(40))
+    await expect(north).toBeVisible()
+    expect(await north.evaluate((el) => el.style.getPropertyValue('--bearing'))).toBe('-40deg')
+    await north.focus()
+    await page.keyboard.press('Enter')
+    await expect.poll(() => page.evaluate(() => Math.round(window.__homeMap.getBearing())), {timeout: 5000}).toBe(0)
+    await expect(north).toBeHidden()
+
+    // All of the rail sits on the right edge, inside the screen.
+    const box = await rail.boundingBox()
+    expect(box.x + box.width).toBeLessThanOrEqual(390)
+    expect(box.x).toBeGreaterThan(390 / 2)
+  })
+})
+
 test.describe('item 6: Walk with AR first on a phone that runs AR', () => {
   test('Android: Walk with AR is the primary button, Map directions starts the map trip', async ({page}, testInfo) => {
     test.skip(testInfo.project.name !== 'android-chrome')

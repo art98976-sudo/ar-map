@@ -60,12 +60,13 @@ test.describe('the map home', () => {
       await expect(page.locator('.quick-chips').getByRole('button', {name, exact: true})).toBeVisible()
     }
     await expect(page.locator('.quick-chips').getByRole('button', {name: 'Bus', exact: true})).toBeHidden()
-    // The top: the search bar and one menu button. The right: only my location. 3D is in the menu.
-    await expect(page.locator('.map-home__top > button')).toHaveCount(2)
-    await expect(page.locator('[data-rail] button')).toHaveCount(1)
-    await expect(page.locator('[data-rail]').getByRole('button', {name: 'Show my location'})).toBeVisible()
+    // The right edge: 2D/3D and my location (north only on a turned map, floors only in a building).
+    const rail = page.locator('[data-rail]')
+    await expect(rail.getByRole('button', {name: 'Show my location'})).toBeVisible()
+    await expect(rail.getByRole('button', {name: 'Show 3D buildings'})).toBeVisible()
+    await expect(rail.getByRole('button', {name: 'Turn the map north up'})).toBeHidden()
     await page.getByRole('button', {name: 'Menu', exact: true}).click()
-    await expect(page.getByRole('menuitem', {name: 'Show 3D buildings'})).toBeVisible()
+    await expect(page.getByRole('menuitem', {name: 'Show 3D buildings'})).toHaveCount(0)
     await page.getByRole('button', {name: 'Menu', exact: true}).click()
     // At rest the sheet offers the nearest toilet, café and lift.
     for (const name of ['Nearest toilet', 'Nearest café', 'Nearest lift']) await expect(page.getByRole('button', {name})).toBeVisible()
@@ -416,11 +417,10 @@ test.describe('3D buildings', () => {
     await page.goto('/#/?to=scran&debug=1')
     await mapReady(page)
     expect(glb).toHaveLength(0) // not downloaded until 3D is turned on
-    // Group C: 3D is in the menu.
-    await page.getByRole('button', {name: 'Menu', exact: true}).click()
-    const button = page.getByRole('menuitem', {name: 'Show 3D buildings'})
+    // 3D is on the right edge of the map.
+    const button = page.locator('[data-rail]').getByRole('button', {name: 'Show 3D buildings'})
     await button.click()
-    const hide = page.getByRole('menuitem', {name: 'Hide 3D buildings'})
+    const hide = page.locator('[data-rail]').getByRole('button', {name: 'Hide 3D buildings'})
     await expect(hide).toHaveAttribute('aria-pressed', 'true')
     await expect(hide).toContainText('2D', {timeout: 90_000})
     await expect(hide).not.toHaveAttribute('aria-busy')
@@ -429,9 +429,8 @@ test.describe('3D buildings', () => {
     await expect.poll(() => page.evaluate(() => window.__campusModel?.stats()), {timeout: 10_000}).toMatchObject({visible: true, highlighted: '1002096756', level: 2})
     await page.getByRole('button', {name: 'Close', exact: true}).click()
     await expect.poll(() => page.evaluate(() => window.__campusModel.stats().highlighted)).toBeNull()
-    await page.getByRole('button', {name: 'Menu', exact: true}).click()
     await hide.click()
-    await expect(page.getByRole('menuitem', {name: 'Show 3D buildings'})).toContainText('3D')
+    await expect(page.locator('[data-rail]').getByRole('button', {name: 'Show 3D buildings'})).toContainText('3D')
     expect(await page.evaluate(() => window.__campusModel.stats().visible)).toBe(false)
     expect(glb).toHaveLength(1)
     expect(errors).toEqual([])
@@ -536,7 +535,7 @@ test.describe('model alignment check', () => {
     await mapReady(page)
     const panel = page.getByRole('region', {name: 'Model alignment check'})
     await expect(panel).toBeVisible({timeout: 90_000})
-    await expect(page.getByRole('menuitem', {name: 'Hide 3D buildings', includeHidden: true})).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('[data-rail]').getByRole('button', {name: 'Hide 3D buildings'})).toHaveAttribute('aria-pressed', 'true')
     await expect(panel.getByLabel('Model')).toHaveValue('50')
     await page.locator('[data-map] canvas').first().click({position: {x: 300, y: 500}})
     await expect(panel.locator('[data-align-latlon]')).toHaveText(/^56\.\d+, -3\.\d+$/)

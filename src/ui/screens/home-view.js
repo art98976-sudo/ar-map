@@ -22,14 +22,9 @@ export const homePage = () => html`
       <button class="map-search" type="button" data-action="open-search" aria-label="${t('home.search')}">
         ${icon('search', {size: 24})}<span>${t('home.search')}</span>
       </button>
-      <!-- Group C: one menu holds 3D, north, the floors, and About. -->
+      <!-- The menu: voice, theme, language and About. The map's own controls are in the rail. -->
       <button class="round-btn map-menu-btn" type="button" data-action="open-menu" aria-label="${t('home.menu')}" aria-haspopup="menu" aria-expanded="false">${icon('menu')}</button>
       <div class="home-menu" data-menu role="menu" hidden>
-        <button class="home-menu__item map-3d" type="button" role="menuitem" data-action="toggle-3d" aria-pressed="false" aria-label="${t('home.show3d')}">
-          ${icon('building', {size: 20})}<span>${t('home.buildingsIn')} <span data-3d-label>${t('home.mode3d')}</span></span><span class="spinner map-3d__spinner" data-3d-spinner aria-hidden="true" hidden></span>
-        </button>
-        <button class="home-menu__item" type="button" role="menuitem" data-action="north" aria-label="${t('home.northLabel')}" data-north hidden>${icon('north', {size: 20})}<span>${t('home.north')}</span></button>
-        <div class="home-menu__floors" data-floor-host aria-label="${t('home.floor')}"></div>
         <button class="home-menu__item" type="button" role="menuitemcheckbox" aria-checked="false" data-action="toggle-voice" data-voice hidden>${icon('volume', {size: 20})}<span>${t('home.voice')}</span></button>
         <div class="home-menu__themes" role="group" aria-label="${t('home.themes')}" data-themes>
           ${THEMES.map((t) => html`<button class="home-menu__item home-menu__theme" type="button" role="menuitemradio" aria-checked="false" data-action="set-theme" data-theme-choice="${t.id}">${icon(t.id === 'dark' ? 'moon' : t.id === 'light' ? 'sun' : 'phone', {size: 20})}<span>${t.label}</span></button>`)}
@@ -42,7 +37,14 @@ export const homePage = () => html`
         <p class="home-menu__note" role="none">${t('home.menuNote')}</p>
       </div>
     </header>
+    <!-- The right edge: north (only on a turned map), the floors (only in a building that has
+         them: MazeMap's own bar, moved here by fitControls), 2D/3D, and my location. -->
     <div class="map-rail theme-auto" data-rail>
+      <button class="round-btn map-north" type="button" data-action="north" aria-label="${t('home.northLabel')}" data-north hidden>${icon('north', {size: 22})}</button>
+      <div class="map-rail__floors" data-floor-host role="group" aria-label="${t('home.floor')}"></div>
+      <button class="round-btn map-3d" type="button" data-action="toggle-3d" aria-pressed="false" aria-label="${t('home.show3d')}">
+        <span data-3d-label aria-hidden="true">${t('home.mode3d')}</span><span class="spinner map-3d__spinner" data-3d-spinner aria-hidden="true" hidden></span>
+      </button>
       <button class="round-btn" type="button" data-action="locate" aria-label="${t('home.locate')}">${icon('locate')}</button>
     </div>
     <div class="map-home__overlay theme-auto" data-overlay>${mapLoading()}</div>

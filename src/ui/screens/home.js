@@ -219,7 +219,10 @@ export function homeScreen(root, {navigate, params, refresh = () => {}}) {
   cardWatch?.observe(card)
   window.addEventListener('resize', liftToasts)
 
-  /** MazeMap's floor bar goes in the right-hand rail; north only shows on a turned map. */
+  /**
+   * MazeMap's floor bar goes in the right-hand rail (it shows itself only in a building with
+   * floors). The compass shows only on a turned map, its needle pointing north; a tap turns north up.
+   */
   function fitControls() {
     const bar = root.querySelector('.mm-floor-bar')
     const host = root.querySelector('[data-floor-host]')
@@ -227,7 +230,9 @@ export function homeScreen(root, {navigate, params, refresh = () => {}}) {
     const north = root.querySelector('[data-north]')
     const map = instance?.map
     const paintNorth = () => {
-      north.hidden = Math.abs(map.getBearing()) < 1
+      const bearing = map.getBearing()
+      north.hidden = Math.abs(bearing) < 1
+      north.style.setProperty('--bearing', `${-bearing}deg`)
     }
     map.on('rotate', paintNorth)
     paintNorth()
@@ -1069,7 +1074,11 @@ export function homeScreen(root, {navigate, params, refresh = () => {}}) {
       more?.querySelector('span')?.replaceChildren(t(open ? 'home.less' : 'home.more'))
     },
     locate: () => instance?.geolocate?.trigger(),
-    north: () => instance?.map.easeTo({bearing: 0, duration: 400}),
+    north: () => {
+      instance?.map.easeTo({bearing: 0, duration: 400})
+      // The compass hides once north is up: keep the keyboard on the rail, not on the page.
+      root.querySelector('[data-action="toggle-3d"]')?.focus({preventScroll: true})
+    },
     unselect: () => {
       unselect()
       root.querySelector('[data-action="open-search"]').focus({preventScroll: true}) // its button has gone
