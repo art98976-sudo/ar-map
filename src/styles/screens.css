@@ -755,3 +755,11 @@
 .save-groups[hidden] {
   display: none;
 }
+/* Item 4 (round 4): the place's name in the student's language, under the English name. */
+.dest-sheet__translation {
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  line-height: 1.3;
+}

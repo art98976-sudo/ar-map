@@ -8,7 +8,8 @@ import {html} from '../dom.js'
 import {icon, iconFor} from '../icons.js'
 import {THEMES} from '../theme.js'
 import {APP} from '../../config.js'
-import {getLocale, LOCALES, t} from '../../i18n/i18n.js'
+import {getLocale, LOCALES, SOURCE_LOCALE, t} from '../../i18n/i18n.js'
+import EN from '../../i18n/en-GB.js'
 
 // Group C: four chips at rest (Lecture theatres, Toilets, Food, Library), the rest behind "More".
 const MAIN_CHIPS = 4
@@ -174,7 +175,14 @@ export function placeNotFound(text = t('card.notFound')) {
 export function placeCard(place, walkText, {stepFree = false, arIssue = null, handoff = null, savedIn = null, groups = []} = {}) {
   const room = place.category === 'room' ? describeDestination(place) : ''
   // Never repeat the name underneath it ("Library" / "Library").
-  const subtitle = subtitleFor(place.name, room || categoryLabel(place.category))
+  let subtitle = subtitleFor(place.name, room || categoryLabel(place.category))
+  // Item 4 (round 4): in another language, a category that only translates the name (Arabic
+  // "المكتبة" under "Library") is the name's translation: a smaller line under the English
+  // name, which stays first, as on the campus signs.
+  const locale = getLocale()
+  const english = !room && EN[`cat.${place.category}`]
+  const translation = locale.id !== SOURCE_LOCALE && english && english.toLowerCase() === String(place.name).toLowerCase() && subtitle ? subtitle : null
+  if (translation) subtitle = ''
   return html`
     ${place.photo ? html`<img class="dest-sheet__photo" src="${place.photo}" alt="" loading="lazy" />` : ''}
     <!-- One line, "From my location · Options": the start, swap and step-free fold inside it. -->
@@ -205,7 +213,8 @@ export function placeCard(place, walkText, {stepFree = false, arIssue = null, ha
     <div class="dest-sheet__head">
       <div class="dest-sheet__text">
         <p class="route-from__label">${t('card.to')}</p>
-        <h2 class="dest-sheet__name" tabindex="-1">${place.name}</h2>
+        <h2 class="dest-sheet__name" tabindex="-1"><bdi lang="en">${place.name}</bdi></h2>
+        ${translation ? html`<p class="dest-sheet__translation" lang="${locale.id}" dir="${locale.dir}">${translation}</p>` : ''}
         ${subtitle ? html`<p class="dest-sheet__meta">${subtitle}</p>` : ''}
         <p class="dest-sheet__walk" data-walk>${icon('footsteps', {size: 16})}<span data-walk-text>${walkText}</span></p>
         <p class="dest-sheet__indoor" data-indoor hidden>${icon('door', {size: 16})}<span data-indoor-text></span></p>
