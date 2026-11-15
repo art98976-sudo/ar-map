@@ -969,6 +969,7 @@ export function homeScreen(root, {navigate, params, refresh = () => {}}) {
           instance.map.on('click', (event) => {
             if (picker.active) picker.moveTo(event.lngLat)
             else if (selected) unselect()
+            else if (homeSheet.height !== 'peek') homeSheet.setHeight('peek') // the map, back in full view
           })
           stopLastView?.()
           stopLastView = watchLastView(instance.map) // the next visit opens where this one left off

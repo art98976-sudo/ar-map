@@ -303,8 +303,9 @@
   background: var(--c-surface);
 }
 
-/* Half and full: the places for the chosen chip. */
-.home-sheet__body {
+/* Half and full: the nearest places, saved and recent, or the places for the chosen chip.
+   The peek shows the chips alone, so the map keeps the screen. */
+.home-sheet__scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -312,8 +313,16 @@
   touch-action: pan-y;
   padding: 0 0 var(--sp-4);
 }
-.home-sheet[data-height='peek'] .home-sheet__body {
+.home-sheet[data-height='peek'] .home-sheet__scroll {
   visibility: hidden;
+}
+.home-sheet[data-chip] .home-rest {
+  display: none; /* a chip's list takes the sheet */
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-sheet {
+    transition: none; /* jump between heights */
+  }
 }
 .home-sheet__title {
   padding: var(--sp-2) var(--side) var(--sp-1);
@@ -838,12 +847,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.home-sheet__peek {
-  flex-wrap: wrap;
-}
 .home-rest {
-  flex-basis: 100%;
-  padding-inline-end: var(--side);
+  padding-inline: var(--side);
 }
 
 /* Item 2: the next turn and the list of every step, at the bottom of the map trip. */

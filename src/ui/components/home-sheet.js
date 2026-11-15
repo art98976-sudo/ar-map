@@ -26,16 +26,26 @@ export const SHEET_HEIGHTS = ['peek', 'half', 'full']
 const DOTS = 'quick-places'
 const SNAP_FLICK_PX = 40 // a short flick is enough to move one height
 
-/** Height in px of each sheet state, for the screen it is on. */
-export function sheetHeights(viewport, peekPx) {
-  return {peek: peekPx, half: Math.round(viewport * 0.5), full: Math.round(viewport - 88)}
+/**
+ * Height in px of each sheet state, for the screen it is on. Full stops below the top bar
+ * (topPx: its bottom edge plus a gap, the phone's notch included).
+ */
+export function sheetHeights(viewport, peekPx, topPx = 88) {
+  return {peek: peekPx, half: Math.round(viewport * 0.5), full: Math.round(viewport - topPx)}
 }
 
-/** Where a drag ends: the nearest height, or one step on for a quick flick. */
+/**
+ * Where a drag ends: the nearest height, or one step up for a quick flick up. A swipe down goes
+ * back to the peek (the chips alone), unless it was a long drag that ended nearer another height.
+ */
 export function snapHeight(heights, startName, draggedPx) {
   const order = SHEET_HEIGHTS
   const at = heights[startName] + draggedPx
   const i = order.indexOf(startName)
+  if (draggedPx <= -SNAP_FLICK_PX) {
+    const nearest = order.reduce((best, name) => (Math.abs(heights[name] - at) < Math.abs(heights[best] - at) ? name : best), order[0])
+    return nearest === startName ? 'peek' : nearest
+  }
   if (Math.abs(draggedPx) >= SNAP_FLICK_PX) {
     const next = order[Math.max(0, Math.min(order.length - 1, i + (draggedPx > 0 ? 1 : -1)))]
     // A long drag goes wherever it ends; a flick moves one step.
@@ -59,14 +69,20 @@ export function createHomeSheet(root, {getMap, getFrom, pins, onPick}) {
   function peekPx() {
     return sheet.querySelector('.home-sheet__peek').getBoundingClientRect().height + handle.getBoundingClientRect().height - 12
   }
+  function topPx() {
+    const bar = home.querySelector('.map-home__top')?.getBoundingClientRect()
+    return bar ? Math.round(bar.bottom - home.getBoundingClientRect().top + 8) : 88
+  }
   function heights() {
-    return sheetHeights(home.getBoundingClientRect().height, peekPx())
+    return sheetHeights(home.getBoundingClientRect().height, peekPx(), topPx())
   }
 
   function setHeight(name, {animate = true} = {}) {
     height = name
     sheet.dataset.height = name
     sheet.classList.toggle('is-dragging', !animate)
+    // A jump (no slide) only for this change: the next one slides again.
+    if (!animate) requestAnimationFrame(() => drag || sheet.classList.remove('is-dragging'))
     const px = heights()[name]
     sheet.style.setProperty('--sheet-px', `${px}px`)
     home.style.setProperty('--sheet-px', `${px}px`)
@@ -78,7 +94,7 @@ export function createHomeSheet(root, {getMap, getFrom, pins, onPick}) {
   // ---------- dragging ----------
   let drag = null
   const onDown = (event) => {
-    if (event.button > 0 || event.target.closest('.quick-chip, .round-btn, .home-menu, .place-row')) return
+    if (event.button > 0 || event.target.closest('.quick-chip, .round-btn, .home-menu, .place-row, .home-rest__near, .home-rest__row')) return
     drag = {y: event.clientY, from: height, start: heights()[height], moved: false, id: event.pointerId}
   }
   const onMove = (event) => {
@@ -98,6 +114,8 @@ export function createHomeSheet(root, {getMap, getFrom, pins, onPick}) {
     const {moved, from, y} = drag
     drag = null
     if (!moved) return
+    justDragged = true // the click that ends a drag on the handle is not a tap
+    setTimeout(() => (justDragged = false), 0)
     setHeight(snapHeight(heights(), from, y - event.clientY))
   }
   sheet.addEventListener('pointerdown', onDown)
@@ -105,7 +123,8 @@ export function createHomeSheet(root, {getMap, getFrom, pins, onPick}) {
   sheet.addEventListener('pointerup', onUp)
   sheet.addEventListener('pointercancel', onUp)
   // A drag on the handle must not also count as a tap.
-  handle.addEventListener('click', (event) => sheet.classList.contains('is-dragging') && event.stopImmediatePropagation(), true)
+  let justDragged = false
+  handle.addEventListener('click', (event) => justDragged && event.stopImmediatePropagation(), true)
 
   const onResize = () => setHeight(height, {animate: false})
   window.addEventListener('resize', onResize)
@@ -113,6 +132,7 @@ export function createHomeSheet(root, {getMap, getFrom, pins, onPick}) {
   // ---------- chips ----------
   function paintChips() {
     sheet.querySelectorAll('[data-filter]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.filter === chip)))
+    sheet.toggleAttribute('data-chip', Boolean(chip)) // the chip's list instead of the nearest places
   }
 
   function showDots(dests) {

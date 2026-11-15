@@ -23,6 +23,16 @@ describe('bottom sheet heights', () => {
   it('a long drag goes to where it ends', () => {
     expect(snapHeight(H, 'peek', 640)).toBe('full')
     expect(snapHeight(H, 'full', -640)).toBe('peek')
+    expect(snapHeight(H, 'full', -334)).toBe('half') // let go near the middle
+  })
+
+  it('map-first item 2: a swipe down from full goes straight back to the peek', () => {
+    expect(snapHeight(H, 'full', -60)).toBe('peek')
+    expect(snapHeight(H, 'half', -45)).toBe('peek')
+  })
+
+  it('full stops under the top bar, wherever it is (the notch included)', () => {
+    expect(sheetHeights(844, 92, 115)).toEqual({peek: 92, half: 422, full: 729})
   })
 })
 

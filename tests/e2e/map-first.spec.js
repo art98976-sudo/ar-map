@@ -149,6 +149,54 @@ test.describe('item 5: the top bar', () => {
   })
 })
 
+test.describe('item 2: the bottom sheet', () => {
+  test('peek is the chips alone; half has Nearest; a tap on the map or a swipe down goes back', async ({page}, testInfo) => {
+    phoneOnly(testInfo)
+    await page.setViewportSize({width: 390, height: 844})
+    await page.goto('/')
+    await mapReady(page)
+    const sheet = page.locator('[data-home-sheet]')
+    await expect(sheet).toHaveAttribute('data-height', 'peek')
+    const peek = await sheet.boundingBox()
+    expect(peek.height).toBeGreaterThan(80)
+    expect(peek.height).toBeLessThanOrEqual(130) // about 120 px: the map keeps the screen
+    await expect(page.getByRole('button', {name: 'Lecture theatres'})).toBeVisible()
+    await expect(page.getByRole('button', {name: 'Nearest toilet'})).toBeHidden()
+    // The map fills the screen behind the sheet.
+    const map = await page.locator('[data-map]').boundingBox()
+    expect(map.height).toBeGreaterThanOrEqual(843)
+
+    // Half: the nearest places. A tap on the map: back to the peek.
+    await page.getByRole('button', {name: 'Show more', exact: true}).click()
+    await expect(sheet).toHaveAttribute('data-height', 'half')
+    await expect(page.getByRole('button', {name: 'Nearest toilet'})).toBeVisible()
+    await page.mouse.click(200, 200)
+    await expect(sheet).toHaveAttribute('data-height', 'peek')
+
+    // Full, then one swipe down: back to the peek.
+    await page.getByRole('button', {name: 'Show more', exact: true}).click()
+    await page.getByRole('button', {name: 'Show more', exact: true}).click()
+    await expect(sheet).toHaveAttribute('data-height', 'full')
+    const top = await sheet.boundingBox()
+    const bar = await page.locator('.map-home__top').boundingBox()
+    expect(top.y).toBeGreaterThan(bar.y + bar.height) // full stops under the top bar
+    await page.mouse.move(195, top.y + 10)
+    await page.mouse.down()
+    await page.mouse.move(195, top.y + 90, {steps: 6})
+    await page.mouse.up()
+    await expect(sheet).toHaveAttribute('data-height', 'peek')
+  })
+
+  test('with reduced motion the sheet jumps instead of sliding', async ({page}, testInfo) => {
+    phoneOnly(testInfo)
+    await page.emulateMedia({reducedMotion: 'reduce'})
+    await page.goto('/')
+    await mapReady(page)
+    const duration = await page.locator('[data-home-sheet]').evaluate((el) => getComputedStyle(el).transitionDuration)
+    expect(duration.split(',').every((d) => parseFloat(d) < 0.01)).toBe(true)
+  })
+})
+
 test.describe('item 6: Walk with AR first on a phone that runs AR', () => {
   test('Android: Walk with AR is the primary button, Map directions starts the map trip', async ({page}, testInfo) => {
     test.skip(testInfo.project.name !== 'android-chrome')

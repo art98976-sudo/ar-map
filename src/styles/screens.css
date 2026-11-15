@@ -253,6 +253,9 @@
 .map-home {
   position: fixed;
   inset: 0;
+  /* The visible screen, as the phone's toolbars come and go (Safari, Chrome). */
+  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   background: var(--map-ground);
 }

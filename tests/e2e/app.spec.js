@@ -68,7 +68,9 @@ test.describe('the map home', () => {
     await page.getByRole('button', {name: 'Menu', exact: true}).click()
     await expect(page.getByRole('menuitem', {name: 'Show 3D buildings'})).toHaveCount(0)
     await page.getByRole('button', {name: 'Menu', exact: true}).click()
-    // At rest the sheet offers the nearest toilet, café and lift.
+    // The sheet at rest is the chips alone; one step up it offers the nearest toilet, café and lift.
+    for (const name of ['Nearest toilet', 'Nearest café', 'Nearest lift']) await expect(page.getByRole('button', {name})).toBeHidden()
+    await page.getByRole('button', {name: 'Show more', exact: true}).click()
     for (const name of ['Nearest toilet', 'Nearest café', 'Nearest lift']) await expect(page.getByRole('button', {name})).toBeVisible()
     await expect(page.locator('.map-pin')).toHaveCount(24)
     await expect(page.getByRole('button', {name: 'Pathfoot Building'})).toBeAttached()
