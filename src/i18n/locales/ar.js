@@ -415,7 +415,7 @@ export const STRINGS = {
   'ar.followMapLeft': 'اتبع الخريطة · {distance}',
   'status.headDown': 'ارفع رأسك. انتبه إلى طريقك',
   'status.lookUp': 'ارفع رأسك أثناء المشي',
-  'status.tracking': 'فُقد التتبع. تحرّك ببطء',
+  'status.pointAtPath': 'وجّه هاتفك نحو الممر أمامك',
   'status.realign': 'الأسهم خارج الممر؟ انقر «إعادة المحاذاة»',
   'status.reanchor': 'ضللت الطريق؟ انقر «أنا هنا»',
   'status.compass': 'حرّك هاتفك على شكل الرقم 8',

@@ -415,7 +415,7 @@ export const STRINGS = {
   'ar.followMapLeft': 'Sigue el mapa · {distance}',
   'status.headDown': 'Levanta la vista. Mira por dónde vas',
   'status.lookUp': 'Levanta la vista mientras caminas',
-  'status.tracking': 'Seguimiento perdido. Muévete despacio',
+  'status.pointAtPath': 'Apunta el móvil al camino que tienes delante',
   'status.realign': '¿Flechas fuera del camino? Toca Realinear',
   'status.reanchor': '¿Te has perdido? Toca Estoy aquí',
   'status.compass': 'Mueve el móvil dibujando un ocho',

@@ -282,6 +282,16 @@ export function createArTrip({
     return lastFix && lastFix.accuracy <= GPS.goodAccuracyM ? lastFix : origin
   }
 
+  /** The floor before the camera has confirmed one: the engine's ground (y = 0); a webcam: eye height. */
+  function guessFloor() {
+    return allowDesktop ? ground.fallback(camera.position.y) : GROUND.engineGroundY
+  }
+
+  /** Item 1: tracking normal and the floor confirmed by the camera (a webcam in test mode: always). */
+  function groundReady() {
+    return allowDesktop || floorNow.found
+  }
+
   function trackingReady() {
     return tracking === 'NORMAL' || (allowDesktop && lastTime != null && lastTime - startedAt > TRIP.desktopStartDelayS)
   }
@@ -315,7 +325,7 @@ export function createArTrip({
     const info = nav.startInfo(fix)
     // Step 3: the floor's height comes from the scene. Where the scene is at height 0 is set once
     // here, from the camera (a floor it found, or eye height); after that the camera only refines it.
-    sceneBaseStart = (floorNow.found ? floorNow.height : ground.fallback(camera.position.y)) - heightAt(info.s)
+    sceneBaseStart = (floorNow.found ? floorNow.height : guessFloor()) - heightAt(info.s)
     sceneBase = sceneBaseStart
     nav.setGround(sceneBase + heightAt(info.s), 0)
     nav.align(headingDeg ?? info.bearingDeg, fix)
@@ -676,6 +686,9 @@ export function createArTrip({
    */
   function arrowsWanted(time) {
     if (phase !== 'ready' || arrived || !nav?.aligned || !positionOk) return false
+    // Item 1: nothing on the ground until the camera has confirmed where the ground is, in this
+    // tracking session (a reset after a real loss starts the search again).
+    if (!groundReady()) return false
     if (allowDesktop || tracking === 'NORMAL') return true
     return trackingLostAt != null && time - trackingLostAt <= GROUND_ARROWS.trackingLostS
   }
@@ -933,7 +946,7 @@ export function createArTrip({
       // the scene sits). A floor the camera finds moves that silently, eased and capped.
       ground.update(dt, s.s, camera.position.y, time)
       const hUser = heightAt(s.s)
-      sceneBase ??= (floorNow.found ? floorNow.height : ground.fallback(camera.position.y)) - hUser
+      sceneBase ??= (floorNow.found ? floorNow.height : guessFloor()) - hUser
       sceneBaseStart ??= sceneBase
       if (floorNow.found && Number.isFinite(floorNow.height)) {
         const want = floorNow.height - hUser
@@ -1076,6 +1089,8 @@ export function createArTrip({
         compassLocked,
         aligned: Boolean(nav.aligned),
         arrowsShown,
+        // Item 1: "Point your phone at the path ahead" until tracking is normal and the floor found.
+        coaching: phase === 'ready' && !arrived && positionOk && (!groundReady() || (tracking !== 'NORMAL' && !arrowsShown)),
         arrowsCreated: nav.arrowsCreated,
         arrowsDrawn: nav.arrowsShown,
         arrowsInView: arrowsShown ? nav.arrowsInView() : 0,

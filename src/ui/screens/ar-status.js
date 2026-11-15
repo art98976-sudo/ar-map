@@ -21,8 +21,9 @@ export function statusMessage(s) {
     // Safety first: walking fast looking down at the phone (B9), or a while with it held up.
     [ready && s.headDown, {key: 'head-down', icon: 'alert', text: t('status.headDown')}],
     [ready && s.lookUp, {key: 'look-up', icon: 'alert', text: t('status.lookUp')}],
-    // Tracking lost long enough to hide the arrows.
-    [ready && (s.trackingState === 'LOST' || (s.tracking && s.tracking !== 'NORMAL' && s.arrowsShown === false)), {key: 'tracking', icon: 'alert', text: t('status.tracking')}],
+    // Coaching (item 1): tracking not normal yet, or the floor not found yet, or tracking lost
+    // long enough to hide the arrows: one line, nothing drawn on the ground until it is.
+    [ready && (s.coaching || s.trackingState === 'LOST' || (s.tracking && s.tracking !== 'NORMAL' && s.arrowsShown === false)), {key: 'tracking', icon: 'camera', text: t('status.pointAtPath')}],
     // Group B: the walk has not matched the route for 10 s: the arrows may be off.
     [ready && s.offerRealign, {key: 'realign', icon: 'drag', text: t('status.realign')}],
     [ready && s.positionUncertain, {key: 'position', icon: 'compass', text: positionHint(s)}],

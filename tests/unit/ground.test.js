@@ -159,11 +159,11 @@ describe('the floor finder', () => {
     expect(floorFromHits(features).height).toBeCloseTo(0.4, 6)
   })
 
-  it('starts at the fallback, eases to the found floor, never more than 5 cm a frame', () => {
+  it('starts at the engine ground (y = 0), eases to the found floor, never more than 5 cm a frame', () => {
     const f = createFloorFinder()
     let r = f.update(0.016, cam, 0)
     expect(r).toMatchObject({source: 'fallback', found: false})
-    expect(r.height).toBeCloseTo(1.5 - GROUND.defaultEyeM, 6)
+    expect(r.height).toBeCloseTo(GROUND.engineGroundY, 6)
     for (const h of floorHits(-0.2, 10)) f.addHit(h, 'DETECTED_SURFACE', cam, 0.1)
     let last = r.height
     for (let i = 0; i < 40; i++) {

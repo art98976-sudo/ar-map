@@ -385,7 +385,7 @@ export default {
   'ar.followMapLeft': 'Follow the map · {distance}',
   'status.headDown': 'Look up. Watch where you’re walking',
   'status.lookUp': 'Look up while you walk',
-  'status.tracking': 'Tracking lost. Move slowly',
+  'status.pointAtPath': 'Point your phone at the path ahead',
   'status.realign': 'Arrows off the path? Tap Re-align',
   'status.reanchor': 'Lost? Tap I\'m here',
   'status.compass': 'Wave your phone in a figure-8',

@@ -349,7 +349,11 @@ export const GROUND = {
   maxSlope: 0.18,
   minSpanM: 3, // along the route, before believing any slope
   nearUserM: 4, // hits this close teach the height of the phone above the ground
-  defaultEyeM: 1.4, // with no floor found yet, the floor is this far below the phone (adjustable in debug)
+  defaultEyeM: 1.4, // desktop test mode only: the floor this far below the webcam (adjustable in debug)
+  // The AR engine's own ground: with 'absolute' scale, 8th Wall puts the ground plane at y = 0
+  // (engine.js). Before the camera has confirmed the floor, nothing is drawn; the floor it finds
+  // (hit tests on the ground plane and on real surfaces) then refines this height.
+  engineGroundY: 0,
   eyeStepM: 0.05, // one tap of the debug floor buttons
   // The floor finder (arrows): fast, median of a flat cluster of hits.
   floorMinDropM: 0.5, // a floor hit is this far below the phone...

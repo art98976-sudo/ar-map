@@ -138,7 +138,7 @@ export function floorFromHits(hits) {
  * The floor the arrows lie on. Hits come in from hit tests; a tap on the floor overrides them
  * until tracking resets (clear()). update() gives the height to draw at, eased (about 0.3 s)
  * and never moving more than GROUND.floorMaxStepM in one frame.
- *   source: 'tap' | 'hits' | 'fallback' (phone height minus the eye height, before any floor)
+ *   source: 'tap' | 'hits' | 'fallback' (the engine's ground plane, y = 0, before any floor)
  */
 export function createFloorFinder() {
   let hits = []
@@ -180,7 +180,7 @@ export function createFloorFinder() {
         target = fit.height
         source = 'hits'
       } else {
-        target = camera.y - GROUND.defaultEyeM
+        target = GROUND.engineGroundY // the engine's ground plane, until the camera confirms a floor
         source = 'fallback'
       }
       if (shown == null) shown = target

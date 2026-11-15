@@ -410,7 +410,7 @@ export const STRINGS = {
   'ar.followMapLeft': '请按地图走 · {distance}',
   'status.headDown': '请抬头，注意脚下',
   'status.lookUp': '走路时请抬头',
-  'status.tracking': '跟踪丢失，请慢慢移动',
+  'status.pointAtPath': '请将手机对准前方的路面',
   'status.realign': '箭头偏离路面？点按“重新对齐”',
   'status.reanchor': '迷路了？点按“我在这里”',
   'status.compass': '请将手机按“8”字形挥动',
