@@ -9,6 +9,10 @@
   right: calc(var(--safe-right) + var(--side));
   z-index: 4;
 }
+/* The open menu sits above the place card and the sheet (a longer menu since item 13). */
+.map-home__top.is-menu-open {
+  z-index: 8;
+}
 .map-search {
   display: flex;
   align-items: center;
@@ -22,7 +26,7 @@
   box-shadow: var(--shadow);
   color: var(--c-text-2);
   font: var(--fw-regular) var(--fs-body) / 1 var(--font);
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 .map-search .icon {
@@ -62,7 +66,7 @@
 .map-rail {
   position: absolute;
   z-index: 3;
-  right: calc(var(--safe-right) + var(--side));
+  inset-inline-end: calc(var(--safe-right) + var(--side));
   /* Centred in the map that shows between the search bar and the sheet. */
   top: calc((var(--safe-top) + var(--bar) + var(--sp-2) + 100% - var(--sheet-px, 120px)) / 2);
   transform: translateY(-50%);
@@ -207,7 +211,8 @@
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  padding: 0 var(--sp-2) var(--sp-2) var(--side);
+  padding-block: 0 var(--sp-2);
+  padding-inline: var(--side) var(--sp-2);
 }
 .quick-chips {
   display: flex;
@@ -229,7 +234,8 @@
   align-items: center;
   gap: var(--sp-2);
   height: var(--tap);
-  padding: 0 var(--sp-4) 0 var(--sp-3);
+  padding-block: 0;
+  padding-inline: var(--sp-3) var(--sp-4);
   border: 1px solid var(--c-border);
   border-radius: var(--radius-round);
   background: var(--c-surface);
@@ -253,7 +259,7 @@
 /* The one small menu: about and privacy. */
 .home-menu {
   position: absolute;
-  right: var(--sp-2);
+  inset-inline-end: var(--sp-2);
   bottom: calc(100% + var(--sp-2));
   min-width: 200px;
   padding: var(--sp-1);
@@ -273,7 +279,7 @@
   background: transparent;
   color: var(--c-text);
   font: var(--fw-regular) var(--fs-body) / 1.2 var(--font);
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 .home-menu__item:hover,
@@ -318,7 +324,7 @@
   background: transparent;
   color: var(--c-text);
   font: var(--fw-regular) var(--fs-body) / 1.3 var(--font);
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 .place-row:active {
@@ -389,7 +395,7 @@
   border-radius: var(--radius);
 }
 .skeleton__rail {
-  right: var(--side);
+  inset-inline-end: var(--side);
   top: 40%;
   width: var(--tap);
   height: 132px;
@@ -408,7 +414,8 @@
   display: inline-block;
   width: 96px;
   height: var(--tap);
-  margin: 36px 0 0 var(--side);
+  margin-block: 36px 0;
+  margin-inline: var(--side) 0;
   border-radius: var(--radius-round);
 }
 @media (prefers-reduced-motion: no-preference) {
@@ -597,7 +604,7 @@
   font: inherit;
   font-size: var(--fs-body);
   color: var(--c-text-2);
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 .route-options__from {
@@ -701,9 +708,13 @@
 .map-home__top .home-menu {
   top: calc(100% + var(--sp-2));
   bottom: auto;
-  right: 0;
+  inset-inline-end: 0;
   z-index: 5;
   min-width: 230px;
+  /* A short screen (a phone on its side): the menu scrolls instead of running off it. */
+  max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 88px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .home-menu__floors:empty {
   display: none;
@@ -723,9 +734,9 @@
   gap: var(--sp-3);
 }
 .home-menu__floors::before {
-  content: 'Floor';
+  content: attr(aria-label); /* "Floor", in the language in use (item 13) */
   flex: none;
-  padding-left: var(--sp-2);
+  padding-inline-start: var(--sp-2);
   color: var(--c-text-2);
   font-size: var(--fs-body);
 }
@@ -810,7 +821,7 @@
   background: none;
   color: var(--c-text);
   font: inherit;
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 .home-rest__row svg {
@@ -827,7 +838,7 @@
 }
 .home-rest {
   flex-basis: 100%;
-  padding-right: var(--side);
+  padding-inline-end: var(--side);
 }
 
 /* Item 2: the next turn and the list of every step, at the bottom of the map trip. */
@@ -848,7 +859,8 @@
   display: flex;
   gap: 12px;
   align-items: center;
-  padding: 12px 12px 12px 16px;
+  padding-block: 12px;
+  padding-inline: 16px 12px;
 }
 .map-trip__icon {
   display: grid;
@@ -961,7 +973,7 @@
   background: transparent;
   color: inherit;
   font: inherit;
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 .map-trip__step-btn[aria-pressed='true'] {
@@ -1008,7 +1020,7 @@
 }
 .home-menu__theme[aria-checked='true']::after {
   content: '✓';
-  margin-left: auto;
+  margin-inline-start: auto;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) .map-home .mapboxgl-canvas {

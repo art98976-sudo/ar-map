@@ -29,14 +29,15 @@
 }
 .dsearch__icon {
   position: absolute;
-  left: 16px;
+  inset-inline-start: 16px;
   color: var(--green-02);
   pointer-events: none;
 }
 .dsearch__input {
   width: 100%;
   min-height: 56px;
-  padding: 0 52px 0 50px;
+  padding-block: 0;
+  padding-inline: 50px 52px;
   border: 0;
   border-radius: var(--r-pill);
   background: var(--surface);
@@ -64,7 +65,7 @@
 }
 .dsearch__clear {
   position: absolute;
-  right: 6px;
+  inset-inline-end: 6px;
   display: grid;
   place-items: center;
   width: var(--tap);
@@ -292,7 +293,8 @@
   gap: var(--s-3);
   width: 100%;
   margin-bottom: var(--s-6);
-  padding: var(--s-3) var(--s-3) var(--s-3) var(--s-4);
+  padding-block: var(--s-3);
+  padding-inline: var(--s-4) var(--s-3);
   border-radius: var(--r-md);
   background: var(--surface);
   box-shadow: var(--shadow-1);

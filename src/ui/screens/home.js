@@ -146,6 +146,7 @@ export function homeScreen(root, {navigate, params, refresh = () => {}}) {
   const menuButton = root.querySelector('[data-action="open-menu"]')
   function setMenu(open) {
     menu.hidden = !open
+    menuButton.closest('.map-home__top')?.classList.toggle('is-menu-open', open)
     menuButton.setAttribute('aria-expanded', String(open))
     if (open) [...menu.querySelectorAll('[role^="menuitem"]')].find((el) => !el.hidden)?.focus({preventScroll: true})
   }

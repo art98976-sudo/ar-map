@@ -224,7 +224,7 @@
   border: 1px solid var(--line, rgba(0, 0, 0, 0.12));
   border-radius: var(--r-md);
   background: var(--surface);
-  text-align: left;
+  text-align: start;
 }
 .handoff__code {
   flex: none;
@@ -328,4 +328,15 @@
 }
 .map-trip__entrance {
   padding: 0 16px 12px;
+}
+
+/* Item 13: right to left (Arabic). The layout mirrors through logical properties; "go on" chevrons
+   point the other way. Turn arrows (left, right) and the AR arrows never flip: left is still left. */
+[dir='rtl'] .dsearch__chev,
+[dir='rtl'] .route-from__row > .icon,
+[dir='rtl'] .route-options__chev {
+  transform: scaleX(-1);
+}
+[dir='rtl'] .route-options[aria-expanded='true'] .route-options__chev {
+  transform: rotate(90deg);
 }
