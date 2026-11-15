@@ -1,6 +1,7 @@
 import {describe, expect, it, vi} from 'vitest'
 import {createVoice, pickVoice, speechSupported, voiceOn} from '../../src/ui/voice.js'
 import {createTurnAnnouncer} from '../../src/route/trip-steps.js'
+import {setLocale} from '../../src/i18n/i18n.js'
 
 // Item 3: spoken directions. Off by default, remembered, never over itself, quiet when hidden.
 function memoryStorage(initial = {}) {
@@ -18,6 +19,26 @@ function fakeSpeech() {
 const doc = (hidden = false) => ({hidden, addEventListener: vi.fn(), removeEventListener: vi.fn()})
 
 describe('voice', () => {
+  it('item 13: speaks the language in use, in a voice for it (es-ES, zh-CN, ar-SA)', async () => {
+    const pick = (want) => pickVoice([{lang: 'en-GB'}, {lang: 'es-MX', name: 'Paulina'}, {lang: 'es-ES', name: 'Mónica', localService: true}, {lang: 'zh_CN', name: 'Tingting'}], want)
+    expect(pick('es-ES').name).toBe('Mónica')
+    expect(pick('zh-CN').name).toBe('Tingting')
+    expect(pick('ar-SA')).toBeNull() // none on this phone: the browser picks from utterance.lang
+    const {win} = fakeSpeech()
+    const said = []
+    win.speechSynthesis.speak = (u) => said.push(u)
+    const voice = createVoice({win, doc: doc(), storage: memoryStorage({'welcomeAR.voice.v1': '1'})})
+    try {
+      await setLocale('es', {save: false})
+      voice.say('Gira a la izquierda')
+      expect(said[0].lang).toBe('es-ES')
+      voice.set(true)
+      expect(said[1].text).toBe('Indicaciones habladas activadas')
+    } finally {
+      await setLocale('en-GB', {save: false})
+    }
+  })
+
   it('is off by default and remembers the switch', () => {
     const storage = memoryStorage()
     expect(voiceOn(storage)).toBe(false)
