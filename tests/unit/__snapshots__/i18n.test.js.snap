@@ -1,0 +1,61 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`turn directions read naturally in each language (Pathfoot to the Library) > ar: the step list, a banner and what is said 1`] = `
+{
+  "banner": "بعد ⁨25 م⁩، انعطف يمينًا عند ⁨Pathfoot Building⁩، ثم يسارًا بعد ⁨20 م⁩ إلى ⁨Pathfoot Road⁩",
+  "list": [
+    "انعطف يمينًا عند ⁨Pathfoot Building⁩، ثم يسارًا بعد ⁨20 م⁩ إلى ⁨Pathfoot Road⁩ · ⁨25 م⁩",
+    "(اتبع ⁨Pathfoot Road⁩) انعطف يمينًا، ثم يسارًا بعد ⁨35 م⁩ إلى الممر بجانب ⁨University Road West⁩ · ⁨130 م⁩",
+    "(اتبع الممر بجانب ⁨University Road West⁩، مرورًا بجانب ⁨Airthrey Loch⁩) انعطف يمينًا، ثم يمينًا مرة أخرى بعد ⁨30 م⁩ · ⁨405 م⁩",
+    "انعطف يسارًا، ثم يسارًا مرة أخرى عند ⁨The Bite⁩ بعد ⁨25 م⁩ · ⁨30 م⁩",
+    "الوصول إلى ⁨Library entrance⁩ · ⁨60 م⁩",
+  ],
+  "now": "انعطف يمينًا الآن عند ⁨Pathfoot Building⁩، ثم يسارًا بعد ⁨20 م⁩ إلى ⁨Pathfoot Road⁩",
+  "spoken": "اتبع ⁨Pathfoot Road⁩. بعد ⁨130 م⁩، انعطف يمينًا، ثم يسارًا بعد ⁨35 م⁩ إلى الممر بجانب ⁨University Road West⁩",
+}
+`;
+
+exports[`turn directions read naturally in each language (Pathfoot to the Library) > en-GB: the step list, a banner and what is said 1`] = `
+{
+  "banner": "In 25 m, turn right at the Pathfoot Building, then left 20 m later onto Pathfoot Road",
+  "list": [
+    "Turn right at the Pathfoot Building, then left 20 m later onto Pathfoot Road · 25 m",
+    "(Follow Pathfoot Road) Turn right, then left 35 m later onto the path beside University Road West · 130 m",
+    "(Follow the path beside University Road West, past Airthrey Loch) Turn right, then right again 30 m later · 405 m",
+    "Turn left, then left again at the Bite 25 m later · 30 m",
+    "Arrive at Library entrance · 60 m",
+  ],
+  "now": "Turn right now at the Pathfoot Building, then left 20 m later onto Pathfoot Road",
+  "spoken": "Follow Pathfoot Road. In 130 m, turn right, then left 35 m later onto the path beside University Road West",
+}
+`;
+
+exports[`turn directions read naturally in each language (Pathfoot to the Library) > es: the step list, a banner and what is said 1`] = `
+{
+  "banner": "En 25 m, gira a la derecha en Pathfoot Building, y 20 m después, a la izquierda por Pathfoot Road",
+  "list": [
+    "Gira a la derecha en Pathfoot Building, y 20 m después, a la izquierda por Pathfoot Road · 25 m",
+    "(Sigue por Pathfoot Road) Gira a la derecha, y 35 m después, a la izquierda por el camino junto a University Road West · 130 m",
+    "(Sigue el camino junto a University Road West, pasando junto a Airthrey Loch) Gira a la derecha, y 30 m después, otra vez a la derecha · 405 m",
+    "Gira a la izquierda, y 25 m después, otra vez a la izquierda en The Bite · 30 m",
+    "Llega a Library entrance · 60 m",
+  ],
+  "now": "Gira ahora a la derecha en Pathfoot Building, y 20 m después, a la izquierda por Pathfoot Road",
+  "spoken": "Sigue por Pathfoot Road. En 130 m, gira a la derecha, y 35 m después, a la izquierda por el camino junto a University Road West",
+}
+`;
+
+exports[`turn directions read naturally in each language (Pathfoot to the Library) > zh-Hans: the step list, a banner and what is said 1`] = `
+{
+  "banner": "前方 25 米，在 Pathfoot Building 处右转，走 20 米后再左转，进入 Pathfoot Road",
+  "list": [
+    "在 Pathfoot Building 处右转，走 20 米后再左转，进入 Pathfoot Road · 25 米",
+    "(沿 Pathfoot Road 走) 右转，走 35 米后再左转，进入 University Road West 旁边的小路 · 130 米",
+    "(沿 University Road West 旁边的小路走，途经 Airthrey Loch) 右转，走 30 米后再次右转 · 405 米",
+    "左转，走 25 米后在 The Bite 处再次左转 · 30 米",
+    "到达 Library entrance · 60 米",
+  ],
+  "now": "在 Pathfoot Building 处立即右转，走 20 米后再左转，进入 Pathfoot Road",
+  "spoken": "沿 Pathfoot Road 走。前方 130 米，右转，走 35 米后再左转，进入 University Road West 旁边的小路",
+}
+`;

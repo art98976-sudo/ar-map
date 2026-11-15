@@ -63,12 +63,16 @@ export function formatNumber(value, {decimals} = {}) {
   return numbers.format(value)
 }
 
+// Right to left: a filled-in name (English, left to right) goes in Unicode isolates (FSI ... PDI), so
+// "Library entrance." never comes out as ".Library entrance" inside an Arabic sentence.
+const isolate = (text) => (current.dir === 'rtl' && /[A-Za-z]/.test(text) ? `\u2068${text}\u2069` : text)
+
 function fill(text, params) {
   if (!params) return text
   return text.replace(/\{(\w+)\}/g, (whole, name) => {
     if (!(name in params)) return whole
     const v = params[name]
-    return typeof v === 'number' ? formatNumber(v) : String(v ?? '')
+    return typeof v === 'number' ? formatNumber(v) : isolate(String(v ?? ''))
   })
 }
 
