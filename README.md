@@ -171,9 +171,42 @@ Walk the three routes on [docs/field-test-sheet.md](docs/field-test-sheet.md) wi
 
 Trips started, AR started, line-up confirmed, arrived, ended early, tracking lost and re-routed, with phone and browser type only. To switch counting on, connect Upstash Redis in Vercel (Storage → Upstash, which sets `KV_REST_API_URL` and `KV_REST_API_TOKEN`) and set `STATS_PASSCODE`. Without them the counts are dropped and /#/stats says so.
 
+## Languages
+
+The menu (⋯ on the map) has a **Language** choice: English (en-GB, the source), 简体中文 (Simplified
+Chinese), العربية (Arabic, right to left) and Español (Spanish). The choice is kept in this browser
+only (localStorage `welcomeAR.locale.v1`); nothing is sent anywhere. English is the default; the
+phone's own language is not used to pick one while the translations are drafts.
+
+> **The Chinese, Arabic and Spanish texts are DRAFTS.** They must be reviewed by a native speaker
+> before release, ideally a student who uses the app on campus. Each translated About sheet says so.
+> Points to check: the turn wording read aloud (spoken directions), the Arabic plural forms, the
+> iPhone and Android settings names in the help steps, and whether Arabic should use Arabic-Indic
+> digits (it uses Western digits now, to match room numbers like 2B87 and the campus signs).
+
+- **How it works:** `src/i18n/i18n.js` holds `t(key, params)`. Every interface text is a key in
+  `src/i18n/en-GB.js` (British English, in the main bundle). Each other language is one file in
+  `src/i18n/locales/`, loaded only when chosen (its own chunk, about 8 kB gzipped) and then kept
+  offline by the service worker. A key a translation lacks falls back to en-GB.
+- **Turn directions** are not English fragments joined together: each language has its own sentence
+  templates (`DIRECTIONS` in its file; English in `src/i18n/directions-en.js`) for the banner, the
+  step list, the stretch details and what is spoken. Spoken directions use a voice for the language
+  (en-GB, zh-CN, ar-SA, es-ES) where the phone has one.
+- **Place names stay in English** (buildings, roads, rooms, entrances), as on the signs. In Arabic
+  they are wrapped in Unicode isolates so they read the right way round inside a sentence.
+- **Right to left:** Arabic sets `dir="rtl"` on the page; the layout mirrors through CSS logical
+  properties. The map, the AR arrows and the turn icons do not flip.
+- **Stays English on purpose:** the developer tools (`?debug`, `?simulate`, `?fieldtest`), the
+  staff pages (/#/stats, /#/qr), the printed A5 signs and the licence notices in About.
+- **Adding a language:** copy `src/i18n/locales/es.js`, translate `STRINGS` and write its
+  `DIRECTIONS`, add it to `LOCALES` and `LOADERS` in `src/i18n/i18n.js`. `tests/unit/i18n.test.js`
+  checks that it has every key with the same `{placeholders}`.
+- **Checking by hand:** on iPhone Safari and Android Chrome, open the map, tap ⋯, choose a language.
+  The menu, the place card, Go (the map trip or AR) and the spoken directions should all follow it.
+
 ## Privacy
 
-The camera feed is processed on the phone and is never uploaded. No sign-in and no personal data.
+The camera feed is processed on the phone and is never uploaded. No sign-in and no personal data. The chosen language is kept in this browser only.
 
 ## /premium (redesign in progress)
 
