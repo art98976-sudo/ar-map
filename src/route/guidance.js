@@ -3,15 +3,11 @@
 // noise cannot reach them.
 import {findTurns, pointAt, polylineLength, projectOntoPolyline, toLocal} from '../geo/geo.js'
 import {GUIDE} from '../config.js'
+import {getDirections} from '../i18n/i18n.js'
+import {landmarkPhrase} from '../i18n/directions-en.js'
 
-// Names that read wrongly after "the": "Turn left at Scran", not "at the Scran".
-const NO_ARTICLE = new Set(['Campus Central', 'Andrew Stewart Hall', 'Airthrey Loch', 'Airthrey Castle', 'Scran', 'Umami', 'Starbucks'])
-
-/** "the Atrium", "the Bite", "Scran". */
-export function landmarkPhrase(name) {
-  if (NO_ARTICLE.has(name)) return name
-  return name.startsWith('The ') ? `the ${name.slice(4)}` : `the ${name}`
-}
+// "the Atrium", "Scran": the English phrasing lives with the English directions (item 13).
+export {landmarkPhrase}
 
 /** Places in the route frame, each measured from its centre and its entrance. */
 export function landmarksFrom(destinations, origin, excludeId = null) {
@@ -78,22 +74,15 @@ export function buildManoeuvres(route) {
 }
 
 /** Metres for a person to read: exact when close, to the nearest 5 m further off, km far off. */
-export function roundDistance(metres) {
-  if (metres >= 1000) return `${(metres / 1000).toFixed(1)} km`
-  return `${metres <= 20 ? Math.round(metres) : Math.round(metres / 5) * 5} m`
-}
-
-const TURN_WORDS = {left: 'Turn left', right: 'Turn right', 'slight-left': 'Bear left', 'slight-right': 'Bear right'}
+export const roundDistance = (metres) => getDirections().distance(metres)
 
 /** "Turn left at the Atrium · 12 m", "Turn left in 12 m", "Continue past the Library · 40 m". */
 export function instructionFor(manoeuvre, distanceM, arriveLabel = 'Destination', past = null) {
   const away = roundDistance(distanceM)
-  if (distanceM > GUIDE.announceM) return past ? `Continue past ${landmarkPhrase(past)} · ${away}` : `Continue straight ${away}`
-  if (manoeuvre.type === 'arrive') return `${arriveLabel} in ${away}`
-  const words = TURN_WORDS[manoeuvre.type]
-  const now = distanceM < GUIDE.nowM
-  if (manoeuvre.landmark) return `${words} at ${landmarkPhrase(manoeuvre.landmark)} · ${now ? 'now' : away}`
-  return now ? `${words} now` : `${words} in ${away}`
+  const say = getDirections().arCard
+  if (distanceM > GUIDE.announceM) return past ? say({kind: 'past', place: past, away}) : say({kind: 'continue', away})
+  if (manoeuvre.type === 'arrive') return say({kind: 'arrive', label: arriveLabel, away})
+  return say({kind: 'turn', type: manoeuvre.type, landmark: manoeuvre.landmark ?? null, away, now: distanceM < GUIDE.nowM})
 }
 
 /** What to read aloud: the step without its distance, so a screen reader speaks once per step. */
@@ -156,7 +145,7 @@ export function createGuidance(route, {arriveLabel = 'Destination', landmarks = 
       const nextIndex = manoeuvres.indexOf(getNextManoeuvre(userS))
       return manoeuvres.map((m, i) => ({
         icon: stepIcon(m, 0),
-        text: m.type === 'arrive' ? arriveLabel : m.landmark ? `${TURN_WORDS[m.type]} at ${landmarkPhrase(m.landmark)}` : TURN_WORDS[m.type],
+        text: m.type === 'arrive' ? arriveLabel : getDirections().arStep(m.type, m.landmark ?? null),
         distanceM: m.s - (i ? manoeuvres[i - 1].s : 0),
         done: i < nextIndex,
         current: i === nextIndex,

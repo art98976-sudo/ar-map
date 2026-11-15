@@ -2,9 +2,11 @@
 // Cottrell Building") and the list of every step, from the route's own shape (guidance.js) and the
 // campus places near each corner. Works from GPS when the walker is on the route, and with no GPS
 // at all (a laptop) as the first step and a static list. Pure: no map, no DOM.
-import {createGuidance, landmarkPhrase, landmarksFrom, roundDistance} from './guidance.js'
+import {createGuidance, landmarksFrom, roundDistance} from './guidance.js'
 import {fromLocal, pointAt, polylineLength, projectOntoPolyline, toLocal} from '../geo/geo.js'
 import {GUIDE} from '../config.js'
+import {getDirections} from '../i18n/i18n.js'
+import {EN_DIRECTIONS} from '../i18n/directions-en.js'
 
 export const NEAR_M = 15 // spoken directions: within this of a turn, "Turn left now"
 
@@ -179,7 +181,9 @@ export function describeSteps(steps, route, seen, d = DESCRIBE) {
       const ahead = samples(route, after + 5, Math.min(nextS, after + d.ontoLookM))
       const road = roadAlong(ahead, seen, d.ontoNearM, d.ontoShare)
       const beside = road ? null : roadAlong(ahead, seen, d.besideRoadM, d.ontoShare)
-      step.onto = road ?? (beside ? `the path beside ${beside}` : null)
+      // Item 13: kept as parts, so each language words it its own way; `onto` is the English.
+      step.ontoInfo = road ? {road, beside: false} : beside ? {road: beside, beside: true} : null
+      step.onto = EN_DIRECTIONS.onto(step.ontoInfo)
       if (!step.landmark && !step.onto) {
         const probe = pointAt(route, Math.min(nextS, after + d.towardsAheadM))
         const ahead = buildings.map((a) => ({a, ...toArea(probe, a.ring)})).filter((x) => x.d <= d.towardsNearM).sort((x, y) => x.d - y.d)[0]
@@ -193,10 +197,10 @@ export function describeSteps(steps, route, seen, d = DESCRIBE) {
       const loch = water.find((w) => pts.filter((p) => toArea(p, w.ring).d <= d.besideWaterM).length * 5 >= d.besideWaterLenM) // samples are 5 m apart
       const onRoad = roadAlong(pts, seen, d.ontoNearM, d.followShare)
       const byRoad = onRoad ? null : roadAlong(pts, seen, d.besideRoadM, d.followShare)
-      const past = loch ? `, past ${landmarkPhrase(loch.name)}` : ''
-      if (onRoad) step.detail = `Follow ${onRoad}${past}`
-      else if (byRoad) step.detail = `Follow the path beside ${byRoad}${past}`
-      else if (loch) step.detail = `Follow the path beside ${landmarkPhrase(loch.name)}`
+      const lochName = loch?.name ?? null
+      if (onRoad) step.detailInfo = {kind: 'follow', road: onRoad, beside: false, water: lochName}
+      else if (byRoad) step.detailInfo = {kind: 'follow', road: byRoad, beside: true, water: lochName}
+      else if (loch) step.detailInfo = {kind: 'water', water: lochName}
       else {
         // The building the stretch passes closest to, and on which side.
         let pass = null
@@ -210,26 +214,20 @@ export function describeSteps(steps, route, seen, d = DESCRIBE) {
           const dir = {x: pass.to.x - pass.from.x, y: pass.to.y - pass.from.y}
           const toIt = {x: pass.at.x - pass.from.x, y: pass.at.y - pass.from.y}
           const side = dir.x * toIt.y - dir.y * toIt.x > 0 ? 'left' : 'right'
-          step.detail = `Pass ${landmarkPhrase(pass.a.name)} on your ${side}`
+          step.detailInfo = {kind: 'pass', building: pass.a.name, side}
         }
       }
+      if (step.detailInfo) step.detail = EN_DIRECTIONS.detail(step.detailInfo) // the English, as before
     }
     prevEnd = step.endS ?? step.s
   })
   return steps
 }
 
-const VERB = {left: 'turn left', right: 'turn right', 'slight-left': 'bear left', 'slight-right': 'bear right'}
-const THEN = {left: 'left', right: 'right', 'slight-left': 'bear left', 'slight-right': 'bear right'}
-const capital = (text) => text.charAt(0).toUpperCase() + text.slice(1)
-const at = (m) =>
-  (m?.landmark ? ` at ${landmarkPhrase(m.landmark)}` : '') + (m?.onto && !m.then ? ` onto ${m.onto}` : '') + (m?.towards && !m.then ? ` towards ${landmarkPhrase(m.towards)}` : '')
-/** ", then left 20 m later" for a step of two turns. */
-const thenPart = (m) => {
-  if (!m.then) return ''
-  const again = m.then.type === m.type ? ' again' : '' // "then right again"
-  return `, then ${THEN[m.then.type]}${again}${at(m.then)} ${roundDistance(m.then.gapM)} later${m.onto ? ` onto ${m.onto}` : ''}${m.towards ? ` towards ${landmarkPhrase(m.towards)}` : ''}`
-}
+// Item 13: the words come from the language's own templates (src/i18n/directions-en.js and
+// src/i18n/locales/*.js), never English fragments joined together.
+/** A manoeuvre with its road as parts (a hand-made one may only say `onto`, in English). */
+const withParts = (m) => (m.ontoInfo || !m.onto ? m : {...m, ontoInfo: {road: m.onto, beside: false}})
 
 /**
  * The banner for the next manoeuvre, distanceM ahead:
@@ -238,16 +236,19 @@ const thenPart = (m) => {
  *   "Turn left now at the Atrium" (within GUIDE.hapticM), "In 40 m, arrive at Library entrance".
  */
 export function turnBanner(manoeuvre, distanceM, arriveLabel) {
-  if (manoeuvre.type === 'arrive') return distanceM <= GUIDE.hapticM ? `You’ve arrived at ${arriveLabel}` : `In ${roundDistance(distanceM)}, arrive at ${arriveLabel}`
-  const verb = VERB[manoeuvre.type] ?? 'continue'
-  if (distanceM <= GUIDE.hapticM) return `${capital(verb)} now${at(manoeuvre)}${thenPart(manoeuvre)}`
-  return `In ${roundDistance(distanceM)}, ${verb}${at(manoeuvre)}${thenPart(manoeuvre)}`
+  const away = distanceM <= GUIDE.hapticM ? null : roundDistance(distanceM)
+  return getDirections().banner(withParts(manoeuvre), away, arriveLabel)
 }
 
 /** One line of the step list: "Turn left at the Atrium", "Turn right, then left 35 m later". */
 export function stepLine(manoeuvre, arriveLabel) {
-  if (manoeuvre.type === 'arrive') return `Arrive at ${arriveLabel}`
-  return `${capital(VERB[manoeuvre.type] ?? 'continue')}${at(manoeuvre)}${thenPart(manoeuvre)}`
+  return getDirections().stepLine(withParts(manoeuvre), arriveLabel)
+}
+
+/** What a long stretch before a step passes, in the current language, or null. */
+export function detailText(manoeuvre) {
+  if (!manoeuvre?.detailInfo) return manoeuvre?.detail ?? null
+  return getDirections().detail(manoeuvre.detailInfo)
 }
 
 /**
@@ -290,7 +291,7 @@ export function createTripSteps(route, {arriveLabel, destinations = [], destinat
       const second = step.then && userS > step.s + GUIDE.passedM
       const next = second ? step.then : step
       const distanceM = Math.max(0, next.s - userS)
-      return {icon: next.type === 'arrive' ? 'arrive' : next.type, text: turnBanner(next, distanceM, arriveLabel), detail: second ? null : (step.detail ?? null), type: next.type, distanceM, manoeuvre: next, index}
+      return {icon: next.type === 'arrive' ? 'arrive' : next.type, text: turnBanner(next, distanceM, arriveLabel), detail: second ? null : detailText(step), type: next.type, distanceM, manoeuvre: next, index}
     },
     /**
      * Item 3: the stretch of route a step covers (from the step before to its last turn), as
@@ -312,7 +313,7 @@ export function createTripSteps(route, {arriveLabel, destinations = [], destinat
       return manoeuvres.map((m, i) => ({
         icon: m.type === 'arrive' ? 'arrive' : m.type,
         text: stepLine(m, arriveLabel),
-        detail: m.detail ?? null, // what the stretch before it passes ("Follow the path beside Airthrey Loch")
+        detail: detailText(m), // what the stretch before it passes ("Follow the path beside Airthrey Loch")
         walkText: roundDistance(walk(i)),
         done: i < current,
         current: i === current,
@@ -347,7 +348,8 @@ export function createTurnAnnouncer({arriveLabel, nearM = NEAR_M}) {
       if (stage) return null
       said.set(manoeuvre, 'ahead')
       const words = turnBanner(manoeuvre, distanceM, arriveLabel)
-      return manoeuvre.detail ? `${manoeuvre.detail}. ${words}` : words
+      const detail = detailText(manoeuvre)
+      return detail ? getDirections().spoken(detail, words) : words
     },
   }
 }
