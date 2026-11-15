@@ -334,6 +334,7 @@
    point the other way. Turn arrows (left, right) and the AR arrows never flip: left is still left. */
 [dir='rtl'] .dsearch__chev,
 [dir='rtl'] .route-from__row > .icon,
+[dir='rtl'] .search-from__row > .icon,
 [dir='rtl'] .route-options__chev {
   transform: scaleX(-1);
 }

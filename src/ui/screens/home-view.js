@@ -19,9 +19,12 @@ export const homePage = () => html`
     <h1 class="sr-only" tabindex="-1">${t('home.heading')}</h1>
     <div class="map-home__map" data-map role="region" aria-label="${t('home.mapRegion')}"></div>
     <header class="map-home__top theme-auto">
+      <!-- One compact row: the search field, then Directions, Saved places and Menu. -->
       <button class="map-search" type="button" data-action="open-search" aria-label="${t('home.search')}">
-        ${icon('search', {size: 24})}<span>${t('home.search')}</span>
+        ${icon('search', {size: 22})}<span>${t('common.search')}</span>
       </button>
+      <button class="round-btn map-top-btn" type="button" data-action="open-directions" aria-label="${t('home.directions')}">${icon('directions')}</button>
+      <button class="round-btn map-top-btn" type="button" data-action="open-saved" aria-label="${t('home.saved')}">${icon('star')}</button>
       <!-- The menu: voice, theme, language and About. The map's own controls are in the rail. -->
       <button class="round-btn map-menu-btn" type="button" data-action="open-menu" aria-label="${t('home.menu')}" aria-haspopup="menu" aria-expanded="false">${icon('menu')}</button>
       <div class="home-menu" data-menu role="menu" hidden>
@@ -101,9 +104,17 @@ export const homePage = () => html`
 
     <div class="sheet theme-auto" data-search-sheet role="dialog" aria-modal="true" aria-labelledby="search-title" hidden>
       <header class="sheet__bar">
-        <h2 class="sheet__title" id="search-title">${t('search.title')}</h2>
+        <h2 class="sheet__title" id="search-title" tabindex="-1" data-search-title>${t('search.title')}</h2>
         <button class="icon-btn" type="button" data-action="close-sheets" aria-label="${t('search.close')}">${icon('close')}</button>
       </header>
+      <!-- Directions: where the walk starts, ready above the search for where it ends. -->
+      <div class="search-from" data-search-from hidden>
+        <button class="search-from__row" type="button" data-action="open-start">
+          <span class="route-from__label">${t('card.from')}</span>
+          <span class="route-from__value" data-search-from-text>${t('home.yourLocation')}</span>
+          ${icon('chevronRight', {size: 18})}
+        </button>
+      </div>
       <div data-search></div>
     </div>
 
@@ -298,7 +309,7 @@ export const restView = (recent, saved = []) => html`
   </div>
   ${saved.map(
     (g) => html`<section class="home-rest__recent" aria-label="${g.label}">
-        <h2 class="home-rest__title">${icon('star', {size: 16})}${g.label}</h2>
+        <h2 class="home-rest__title" tabindex="-1" data-saved-title>${icon('star', {size: 16})}${g.label}</h2>
         <ul class="home-rest__list">
           ${g.places.map((d) => html`<li><button class="home-rest__row" type="button" data-saved="${d.id}">${icon(iconFor(d), {size: 18})}<span>${d.name}</span></button></li>`)}
         </ul>

@@ -11,7 +11,9 @@ export function createSheets(root, sheets, behind, onHistoryChange) {
 
   function hide({restoreFocus = true} = {}) {
     if (!shown) return
-    const opener = root.querySelector(`[data-action="${sheets[shown].opener}"]`)
+    // opener: the action of the button that opened it, or a function naming it (one sheet, two openers).
+    const action = typeof sheets[shown].opener === 'function' ? sheets[shown].opener() : sheets[shown].opener
+    const opener = root.querySelector(`[data-action="${action}"]`)
     shown = null
     for (const sheet of Object.values(sheets)) sheet.element.hidden = true
     behind.forEach((el) => el.toggleAttribute('inert', false))

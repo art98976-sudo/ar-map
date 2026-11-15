@@ -109,6 +109,19 @@ export function homeScreen(root, {navigate, params, refresh = () => {}}) {
     recent: {get: getRecentStarts, add: addRecentStart, clear: clearRecentStarts},
     onSelect: (place) => chooseStartPlace(placeById(place.id) ?? place),
   })
+  // The search sheet opens two ways: Search (where to), or Directions (the start row above it).
+  let searchMode = 'search'
+  let startFromDirections = false // the start sheet sits on top of the Directions search
+  function openSearchSheet(mode) {
+    searchMode = mode
+    const directions = mode === 'directions'
+    searchSheet.querySelector('[data-search-from]').hidden = !directions
+    searchSheet.querySelector('[data-search-title]').textContent = t(directions ? 'home.directions' : 'search.title')
+    paintStart()
+    sheets.open('search')
+    // Inside the tap, or iPhone will not open the keyboard.
+    search.focus()
+  }
   const search = createDestinationSearch(root.querySelector('[data-search]'), {
     label: t('search.destination'),
     onSelect: (dest) => {
@@ -120,7 +133,7 @@ export function homeScreen(root, {navigate, params, refresh = () => {}}) {
   const sheets = createSheets(
     root,
     {
-      search: {element: searchSheet, opener: 'open-search'},
+      search: {element: searchSheet, opener: () => (searchMode === 'directions' ? 'open-directions' : 'open-search')},
       info: {element: infoSheet, opener: 'open-info'},
       start: {element: startSheet, opener: 'open-start'},
     },
@@ -674,6 +687,8 @@ export function homeScreen(root, {navigate, params, refresh = () => {}}) {
     if (text) text.textContent = manual ? startLabel(start) : t('start.myLocation')
     const value = root.querySelector('[data-start-value]')
     if (value) value.textContent = manual ? startLabel(start) : gpsText()
+    const from = root.querySelector('[data-search-from-text]') // Directions: the start row
+    if (from) from.textContent = manual ? startLabel(start) : t('home.yourLocation')
     const prompt = root.querySelector('[data-start-prompt]')
     if (prompt) prompt.hidden = manual || !(trouble || fix?.accuracy > START.weakGpsM)
     const live = root.querySelector('[data-action="start-gps"][data-live]')
@@ -743,6 +758,8 @@ export function homeScreen(root, {navigate, params, refresh = () => {}}) {
   // ---------- pick on the map ----------
   function enterPick() {
     if (!instance?.map) return showToast(t('home.mapStillLoading'), {tone: 'warning'})
+    // From Directions the start sheet is on top of the search: close both, the map is needed.
+    if (startFromDirections && !startSheet.hidden) window.addEventListener('popstate', () => sheets.close({restoreFocus: false}), {once: true})
     sheets.close({restoreFocus: false})
     showDoors(null)
     card.hidden = true
@@ -944,7 +961,7 @@ export function homeScreen(root, {navigate, params, refresh = () => {}}) {
           labelBlockers = createLabelBlockers(instance.map, {
             host: root.querySelector('.map-home'),
             panels: [root.querySelector('[data-home-sheet]'), card, root.querySelector('[data-pick-bar]')],
-            overlays: ['.mapboxgl-ctrl-logo', '.mapboxgl-ctrl-attrib', '.mazemap-ctrl-logo-wrapper', '[data-rail]', '.map-search', '[data-action="open-menu"]'],
+            overlays: ['.mapboxgl-ctrl-logo', '.mapboxgl-ctrl-attrib', '.mazemap-ctrl-logo-wrapper', '[data-rail]', '.map-home__top'],
           })
           pins.addAll()
           fitControls()
@@ -987,12 +1004,26 @@ export function homeScreen(root, {navigate, params, refresh = () => {}}) {
       }
       navigate(`/indoor?to=${encodeURIComponent(selected.id)}`)
     },
-    'open-search': () => {
-      sheets.open('search')
-      // Inside the tap, or iPhone will not open the keyboard.
-      search.focus()
+    'open-search': () => openSearchSheet('search'),
+    'open-directions': () => openSearchSheet('directions'),
+    // Saved places: the sheet at half, on the saved groups; with none yet, how to save one.
+    'open-saved': () => {
+      if (!homeSheet.showSaved()) showToast(t('home.noSaved'), {duration: 5000})
     },
-    'open-start': () => openStartSheet(),
+    'open-start': (_, target) => {
+      // From the Directions row: once a start is chosen (or the sheet closed), back to the search.
+      startFromDirections = Boolean(target.closest('[data-search-from]'))
+      if (startFromDirections) {
+        window.addEventListener(
+          'popstate',
+          () => {
+            if (!disposed && !searchSheet.hidden) search.focus()
+          },
+          {once: true},
+        )
+      }
+      openStartSheet()
+    },
     'start-gps': () => {
       useStart(GPS_START)
       locationPermissionState().then((state) => {

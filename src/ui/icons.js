@@ -53,6 +53,8 @@ const PATHS = {
   home: '<path d="m3.5 11 8.5-7 8.5 7"/><path d="M5.5 9.5v10h13v-10M10 19.5v-5h4v5"/>',
   door: '<path d="M6 20.5V4.5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v16M4 20.5h16"/><path d="M14.5 12.5h.01"/>',
   dumbbell: '<path d="M6.5 7v10M17.5 7v10M3.5 9.5v5M20.5 9.5v5M6.5 12h11"/>',
+  // A road sign: a diamond with a turn arrow in it (Directions, at the top of the map).
+  directions: '<path d="M12 2.8 21.2 12 12 21.2 2.8 12z"/><path d="M9.5 15v-2.5a2 2 0 0 1 2-2H15M13 8.5l2 2-2 2"/>',
   star: '<path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>',
   clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   history: '<path d="M3.5 12a8.5 8.5 0 1 0 2.5-6L3.5 8.5"/><path d="M3.5 4v4.5H8M12 7.5V12l3 2"/>',

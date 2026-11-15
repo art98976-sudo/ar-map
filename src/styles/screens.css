@@ -438,7 +438,8 @@
   align-items: center;
   gap: var(--s-2);
 }
-.route-from__row {
+.route-from__row,
+.search-from__row {
   display: flex;
   flex: 1;
   align-items: center;

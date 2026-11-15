@@ -254,6 +254,17 @@ export function createHomeSheet(root, {getMap, getFrom, pins, onPick}) {
       return chip
     },
     setHeight,
+    /** Saved places (the top bar's star): the sheet at half, on the first saved group. False if none. */
+    showSaved() {
+      paintRest()
+      if (!saved.length) return false
+      if (chip) choose(chip) // a chip's list would sit between; put it away
+      setHeight('half')
+      const title = rest?.querySelector('[data-saved-title]')
+      title?.scrollIntoView?.({block: 'start'})
+      title?.focus({preventScroll: true})
+      return true
+    },
     /** The handle as a button: peek -> half -> full -> peek. */
     step() {
       setHeight(SHEET_HEIGHTS[(SHEET_HEIGHTS.indexOf(height) + 1) % SHEET_HEIGHTS.length])

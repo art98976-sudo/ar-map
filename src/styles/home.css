@@ -730,9 +730,28 @@
   flex: 1;
   min-width: 0;
 }
-.map-menu-btn {
+.map-menu-btn,
+.map-top-btn {
   flex: none;
   box-shadow: var(--shadow);
+}
+.map-top-btn .icon {
+  color: var(--c-primary);
+}
+/* Compact: the search field keeps at least its icon and word, the buttons sit close. */
+.map-home__top .map-search {
+  height: var(--tap);
+  padding: 0 var(--sp-3);
+  gap: var(--sp-2);
+  border-radius: var(--radius-round);
+}
+/* Directions: the start row above the search, as on the place card. */
+.search-from {
+  display: flex;
+  margin: 0 0 var(--sp-3);
+}
+.search-from[hidden] {
+  display: none;
 }
 .map-home__top .home-menu {
   top: calc(100% + var(--sp-2));

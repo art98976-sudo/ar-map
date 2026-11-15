@@ -72,6 +72,83 @@ test.describe('item 4: the map controls on the right edge', () => {
   })
 })
 
+test.describe('item 5: the top bar', () => {
+  test('search, Directions, Saved places and Menu in one compact row', async ({page}, testInfo) => {
+    phoneOnly(testInfo)
+    await page.setViewportSize({width: 390, height: 844})
+    await page.goto('/')
+    await mapReady(page)
+    const top = page.locator('.map-home__top')
+    const names = ['Search rooms, buildings, places', 'Directions', 'Saved places', 'Menu']
+    const boxes = []
+    for (const name of names) {
+      const button = top.getByRole('button', {name, exact: true})
+      await expect(button).toBeVisible()
+      boxes.push(await button.boundingBox())
+    }
+    // One row, left to right, inside the screen, no taller than a tap target.
+    for (const [i, b] of boxes.entries()) {
+      expect(b.height).toBeLessThanOrEqual(48)
+      expect(Math.abs(b.y + b.height / 2 - (boxes[0].y + boxes[0].height / 2))).toBeLessThan(2)
+      if (i) expect(b.x).toBeGreaterThan(boxes[i - 1].x)
+    }
+    expect(boxes[3].x + boxes[3].width).toBeLessThanOrEqual(390)
+  })
+
+  test('Directions: the search with the start row ready; choosing a start comes back to it', async ({page}, testInfo) => {
+    phoneOnly(testInfo)
+    await page.goto('/')
+    await mapReady(page)
+    await page.getByRole('button', {name: 'Directions', exact: true}).click()
+    const sheet = page.locator('[data-search-sheet]')
+    await expect(sheet.getByRole('heading', {name: 'Directions'})).toBeVisible()
+    await expect(sheet.locator('[data-search-from]')).toBeVisible()
+    await expect(sheet.locator('[data-search-from-text]')).toHaveText('Your location')
+    await expect(sheet.getByRole('combobox')).toBeFocused()
+
+    // Change the start: the start sheet, then back to the search with the new start shown.
+    await sheet.locator('[data-search-from] button').click()
+    const start = page.locator('[data-start-sheet]')
+    await expect(start).toBeVisible()
+    await start.getByRole('combobox').fill('Pathfoot')
+    await start.getByRole('option', {name: /Pathfoot/}).first().click()
+    const door = start.locator('[data-action="start-door"]').first()
+    if (await door.isVisible().catch(() => false)) await door.click()
+    await expect(sheet).toBeVisible()
+    await expect(sheet.locator('[data-search-from-text]')).toContainText('Pathfoot')
+    await expect(sheet.getByRole('combobox')).toBeFocused()
+
+    // Where to: the card, planned from that start.
+    await sheet.getByRole('combobox').fill('Library')
+    await sheet.getByRole('option', {name: /^Library/}).first().click()
+    await expect(page.locator('[data-card] [data-start-text]')).toContainText('Pathfoot')
+
+    // Plain Search has no start row.
+    await page.getByRole('button', {name: 'Close', exact: true}).first().click()
+    await page.getByRole('button', {name: 'Search rooms, buildings, places'}).click()
+    await expect(sheet.getByRole('heading', {name: 'Where do you want to go?'})).toBeVisible()
+    await expect(sheet.locator('[data-search-from]')).toBeHidden()
+  })
+
+  test('Saved places: says how to save one, then opens the sheet on them', async ({page}, testInfo) => {
+    phoneOnly(testInfo)
+    await page.goto('/')
+    await mapReady(page)
+    await page.getByRole('button', {name: 'Saved places', exact: true}).click()
+    await expect(page.getByText('No saved places yet. Open a place and tap the star to save it.')).toBeVisible()
+
+    await page.evaluate(() =>
+      localStorage.setItem('welcomeAR.saved.v1', JSON.stringify([{group: 'lectures', place: {id: 'cottrell', name: 'Cottrell Building', category: 'academic', lat: 56.1449, lng: -3.9203}}])),
+    )
+    await page.reload()
+    await mapReady(page)
+    await page.getByRole('button', {name: 'Saved places', exact: true}).click()
+    await expect(page.locator('[data-home-sheet]')).toHaveAttribute('data-height', 'half')
+    await expect(page.getByRole('heading', {name: 'My lectures'})).toBeFocused()
+    await expect(page.locator('[data-home-sheet]').getByRole('button', {name: 'Cottrell Building'})).toBeVisible()
+  })
+})
+
 test.describe('item 6: Walk with AR first on a phone that runs AR', () => {
   test('Android: Walk with AR is the primary button, Map directions starts the map trip', async ({page}, testInfo) => {
     test.skip(testInfo.project.name !== 'android-chrome')
