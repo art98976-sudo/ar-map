@@ -221,3 +221,62 @@ test.describe('item 6: Walk with AR first on a phone that runs AR', () => {
     await expect(card.getByRole('button', {name: 'Map directions'})).toHaveCount(0)
   })
 })
+
+test.describe('item 7: the Add to Home Screen hint', () => {
+  test('iPhone: says what to tap, once; dismissed, it stays away', async ({page}, testInfo) => {
+    test.skip(testInfo.project.name !== 'iphone-safari')
+    await page.goto('/')
+    await mapReady(page)
+    const hint = page.getByRole('region', {name: 'Add to Home Screen'})
+    await expect(hint).toBeVisible({timeout: 10_000})
+    await expect(hint).toContainText('Tap Share, then Add to Home Screen.')
+    await expect(hint.getByRole('button', {name: 'Install'})).toHaveCount(0)
+    await hint.getByRole('button', {name: 'Dismiss the Home Screen tip'}).click()
+    await expect(hint).toHaveCount(0)
+    await page.reload()
+    await mapReady(page)
+    await page.waitForTimeout(4000)
+    await expect(page.getByRole('region', {name: 'Add to Home Screen'})).toHaveCount(0)
+  })
+
+  test('iPhone opened from the Home Screen: no hint', async ({page}, testInfo) => {
+    test.skip(testInfo.project.name !== 'iphone-safari')
+    await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', {value: true}))
+    await page.goto('/')
+    await mapReady(page)
+    await page.waitForTimeout(4000)
+    await expect(page.getByRole('region', {name: 'Add to Home Screen'})).toHaveCount(0)
+  })
+
+  test('Android Chrome: Install opens the browser’s own prompt', async ({page}, testInfo) => {
+    test.skip(testInfo.project.name !== 'android-chrome')
+    // Chrome's beforeinstallprompt, as it fires on a real phone (here the test server has no
+    // service worker, so Chrome would not offer it by itself).
+    await page.addInitScript(() => {
+      window.__prompted = 0
+      window.addEventListener('DOMContentLoaded', () => {
+        const event = new Event('beforeinstallprompt', {cancelable: true})
+        event.prompt = () => {
+          window.__prompted++
+          return Promise.resolve()
+        }
+        window.dispatchEvent(event)
+      })
+    })
+    await page.goto('/')
+    await mapReady(page)
+    const hint = page.getByRole('region', {name: 'Add to Home Screen'})
+    await expect(hint).toBeVisible({timeout: 10_000})
+    await hint.getByRole('button', {name: 'Install'}).click()
+    await expect.poll(() => page.evaluate(() => window.__prompted)).toBe(1)
+    await expect(hint).toHaveCount(0)
+  })
+
+  test('a computer: no hint', async ({page}, testInfo) => {
+    phoneOnly(testInfo)
+    await page.goto('/')
+    await mapReady(page)
+    await page.waitForTimeout(4000)
+    await expect(page.getByRole('region', {name: 'Add to Home Screen'})).toHaveCount(0)
+  })
+})

@@ -78,6 +78,7 @@ export const HOME_MAP = {
   // A view saved last time (last-view.js) is used only this close to the campus and this zoomed in.
   lastViewRangeDeg: 0.03,
   lastViewMinZoom: 14,
+  installHintDelayMs: 2500, // the "Add to Home Screen" hint waits this long after the map
   // Softer base colours: [layer, paint property, value]. Missing layers are skipped.
   soft: [
     ['land-grass-areas', 'fill-color', 'hsla(108, 32%, 80%, 0.55)'],

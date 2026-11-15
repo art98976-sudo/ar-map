@@ -21,6 +21,14 @@ import {focusScreen} from './ui/dom.js'
 import {applyTheme, getTheme} from './ui/theme.js'
 import {savedLocale, setLocale, t} from './i18n/i18n.js'
 
+// Android Chrome offers to install the app once: keep its prompt for the Home Screen hint
+// (install-hint.js, loaded later with the map), instead of Chrome's own bar over the map.
+window.addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault()
+  window.__installPrompt = event
+})
+window.addEventListener('appinstalled', () => (window.__installPrompt = null))
+
 // Item 11: the chosen theme before anything is drawn, so a dark choice never flashes light.
 applyTheme(getTheme(), {save: false})
 

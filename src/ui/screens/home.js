@@ -62,6 +62,8 @@ export function homeScreen(root, {navigate, params, refresh = () => {}}) {
   let labelBlockers = null // keeps labels clear of the logos, and the logos above the sheet or card
   let stopMapLoss = null // stops watching the map canvas for a lost WebGL context
   let stopLastView = null // stops saving the view the student leaves the map at
+  let removeInstallHint = null // the one-time "Add to Home Screen" hint (install-hint.js)
+  let installTimer = null
   let selected = findDestination(params.to)
   let cardRoute = null // the route planned for the card (door, level, whole distance)
   const kept = carried && carried.destId === (params.to ?? null) ? carried : null
@@ -986,6 +988,16 @@ export function homeScreen(root, {navigate, params, refresh = () => {}}) {
           if (params.start === 'pick' && selected) openStartSheet()
           startSimulation()
           startAlignDebug()
+          // A moment after the map: on a phone, the one-time "Add to Home Screen" hint.
+          clearTimeout(installTimer)
+          installTimer = setTimeout(() => {
+            if (disposed || removeInstallHint) return
+            import('../components/install-hint.js')
+              .then(({showInstallHint}) => {
+                if (!disposed) removeInstallHint = showInstallHint(root.querySelector('.map-home'))
+              })
+              .catch(() => {}) // offline: no hint, nothing else changes
+          }, HOME_MAP.installHintDelayMs)
         },
       })
     } catch (err) {
@@ -1191,6 +1203,8 @@ export function homeScreen(root, {navigate, params, refresh = () => {}}) {
     labelBlockers?.destroy()
     stopMapLoss?.()
     stopLastView?.()
+    clearTimeout(installTimer)
+    removeInstallHint?.()
     instance?.destroy()
   }
 }
