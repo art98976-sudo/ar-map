@@ -565,6 +565,13 @@
 }
 
 /* ---------- No arrow in view: one small chevron at the edge, pointing the way to them ---------- */
+/* Item 5: the outdoors card, at the bottom like the floor-change card. */
+.ar-outdoors__why {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: var(--fs-sm);
+}
+
 /* The 2D fallback (ar-fallback.js): a small arrow and the distance, low on the screen, just above
    the bottom card; never in the middle of the view. Tracking WEAK or LOST, or the phone held up. */
 .ar-fallback {

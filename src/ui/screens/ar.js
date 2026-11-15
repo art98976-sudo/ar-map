@@ -371,6 +371,7 @@ export function arScreen(root, {navigate, params}) {
     if (s.headDown && !wasHeadDown) haptic([40, 60, 40])
     wasHeadDown = Boolean(s.headDown)
     paintStartCard(s)
+    paintOutdoors(s)
     if (s.debug) paintLiveDebug(root, s)
     const minimap = root.querySelector('[data-minimap]')
     if (minimap && mapFailed && s.minimap) drawMinimap(minimap, s.minimap)
@@ -561,12 +562,26 @@ export function arScreen(root, {navigate, params}) {
     if (status) status.hidden = true
   }
 
+  /** Item 5: "AR works outdoors on campus paths" while the start waits for GPS or the outdoors. */
+  function paintOutdoors(s) {
+    const card = root.querySelector('[data-outdoors]')
+    if (!card) return
+    const why = s.outdoorsWait
+    card.hidden = !why
+    if (!why) return
+    const gps = Number.isFinite(s.gpsAccuracy) ? t('ar.outdoorsGpsM', {m: Math.round(s.gpsAccuracy)}) : t('ar.outdoorsGps')
+    const text = why === 'gps' ? gps : t('ar.outdoorsInside')
+    const line = card.querySelector('[data-outdoors-why]')
+    if (line.textContent !== text) line.textContent = text
+  }
+
   /** The Start card: no directions in words, only whether to tap Start or reach the path first. */
   function paintStartCard(s) {
     const card = root.querySelector('[data-start]')
     if (!card) return
     // A trip from GPS only shows this if the user is too far from any path to place the route.
     if (!manualStart) card.hidden = !(s.phase === 'await-start' && s.startBlocked)
+    if (s.outdoorsWait) card.hidden = true // item 5: the outdoors card instead, one card at a time
     if (card.hidden) return
     const start = card.querySelector('[data-action="start-walk"]')
     if (start.disabled === Boolean(s.canStart)) {

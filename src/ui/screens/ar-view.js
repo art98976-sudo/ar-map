@@ -97,6 +97,14 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
       </button>
     </section>
 
+    <!-- Item 5: GPS poor, or the start inside a building: no ground arrows yet. AR starts by itself
+         once the phone is outdoors with a good fix; meanwhile the map has the directions. -->
+    <section class="ar-floor ar-outdoors" data-outdoors aria-labelledby="outdoors-title" hidden>
+      <p class="ar-floor__title" id="outdoors-title">${icon('map', {size: 20})}<span>${t('ar.outdoorsTitle')}</span></p>
+      <p class="ar-outdoors__why" data-outdoors-why role="status" aria-live="polite"></p>
+      <button class="btn btn--primary btn--block" type="button" data-action="map">${icon('map')}<span>${t('card.mapDirections')}</span></button>
+    </section>
+
     <div class="arrival" data-arrival hidden></div>
 
     <!-- First AR trip only: a phone tilting down to the floor, for 3 s. -->

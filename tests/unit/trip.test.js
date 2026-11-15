@@ -1177,3 +1177,57 @@ describe('walking beats the compass', () => {
     t.done()
   })
 })
+
+describe('item 5: AR works outdoors on campus paths', () => {
+  function setup({accuracy, building = null}) {
+    vi.useFakeTimers()
+    vi.setSystemTime(1_000_000)
+    window.THREE = THREE
+    let onFix = null
+    const fix = (acc, at = ORIGIN) => onFix?.({coords: {latitude: at.lat, longitude: at.lng, accuracy: acc}})
+    Object.defineProperty(navigator, 'geolocation', {configurable: true, value: {watchPosition: (ok) => ((onFix = ok), 1), clearWatch: () => {}}})
+    const box = {stats: null}
+    const loadCampus = building ? () => Promise.resolve(building) : null
+    const trip = createArTrip({route: ROUTE, origin: ORIGIN, destination: {name: 'Library'}, onStats: (s) => (box.stats = s), autoStart: true, loadCampus})
+    const scene = new THREE.Scene()
+    const camera = makeCamera()
+    trip.onSceneReady({scene, camera, XR8: {XrController: {hitTest: () => []}}})
+    trip.onTracking({status: 'NORMAL'})
+    fix(accuracy)
+    let time = 1000
+    const run = (seconds) => {
+      for (let i = 0; i < seconds / 0.05; i++) {
+        vi.advanceTimersByTime(50)
+        trip.onTick({dt: 0.05, time: (time += 0.05)})
+      }
+    }
+    return {trip, box, run, fix, done: () => (trip.stop(), vi.useRealTimers(), delete window.THREE)}
+  }
+
+  it('poor GPS: no ground arrows, "AR works outdoors"; once accuracy is good, AR starts by itself', () => {
+    const t = setup({accuracy: 45})
+    t.run(2)
+    expect(t.trip.start()).toBe('outdoors')
+    expect(t.box.stats).toMatchObject({phase: 'await-start', outdoorsWait: 'gps', arrowsShown: false})
+    t.fix(8)
+    t.run(1.5)
+    expect(t.box.stats.phase).toBe('ready')
+    expect(t.box.stats.outdoorsWait).toBeNull()
+    t.done()
+  })
+
+  it('a start clearly inside a building waits; stepping outside starts it', async () => {
+    // A building around the start (40 m square), its inset outline still around it.
+    const ring = [[-20, -20], [20, -20], [20, 20], [-20, 20], [-20, -20]].map(([x, y]) => fromLocal(ORIGIN, {x, y})).map(({lat, lng}) => [lng, lat])
+    const building = {type: 'FeatureCollection', features: [{type: 'Feature', properties: {id: 9, name: 'Andrew Stewart Hall'}, geometry: {type: 'Polygon', coordinates: [ring]}}]}
+    const t = setup({accuracy: 8, building})
+    for (let i = 0; i < 5; i++) await Promise.resolve() // the campus outlines arrive
+    expect(t.trip.start()).toBe('outdoors')
+    t.run(1.5)
+    expect(t.box.stats).toMatchObject({phase: 'await-start', outdoorsWait: 'indoors'})
+    t.fix(8, fromLocal(ORIGIN, {x: 0, y: 30})) // outside, on the path north
+    t.run(1.5)
+    expect(t.box.stats.phase).toBe('ready')
+    t.done()
+  })
+})

@@ -35,6 +35,7 @@ import {entranceOf, isOnCampus, planRoute} from '../route/route.js'
 import {markerName} from '../route/card-text.js'
 import {COMPASS_GUIDE, GPS, GROUND, GROUND_ARROWS, INDOOR, LINE_UP, MATCH, PIN, ROUTING, SAFETY, SCENE_FLOOR, SHELL, START, TRIP} from '../config.js'
 import {createHeightProfile} from '../scene/route-height.js'
+import {buildingsToLocal, insideRing} from './campus-buildings.js'
 
 /** Compass-style bearing of a direction: degrees clockwise from north (or from SLAM -Z). */
 function bearing(east, north) {
@@ -90,6 +91,10 @@ export function createArTrip({
   let liveFixes = 0
   let repickUntil = -Infinity
   let startBlocked = false
+  // Item 5: AR works outdoors on campus paths. Why the start is waiting: 'gps' (accuracy poor) or
+  // 'indoors' (the start is inside a building's outline), else null. Checked again every 0.5 s.
+  let outdoorsWait = null
+  let indoorRings = [] // the campus buildings' inset outlines, route frame: "clearly inside"
   let autoStartAt = -Infinity
   let campusCheckAt = -Infinity
   let guideDeg = null // the way to walk from where the phone faces, > 0 to the right
@@ -356,6 +361,8 @@ export function createArTrip({
     if (!nav) return 'tracking'
     if (phase === 'ready') return 'ok'
     if (!trackingReady()) return 'tracking'
+    outdoorsWait = outdoorsBlock()
+    if (outdoorsWait) return 'outdoors'
     const f = lookDirection()
     // A webcam in test mode reports no direction, so only a real phone can be asked to look up.
     if (!allowDesktop && Math.hypot(f.x, f.z) < TRIP.minHorizontalLook) return 'look'
@@ -375,6 +382,22 @@ export function createArTrip({
     // No "turn around" prompt: the arrows on the floor bend towards the route whichever way the user faces.
     beginGuidance(recentHeading())
     return 'ok'
+  }
+
+  /**
+   * Item 5: should the ground arrows wait? 'gps' while a GPS trip's fix is worse than
+   * GPS.goodAccuracyM; 'indoors' while the start (the fix, or the chosen start) is clearly inside a
+   * building. Null: go. A webcam in test mode never waits.
+   */
+  function outdoorsBlock() {
+    if (allowDesktop) return null
+    if (!manual && lastFix && lastFix.accuracy > GPS.goodAccuracyM) return 'gps'
+    const at = manual ? startPoint : (lastFix ?? origin)
+    if (at && Number.isFinite(at.lat) && indoorRings.length) {
+      const p = toLocal(origin, at)
+      if (indoorRings.some((ring) => insideRing(p, ring))) return 'indoors'
+    }
+    return null
   }
 
   /** The direction came from walking or a compass that recovered: now the ground can be drawn. */
@@ -643,6 +666,7 @@ export function createArTrip({
         // B4: the doors of our places, named; the destination's building name laid out first.
         const entrances = entranceLabels(PLACE_LIST, origin, entrancesOf)
         nav.setBuildings(collection, {entrances, destinationName: destination.building || destination.name})
+        indoorRings = buildingsToLocal(collection, origin).map((b) => b.inner).filter((r) => r?.length >= 3)
       })
       .catch((err) => console.warn('[trip] campus buildings not loaded', err?.message))
     heightAt = createHeightProfile(route.points, nav.route, origin)
@@ -921,7 +945,8 @@ export function createArTrip({
     startedAt ??= time
     lastTime = time
     // A trip from GPS starts by itself: there is nothing to line up, and nothing to tap.
-    if (autoStart && !manual && phase === 'await-start' && time - startedAt >= TRIP.autoStartS && time >= autoStartAt) {
+    // Item 5: a start that waited for the outdoors (GPS, or inside) also starts by itself once it may.
+    if (((autoStart && !manual) || outdoorsWait) && phase === 'await-start' && time - startedAt >= TRIP.autoStartS && time >= autoStartAt) {
       autoStartAt = time + TRIP.autoStartEveryS
       startBlocked = start() === 'path'
     }
@@ -1040,6 +1065,8 @@ export function createArTrip({
         directionKnown,
         manual,
         startBlocked,
+        // Item 5: "AR works outdoors on campus paths", and why ('gps' | 'indoors'), before Start.
+        outdoorsWait: phase === 'await-start' ? outdoorsWait : null,
         repick: manual && !arrived && time < repickUntil,
         liveAvailable: manual && !arrived && phase === 'ready' && liveFixes >= TRIP.liveFixes,
         step: phase === 'ready' && !arrived ? guidance.step(routeS) : null,
