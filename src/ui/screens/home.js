@@ -3,6 +3,7 @@
 import {createCampusMap, loadMazeMap, planWhenStyleLoaded, quietIndoorLabels} from '../../map/mazemap.js'
 import {clearRouteLine, drawRouteLine} from '../../map/route-line.js'
 import {createLabelBlockers} from '../../map/label-blockers.js'
+import {readLastView, watchLastView} from '../../map/last-view.js'
 import {createDestinationSearch} from '../components/destination-search.js'
 import {createMapPicker} from '../components/map-picker.js'
 import {createMapPins} from '../components/map-pins.js'
@@ -60,6 +61,7 @@ export function homeScreen(root, {navigate, params, refresh = () => {}}) {
   let mapReady = false // the map's style has loaded: it can take the route line
   let labelBlockers = null // keeps labels clear of the logos, and the logos above the sheet or card
   let stopMapLoss = null // stops watching the map canvas for a lost WebGL context
+  let stopLastView = null // stops saving the view the student leaves the map at
   let selected = findDestination(params.to)
   let cardRoute = null // the route planned for the card (door, level, whole distance)
   const kept = carried && carried.destId === (params.to ?? null) ? carried : null
@@ -839,11 +841,16 @@ export function homeScreen(root, {navigate, params, refresh = () => {}}) {
     if (instance?.map) clearRouteLine(instance.map)
   }
 
-  /** The opening view: HOME_MAP.openOn framed above the sheet and below the search bar. */
+  /**
+   * The opening view: where the student left the map last time, else HOME_MAP.openOn at indoor
+   * zoom (rooms, codes, icons), in the middle of the map between the search bar and the sheet.
+   */
   function campusView(map) {
-    const places = HOME_MAP.openOn.map((id) => DESTINATIONS.find((d) => d.id === id)).filter(Boolean)
-    const fallback = {center: MAZEMAP.center, zoom: MAZEMAP.zoom, bearing: 0, pitch: 0}
-    if (!places.length) return fallback
+    const last = readLastView()
+    if (last) return {center: {lng: last.lng, lat: last.lat}, zoom: last.zoom, bearing: last.bearing, pitch: 0}
+    const place = DESTINATIONS.find((d) => d.id === HOME_MAP.openOn)
+    const fallback = {center: MAZEMAP.center, zoom: HOME_MAP.openZoom, bearing: 0, pitch: 0}
+    if (!place) return fallback
     const box = map.getContainer().getBoundingClientRect()
     const bar = root.querySelector('.map-search')?.getBoundingClientRect()
     const sheet = root.querySelector('[data-home-sheet]')?.getBoundingClientRect()
@@ -854,11 +861,17 @@ export function homeScreen(root, {navigate, params, refresh = () => {}}) {
       left: pad,
       right: pad,
     }
-    const lngs = places.map((p) => p.lng)
-    const lats = places.map((p) => p.lat)
-    const bounds = [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]]
-    const camera = map.cameraForBounds(bounds, {padding, maxZoom: HOME_MAP.openMaxZoom})
-    return camera ? {...fallback, center: camera.center, zoom: camera.zoom} : fallback
+    // A box a few metres round the building's point, held at openZoom: the point lands in the
+    // middle of the clear part of the map, not under the sheet.
+    const d = 0.00005
+    const bounds = [[place.lng - d, place.lat - d], [place.lng + d, place.lat + d]]
+    let camera = null
+    try {
+      camera = map.cameraForBounds(bounds, {padding, maxZoom: HOME_MAP.openZoom})
+    } catch {
+      // padding larger than the map (a very short window): the plain centre below
+    }
+    return camera ? {...fallback, center: camera.center, zoom: HOME_MAP.openZoom} : {...fallback, center: {lng: place.lng, lat: place.lat}}
   }
 
   function flyToSelected() {
@@ -935,9 +948,11 @@ export function homeScreen(root, {navigate, params, refresh = () => {}}) {
             if (picker.active) picker.moveTo(event.lngLat)
             else if (selected) unselect()
           })
+          stopLastView?.()
+          stopLastView = watchLastView(instance.map) // the next visit opens where this one left off
           if (!selected) {
-            // Campus Central and Cottrell in the middle of the map that shows between the search
-            // bar and the sheet; with the opening, the camera ends there.
+            // Campus Central at indoor zoom (or the last view) in the middle of the map that shows
+            // between the search bar and the sheet; with the opening, the camera ends there.
             const view = campusView(instance.map)
             if (!openingMove(instance.map, view)) instance.map.jumpTo(view)
           }
@@ -1134,6 +1149,7 @@ export function homeScreen(root, {navigate, params, refresh = () => {}}) {
     model?.destroy()
     labelBlockers?.destroy()
     stopMapLoss?.()
+    stopLastView?.()
     instance?.destroy()
   }
 }

@@ -70,10 +70,14 @@ export const HOME_MAP = {
   blockerPadPx: 4, // room around each of them
   blockerEdgePx: 16, // the strip along each screen edge and along the top of the sheet or card
   creditsCornerPx: 110, // how wide a bottom corner the logos take
-  // The opening view: these places in the middle of the map between the search bar and the sheet.
-  openOn: ['campus-central', 'cottrell'],
-  openPaddingPx: 40, // room around them
-  openMaxZoom: 16, // campus zoom: whole buildings and their names, no indoor detail
+  // The opening view: this place in the middle of the map between the search bar and the sheet,
+  // close enough that MazeMap draws the rooms inside: their colours, codes and icons.
+  openOn: 'campus-central',
+  openPaddingPx: 40, // room around it
+  openZoom: 17.8,
+  // A view saved last time (last-view.js) is used only this close to the campus and this zoomed in.
+  lastViewRangeDeg: 0.03,
+  lastViewMinZoom: 14,
   // Softer base colours: [layer, paint property, value]. Missing layers are skipped.
   soft: [
     ['land-grass-areas', 'fill-color', 'hsla(108, 32%, 80%, 0.55)'],
