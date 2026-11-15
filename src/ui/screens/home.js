@@ -49,6 +49,10 @@ import {doorList, homePage, mapError, mapLoading, mapLost, placeCard, placeLoadi
 
 // Item 13: after a new language the screen is drawn again; the menu opens on the choice just made.
 let reopenMenuOnLocale = false
+// A language change redraws this screen (item 13). What the student was doing goes across
+// unchanged: the place, the route already planned (so nothing is planned again, and no option
+// such as step-free can be lost on the way), and whether the map trip was running.
+let carried = null
 
 export function homeScreen(root, {navigate, params, refresh = () => {}}) {
   const forced = params.force === '1'
@@ -58,6 +62,12 @@ export function homeScreen(root, {navigate, params, refresh = () => {}}) {
   let stopMapLoss = null // stops watching the map canvas for a lost WebGL context
   let selected = findDestination(params.to)
   let cardRoute = null // the route planned for the card (door, level, whole distance)
+  const kept = carried && carried.destId === (params.to ?? null) ? carried : null
+  carried = null
+  if (kept?.dest) {
+    selected ??= kept.dest // a MazeMap room is not in our list: no second look-up
+    cardRoute = kept.route
+  }
   let planningFor = null // the destination a quiet plan is running for
   let planning = Promise.resolve() // that plan, for Go to wait on
   let stopDemo = () => {} // the demo video's watcher on the place card
@@ -179,6 +189,7 @@ export function homeScreen(root, {navigate, params, refresh = () => {}}) {
     button.removeAttribute('aria-busy')
     if (now.id !== id) return showToast(t('lang.failed'), {tone: 'warning'})
     reopenMenuOnLocale = true
+    carried = {destId: selected?.id ?? null, dest: selected, route: cardRoute, tripOn: Boolean(mapTrip)}
     refresh()
   }
   if (reopenMenuOnLocale) {
@@ -932,6 +943,7 @@ export function homeScreen(root, {navigate, params, refresh = () => {}}) {
           }
           flyToSelected()
           drawCardRoute() // planned before the map was ready
+          if (kept?.tripOn && cardRoute) startMapTrip() // the same trip, in the new language
           paintStartMarker()
           if (params.start === 'pick' && selected) openStartSheet()
           startSimulation()
