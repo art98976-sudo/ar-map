@@ -5,7 +5,18 @@
 // - createOffRouteMonitor: has the user left the route long enough to plan a new one?
 // - createArrivalDetector: has the user reached the destination?
 import {angleDiff} from '../geo/geo.js'
-import {ARRIVAL, CONFIDENCE, OFF_ROUTE, SAFETY, TRACKING_STATE} from '../config.js'
+import {ARRIVAL, CONFIDENCE, OFF_ROUTE, SAFETY, TILT, TRACKING_STATE} from '../config.js'
+
+/**
+ * Item 3: is the ground ahead out of view? downDeg: how far below level the camera looks
+ * (negative: up at the sky). True below TILT.hideBelowDeg; false again only from TILT.showFromDeg
+ * (hysteresis). Pure on (was, downDeg).
+ */
+export function groundOutOfView(was, downDeg) {
+  if (!Number.isFinite(downDeg)) return Boolean(was)
+  if (was) return downDeg < TILT.showFromDeg
+  return downDeg < TILT.hideBelowDeg
+}
 
 /**
  * B9: walking fast with the phone pointed at the ground. Feed it every frame:

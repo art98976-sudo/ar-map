@@ -1,6 +1,6 @@
-// B7: the smart fallback. While tracking is WEAK or LOST the floor arrows cannot be trusted, so
-// one big arrow floats over the camera instead, turned towards the way to walk from where the
-// phone points (compass), with the distance left. Back to the floor arrows once it is GOOD again.
+// The 2D fallback: one small arrow near the bottom, turned towards the way to walk from where the
+// phone points (compass), with the distance left. Shown when the floor arrows cannot be: tracking
+// WEAK or LOST (B7), or the phone held up so the ground ahead is out of view (item 3).
 import {formatDistance} from '../../ar/pin.js'
 import {wrap360} from '../../geo/geo.js'
 import {t} from '../../i18n/i18n.js'
@@ -12,7 +12,7 @@ import {t} from '../../i18n/i18n.js'
 export function fallbackArrow(s) {
   const weak = s?.trackingState === 'WEAK' || s?.trackingState === 'LOST'
   // Only once the floor arrows are hidden: a short tracking blip keeps them, and the two never show at once.
-  if (!weak || s.arrowsShown || s.phase !== 'ready' || s.arrived) return {show: false, turnDeg: null, text: ''}
+  if (!(weak || s?.tiltedUp) || s.arrowsShown || s.phase !== 'ready' || s.arrived) return {show: false, turnDeg: null, text: ''}
   const turn = Number.isFinite(s.arrowBearingDeg) && Number.isFinite(s.heading) ? ((wrap360(s.arrowBearingDeg - s.heading) + 180) % 360) - 180 : null
   const left = Number.isFinite(s.remainingM) ? formatDistance(s.remainingM) : ''
   return {show: true, turnDeg: turn, text: turn == null ? (left ? t('ar.followMapLeft', {distance: left}) : t('ar.followMap')) : left}

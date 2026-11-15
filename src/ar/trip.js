@@ -30,7 +30,7 @@ import {locationPermissionState, watchLocation} from '../geo/location.js'
 import {entrancesOf, isManual, PLACE_LIST} from '../route/start-point.js'
 import {entranceLabels} from './world-labels.js'
 import {createGuidance, landmarksFrom} from '../route/guidance.js'
-import {createArrivalDetector, createConfidenceMonitor, createHeadDownMonitor, createOffRouteMonitor, trackingState} from '../route/trip-monitors.js'
+import {createArrivalDetector, createConfidenceMonitor, createHeadDownMonitor, createOffRouteMonitor, groundOutOfView, trackingState} from '../route/trip-monitors.js'
 import {entranceOf, isOnCampus, planRoute} from '../route/route.js'
 import {markerName} from '../route/card-text.js'
 import {COMPASS_GUIDE, GPS, GROUND, GROUND_ARROWS, INDOOR, LINE_UP, MATCH, PIN, ROUTING, SAFETY, SCENE_FLOOR, SHELL, START, TRIP} from '../config.js'
@@ -115,6 +115,7 @@ export function createArTrip({
   let compassLocked = false // confirmed by the user, or locked on by walking: never the compass again
   let trackingLostAt = null // when world tracking last stopped being NORMAL
   let arrowsShown = false
+  let tiltedUp = false // item 3: the phone looks level or up: no ground in view (hysteresis)
   const arrival = createArrivalDetector()
   const offRoute = createOffRouteMonitor()
   // Is the position good enough to draw the arrow? Unreliable: arrows hidden, the 2D map instead.
@@ -689,6 +690,8 @@ export function createArTrip({
     // Item 1: nothing on the ground until the camera has confirmed where the ground is, in this
     // tracking session (a reset after a real loss starts the search again).
     if (!groundReady()) return false
+    // Item 3: held up or at the sky, the ground ahead is out of view: the small 2D arrow instead.
+    if (tiltedUp && !allowDesktop) return false
     if (allowDesktop || tracking === 'NORMAL') return true
     return trackingLostAt != null && time - trackingLostAt <= GROUND_ARROWS.trackingLostS
   }
@@ -1014,6 +1017,7 @@ export function createArTrip({
       }
     }
     updateArrow()
+    if (camera) tiltedUp = groundOutOfView(tiltedUp, toDeg(Math.asin(Math.max(-1, Math.min(1, -lookDirection().y)))))
     // The chevrons on the floor: same pose s as the map dot, height from the ground estimate.
     arrowsShown = arrowsWanted(time)
     checkBlocked()
@@ -1090,7 +1094,9 @@ export function createArTrip({
         aligned: Boolean(nav.aligned),
         arrowsShown,
         // Item 1: "Point your phone at the path ahead" until tracking is normal and the floor found.
-        coaching: phase === 'ready' && !arrived && positionOk && (!groundReady() || (tracking !== 'NORMAL' && !arrowsShown)),
+        coaching: phase === 'ready' && !arrived && positionOk && !(tiltedUp && !allowDesktop) && (!groundReady() || (tracking !== 'NORMAL' && !arrowsShown)),
+        // Item 3: the ground ahead is out of view: the small 2D arrow and the distance.
+        tiltedUp: phase === 'ready' && !arrived && tiltedUp && !allowDesktop,
         arrowsCreated: nav.arrowsCreated,
         arrowsDrawn: nav.arrowsShown,
         arrowsInView: arrowsShown ? nav.arrowsInView() : 0,

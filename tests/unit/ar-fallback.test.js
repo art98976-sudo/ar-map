@@ -35,3 +35,11 @@ describe('B7: the big fallback arrow', () => {
     expect(el.hidden).toBe(true)
   })
 })
+
+describe('item 3: held up or at the sky, the small 2D arrow instead of the ground arrows', () => {
+  it('shows with tracking GOOD when the ground ahead is out of view', () => {
+    expect(fallbackArrow({...ready, trackingState: 'GOOD', tiltedUp: true})).toEqual({show: true, turnDeg: 30, text: '120 m'})
+    expect(fallbackArrow({...ready, trackingState: 'GOOD', tiltedUp: false}).show).toBe(false)
+    expect(fallbackArrow({...ready, trackingState: 'GOOD', tiltedUp: true, arrowsShown: true}).show).toBe(false) // never both
+  })
+})

@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest'
 import {ARRIVAL, CONFIDENCE, OFF_ROUTE, SAFETY, TRACKING_STATE} from '../../src/config.js'
-import {createArrivalDetector, createConfidenceMonitor, createHeadDownMonitor, createOffRouteMonitor, trackingState} from '../../src/route/trip-monitors.js'
+import {createArrivalDetector, createConfidenceMonitor, createHeadDownMonitor, createOffRouteMonitor, trackingState, groundOutOfView} from '../../src/route/trip-monitors.js'
 
 const STEP = 0.1 // ten readings a second
 /** Feed a monitor readings from `from` to `to` seconds; returns the last result. */
@@ -231,5 +231,24 @@ describe('B9: walking fast, looking down', () => {
     expect(feed(m, end, end + 5, fastDown)).toBe(false)
     const later = SAFETY.headDownForS + SAFETY.headDownCooldownS + 1
     expect(feed(m, later, later + SAFETY.headDownForS + 0.2, fastDown)).toBe(true)
+  })
+})
+
+describe('item 3: ground out of view, with hysteresis', () => {
+  it('hides below 5° of downward tilt and comes back only from 15°', () => {
+    expect(groundOutOfView(false, 30)).toBe(false) // looking down at the path
+    expect(groundOutOfView(false, 4)).toBe(true) // held upright, facing a wall
+    expect(groundOutOfView(false, -20)).toBe(true) // at the sky
+    expect(groundOutOfView(true, 10)).toBe(true) // between the two: stays as it was
+    expect(groundOutOfView(false, 10)).toBe(false)
+    expect(groundOutOfView(true, 15)).toBe(false) // tilted down again
+    expect(groundOutOfView(true, NaN)).toBe(true)
+  })
+  it('a phone wobbling around 5-12° does not flicker', () => {
+    let out = false
+    const seen = []
+    for (const d of [20, 12, 6, 4.9, 6, 9, 12, 14, 9, 6, 16, 12, 6]) seen.push((out = groundOutOfView(out, d)))
+    const flips = seen.filter((v, i) => i && v !== seen[i - 1]).length
+    expect(flips).toBe(2) // out once at 4.9°, back once at 16°
   })
 })

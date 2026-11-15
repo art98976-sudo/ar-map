@@ -26,7 +26,8 @@ const ROUTE = {
 }
 
 // The camera looks along -Z: world "north" until the route is aligned.
-function makeCamera(lookX = 0, lookZ = -1, lookY = 0) {
+// Held as when walking with AR: tilted about 25° down at the path ahead (item 3: level is "held up").
+function makeCamera(lookX = 0, lookZ = -1, lookY = -0.47) {
   const camera = new THREE.PerspectiveCamera()
   camera.position.set(0, 1.5, 0)
   camera.lookAt(lookX, 1.5 + lookY, lookZ)
@@ -464,6 +465,10 @@ describe('the arrows on the real ground', () => {
     trip.onSceneReady({scene, camera, XR8: {XrController: {hitTest}}})
     trip.onTracking({status: 'NORMAL'})
     if (floorY != null) expect(floor.tap(trip, floorY)).toBe(true)
+    const look = (y) => {
+      camera.lookAt(camera.position.x, camera.position.y + y, camera.position.z - 1)
+      camera.updateMatrixWorld(true)
+    }
     expect(trip.start()).toBe('ok')
     const run = (seconds) => {
       for (let i = 0; i < seconds / 0.05; i++) trip.onTick({dt: 0.05, time: (box.time = (box.time ?? 1000) + 0.05)})
@@ -471,6 +476,7 @@ describe('the arrows on the real ground', () => {
     return {
       box,
       run,
+      look,
       root: scene.getObjectByName('geo-root'),
       trip,
       done() {
@@ -489,6 +495,22 @@ describe('the arrows on the real ground', () => {
     expect(t.root.getObjectByName('ground-arrows').visible).toBe(false)
     t.run(10)
     expect(t.box.stats).toMatchObject({arrowsShown: false, coaching: true}) // still nothing on a guess
+    t.done()
+  })
+
+  it('item 3: held upright facing a wall, the ground arrows hide for the 2D arrow; tilted down, they come back', () => {
+    const t = start(() => [], {floorY: 0.1})
+    t.run(0.5)
+    expect(t.box.stats).toMatchObject({arrowsShown: true, tiltedUp: false})
+    t.look(0) // level: facing the wall
+    t.run(0.3)
+    expect(t.box.stats).toMatchObject({arrowsShown: false, tiltedUp: true, coaching: false})
+    t.look(-0.15) // about 8° down: between the two thresholds, stays as it is
+    t.run(0.3)
+    expect(t.box.stats.tiltedUp).toBe(true)
+    t.look(-0.47) // about 25° down at the path
+    t.run(0.3)
+    expect(t.box.stats).toMatchObject({arrowsShown: true, tiltedUp: false})
     t.done()
   })
 
@@ -562,7 +584,7 @@ describe('the arrows on the real ground', () => {
 
   it('hides a chevron behind a wall, and every one beyond it along the path', () => {
     // A wall 3 m ahead of the camera, across the path: anything aimed past it hits the wall first.
-    const t = start((x, y) => (y < 0.5 ? [] : [{type: 'FEATURE_POINT', position: {x: 0, y: 0.6, z: -3}}]), {floorY: 0.1})
+    const t = start(() => [{type: 'FEATURE_POINT', position: {x: 0, y: 0.6, z: -3}}], {floorY: 0.1})
     t.run(3)
     expect(t.box.stats.arrowsBlocked).toBeGreaterThan(0)
     const items = [...Array(11).keys()].map((i) => t.root.getObjectByName(`chevron-${i}`))
@@ -582,7 +604,8 @@ describe('the arrows on the real ground', () => {
     const t = start(hitTest)
     t.run(4)
     expect(hitTest.mock.calls[0][2]).toEqual(['DETECTED_SURFACE', 'ESTIMATED_SURFACE', 'FEATURE_POINT'])
-    expect(hitTest.mock.calls.every(([x, y]) => x > 0 && x < 1 && y >= 0.5)).toBe(true)
+    // The floor search looks over the lower half of the screen (later calls test the chevrons).
+    expect(hitTest.mock.calls.slice(0, 6).every(([x, y]) => x > 0 && x < 1 && y >= 0.5)).toBe(true)
     near(t.root.position.y, -0.6, 0.02)
     expect(t.box.stats.groundSource).toBe('scene+camera')
     t.done()

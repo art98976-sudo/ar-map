@@ -565,30 +565,31 @@
 }
 
 /* ---------- No arrow in view: one small chevron at the edge, pointing the way to them ---------- */
-/* B7: one big arrow over the camera while tracking is WEAK or LOST (ar-fallback.js). */
+/* The 2D fallback (ar-fallback.js): a small arrow and the distance, low on the screen, just above
+   the bottom card; never in the middle of the view. Tracking WEAK or LOST, or the phone held up. */
 .ar-fallback {
   position: absolute;
   z-index: 5;
   left: 50%;
-  top: 34%;
-  display: grid;
-  justify-items: center;
+  bottom: calc(var(--ar-bottom-h, 22dvh) + var(--safe-bottom) + var(--s-3));
+  display: flex;
+  align-items: center;
   gap: var(--s-2);
-  transform: translate(-50%, -50%);
+  padding: 6px 14px 6px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  transform: translateX(-50%);
   pointer-events: none;
 }
 .ar-fallback[hidden],
 .ar-fallback__arrow[hidden] {
   display: none;
 }
-.ar:has(.ar-map.is-expanded) .ar-fallback {
-  top: calc((100dvh - 55dvh) / 2);
-}
 .ar-fallback__arrow {
   display: block;
-  width: 96px;
-  height: 116px;
-  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5));
+  width: 32px;
+  height: 38px;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
   transition: transform 300ms ease-out;
 }
 .ar-fallback__arrow svg {
@@ -602,11 +603,8 @@
 }
 .ar-fallback__text {
   margin: 0;
-  padding: 6px 14px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.6);
   color: #fff;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }

@@ -235,6 +235,16 @@ export const LINE_UP = {
   offerAfterS: 10, // still not matching this long after walking far enough: offer Re-align
 }
 
+// Item 3: the phone held up (facing a wall) or pointed at the sky shows no ground ahead. Below
+// hideBelowDeg of downward tilt the ground arrows hide and a small 2D arrow shows instead; they come
+// back only past showFromDeg, so a phone held near the line does not flicker between the two.
+// With the phone at chest height and a portrait camera seeing about 30° below its centre, the
+// nearest chevron (2.5 m out) is in view from about 0° of tilt, the row from about 15°.
+export const TILT = {
+  hideBelowDeg: 5,
+  showFromDeg: 15,
+}
+
 export const SAFETY = {
   lookUpAfterS: 10, // walking this long with the phone held up in front...
   lookUpForS: 3, // ...shows the reminder for this long
