@@ -3,13 +3,14 @@
 // No beam into the sky: it shows only within PIN.showWithinM of the destination, at its real size,
 // so it reads as an object on the ground and not as a sign floating over the campus.
 import {PIN} from '../config.js'
+import {kilometres, metres} from '../i18n/i18n.js'
 
 /** Format a distance for people: "8 m", "120 m", "1.2 km". */
 export function formatDistance(m) {
   if (!Number.isFinite(m)) return ''
-  if (m < 10) return `${Math.max(1, Math.round(m))} m`
-  if (m < 1000) return `${Math.round(m / 5) * 5} m`
-  return `${(m / 1000).toFixed(1)} km`
+  if (m < 10) return metres(Math.max(1, Math.round(m)))
+  if (m < 1000) return metres(Math.round(m / 5) * 5)
+  return kilometres(m / 1000)
 }
 
 /** Is the pin drawn at this distance (metres from the user)? */

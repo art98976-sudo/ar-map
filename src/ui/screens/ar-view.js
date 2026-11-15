@@ -1,67 +1,68 @@
 // The AR screen's HTML: loading, the live view and the error page.
 import {html} from '../dom.js'
 import {icon} from '../icons.js'
+import {t} from '../../i18n/i18n.js'
 
 export const loadingView = () => html`
     <div class="page page--narrow page--center loading">
-      <div class="progress-ring" style="--p: 0" data-progress role="progressbar" aria-label="Loading AR" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div class="progress-ring" style="--p: 0" data-progress role="progressbar" aria-label="${t('ar.loading')}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
         <svg viewBox="0 0 120 120" aria-hidden="true">
           <circle class="progress-ring__track" cx="60" cy="60" r="52" />
           <circle class="progress-ring__bar" cx="60" cy="60" r="52" pathLength="100" />
         </svg>
         <span class="progress-ring__value" data-progress-text>0%</span>
       </div>
-      <h1 class="page__title" tabindex="-1">Preparing AR</h1>
-      <p class="page__lede" data-loading-text>Downloading the AR engine. This happens once.</p>
-      <button class="btn btn--ghost" type="button" data-action="exit" aria-label="Cancel">Cancel</button>
+      <h1 class="page__title" tabindex="-1">${t('ar.preparing')}</h1>
+      <p class="page__lede" data-loading-text>${t('ar.downloading')}</p>
+      <button class="btn btn--ghost" type="button" data-action="exit" aria-label="${t('common.cancel')}">${t('common.cancel')}</button>
     </div>
 `
 
 export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html`
-  <div class="ar" role="group" aria-label="AR camera view" tabindex="-1" data-autofocus>
-    <canvas class="ar__canvas" data-canvas aria-label="Camera view"></canvas>
+  <div class="ar" role="group" aria-label="${t('ar.view')}" tabindex="-1" data-autofocus>
+    <canvas class="ar__canvas" data-canvas aria-label="${t('ar.cameraView')}"></canvas>
     <div class="ar__veil" data-veil>
       <span class="spinner" aria-hidden="true"></span>
-      <p data-veil-text role="status">Waiting for the camera…</p>
+      <p data-veil-text role="status">${t('ar.waitingCamera')}</p>
     </div>
 
     <header class="ar__top">
-      <button class="icon-btn icon-btn--glass" data-action="exit" aria-label="Exit AR">${icon('close')}</button>
+      <button class="icon-btn icon-btn--glass" data-action="exit" aria-label="${t('ar.exit')}">${icon('close')}</button>
       ${showDebug
         ? html`<div class="chip chip--glass" data-tracking-chip data-tone="pending" aria-live="polite">
             <span class="chip__dot"></span><span data-tracking-label>Starting tracking</span>
           </div>`
         : ''}
-      <button class="ar-lost chip chip--glass" type="button" data-action="im-lost" aria-label="I'm lost: plan again from here and say where I am">${icon('locate', {size: 16})}<span>I'm lost</span></button>
-      <button class="ar-realign chip chip--glass" type="button" data-action="realign" aria-label="Re-align the arrows with the path" hidden>
-        ${icon('compass', {size: 16})}<span>Re-align</span>
+      <button class="ar-lost chip chip--glass" type="button" data-action="im-lost" aria-label="${t('ar.lostLabel')}">${icon('locate', {size: 16})}<span>${t('trip.lost')}</span></button>
+      <button class="ar-realign chip chip--glass" type="button" data-action="realign" aria-label="${t('ar.realignLabel')}" hidden>
+        ${icon('compass', {size: 16})}<span>${t('ar.realign')}</span>
       </button>
     </header>
 
-    <button class="ar-here chip chip--glass" type="button" data-action="reanchor" aria-label="I'm here: show where I am on the map" hidden>
-      ${icon('pin', {size: 16})}<span>I'm here</span>
+    <button class="ar-here chip chip--glass" type="button" data-action="reanchor" aria-label="${t('ar.hereLabel')}" hidden>
+      ${icon('pin', {size: 16})}<span>${t('ar.here')}</span>
     </button>
 
     <section class="ar-floor" data-floor-change aria-live="polite" hidden>
-      <p class="ar-floor__title"><span data-floor-icon></span><span data-floor-text>Go to Level 2</span></p>
-      <button class="btn btn--primary btn--block" type="button" data-action="confirm-floor" data-floor-button>I'm on Level 2</button>
+      <p class="ar-floor__title"><span data-floor-icon></span><span data-floor-text>${t('ar.goToLevel', {level: 2})}</span></p>
+      <button class="btn btn--primary btn--block" type="button" data-action="confirm-floor" data-floor-button>${t('ar.onLevel', {level: 2})}</button>
     </section>
 
     <section class="ar-floor ar-handoff" data-handoff-card aria-labelledby="handoff-line" hidden>
       <p class="ar-handoff__line" id="handoff-line" role="status" aria-live="polite" data-handoff-line></p>
       <p class="ar-handoff__count" data-handoff-count></p>
-      <button class="btn btn--primary btn--block" type="button" data-action="handoff-now">${icon('map')}<span>Open the indoor map now</span></button>
-      <button class="btn btn--secondary btn--block" type="button" data-action="handoff-keep">Keep using AR</button>
+      <button class="btn btn--primary btn--block" type="button" data-action="handoff-now">${icon('map')}<span>${t('ar.openIndoor')}</span></button>
+      <button class="btn btn--secondary btn--block" type="button" data-action="handoff-keep">${t('ar.keepAr')}</button>
     </section>
 
     <section class="ar-pick" data-pick hidden>
-      <p>Tap where you are on the map: a door, a stair or a lift.</p>
-      <button class="btn btn--secondary btn--block" type="button" data-action="pick-cancel">Cancel</button>
+      <p>${t('ar.pickHere')}</p>
+      <button class="btn btn--secondary btn--block" type="button" data-action="pick-cancel">${t('common.cancel')}</button>
     </section>
 
-    <section class="ar-lineup" data-lineup aria-label="Line up the arrows" hidden>
-      <p class="ar-lineup__hint">${icon('drag', {size: 18})}<span>Drag to lay the arrows on the path</span></p>
-      <button class="btn btn--primary btn--block" type="button" data-action="looks-right">Looks right</button>
+    <section class="ar-lineup" data-lineup aria-label="${t('ar.lineUp')}" hidden>
+      <p class="ar-lineup__hint">${icon('drag', {size: 18})}<span>${t('ar.lineUpHint')}</span></p>
+      <button class="btn btn--primary btn--block" type="button" data-action="looks-right">${t('ar.looksRight')}</button>
     </section>
     ${showDebug
       ? html`<button class="debug-toggle chip chip--glass" type="button" data-action="debug" aria-label="Show debug panel" aria-expanded="false" aria-controls="ar-debug">
@@ -73,26 +74,26 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
     <div class="ar__hints">
     <!-- One message at a time (ar-status.js): the most urgent only, fading between them. -->
     <p class="ar__hint ar-status-slot" data-status-slot role="status" aria-live="polite" hidden><span data-status-icon aria-hidden="true"></span><span data-status-text></span></p>
-    <button class="ar__hint ar__hint--action" type="button" data-action="go-live" hidden>Switch to live location?</button>
-    <button class="ar__hint ar__hint--action" type="button" data-action="repick" hidden>Off route? Choose your start again</button>
+    <button class="ar__hint ar__hint--action" type="button" data-action="go-live" hidden>${t('ar.live')}</button>
+    <button class="ar__hint ar__hint--action" type="button" data-action="repick" hidden>${t('ar.repick')}</button>
     </div>
 
     <p class="ar-pill" data-trip-pill>${pillText}</p>
 
-    <section class="ar-map" data-compass-map aria-label="Map of the route">
+    <section class="ar-map" data-compass-map aria-label="${t('ar.mapRegion')}">
       <div class="ar-map__canvas" data-map-canvas></div>
-      <canvas class="ar-map__fallback" data-minimap width="320" height="320" aria-label="Plan of the route" hidden></canvas>
-      <p class="ar-map__status" data-map-status role="status">Loading map…</p>
-      <button class="ar-map__tap" type="button" data-action="toggle-map" aria-label="Expand map" aria-expanded="false">
+      <canvas class="ar-map__fallback" data-minimap width="320" height="320" aria-label="${t('ar.plan')}" hidden></canvas>
+      <p class="ar-map__status" data-map-status role="status">${t('ar.loadingMap')}</p>
+      <button class="ar-map__tap" type="button" data-action="toggle-map" aria-label="${t('ar.expandMap')}" aria-expanded="false">
         <span class="ar-map__expand" data-map-expand>${icon('expand', {size: 18})}</span>
       </button>
     </section>
 
     <section class="ar-guide" data-start aria-labelledby="start-title" hidden>
       <h1 class="ar-guide__title" data-start-title id="start-title" tabindex="-1">${startTitle}</h1>
-      <p class="ar-guide__text" data-start-note role="status" hidden>Hold your phone up, looking ahead.</p>
+      <p class="ar-guide__text" data-start-note role="status" hidden>${t('ar.holdUp')}</p>
       <button class="btn btn--primary btn--block" type="button" data-action="start-walk" disabled>
-        <span class="spinner spinner--sm" aria-hidden="true"></span><span data-start-label aria-live="polite">Getting ready…</span>
+        <span class="spinner spinner--sm" aria-hidden="true"></span><span data-start-label aria-live="polite">${t('ar.gettingReady')}</span>
       </button>
     </section>
 
@@ -191,8 +192,8 @@ export const errorView = (copy, extra = '') => html`
         <button class="btn btn--primary btn--lg btn--block" type="button" data-action="${copy.primary.action}" aria-label="${copy.primary.label}">
           ${icon(copy.primary.icon)}<span>${copy.primary.label}</span>
         </button>
-        <button class="btn btn--secondary btn--lg btn--block" type="button" data-action="map" aria-label="View 2D map instead">
-          ${icon('map')}<span>View 2D map instead</span>
+        <button class="btn btn--secondary btn--lg btn--block" type="button" data-action="map" aria-label="${t('common.map2d')}">
+          ${icon('map')}<span>${t('common.map2d')}</span>
         </button>
       </div>
       ${extra}

@@ -1,5 +1,6 @@
 // Device and browser check, run before we ask for the camera.
 // Pure functions: everything comes in through `env`, so unit tests can fake any phone.
+import {t} from '../i18n/i18n.js'
 
 /** In-app browsers (Instagram, Facebook, etc.) often block the camera or motion sensors. */
 const IN_APP_BROWSERS = [
@@ -74,27 +75,27 @@ export function checkDevice(env) {
   const checks = [
     {
       id: 'secure',
-      label: 'Secure connection',
+      label: t('device.secure'),
       ok: !!env.isSecureContext,
-      detail: 'Camera access needs an https:// link.',
+      detail: t('device.secureDetail'),
     },
     {
       id: 'camera',
-      label: 'Camera access',
+      label: t('device.camera'),
       ok: !!env.hasGetUserMedia,
-      detail: 'This browser cannot open the camera.',
+      detail: t('device.cameraDetail'),
     },
     {
       id: 'graphics',
-      label: '3D graphics',
+      label: t('device.graphics'),
       ok: !!env.hasWebGL,
-      detail: 'This browser cannot draw 3D graphics (WebGL is off).',
+      detail: t('device.graphicsDetail'),
     },
     {
       id: 'motion',
-      label: 'Motion sensors',
+      label: t('device.motion'),
       ok: device.mobile && !!env.hasDeviceMotion,
-      detail: 'AR needs a phone or tablet with motion sensors.',
+      detail: t('device.motionDetail'),
     },
   ]
 
@@ -102,26 +103,24 @@ export function checkDevice(env) {
   if (device.inAppBrowser) {
     primaryIssue = {
       code: 'in-app-browser',
-      title: `Open this page in ${device.os === 'ios' ? 'Safari' : 'Chrome'}`,
-      body: `The ${device.inAppBrowser} browser blocks the camera. Tap the menu (⋯) and choose “Open in ${
-        device.os === 'ios' ? 'Safari' : 'browser'
-      }”.`,
+      title: t('device.openIn', {browser: device.os === 'ios' ? 'Safari' : 'Chrome'}),
+      body: t('device.inAppBody', {app: device.inAppBrowser, target: device.os === 'ios' ? 'Safari' : t('device.inAppTarget')}),
     }
   } else if (!device.mobile) {
     primaryIssue = {
       code: 'desktop',
-      title: 'AR works on your phone',
-      body: 'Open this page on an iPhone or Android phone to follow arrows on the ground to any building on campus.',
+      title: t('device.desktopTitle'),
+      body: t('device.desktopBody'),
     }
   } else if (device.osVersion && device.osVersion < MIN_VERSION[device.os]) {
     primaryIssue = {
       code: 'old-os',
-      title: 'Please update your phone',
-      body: `AR needs ${device.os === 'ios' ? 'iOS' : 'Android'} ${MIN_VERSION[device.os]} or newer. You have version ${device.osVersion}.`,
+      title: t('device.oldTitle'),
+      body: t('device.oldBody', {os: device.os === 'ios' ? 'iOS' : 'Android', min: MIN_VERSION[device.os], version: device.osVersion}),
     }
   } else {
     const failed = checks.find((c) => !c.ok)
-    if (failed) primaryIssue = {code: failed.id, title: 'AR is not available here', body: failed.detail}
+    if (failed) primaryIssue = {code: failed.id, title: t('device.notHere'), body: failed.detail}
   }
 
   return {status: primaryIssue ? 'unsupported' : 'supported', device, checks, primaryIssue}

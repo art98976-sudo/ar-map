@@ -2,6 +2,7 @@
 import {loadTownGraph, nearestOnPaths} from '../../route/footpaths.js'
 import {render} from '../dom.js'
 import {icon} from '../icons.js'
+import {t} from '../../i18n/i18n.js'
 
 export function createMapPicker(bar) {
   const confirm = bar.querySelector('[data-action="pick-confirm"]')
@@ -17,10 +18,10 @@ export function createMapPicker(bar) {
       current.point = {lat: hit.lat, lng: hit.lng}
       current.marker.setLngLat({lng: hit.lng, lat: hit.lat})
       confirm.disabled = false
-      text.textContent = 'Moved to the nearest path. Tap the map or drag the pin to change it.'
+      text.textContent = t('start.snapped')
     } catch (err) {
       console.warn('[home] could not snap the pin', err)
-      if (pick === current) text.textContent = 'Could not load the paths. Check your connection and try again.'
+      if (pick === current) text.textContent = t('start.pathsFailed')
     }
   }
 

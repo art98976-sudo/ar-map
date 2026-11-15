@@ -1,7 +1,10 @@
 // "Go" from "my location": use the fix we have, wait a little for one, or say why there is none,
 // so the home screen can ask where the walk starts instead of showing a route error.
 
-export const NO_LOCATION_TEXT = 'We can’t see your location. Choose where you’re starting from.'
+import {t} from '../i18n/i18n.js'
+
+/** "We can’t see your location. Choose where you’re starting from." */
+export const noLocationText = () => t('start.noLocation')
 
 /**
  * Why no fix can come right now, or null when it is worth waiting for one. Pure.

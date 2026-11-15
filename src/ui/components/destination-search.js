@@ -8,6 +8,7 @@ import {matchTier, rankResults} from '../../map/search-rank.js'
 import {timetableQuery} from '../../map/timetable.js'
 import {html, render} from '../dom.js'
 import {CATEGORY_ICON, icon, iconFor} from '../icons.js'
+import {minutes, t} from '../../i18n/i18n.js'
 
 const ROOM_SEARCH_DELAY_MS = 220
 const POPULAR_IDS = POPULAR.map((d) => d.id)
@@ -22,7 +23,7 @@ let instances = 0
 export function createDestinationSearch(host, {
   onSelect,
   placeholder,
-  label = 'Search destinations',
+  label = t('search.label'),
   places = DESTINATIONS,
   searchRooms = true,
   recent: recentStore = {get: getRecent, add: addRecent, clear: clearRecent},
@@ -58,10 +59,10 @@ export function createDestinationSearch(host, {
             autocorrect="off"
             spellcheck="false"
             enterkeyhint="go"
-            placeholder="${placeholder || 'Building, room or service'}"
+            placeholder="${placeholder || t('search.placeholder')}"
             data-input
           />
-          <button class="dsearch__clear" type="button" aria-label="Clear search" data-clear hidden>
+          <button class="dsearch__clear" type="button" aria-label="${t('search.clear')}" data-clear hidden>
             ${icon('close', {size: 18})}
           </button>
         </div>
@@ -90,7 +91,7 @@ export function createDestinationSearch(host, {
           <span class="dsearch__name">${highlight(dest.name, query)}</span>
           ${meta ? html`<span class="dsearch__meta">${meta}</span>` : ''}
         </span>
-        ${dest.walkMinutes ? html`<span class="dsearch__time">${icon('clock', {size: 14})}${dest.walkMinutes} min</span>` : ''}
+        ${dest.walkMinutes ? html`<span class="dsearch__time">${icon('clock', {size: 14})}${minutes(dest.walkMinutes)}</span>` : ''}
         ${icon('chevronRight', {size: 18, className: 'dsearch__chev'})}
       </li>
     `
@@ -109,17 +110,17 @@ export function createDestinationSearch(host, {
             ? html`
                 <section class="dsearch__section" aria-labelledby="${uid}-recent">
                   <div class="dsearch__head">
-                    <h2 id="${uid}-recent" class="dsearch__title">${icon('history', {size: 16})}Recent</h2>
-                    <button type="button" class="dsearch__link" data-clear-recent aria-label="Clear recent searches">Clear</button>
+                    <h2 id="${uid}-recent" class="dsearch__title">${icon('history', {size: 16})}${t('search.recent')}</h2>
+                    <button type="button" class="dsearch__link" data-clear-recent aria-label="${t('search.clearRecent')}">${t('search.clearShort')}</button>
                   </div>
-                  <ul class="dsearch__list" role="listbox" id="${uid}-list" aria-label="Recent searches">
+                  <ul class="dsearch__list" role="listbox" id="${uid}-list" aria-label="${t('search.recentList')}">
                     ${recent.map((d, i) => row(d, i))}
                   </ul>
                 </section>
               `
             : ''}
           <section class="dsearch__section" aria-labelledby="${uid}-popular">
-            <h2 id="${uid}-popular" class="dsearch__title">${icon('star', {size: 16})}Popular places</h2>
+            <h2 id="${uid}-popular" class="dsearch__title">${icon('star', {size: 16})}${t('search.popular')}</h2>
             <div class="chips">
               ${POPULAR.map(
                 (d) => html`
@@ -131,7 +132,7 @@ export function createDestinationSearch(host, {
             </div>
           </section>
           <section class="dsearch__section" aria-labelledby="${uid}-town">
-            <h2 id="${uid}-town" class="dsearch__title">${icon('pin', {size: 16})}In Stirling</h2>
+            <h2 id="${uid}-town" class="dsearch__title">${icon('pin', {size: 16})}${t('search.town')}</h2>
             <div class="chips">
               ${TOWN_PLACES.map(
                 (d) => html`
@@ -152,24 +153,24 @@ export function createDestinationSearch(host, {
       render(
         panel,
         html`
-          <ul class="dsearch__list" role="listbox" id="${uid}-list" aria-label="Search results">
+          <ul class="dsearch__list" role="listbox" id="${uid}-list" aria-label="${t('search.results')}">
             ${results.map((d, i) => row(d, i))}
           </ul>
           ${rooms.state === 'loading'
-            ? html`<p class="dsearch__status"><span class="spinner spinner--dark spinner--sm" aria-hidden="true"></span>Searching rooms…</p>`
+            ? html`<p class="dsearch__status"><span class="spinner spinner--dark spinner--sm" aria-hidden="true"></span>${t('search.searchingRooms')}</p>`
             : ''}
           ${rooms.state === 'offline'
-            ? html`<p class="dsearch__status" data-offline role="status">Offline. Room search is off until you reconnect.</p>`
+            ? html`<p class="dsearch__status" data-offline role="status">${t('search.offline')}</p>`
             : ''}
           ${rooms.state === 'error' && !local.length
-            ? html`<p class="dsearch__status">Room search needs an internet connection.</p>`
+            ? html`<p class="dsearch__status">${t('search.needsInternet')}</p>`
             : ''}
           ${empty
             ? html`
                 <div class="dsearch__empty" role="status">
                   ${icon('search', {size: 28})}
-                  <strong>No room found. Try the room number, like 2B87.</strong>
-                  <span>Or a building name, like “Library”.</span>
+                  <strong>${t('search.noRoom')}</strong>
+                  <span>${t('search.tryBuilding')}</span>
                 </div>
               `
             : ''}

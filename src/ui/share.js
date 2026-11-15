@@ -1,6 +1,7 @@
 // Item 9: share a place. The phone's own share sheet (Web Share API) where there is one, else the
 // link is copied. The link is the app's own deep link, #/?to=<id>, with nothing added: no
 // tracking, no source, no user.
+import {t} from '../i18n/i18n.js'
 
 /** The link for a place: this site, its card. Pure. */
 export function placeLink(id, origin = globalThis.location?.origin ?? '') {
@@ -9,7 +10,7 @@ export function placeLink(id, origin = globalThis.location?.origin ?? '') {
 
 /** What the share sheet gets. Pure. */
 export function shareData(place, origin) {
-  return {title: place.name, text: `${place.name}, University of Stirling campus`, url: placeLink(place.id, origin)}
+  return {title: place.name, text: t('share.text', {name: place.name}), url: placeLink(place.id, origin)}
 }
 
 /**

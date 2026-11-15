@@ -1,7 +1,7 @@
 // Item 8: "I'm lost". One tap during a trip re-centres on the walker, plans again from where they
 // are, and names the nearest place they can see ("You are near the Sports Centre"). Pure.
 import {distanceM, projectOntoPolyline, toLocal} from '../geo/geo.js'
-import {landmarkPhrase} from './guidance.js'
+import {getDirections, t} from '../i18n/i18n.js'
 
 export const LOST = {nearM: 150, roughM: 50}
 
@@ -33,6 +33,6 @@ export function nearestPlace(fix, {destinations = [], osm = null} = {}, nearM = 
 /** The one line: where they are, and that a new route is on its way. */
 export function lostMessage(near, accuracyM = null) {
   const rough = Number.isFinite(accuracyM) && accuracyM > LOST.roughM
-  const where = near ? `You are near ${landmarkPhrase(near.name)}.` : 'There is no named place close by.'
-  return `${where}${rough ? ' Your position is approximate.' : ''} New route from here.`
+  const where = near ? t('lost.near', {place: getDirections().place(near.name)}) : t('lost.nowhere')
+  return `${where}${rough ? t('lost.rough') : ''}${t('lost.newRoute')}`
 }

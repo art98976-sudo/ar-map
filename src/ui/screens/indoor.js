@@ -10,6 +10,7 @@ import {planRoute, readTripRoute} from '../../route/route.js'
 import {readTripFix} from '../../geo/location.js'
 import {html, onAction, render} from '../dom.js'
 import {icon} from '../icons.js'
+import {t} from '../../i18n/i18n.js'
 
 const ROUTE = 'indoor-route'
 const ROUTE_BLUE = '#1f6feb'
@@ -50,18 +51,18 @@ export function indoorScreen(root, {navigate, params}) {
   render(
     root,
     html`<div class="indoor">
-      <div class="indoor__map" data-map role="region" aria-label="Indoor map"></div>
+      <div class="indoor__map" data-map role="region" aria-label="${t('indoor.region')}"></div>
       <header class="indoor__top">
-        <button class="round-btn" type="button" data-action="back" aria-label="Back to the campus map">${icon('close')}</button>
+        <button class="round-btn" type="button" data-action="back" aria-label="${t('indoor.back')}">${icon('close')}</button>
         <div class="indoor__title">
-          <h1 tabindex="-1" data-indoor-name>Finding the way in…</h1>
+          <h1 tabindex="-1" data-indoor-name>${t('indoor.findingWay')}</h1>
           <p data-indoor-meta></p>
         </div>
       </header>
       <section class="indoor__card" data-indoor-card aria-live="polite">
         <p class="indoor__why" data-indoor-why hidden></p>
-        <p data-indoor-step>Loading the indoor map…</p>
-        <button class="btn btn--primary btn--block" type="button" data-action="done">Done</button>
+        <p data-indoor-step>${t('indoor.loading')}</p>
+        <button class="btn btn--primary btn--block" type="button" data-action="done">${t('common.done')}</button>
       </section>
     </div>`,
   )
@@ -75,8 +76,8 @@ export function indoorScreen(root, {navigate, params}) {
     if (!dest && poiIdFrom(params.to)) dest = await fetchPoiDestination(poiIdFrom(params.to)).catch(() => null)
     if (disposed) return
     if (!dest) {
-      root.querySelector('[data-indoor-name]').textContent = 'We couldn’t find that place'
-      root.querySelector('[data-indoor-step]').textContent = 'Search for it on the campus map.'
+      root.querySelector('[data-indoor-name]').textContent = t('card.notFound')
+      root.querySelector('[data-indoor-step]').textContent = t('indoor.searchIt')
       return
     }
     root.querySelector('[data-indoor-name]').textContent = dest.name
@@ -84,10 +85,10 @@ export function indoorScreen(root, {navigate, params}) {
     const startFloor = Number.isFinite(Number(params.floor)) && params.floor !== undefined && params.floor !== '' ? Number(params.floor) : null
     const why = root.querySelector('[data-indoor-why]')
     if (why && params.from === 'ar') {
-      why.textContent = `You’re inside: GPS can’t see you here, so the floor plan shows the way${startFloor != null ? `, starting on Level ${startFloor}` : ''}.`
+      why.textContent = startFloor != null ? t('indoor.whyLevel', {level: startFloor}) : t('indoor.why')
       why.hidden = false
     }
-    root.querySelector('[data-indoor-meta]').textContent = [dest.building, dest.floor != null ? `Level ${dest.floor}` : null].filter(Boolean).join(' · ')
+    root.querySelector('[data-indoor-meta]').textContent = [dest.building, dest.floor != null ? t('common.level', {level: dest.floor}) : null].filter(Boolean).join(' · ')
     const [Mazemap, points] = await Promise.all([loadMazeMap(), indoorRoute(dest).catch(() => null)])
     if (disposed) return
     instance = createCampusMap(Mazemap, root.querySelector('[data-map]'), {
@@ -106,7 +107,7 @@ export function indoorScreen(root, {navigate, params}) {
           el.className = 'map-start'
           new Mazemap.mapboxgl.Marker({element: el}).setLngLat([points[0].lng, points[0].lat]).addTo(map)
           const startZ = points[0].z
-          step.textContent = Number.isFinite(startZ) && startZ > 0 && startZ !== dest.floor ? `Start at the door on Level ${startZ}, then go to Level ${dest.floor}.` : `Follow the blue line to ${dest.name}.`
+          step.textContent = Number.isFinite(startZ) && startZ > 0 && startZ !== dest.floor ? t('indoor.startAt', {from: startZ, to: dest.floor}) : t('indoor.follow', {name: dest.name})
         } else step.textContent = `${dest.name} is highlighted on the map.`
         // The room itself, highlighted.
         try {
@@ -122,7 +123,7 @@ export function indoorScreen(root, {navigate, params}) {
   })().catch((err) => {
     console.warn('[indoor] failed', err)
     const step = root.querySelector('[data-indoor-step]')
-    if (step) step.textContent = 'The indoor map could not load. Check your connection.'
+    if (step) step.textContent = t('indoor.failed')
   })
 
   return () => {

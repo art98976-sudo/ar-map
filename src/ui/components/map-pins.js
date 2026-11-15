@@ -5,6 +5,7 @@ import {blockedPins, clusterPoints, labelBox, onePerBuilding, sizeAtZoom} from '
 import {HOME_MAP} from '../../config.js'
 import {html, render} from '../dom.js'
 import {icon, iconFor} from '../icons.js'
+import {t} from '../../i18n/i18n.js'
 
 export function createMapPins(root, {getMap, getSelected, canSelect, onSelect}) {
   const pins = new Map()
@@ -89,7 +90,7 @@ export function createMapPins(root, {getMap, getSelected, canSelect, onSelect}) 
         el.type = 'button'
         el.className = 'map-cluster'
         el.dataset.cluster = String(g.ids.length)
-        el.setAttribute('aria-label', `${g.ids.length} places here. Zoom in`)
+        el.setAttribute('aria-label', t('map.cluster', {count: g.ids.length}))
         const count = document.createElement('span')
         count.textContent = String(g.ids.length)
         el.append(count)

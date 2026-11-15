@@ -28,6 +28,7 @@ import {arErrorKind, locationErrorKind, reportError} from '../../stats/errors.js
 import {focusScreen, haptic, html, onAction, render} from '../dom.js'
 import {CATEGORY_ICON, icon} from '../icons.js'
 import {GPS} from '../../config.js'
+import {minutes, t} from '../../i18n/i18n.js'
 import {GUIDE_LINES, markSeen, seen} from '../first-use.js'
 
 const CONTINUE_DELAY_MS = 900
@@ -66,7 +67,7 @@ export function locateScreen(root, {navigate, params}) {
         ${icon(CATEGORY_ICON[destination.category] || 'pin', {size: 20})}
       </span>
       <span class="dest-card__text">
-        <span class="dest-card__label">Directions to</span>
+        <span class="dest-card__label">${t('locate.directionsTo')}</span>
         <strong class="dest-card__name">${destination.name}</strong>
       </span>
     </div>
@@ -81,16 +82,16 @@ export function locateScreen(root, {navigate, params}) {
         <div class="page page--narrow page--center locate">
           <div class="locate-card">
             ${destinationCard()}
-            <h1 class="locate-card__title" tabindex="-1">${first ? 'Before we start' : 'Ready when you are'}</h1>
+            <h1 class="locate-card__title" tabindex="-1">${t(first ? 'locate.before' : 'locate.ready')}</h1>
             ${first
               ? html`<ul class="guide-lines" data-guide>
                   ${GUIDE_LINES.map((l) => html`<li>${icon(l.icon, {size: 20})}<span>${l.text}</span></li>`)}
                 </ul>`
               : ''}
-            <button class="btn btn--primary btn--block" type="button" data-action="tap" aria-label="Tap to start" data-autofocus>
-              ${icon('camera')}<span>Tap to start</span>
+            <button class="btn btn--primary btn--block" type="button" data-action="tap" aria-label="${t('locate.tap')}" data-autofocus>
+              ${icon('camera')}<span>${t('locate.tap')}</span>
             </button>
-            <button class="btn btn--ghost" type="button" data-action="back" aria-label="Cancel">Cancel</button>
+            <button class="btn btn--ghost" type="button" data-action="back" aria-label="${t('common.cancel')}">${t('common.cancel')}</button>
           </div>
         </div>
       `,
@@ -99,7 +100,7 @@ export function locateScreen(root, {navigate, params}) {
   }
 
   // ---------- waiting / found ----------
-  function showWaiting(title = 'Finding your location…', body = 'This usually takes a few seconds outdoors.') {
+  function showWaiting(title = t('locate.finding'), body = t('locate.findingBody')) {
     setView(
       html`
         <div class="page page--narrow page--center locate">
@@ -109,25 +110,25 @@ export function locateScreen(root, {navigate, params}) {
             <p class="locate-card__body" data-body aria-live="polite">${body}</p>
             <div class="gps-meter" data-meter>
               <div class="gps-meter__row">
-                <span>GPS accuracy</span>
+                <span>${t('locate.gpsAccuracy')}</span>
                 <strong data-accuracy>–</strong>
               </div>
               <div class="gps-meter__track" aria-hidden="true"><span class="gps-meter__fill" data-fill></span></div>
-              <p class="gps-meter__hint">Needs ±${GPS.goodAccuracyM} m or better</p>
+              <p class="gps-meter__hint">${t('locate.needs', {m: GPS.goodAccuracyM})}</p>
             </div>
             <div class="locate-card__indoors" data-choose-start hidden>
-              <p>${icon('info', {size: 20})}<span><strong>We can't find you precisely.</strong> Choose your starting point instead.</span></p>
+              <p>${icon('info', {size: 20})}<span><strong>${t('locate.cantFind')}</strong> ${t('locate.cantFindBody')}</span></p>
               <button class="btn btn--primary btn--block" type="button" data-action="choose-start">
-                ${icon('pin')}<span>Choose starting point</span>
+                ${icon('pin')}<span>${t('locate.chooseStart')}</span>
               </button>
             </div>
             <div class="locate-card__indoors" data-indoors hidden>
-              <p>${icon('info', {size: 20})}<span><strong>You may be indoors.</strong> GPS needs a clear view of the sky. Step outside, or use the 2D map.</span></p>
-              <button class="btn btn--secondary btn--block" type="button" data-action="map" aria-label="View 2D map instead">
-                ${icon('map')}<span>View 2D map instead</span>
+              <p>${icon('info', {size: 20})}<span><strong>${t('locate.indoors')}</strong> ${t('locate.indoorsBody')}</span></p>
+              <button class="btn btn--secondary btn--block" type="button" data-action="map" aria-label="${t('common.map2d')}">
+                ${icon('map')}<span>${t('common.map2d')}</span>
               </button>
             </div>
-            <button class="btn btn--ghost" type="button" data-action="back" aria-label="Cancel">Cancel</button>
+            <button class="btn btn--ghost" type="button" data-action="back" aria-label="${t('common.cancel')}">${t('common.cancel')}</button>
           </div>
         </div>
       `,
@@ -145,18 +146,18 @@ export function locateScreen(root, {navigate, params}) {
 
     if (s.status === 'searching') return
     const acc = Math.round(s.accuracy)
-    root.querySelector('[data-accuracy]').textContent = Number.isFinite(acc) ? `±${acc} m` : 'unknown'
+    root.querySelector('[data-accuracy]').textContent = Number.isFinite(acc) ? `±${acc} m` : t('locate.unknown')
     // Bar: full at ≤ 5 m, empty at ≥ 60 m.
     const fill = Math.max(0.04, Math.min(1, (60 - s.accuracy) / 55))
     root.querySelector('[data-fill]').style.transform = `scaleX(${fill})`
     meter.dataset.level = s.level
 
     if (s.status === 'weak') {
-      title.textContent = 'Weak GPS – move into the open'
-      body.textContent = 'Step away from tall buildings and trees. We will carry on as soon as the signal is good.'
+      title.textContent = t('locate.weak')
+      body.textContent = t('locate.weakBody')
     } else if (s.status === 'ready') {
-      title.textContent = 'Location found'
-      body.textContent = `Accurate to about ${acc} m. Opening the camera…`
+      title.textContent = t('locate.found')
+      body.textContent = t('locate.foundBody', {m: acc})
     }
   }
 
@@ -180,7 +181,7 @@ export function locateScreen(root, {navigate, params}) {
   async function planTrip(fix) {
     planning = true
     const body = root.querySelector('[data-body]')
-    if (body) body.textContent = 'Planning your walking route…'
+    if (body) body.textContent = t('locate.planning')
     try {
       const route = await planRoute(fix, destination)
       if (disposed) return
@@ -189,7 +190,7 @@ export function locateScreen(root, {navigate, params}) {
         return showOffCampus(route.distanceM)
       }
       saveTripRoute({...route, destinationId: destination.id, origin: fix, start: manualStart ? startPoint : null, plannedAt: Date.now()})
-      if (body) body.textContent = `${formatDistance(tripLengthM(route))} walk, about ${walkingMinutes(tripLengthM(route))} min. Opening the camera…`
+      if (body) body.textContent = t('locate.walk', {distance: formatDistance(tripLengthM(route)), min: minutes(walkingMinutes(tripLengthM(route)))})
       continueTimer = setTimeout(() => {
         if (!disposed) navigate(`/ar?${nextQuery}`, {replace: true})
       }, CONTINUE_DELAY_MS)
@@ -206,16 +207,14 @@ export function locateScreen(root, {navigate, params}) {
       html`
         <div class="page page--narrow page--center error-state">
           <span class="error-state__icon" data-tone="warn">${icon('map', {size: 32})}</span>
-          <h1 class="page__title" tabindex="-1">You're outside Stirling</h1>
-          <p class="page__lede">
-            You are about ${formatDistance(metres)} from the University. AR directions start once you are in Stirling.
-          </p>
+          <h1 class="page__title" tabindex="-1">${t('locate.outside')}</h1>
+          <p class="page__lede">${t('locate.outsideBody', {distance: formatDistance(metres)})}</p>
           <div class="error-state__actions">
-            <a class="btn btn--primary btn--lg btn--block" aria-label="Walking directions in Google Maps" href="${googleMapsWalkingUrl(destination)}" target="_blank" rel="noopener">
-              ${icon('external')}<span>Walking directions in Google Maps</span>
+            <a class="btn btn--primary btn--lg btn--block" aria-label="${t('locate.google')}" href="${googleMapsWalkingUrl(destination)}" target="_blank" rel="noopener">
+              ${icon('external')}<span>${t('locate.google')}</span>
             </a>
-            <button class="btn btn--secondary btn--lg btn--block" type="button" data-action="map" aria-label="View 2D map instead">
-              ${icon('map')}<span>View 2D map instead</span>
+            <button class="btn btn--secondary btn--lg btn--block" type="button" data-action="map" aria-label="${t('common.map2d')}">
+              ${icon('map')}<span>${t('common.map2d')}</span>
             </button>
           </div>
         </div>
@@ -229,7 +228,7 @@ export function locateScreen(root, {navigate, params}) {
       stop()
       tapWatch?.stop()
       tapWatch = null
-      showWaiting('Planning your walking route…', `From ${startLabel(startPoint)}.`)
+      showWaiting(t('locate.planning'), t('locate.from', {start: startLabel(startPoint)}))
       root.querySelector('[data-meter]').hidden = true
       planTrip(startPoint)
       return
@@ -261,7 +260,7 @@ export function locateScreen(root, {navigate, params}) {
   /** Wait for the answers to the requests made in the tap, then look for a good fix. */
   async function awaitPermissions(pending) {
     tapWatch = pending.gps
-    showWaiting('Tap Allow when your phone asks', 'Your phone asks about the camera, your location and motion.')
+    showWaiting(t('locate.allow'), t('locate.allowBody'))
     const answer = await settlePermissions(pending)
     if (disposed) return
     for (const code of ['camera-denied', 'motion-denied']) {
@@ -298,10 +297,10 @@ export function locateScreen(root, {navigate, params}) {
               ${icon('refresh')}<span>${copy.primary.label}</span>
             </button>
             <button class="btn btn--secondary btn--lg btn--block" type="button" data-action="choose-start">
-              ${icon('pin')}<span>Choose starting point</span>
+              ${icon('pin')}<span>${t('locate.chooseStart')}</span>
             </button>
-            <button class="btn btn--secondary btn--lg btn--block" type="button" data-action="map" aria-label="View 2D map instead">
-              ${icon('map')}<span>View 2D map instead</span>
+            <button class="btn btn--secondary btn--lg btn--block" type="button" data-action="map" aria-label="${t('common.map2d')}">
+              ${icon('map')}<span>${t('common.map2d')}</span>
             </button>
           </div>
           ${extra}
@@ -320,12 +319,12 @@ export function locateScreen(root, {navigate, params}) {
           <h1 class="page__title" tabindex="-1">${issue.title}</h1>
           <p class="page__lede">${issue.body}</p>
           <div class="error-state__actions">
-            <button class="btn btn--primary btn--lg btn--block" type="button" data-action="map" aria-label="View 2D map instead">
-              ${icon('map')}<span>View 2D map instead</span>
+            <button class="btn btn--primary btn--lg btn--block" type="button" data-action="map" aria-label="${t('common.map2d')}">
+              ${icon('map')}<span>${t('common.map2d')}</span>
             </button>
             ${['desktop', 'in-app-browser'].includes(issue.code)
-              ? html`<button class="btn btn--secondary btn--lg btn--block" type="button" data-action="copy" aria-label="Copy link">
-                  ${icon('copy')}<span>Copy link</span>
+              ? html`<button class="btn btn--secondary btn--lg btn--block" type="button" data-action="copy" aria-label="${t('common.copyLink')}">
+                  ${icon('copy')}<span>${t('common.copyLink')}</span>
                 </button>`
               : ''}
           </div>
@@ -351,7 +350,7 @@ export function locateScreen(root, {navigate, params}) {
       const url = window.location.href.split('#')[0]
       try {
         await navigator.clipboard.writeText(url)
-        showToast('Link copied')
+        showToast(t('common.linkCopied'))
       } catch {
         showToast(url, {duration: 6000})
       }

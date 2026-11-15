@@ -4,6 +4,7 @@
 import {COLOURS, COMPASS_MAP, MAZEMAP} from '../../config.js'
 import {createCampusMap, loadMazeMap} from '../../map/mazemap.js'
 import {stepBearing} from '../../route/compass-guide.js'
+import {t} from '../../i18n/i18n.js'
 
 const ROUTE = 'trip-route'
 
@@ -143,7 +144,7 @@ export function createCompassMap(host, {getState, onReady, onFailed}) {
         const el = document.createElement('button')
         el.type = 'button'
         el.className = `ar-map__pick ar-map__pick--${choice.kind}`
-        el.setAttribute('aria-label', `I'm at this ${choice.kind === 'lift' ? 'lift' : choice.kind === 'stairs' ? 'stair' : 'door'}`)
+        el.setAttribute('aria-label', t(choice.kind === 'lift' ? 'ar.imAtLift' : choice.kind === 'stairs' ? 'ar.imAtStair' : 'ar.imAtDoor'))
         el.addEventListener('click', (event) => {
           event.stopPropagation()
           onPick(choice)

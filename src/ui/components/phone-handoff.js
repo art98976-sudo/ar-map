@@ -1,6 +1,7 @@
 // "Open on your phone for AR": a QR code of this place's link, for a laptop or a browser without
 // location or a rear camera. The code is drawn here (qrcode-generator), so nothing is fetched.
 import {html} from '../dom.js'
+import {t} from '../../i18n/i18n.js'
 
 /** The link the phone opens: this site, with the place's card. Pure. */
 export function handoffUrl(destId, origin = globalThis.location?.origin ?? '') {
@@ -42,17 +43,17 @@ const demoVideo = () => html`
     >
       <track kind="captions" srclang="en-GB" label="English (UK)" src="${DEMO_VIDEO.captions}" default />
     </video>
-    <figcaption class="handoff__caption" id="handoff-demo-caption">What it looks like: arrows on the path through the phone’s camera.</figcaption>
+    <figcaption class="handoff__caption" id="handoff-demo-caption">${t('handoff.demo')}</figcaption>
   </figure>
 `
 
 /** The panel. url: from handoffUrl(). */
 export const phoneHandoff = (url) => html`
   <section class="handoff" aria-labelledby="handoff-title" data-handoff>
-    <figure class="handoff__code" role="img" aria-label="QR code that opens this place on your phone" data-qr-url="${url}"></figure>
+    <figure class="handoff__code" role="img" aria-label="${t('handoff.qr')}" data-qr-url="${url}"></figure>
     <div class="handoff__text">
-      <h2 class="handoff__title" id="handoff-title">Open on your phone for AR</h2>
-      <p class="handoff__body">Scan with your phone’s camera to follow arrows on the ground. The map here still works.</p>
+      <h2 class="handoff__title" id="handoff-title">${t('handoff.title')}</h2>
+      <p class="handoff__body">${t('handoff.body')}</p>
     </div>
     ${demoVideo()}
   </section>

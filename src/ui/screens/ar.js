@@ -29,6 +29,7 @@ import {watchContextLoss} from '../webgl-loss.js'
 import {createVoice} from '../voice.js'
 import {loadBuildings} from '../../premium/buildings.js'
 import {errorView, liveView, loadingView} from './ar-view.js'
+import {t} from '../../i18n/i18n.js'
 
 const MAP_SWIPE_PX = 40
 const LINE_UP_DEG_PER_WIDTH = 90 // a drag across the whole screen turns the route this far
@@ -122,7 +123,7 @@ export function arScreen(root, {navigate, params}) {
     // "I'm here": the nearby doors, stairs and lifts on the map; the one tapped is where the user is.
     reanchor: () => {
       const choices = trip?.reanchorChoices() ?? []
-      if (!choices.length || !compassMap) return showToast('No doors, stairs or lifts nearby on the map', {tone: 'warning'})
+      if (!choices.length || !compassMap) return showToast(t('ar.noDoors'), {tone: 'warning'})
       toggleMap(true)
       const pick = root.querySelector('[data-pick]')
       if (pick) pick.hidden = false
@@ -163,7 +164,7 @@ export function arScreen(root, {navigate, params}) {
         const [{nearestPlace, lostMessage}, {default: osm}] = await Promise.all([import('../../route/lost.js'), import('../../data/landmarks-osm.json')])
         const here = await trip.imLost()
         if (disposed) return
-        const message = here ? lostMessage(nearestPlace(here, {destinations: DESTINATIONS, osm}), here.accuracy) : 'We can’t see where you are yet. Hold the phone up and walk a few steps.'
+        const message = here ? lostMessage(nearestPlace(here, {destinations: DESTINATIONS, osm}), here.accuracy) : t('lost.noFix')
         root.querySelector('[data-compass-map]')?.classList.add('is-expanded')
         showToast(message, {duration: 6000})
         voice.say(message)
@@ -181,7 +182,7 @@ export function arScreen(root, {navigate, params}) {
       if (note) note.hidden = result !== 'look'
       if (result === 'path' && note) {
         note.hidden = false
-        note.textContent = 'Walk to the path first, then tap Start again.'
+        note.textContent = t('ar.walkToPathAgain')
       }
     },
     map: () => navigate(`/?to=${encodeURIComponent(destination.id)}`),
@@ -225,7 +226,7 @@ export function arScreen(root, {navigate, params}) {
     ring.style.setProperty('--p', String(pct))
     ring.setAttribute('aria-valuenow', String(pct))
     root.querySelector('[data-progress-text]').textContent = `${pct}%`
-    if (pct >= 99) root.querySelector('[data-loading-text]').textContent = 'Starting the camera…'
+    if (pct >= 99) root.querySelector('[data-loading-text]').textContent = t('ar.startingCamera')
   }
 
   // ---------- live ----------
@@ -236,7 +237,7 @@ export function arScreen(root, {navigate, params}) {
         showDebug,
         routeSource: route.source,
         pillText: tripPillText(destination.name, tripLengthM(route)),
-        startTitle: manualStart ? standHereText(tripStart) : 'Walk to the path first',
+        startTitle: manualStart ? standHereText(tripStart) : t('ar.walkToPath'),
       }),
       'live',
     )
@@ -256,7 +257,7 @@ export function arScreen(root, {navigate, params}) {
     if (force === undefined) mapOpenedForPosition = false // the user's own choice now
     const expanded = host.classList.toggle('is-expanded', force)
     button.setAttribute('aria-expanded', String(expanded))
-    button.setAttribute('aria-label', expanded ? 'Shrink map' : 'Expand map')
+    button.setAttribute('aria-label', t(expanded ? 'ar.shrinkMap' : 'ar.expandMap'))
     render(root.querySelector('[data-map-expand]'), icon(expanded ? 'shrink' : 'expand', {size: 18}))
     compassMap?.setExpanded(expanded)
   }
@@ -320,7 +321,7 @@ export function arScreen(root, {navigate, params}) {
     voice.say(line)
     haptic([20, 60, 20])
     let left = handoff.lib.HANDOFF.countdownS
-    const paint = () => (card.querySelector('[data-handoff-count]').textContent = `Opening in ${left} s`)
+    const paint = () => (card.querySelector('[data-handoff-count]').textContent = t('ar.opening', {s: left}))
     paint()
     handoff.timer = setInterval(() => {
       left -= 1
@@ -342,7 +343,7 @@ export function arScreen(root, {navigate, params}) {
   }
 
   function onArrived() {
-    if (!arrivedYet) voice.say(`You’ve arrived at ${arriveLabel(destination)}`)
+    if (!arrivedYet) voice.say(t('trip.arrivedAt', {place: arriveLabel(destination)}))
     if (!arrivedYet) count('arrived')
     arrivedYet = true
     const host = root.querySelector('[data-arrival]')
@@ -517,8 +518,8 @@ export function arScreen(root, {navigate, params}) {
       card.hidden = !s.floorChange
       if (s.floorChange) {
         const {toLevel, up} = s.floorChange
-        card.querySelector('[data-floor-text]').textContent = `Go to Level ${toLevel}`
-        card.querySelector('[data-floor-button]').textContent = `I’m on Level ${toLevel}`
+        card.querySelector('[data-floor-text]').textContent = t('ar.goToLevel', {level: toLevel})
+        card.querySelector('[data-floor-button]').textContent = t('ar.onLevel', {level: toLevel})
         render(card.querySelector('[data-floor-icon]'), icon(up ? 'arrowUp' : 'arrowDown', {size: 22}))
       }
     }
@@ -570,11 +571,11 @@ export function arScreen(root, {navigate, params}) {
     const start = card.querySelector('[data-action="start-walk"]')
     if (start.disabled === Boolean(s.canStart)) {
       start.disabled = !s.canStart
-      card.querySelector('[data-start-label]').textContent = s.canStart ? 'Start' : 'Getting ready…'
+      card.querySelector('[data-start-label]').textContent = t(s.canStart ? 'ar.start' : 'ar.gettingReady')
     }
     if (s.routeBearingDeg == null || manualStart) return
     const far = s.startGapM > 25
-    card.querySelector('[data-start-title]').textContent = far ? 'Walk to the path first' : 'Stand on the path and tap Start'
+    card.querySelector('[data-start-title]').textContent = t(far ? 'ar.walkToPath' : 'ar.standOnPath')
   }
 
   function onTracking(detail) {
@@ -603,8 +604,8 @@ export function arScreen(root, {navigate, params}) {
       root.querySelector('[data-veil]')?.classList.add('is-hidden')
       setStat('camera', 'Working', 'ok')
     } else if (status === 'requesting') {
-      const t = root.querySelector('[data-veil-text]')
-      if (t) t.textContent = 'Tap Allow to use the camera'
+      const veil = root.querySelector('[data-veil-text]')
+      if (veil) veil.textContent = t('ar.allowCamera')
     } else if (status === 'denied') {
       showError('camera-denied')
     } else if (status === 'missing') {
@@ -659,7 +660,7 @@ export function arScreen(root, {navigate, params}) {
     handoff.doorS = handoff.lib.doorAlongM(route)
     handoff.floor = handoff.lib.entryFloor(route, destination)
     if (disposed) return
-    trip = createArTrip({route, origin, destination, allowDesktop, debug: showDebug, arriveLabel: arriveLabel(destination), onPhase, onStats, onArrived, onTurnClose: () => haptic(30), onTurnNow: () => haptic([30, 50, 30]), startPoint: tripStart, autoStart: !manualStart, reducedMotion: prefersReducedMotion(), onEnterCampus: () => showToast('Welcome to campus', {tone: 'success'}), loadCampus: loadBuildings})
+    trip = createArTrip({route, origin, destination, allowDesktop, debug: showDebug, arriveLabel: arriveLabel(destination), onPhase, onStats, onArrived, onTurnClose: () => haptic(30), onTurnNow: () => haptic([30, 50, 30]), startPoint: tripStart, autoStart: !manualStart, reducedMotion: prefersReducedMotion(), onEnterCampus: () => showToast(t('ar.welcome'), {tone: 'success'}), loadCampus: loadBuildings})
     wireMapSwipe()
     wireFloorTap()
     wireLineUpDrag()

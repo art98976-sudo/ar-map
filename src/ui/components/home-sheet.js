@@ -8,6 +8,7 @@ import {loadRoomTypes, pinPlaces, roomTypeDestinations, searchPlaces, toRows} fr
 import {getRecent} from '../../map/destinations.js'
 import {savedByGroup} from '../../map/saved.js'
 import {render} from '../dom.js'
+import {t} from '../../i18n/i18n.js'
 import {chipLoading, chipResults, restView} from '../screens/home-view.js'
 
 const RECENT_AT_REST = 3
@@ -71,7 +72,7 @@ export function createHomeSheet(root, {getMap, getFrom, pins, onPick}) {
     home.style.setProperty('--sheet-px', `${px}px`)
     home.dataset.sheet = name
     handle.setAttribute('aria-expanded', String(name !== 'peek'))
-    handle.setAttribute('aria-label', name === 'full' ? 'Show less' : 'Show more')
+    handle.setAttribute('aria-label', t(name === 'full' ? 'home.showLess' : 'home.showMore'))
   }
 
   // ---------- dragging ----------
@@ -147,7 +148,7 @@ export function createHomeSheet(root, {getMap, getFrom, pins, onPick}) {
 
   function showRows(def, list, note = '') {
     rows = list
-    render(body, chipResults(def.label, list, list.length ? note : `No ${def.label.toLowerCase()} found nearby.`))
+    render(body, chipResults(def.label, list, list.length ? note : t('home.noneNearby', {what: def.label.toLocaleLowerCase()})))
   }
 
   async function choose(id) {
@@ -166,7 +167,7 @@ export function createHomeSheet(root, {getMap, getFrom, pins, onPick}) {
     }
     setHeight('half')
     const {point: from, isUser} = getFrom()
-    const note = isUser || !from ? '' : 'Nearest to the middle of the map.'
+    const note = isUser || !from ? '' : t('home.middleOfMap')
     if (def.kind === 'pins') {
       pins.setFilter(id)
       clearDots()
@@ -192,7 +193,7 @@ export function createHomeSheet(root, {getMap, getFrom, pins, onPick}) {
       if (ticket !== request || err?.name === 'AbortError') return
       console.warn('[home] quick chip failed', err)
       rows = []
-      render(body, chipResults(def.label, [], 'Could not load these places. Check your connection and try again.'))
+      render(body, chipResults(def.label, [], t('home.chipFailed')))
     }
   }
 

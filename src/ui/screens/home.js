@@ -13,12 +13,13 @@ import {startPermissionRequests} from '../../ar/permissions.js'
 import {seen} from '../first-use.js'
 import {openingMove} from '../opening.js'
 import {createFixWatch, locationPermissionState, readTripFix} from '../../geo/location.js'
-import {locateForGo, NO_LOCATION_TEXT} from '../../route/go-start.js'
+import {locateForGo, noLocationText} from '../../route/go-start.js'
 import {handoffUrl, hydrateHandoff, needsHandoff, phoneHandoff} from '../components/phone-handoff.js'
 import {watchContextLoss} from '../webgl-loss.js'
 import {arriveLabel} from './ar.js'
 import {createVoice} from '../voice.js'
 import {applyTheme, getTheme} from '../theme.js'
+import {getLocale, setLocale, t} from '../../i18n/i18n.js'
 import {SAVED_GROUPS, savedGroup, savePlace, unsavePlace} from '../../map/saved.js'
 import {reportError} from '../../stats/errors.js'
 import {addRecent, DESTINATIONS, findDestination, setCurrentDestination} from '../../map/destinations.js'
@@ -46,7 +47,10 @@ import {GPS, HOME_MAP, INDOOR, MAZEMAP, START} from '../../config.js'
 import {createSheets} from './home-sheets.js'
 import {doorList, homePage, mapError, mapLoading, mapLost, placeCard, placeLoading, placeNotFound} from './home-view.js'
 
-export function homeScreen(root, {navigate, params}) {
+// Item 13: after a new language the screen is drawn again; the menu opens on the choice just made.
+let reopenMenuOnLocale = false
+
+export function homeScreen(root, {navigate, params, refresh = () => {}}) {
   const forced = params.force === '1'
   let instance = null
   let mapReady = false // the map's style has loaded: it can take the route line
@@ -86,15 +90,15 @@ export function homeScreen(root, {navigate, params}) {
   const infoSheet = root.querySelector('[data-info-sheet]')
   const startSheet = root.querySelector('[data-start-sheet]')
   const startSearch = createDestinationSearch(root.querySelector('[data-start-search]'), {
-    label: 'Search for a starting point',
-    placeholder: 'Building, entrance or place',
+    label: t('start.searchLabel'),
+    placeholder: t('start.searchPlaceholder'),
     places: PLACE_LIST,
     searchRooms: false,
     recent: {get: getRecentStarts, add: addRecentStart, clear: clearRecentStarts},
     onSelect: (place) => chooseStartPlace(placeById(place.id) ?? place),
   })
   const search = createDestinationSearch(root.querySelector('[data-search]'), {
-    label: 'Search for a destination',
+    label: t('search.destination'),
     onSelect: (dest) => {
       sheets.close({restoreFocus: false})
       select(dest)
@@ -163,6 +167,28 @@ export function homeScreen(root, {navigate, params}) {
     for (const b of root.querySelectorAll('[data-theme-choice]')) b.setAttribute('aria-checked', String(b.dataset.themeChoice === now))
   }
   paintTheme()
+
+  // Item 13: the language (menuitemradio). The screen is drawn again in it; the address keeps the place.
+  async function chooseLocale(button) {
+    const id = button.dataset.localeChoice
+    if (id === getLocale().id) return
+    button.setAttribute('aria-busy', 'true')
+    const now = await setLocale(id)
+    if (disposed) return
+    button.removeAttribute('aria-busy')
+    if (now.id !== id) return showToast(t('lang.failed'), {tone: 'warning'})
+    reopenMenuOnLocale = true
+    refresh()
+  }
+  if (reopenMenuOnLocale) {
+    reopenMenuOnLocale = false
+    // After the router has moved focus to the heading: back to the language just chosen.
+    requestAnimationFrame(() => {
+      if (disposed) return
+      setMenu(true)
+      menu.querySelector('[data-locale-choice][aria-checked="true"]')?.focus({preventScroll: true})
+    })
+  }
   const onOutside = (event) => {
     if (!menu.hidden && !event.target.closest('[data-menu], [data-action="open-menu"]')) setMenu(false)
   }
@@ -289,7 +315,7 @@ export function homeScreen(root, {navigate, params}) {
       console.warn('[home] alignment check could not load the model', err)
       show3d = false
       paint3dButton()
-      showToast('Could not load the 3D buildings. Try again.', {tone: 'warning'})
+      showToast(t('home.3dFailed'), {tone: 'warning'})
     }
   }
 
@@ -302,11 +328,11 @@ export function homeScreen(root, {navigate, params}) {
   function paint3dButton(loading = false) {
     const button = root.querySelector('[data-action="toggle-3d"]')
     button.setAttribute('aria-pressed', String(show3d))
-    button.setAttribute('aria-label', show3d ? 'Hide 3D buildings' : 'Show 3D buildings')
+    button.setAttribute('aria-label', t(show3d ? 'home.hide3d' : 'home.show3d'))
     button.toggleAttribute('aria-busy', loading)
     button.querySelector('[data-3d-label]').hidden = loading
     button.querySelector('[data-3d-spinner]').hidden = !loading
-    button.querySelector('[data-3d-label]').textContent = show3d ? '2D' : '3D'
+    button.querySelector('[data-3d-label]').textContent = t(show3d ? 'home.mode2d' : 'home.mode3d')
   }
 
   function loadModel(map) {
@@ -348,7 +374,7 @@ export function homeScreen(root, {navigate, params}) {
     } catch (err) {
       console.warn('[home] 3D model failed', err)
       show3d = false
-      showToast('Could not load the 3D buildings. Try again.', {tone: 'warning'})
+      showToast(t('home.3dFailed'), {tone: 'warning'})
     } finally {
       if (!disposed) paint3dButton()
     }
@@ -367,10 +393,10 @@ export function homeScreen(root, {navigate, params}) {
     const start = getStart()
     const from = isManual(start) ? start : fixWatch.fix
     // One number, the same as in AR: the planned route. The straight-line estimate only if planning fails.
-    if (cardRoute) return walkSummary(tripLengthM(cardRoute)) ?? 'On campus'
-    if (planningFor === selected) return 'Working out the walk…'
-    if (!from || estimateWalkMinutes(from, selected) == null) return 'On campus'
-    return walkSummary(estimatedWalkM(from, entranceOf(selected))) ?? 'On campus'
+    if (cardRoute) return walkSummary(tripLengthM(cardRoute)) ?? t('card.onCampus')
+    if (planningFor === selected) return t('card.working')
+    if (!from || estimateWalkMinutes(from, selected) == null) return t('card.onCampus')
+    return walkSummary(estimatedWalkM(from, entranceOf(selected))) ?? t('card.onCampus')
   }
 
   /**
@@ -459,7 +485,7 @@ export function homeScreen(root, {navigate, params}) {
       await quietPlan()
       go?.removeAttribute('aria-busy')
       if (disposed || selected !== dest) return
-      if (!cardRoute) return showToast('Could not plan a route. Try again.', {tone: 'warning'})
+      if (!cardRoute) return showToast(t('home.noRoute'), {tone: 'warning'})
     }
     // The map trip (and its turn-by-turn) loads on Go, keeping the first screen light.
     const [{createMapTrip}, {createTurnAnnouncer}, {default: osm}] = await Promise.all([
@@ -512,7 +538,7 @@ export function homeScreen(root, {navigate, params}) {
         await startMapTrip() // the new route, its steps and its framing
       }
       instance?.map?.easeTo({center: [fix.lng, fix.lat], zoom: Math.max(instance.map.getZoom(), 17), duration: 600})
-      showToast(route?.status === 'ok' ? message : `${message.replace(' New route from here.', '')} We could not plan a new route.`, {duration: 6000})
+      showToast(route?.status === 'ok' ? message : `${message.replace(t('lost.newRoute'), '')} ${t('home.noNewRoute')}`, {duration: 6000})
       voice.say(message)
     } finally {
       button?.removeAttribute('aria-busy')
@@ -617,8 +643,8 @@ export function homeScreen(root, {navigate, params}) {
   // ---------- the starting point ----------
   function gpsText() {
     const {fix} = fixWatch
-    if (fix) return `Current location · ±${Math.round(fix.accuracy)} m`
-    return fixWatch.watching ? 'Locating you…' : 'Current location'
+    if (fix) return t('start.gpsAccuracy', {m: Math.round(fix.accuracy)})
+    return t(fixWatch.watching ? 'start.locating' : 'start.gps')
   }
 
   function paintStart() {
@@ -626,7 +652,7 @@ export function homeScreen(root, {navigate, params}) {
     const start = getStart()
     const manual = isManual(start)
     const text = root.querySelector('[data-start-text]')
-    if (text) text.textContent = manual ? startLabel(start) : 'my location'
+    if (text) text.textContent = manual ? startLabel(start) : t('start.myLocation')
     const value = root.querySelector('[data-start-value]')
     if (value) value.textContent = manual ? startLabel(start) : gpsText()
     const prompt = root.querySelector('[data-start-prompt]')
@@ -638,9 +664,9 @@ export function homeScreen(root, {navigate, params}) {
     if (approx) approx.hidden = manual || !locationApproximate(fix) || (prompt && !prompt.hidden)
     if (selected) quietPlan() // GPS may only now have arrived
     const row = root.querySelector('.route-from__row')
-    row?.setAttribute('aria-label', `Starting point: ${manual ? startLabel(start) : gpsText()}. Change`)
+    row?.setAttribute('aria-label', t('start.rowLabel', {start: manual ? startLabel(start) : gpsText()}))
     const sheetText = root.querySelector('[data-start-gps-text]')
-    if (sheetText) sheetText.textContent = fix ? `Accurate to ±${Math.round(fix.accuracy)} m` : trouble ? 'Not available right now' : 'Use GPS'
+    if (sheetText) sheetText.textContent = fix ? t('start.accurateTo', {m: Math.round(fix.accuracy)}) : t(trouble ? 'start.notAvailable' : 'start.useGps')
     paintStartMarker()
   }
 
@@ -688,8 +714,8 @@ export function homeScreen(root, {navigate, params}) {
     const start = getStart()
     const {fix} = fixWatch
     if (!selected) return
-    const here = isManual(start) ? startAsDestination(start) : fix && {id: 'your-location', name: 'Your location', category: 'landmark', building: '', floor: null, lat: fix.lat, lng: fix.lng}
-    if (!here) return showToast('Still finding you. Choose a starting point to swap.', {tone: 'warning'})
+    const here = isManual(start) ? startAsDestination(start) : fix && {id: 'your-location', name: t('home.yourLocation'), category: 'landmark', building: '', floor: null, lat: fix.lat, lng: fix.lng}
+    if (!here) return showToast(t('home.swapNoFix'), {tone: 'warning'})
     const place = placeById(selected.id)
     useStart(place ? startFromPlace(place) : startFromPin(selected))
     select(here)
@@ -697,7 +723,7 @@ export function homeScreen(root, {navigate, params}) {
 
   // ---------- pick on the map ----------
   function enterPick() {
-    if (!instance?.map) return showToast('The map is still loading', {tone: 'warning'})
+    if (!instance?.map) return showToast(t('home.mapStillLoading'), {tone: 'warning'})
     sheets.close({restoreFocus: false})
     showDoors(null)
     card.hidden = true
@@ -736,7 +762,7 @@ export function homeScreen(root, {navigate, params}) {
       dest = await fetchPoiDestination(poiId)
     } catch (err) {
       console.warn('[home] room lookup failed', err)
-      if (!disposed && !selected) render(card, placeNotFound('We couldn’t load that place. Check your connection and try again.'))
+      if (!disposed && !selected) render(card, placeNotFound(t('card.notLoaded')))
       return
     }
     if (disposed || selected) return
@@ -793,7 +819,7 @@ export function homeScreen(root, {navigate, params}) {
   /** Go with no position: choose a start, then Go is ready to tap again. */
   function askStart() {
     goAfterStart = true
-    openStartSheet(NO_LOCATION_TEXT)
+    openStartSheet(noLocationText())
   }
 
   // ---------- route on the map ----------
@@ -962,7 +988,7 @@ export function homeScreen(root, {navigate, params}) {
       if (group) {
         unsavePlace(selected.id)
         button.setAttribute('aria-pressed', 'false')
-        showToast(`Removed from ${SAVED_GROUPS.find((g) => g.id === group).label}`)
+        showToast(t('home.removedFrom', {group: SAVED_GROUPS.find((g) => g.id === group).label}))
         return homeSheet.refreshRest()
       }
       const open = choices.hidden
@@ -978,7 +1004,7 @@ export function homeScreen(root, {navigate, params}) {
       button?.setAttribute('aria-pressed', 'true')
       button?.setAttribute('aria-expanded', 'false')
       button?.focus({preventScroll: true})
-      showToast(`Saved to ${SAVED_GROUPS.find((g) => g.id === chip.dataset.group).label}`)
+      showToast(t('home.savedTo', {group: SAVED_GROUPS.find((g) => g.id === chip.dataset.group).label}))
       homeSheet.refreshRest()
     },
     // Item 9: the phone's share sheet, or the link copied. The link is #/?to=<id>, nothing added.
@@ -986,13 +1012,14 @@ export function homeScreen(root, {navigate, params}) {
       if (!selected) return
       const {sharePlace} = await import('../share.js')
       const {result, url} = await sharePlace(selected)
-      if (result === 'copied') showToast('Link copied')
+      if (result === 'copied') showToast(t('common.linkCopied'))
       else if (result === 'failed') showToast(url, {duration: 8000})
     },
     'set-theme': (_, button) => {
       applyTheme(button.dataset.themeChoice)
       paintTheme()
     },
+    'set-locale': (_, button) => chooseLocale(button),
     'toggle-voice': () => {
       voice.set(!voice.on) // inside the tap: iPhone only lets a page speak after one
       paintVoice()
@@ -1011,7 +1038,7 @@ export function homeScreen(root, {navigate, params}) {
       const open = more?.getAttribute('aria-expanded') !== 'true'
       root.querySelectorAll('[data-extra-chip]').forEach((el) => (el.hidden = !open))
       more?.setAttribute('aria-expanded', String(open))
-      more?.querySelector('span')?.replaceChildren(open ? 'Less' : 'More')
+      more?.querySelector('span')?.replaceChildren(t(open ? 'home.less' : 'home.more'))
     },
     locate: () => instance?.geolocate?.trigger(),
     north: () => instance?.map.easeTo({bearing: 0, duration: 400}),
@@ -1058,7 +1085,7 @@ export function homeScreen(root, {navigate, params}) {
     import('../../route/markers.js').then(({findMarker}) => {
       const sign = findMarker(params.sign)
       if (!sign || disposed || selected) return
-      showToast(`Starting at the ${sign.label} sign. Where to?`, {duration: 5000})
+      showToast(t('home.signStart', {name: sign.label}), {duration: 5000})
       sheets.open('search')
     })
   }

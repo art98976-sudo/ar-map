@@ -4,7 +4,11 @@
 import extraPlaces from '../data/start-places.json'
 import {bearingDeg, compassPoint, distanceM} from '../geo/geo.js'
 import {DESTINATIONS} from '../map/destinations.js'
-import {landmarkPhrase} from './guidance.js'
+import {getDirections, t} from '../i18n/i18n.js'
+
+const COMPASS_KEYS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west']
+/** "north-east", in the language in use. */
+const facingWord = (deg) => t(`compass.${COMPASS_KEYS.indexOf(compassPoint(deg))}`)
 
 const START_KEY = 'welcomeAR.start.v1'
 const RECENT_KEY = 'welcomeAR.startRecent.v1'
@@ -93,7 +97,7 @@ export function startFromPlace(place, entrance = entrancesOf(place)[0]) {
 }
 
 export function startFromPin({lat, lng}) {
-  return {type: 'map', name: 'Pin on the map', entranceName: null, lat, lng, headingDeg: null, facing: null}
+  return {type: 'map', name: t('start.pinOnMap'), entranceName: null, lat, lng, headingDeg: null, facing: null}
 }
 
 /** A start seen as a destination, for the swap button. */
@@ -111,13 +115,13 @@ export function startLabel(start) {
 
 /** The one short line on the AR screen: where to stand, and which way to face. */
 export function standHereText(start) {
-  if (start.type === 'map') return 'Stand where you put the pin.'
+  if (start.type === 'map') return t('stand.pin')
   // A calibration sign (markers.js): back to the sign, so AR starts facing the right way.
-  if (start.markerId) return start.headingDeg == null ? `Stand in front of the ${start.name} sign.` : `Stand with your back to the ${start.name} sign, facing ${compassPoint(start.headingDeg)}.`
-  const at = `Stand at ${landmarkPhrase(startLabel(start))}`
-  if (start.facing) return `${at}, facing ${start.facing}.`
-  if (start.headingDeg == null) return `${at}.`
-  return `${at}, with the door behind you, facing ${compassPoint(start.headingDeg)}.`
+  if (start.markerId) return start.headingDeg == null ? t('stand.sign', {name: start.name}) : t('stand.signFacing', {name: start.name, dir: facingWord(start.headingDeg)})
+  const place = getDirections().place(startLabel(start))
+  if (start.facing) return t('stand.atFacing', {place, dir: start.facing})
+  if (start.headingDeg == null) return t('stand.at', {place})
+  return t('stand.atDoor', {place, dir: facingWord(start.headingDeg)})
 }
 
 // ---------- recent starting points ----------

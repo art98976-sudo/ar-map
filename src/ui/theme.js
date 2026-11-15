@@ -1,12 +1,16 @@
 // Item 11: light or dark. "Device" follows the phone's setting; Light or Dark from the menu wins
 // over it, remembered on this device. Sets data-theme on <html> ('light' | 'dark', or none for
 // Device), which tokens.css reads.
+import {t} from '../i18n/i18n.js'
+
 const KEY = 'welcomeAR.theme.v1'
-export const THEMES = [
-  {id: 'device', label: 'Device setting'},
-  {id: 'light', label: 'Light'},
-  {id: 'dark', label: 'Dark'},
-]
+// The label is read when drawn, in the language in use (item 13).
+export const THEMES = ['device', 'light', 'dark'].map((id) => ({
+  id,
+  get label() {
+    return t(`theme.${id}`)
+  },
+}))
 
 export function getTheme(storage = globalThis.localStorage) {
   try {

@@ -1,5 +1,6 @@
 // Things shown once per device: the first-time guide before the permission prompts, and the
 // tilt-to-floor animation on the first AR trip. Blocked storage means "shown": never nag.
+import {t} from '../i18n/i18n.js'
 
 const KEYS = {
   guide: 'welcomeAR.guideSeen.v1',
@@ -25,7 +26,12 @@ export function markSeen(what, storage = globalThis.localStorage) {
 
 /** The three lines of the first-time guide, in the order the phone asks. */
 export const GUIDE_LINES = [
-  {icon: 'camera', text: 'We use your camera to show arrows'},
-  {icon: 'pin', text: 'We use your location to find the route'},
-  {icon: 'compass', text: 'We use motion to keep the arrows on the floor'},
-]
+  {icon: 'camera', key: 'guide.camera'},
+  {icon: 'pin', key: 'guide.location'},
+  {icon: 'compass', key: 'guide.motion'},
+].map((l) => ({
+  icon: l.icon,
+  get text() {
+    return t(l.key)
+  },
+}))

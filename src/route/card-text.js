@@ -5,11 +5,12 @@ import {distanceM} from '../geo/geo.js'
 import {normalize} from '../map/search.js'
 import {CARD, ROUTING} from '../config.js'
 import {walkingMinutes} from './route.js'
+import {minutes, t} from '../i18n/i18n.js'
 
 /** "1 min · 95 m" from a walking distance in metres; null without one. */
 export function walkSummary(metres) {
   if (!Number.isFinite(metres) || metres < 0) return null
-  return `${walkingMinutes(metres)} min · ${formatDistance(Math.max(1, metres))}`
+  return t('walk.summary', {min: minutes(walkingMinutes(metres)), distance: formatDistance(Math.max(1, metres))})
 }
 
 /** Before a route is planned: the straight line, times how much longer paths usually are. */
@@ -46,7 +47,7 @@ export function entranceNameFor(dest, door, places) {
 export function indoorLines(dest, {entranceName, entryLevel = null} = {}) {
   if (dest?.category !== 'room' || dest.floor == null || !entranceName) return {enter: null, stairs: false}
   return {
-    enter: `Enter by ${entranceName}, then Level ${dest.floor}`,
+    enter: t('card.enterBy', {entrance: entranceName, level: dest.floor}),
     stairs: Number.isFinite(entryLevel) && entryLevel !== dest.floor,
   }
 }
@@ -67,6 +68,6 @@ export function locationApproximate(fix) {
 
 /** The trip pill: "Cottrell · 120 m · 2 min". The same words in AR and on the map trip. */
 export function tripPillText(name, metres) {
-  const minutes = Math.max(1, Math.round(metres / ROUTING.walkSpeedMps / 60))
-  return `${name.replace(/ Building$/, '')} · ${formatDistance(metres)} · ${minutes} min`
+  const mins = Math.max(1, Math.round(metres / ROUTING.walkSpeedMps / 60))
+  return t('walk.pill', {name: name.replace(/ Building$/, ''), distance: formatDistance(metres), min: minutes(mins)})
 }

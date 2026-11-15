@@ -5,6 +5,7 @@ import {focusScreen} from './dom.js'
 /**
  * A screen is a function (root, ctx) => cleanup | void.
  * `ctx.navigate(path)` moves to another screen. `ctx.params` holds ?query values.
+ * `ctx.refresh()` draws the screen again (a new language, item 13).
  */
 export function createRouter({root, routes, fallback = '/'}) {
   let cleanup = null
@@ -41,7 +42,7 @@ export function createRouter({root, routes, fallback = '/'}) {
     if (current !== null) root.classList.add('is-entering')
     current = path
     window.scrollTo(0, 0)
-    cleanup = screen(root, {navigate, params, path})
+    cleanup = screen(root, {navigate, params, path, refresh: render})
     // Move focus to the new screen's heading for screen-reader users.
     focusScreen(root)
   }

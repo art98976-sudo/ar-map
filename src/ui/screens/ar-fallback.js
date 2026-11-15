@@ -3,6 +3,7 @@
 // phone points (compass), with the distance left. Back to the floor arrows once it is GOOD again.
 import {formatDistance} from '../../ar/pin.js'
 import {wrap360} from '../../geo/geo.js'
+import {t} from '../../i18n/i18n.js'
 
 /**
  * What the fallback shows for these trip stats: {show, turnDeg, text}. turnDeg: how far to turn
@@ -14,7 +15,7 @@ export function fallbackArrow(s) {
   if (!weak || s.arrowsShown || s.phase !== 'ready' || s.arrived) return {show: false, turnDeg: null, text: ''}
   const turn = Number.isFinite(s.arrowBearingDeg) && Number.isFinite(s.heading) ? ((wrap360(s.arrowBearingDeg - s.heading) + 180) % 360) - 180 : null
   const left = Number.isFinite(s.remainingM) ? formatDistance(s.remainingM) : ''
-  return {show: true, turnDeg: turn, text: turn == null ? (left ? `Follow the map · ${left}` : 'Follow the map') : left}
+  return {show: true, turnDeg: turn, text: turn == null ? (left ? t('ar.followMapLeft', {distance: left}) : t('ar.followMap')) : left}
 }
 
 /** The angle to draw next: `target` reached the short way from `shown`, so CSS never spins round. */

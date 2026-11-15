@@ -2,6 +2,7 @@
 // floor the door is on, with one line saying why: GPS cannot see inside, the floor plan can. A card
 // counts down a few seconds with "Keep using AR", so nobody is switched against their will. Pure.
 import {polylineLength, toLocal} from '../geo/geo.js'
+import {t} from '../i18n/i18n.js'
 
 export const HANDOFF = {
   atDoorM: 5, // this close to the door along the route: hand over
@@ -30,9 +31,8 @@ export function atEntrance({dest, route, userS, phase, dismissed = false, doorS 
 
 /** The one line: "You're at the Cottrell main entrance. The indoor map takes over on Level 1: GPS can't see you inside." */
 export function handoffLine({entranceName, floor}) {
-  const where = entranceName ? `You’re at the ${entranceName}.` : 'You’re at the entrance.'
-  const level = Number.isFinite(floor) ? ` on Level ${floor}` : ''
-  return `${where} The indoor map takes over${level}: GPS can’t see you inside.`
+  const where = entranceName ? t('handoffLine.at', {entrance: entranceName}) : t('handoffLine.atDoor')
+  return `${where} ${Number.isFinite(floor) ? t('handoffLine.takesOverLevel', {level: floor}) : t('handoffLine.takesOver')}`
 }
 
 /** The indoor map's address for the handoff. */

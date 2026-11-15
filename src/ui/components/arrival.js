@@ -2,6 +2,7 @@
 import {haptic, html, render} from '../dom.js'
 import {icon} from '../icons.js'
 import {ARRIVAL_CARD, COLOURS} from '../../config.js'
+import {t} from '../../i18n/i18n.js'
 
 const PIECES = 40
 
@@ -25,15 +26,15 @@ function confetti() {
 export function directionWords(turnDeg) {
   if (!Number.isFinite(turnDeg)) return null
   const a = Math.abs(turnDeg)
-  if (a <= ARRIVAL_CARD.aheadDeg) return 'straight ahead'
-  if (a >= ARRIVAL_CARD.behindDeg) return 'behind you'
-  return turnDeg > 0 ? 'on your right' : 'on your left'
+  if (a <= ARRIVAL_CARD.aheadDeg) return t('arrive.ahead')
+  if (a >= ARRIVAL_CARD.behindDeg) return t('arrive.behind')
+  return t(turnDeg > 0 ? 'arrive.right' : 'arrive.left')
 }
 
 /** B6: the place's details for the card: "Cottrell Building · Level 2" and its description. */
 export function placeDetails(place) {
   if (!place) return {where: '', about: ''}
-  const level = Number.isFinite(place.floor) ? `Level ${place.floor}` : ''
+  const level = Number.isFinite(place.floor) ? t('common.level', {level: place.floor}) : ''
   const building = place.building && place.building !== place.name ? place.building : ''
   return {where: [building, level].filter(Boolean).join(' · '), about: place.description || place.kind || ''}
 }
@@ -54,12 +55,12 @@ export function showArrival(host, {name, entrance = null, turnDeg = null, place 
       ${reducedMotion || entrance ? '' : html`<div class="arrival__confetti" data-confetti aria-hidden="true">${confetti()}</div>`}
       <section class="arrival__card" role="dialog" aria-modal="true" aria-labelledby="arrival-title">
         <span class="arrival__icon arrival__tick">${icon('check', {size: 32})}</span>
-        <h1 class="arrival__title" id="arrival-title" tabindex="-1">${entrance ? `You’re at ${entrance}` : 'You’ve arrived'}</h1>
-        <p class="arrival__place">${entrance ? `${name} is inside` : name}</p>
+        <h1 class="arrival__title" id="arrival-title" tabindex="-1">${entrance ? t('arrive.atEntrance', {entrance}) : t('arrive.arrived')}</h1>
+        <p class="arrival__place">${entrance ? t('arrive.inside', {name}) : name}</p>
         ${way
           ? html`<p class="arrival__way" data-arrival-way>
               <span class="arrival__way-arrow" style="transform: rotate(${Math.round(turnDeg)}deg)" aria-hidden="true">${icon('arrowUp', {size: 18})}</span>
-              <span>${entrance ? 'The door is' : 'It’s'} ${way}</span>
+              <span>${t(entrance ? 'arrive.doorIs' : 'arrive.itIs', {way})}</span>
             </p>`
           : ''}
         <div class="arrival__entrance" data-arrival-entrance hidden></div>
@@ -70,8 +71,8 @@ export function showArrival(host, {name, entrance = null, turnDeg = null, place 
             </div>`
           : ''}
         ${entrance
-          ? html`<button class="btn btn--primary btn--block" type="button" data-action="inside">${icon('map')}<span>Continue inside on the map</span></button>`
-          : html`<button class="btn btn--primary btn--block" type="button" data-action="done" aria-label="Done">Done</button>`}
+          ? html`<button class="btn btn--primary btn--block" type="button" data-action="inside">${icon('map')}<span>${t('arrive.continueInside')}</span></button>`
+          : html`<button class="btn btn--primary btn--block" type="button" data-action="done" aria-label="${t('common.done')}">${t('common.done')}</button>`}
       </section>
     `,
   )

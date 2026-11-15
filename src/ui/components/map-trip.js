@@ -11,6 +11,7 @@ import {indoorRestM, tripLengthM} from '../../route/route.js'
 import {createTripSteps} from '../../route/trip-steps.js'
 import {html, onAction, raw, render} from '../dom.js'
 import {icon} from '../icons.js'
+import {t} from '../../i18n/i18n.js'
 
 /** Metres left along the route from this fix (the outdoor line, plus a room's indoor part). */
 export function remainingAlong(route, fix, indoorAR = false) {
@@ -64,15 +65,15 @@ export function createMapTrip(host, {map, route, dest, onClose, onLost = null, a
         <div class="map-trip__pill">
           ${icon('footsteps', {size: 18})}<span data-map-trip-text>${tripPillText(dest.name, tripLengthM(route))}</span>
         </div>
-        ${onLost ? html`<button class="map-trip__lost" type="button" data-action="im-lost" aria-label="I'm lost: show where I am and plan again from here">${icon('locate', {size: 18})}<span>I'm lost</span></button>` : ''}
-        <button class="round-btn map-trip__close" type="button" data-action="end-map-trip" aria-label="End the trip">${icon('close', {size: 20})}</button>
+        ${onLost ? html`<button class="map-trip__lost" type="button" data-action="im-lost" aria-label="${t('trip.lostLabel')}">${icon('locate', {size: 18})}<span>${t('trip.lost')}</span></button>` : ''}
+        <button class="round-btn map-trip__close" type="button" data-action="end-map-trip" aria-label="${t('trip.end')}">${icon('close', {size: 20})}</button>
       </div>
-      <section class="map-trip__bottom" data-map-trip-bottom aria-label="Directions">
+      <section class="map-trip__bottom" data-map-trip-bottom aria-label="${t('trip.directions')}">
         <div class="map-trip__next">
           <span class="map-trip__icon" data-map-trip-icon></span>
           <p class="map-trip__banner" data-map-trip-banner></p>
           <button class="map-trip__steps-btn" type="button" data-action="toggle-steps" aria-expanded="false" aria-controls="map-trip-steps">
-            <span>All steps</span>${icon('chevronDown', {size: 18})}
+            <span>${t('trip.allSteps')}</span>${icon('chevronDown', {size: 18})}
           </button>
         </div>
         <div class="map-trip__entrance" data-map-trip-entrance hidden></div>
@@ -253,12 +254,13 @@ export function createMapTrip(host, {map, route, dest, onClose, onLost = null, a
       }
       if (onRoute && mapTripArrived(route, fix)) {
         arrived = true
-        if (text) text.textContent = `You’ve arrived · ${dest.name}`
+        if (text) text.textContent = t('trip.arrivedPill', {name: dest.name})
         // Item 10: which door, and a photo of it.
         import('./entrance-photo.js').then(({showEntrance}) => showEntrance(host.querySelector('[data-map-trip-entrance]'), dest.id))
-        host.querySelector('[data-map-trip-banner]').textContent = `You’ve arrived at ${arriveLabel}`
-        host.querySelector('[data-map-trip-announce]').textContent = `You’ve arrived at ${arriveLabel}`
-        onStep({type: 'arrived', text: `You’ve arrived at ${arriveLabel}`})
+        const words = t('trip.arrivedAt', {place: arriveLabel})
+        host.querySelector('[data-map-trip-banner]').textContent = words
+        host.querySelector('[data-map-trip-announce]').textContent = words
+        onStep({type: 'arrived', text: words})
         return
       }
       if (text) text.textContent = tripPillText(dest.name, onRoute ? remainingAlong(route, fix) : tripLengthM(route))

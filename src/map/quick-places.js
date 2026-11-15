@@ -5,17 +5,18 @@ import {categoryLabel, matchesFilter} from './filters.js'
 import {searchMazeMap} from './mazemap-search.js'
 import {CATEGORY_ICON} from '../ui/icons.js'
 import {distanceM} from '../geo/geo.js'
+import {kilometres, metres, t} from '../i18n/i18n.js'
 
 const MAX_ROWS = 30
 
 /** "120 m" / "1.4 km". */
-export function formatAway(metres) {
-  if (!Number.isFinite(metres)) return ''
-  return metres < 1000 ? `${Math.max(10, Math.round(metres / 10) * 10)} m` : `${(metres / 1000).toFixed(1)} km`
+export function formatAway(m) {
+  if (!Number.isFinite(m)) return ''
+  return m < 1000 ? metres(Math.max(10, Math.round(m / 10) * 10)) : kilometres(m / 1000)
 }
 
 const detailOf = (dest, from, showDistance) =>
-  [dest.building && dest.building !== dest.name ? dest.building : categoryLabel(dest.category), dest.floor != null ? `Level ${dest.floor}` : '', from && showDistance ? formatAway(distanceM(from, dest)) : '']
+  [dest.building && dest.building !== dest.name ? dest.building : categoryLabel(dest.category), dest.floor != null ? t('common.level', {level: dest.floor}) : '', from && showDistance ? formatAway(distanceM(from, dest)) : '']
     .filter(Boolean)
     .join(' · ')
 

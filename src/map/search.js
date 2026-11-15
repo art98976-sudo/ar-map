@@ -1,5 +1,6 @@
 // Destination search: matches names, aliases and buildings, with typo tolerance.
 // Pure functions, so they are easy to test and fast enough to run on every key press.
+import {t} from '../i18n/i18n.js'
 
 /** Lower-case, strip accents and punctuation: "Students' Union" -> "students union". */
 export function normalize(text) {
@@ -81,7 +82,7 @@ export function searchDestinations(list, rawQuery, {limit = 8, popular = []} = {
 export function describeDestination(dest) {
   const parts = []
   if (dest.building && normalize(dest.building) !== normalize(dest.name)) parts.push(dest.building)
-  if (dest.floor != null) parts.push(`Level ${dest.floor}`)
-  if (!parts.length && dest.category === 'room') parts.push('Room')
+  if (dest.floor != null) parts.push(t('common.level', {level: dest.floor}))
+  if (!parts.length && dest.category === 'room') parts.push(t('common.room'))
   return parts.join(' · ')
 }

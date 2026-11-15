@@ -1,4 +1,5 @@
 // The category chips on the map, and the words shown for a place's category.
+import {t} from '../i18n/i18n.js'
 
 const OUTDOORS = 'Outdoors'
 const NOT_BUILDINGS = new Set(['food', 'bus', 'room'])
@@ -23,23 +24,14 @@ export function matchesFilter(dest, filterId) {
   return filter ? filter.match(dest) : true
 }
 
-const CATEGORY_LABEL = {
-  library: 'Library',
-  academic: 'Academic building',
-  services: 'Student services',
-  sport: 'Sport',
-  landmark: 'Landmark',
-  living: 'Student housing',
-  food: 'Food and drink',
-  bus: 'Bus stop',
-  room: 'Room',
-  town: 'In Stirling',
-  parking: 'Car park',
-}
+const CATEGORIES = new Set(['library', 'academic', 'services', 'sport', 'landmark', 'living', 'food', 'bus', 'room', 'town', 'parking'])
 
 export function categoryLabel(category) {
-  return CATEGORY_LABEL[category] || 'Place'
+  return t(CATEGORIES.has(category) ? `cat.${category}` : 'cat.place')
 }
+
+// Item 13: a chip's label is read when it is drawn, in the language in use.
+const chip = (c) => Object.defineProperty(c, 'label', {get: () => t(`chip.${c.id}`), enumerable: true})
 
 /**
  * The quick chips in the map's bottom sheet, in order.
@@ -48,13 +40,13 @@ export function categoryLabel(category) {
  * kind 'search': a MazeMap room search, for what our data has no tag for.
  */
 export const QUICK_CHIPS = [
-  {id: 'lecture', label: 'Lecture theatres', icon: 'lecture', kind: 'search', query: 'lecture theatre'},
-  {id: 'toilets', label: 'Toilets', icon: 'toilet', kind: 'rooms', type: 'toilet'},
-  {id: 'food', label: 'Food', icon: 'cup', kind: 'pins'},
-  {id: 'library', label: 'Library', icon: 'book', kind: 'pins'},
-  {id: 'study', label: 'Study spaces', icon: 'study', kind: 'search', query: 'study'},
-  {id: 'lifts', label: 'Lifts', icon: 'lift', kind: 'rooms', type: 'lift'},
-  {id: 'buildings', label: 'Buildings', icon: 'building', kind: 'pins'},
-  {id: 'bus', label: 'Bus', icon: 'bus', kind: 'pins'},
-  {id: 'sport', label: 'Sport', icon: 'dumbbell', kind: 'pins'},
-]
+  {id: 'lecture', icon: 'lecture', kind: 'search', query: 'lecture theatre'},
+  {id: 'toilets', icon: 'toilet', kind: 'rooms', type: 'toilet'},
+  {id: 'food', icon: 'cup', kind: 'pins'},
+  {id: 'library', icon: 'book', kind: 'pins'},
+  {id: 'study', icon: 'study', kind: 'search', query: 'study'},
+  {id: 'lifts', icon: 'lift', kind: 'rooms', type: 'lift'},
+  {id: 'buildings', icon: 'building', kind: 'pins'},
+  {id: 'bus', icon: 'bus', kind: 'pins'},
+  {id: 'sport', icon: 'dumbbell', kind: 'pins'},
+].map(chip)

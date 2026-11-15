@@ -93,6 +93,13 @@ export function t(key, params) {
   return fill(value, params)
 }
 
+/** "80 m" (whole metres, already rounded by the caller). */
+export const metres = (n) => t('unit.m', {n})
+/** "1.2 km", one decimal. */
+export const kilometres = (km) => t('unit.km', {n: formatNumber(km, {decimals: 1})})
+/** "3 min". */
+export const minutes = (count) => t('time.min', {count})
+
 /** Has this key text of its own in the current language (not the en-GB fallback)? */
 export const hasText = (key) => table[key] != null
 

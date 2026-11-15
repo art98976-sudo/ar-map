@@ -19,9 +19,14 @@ import {watchGlobalErrors} from './stats/errors.js'
 import {setStart} from './route/start-point.js'
 import {focusScreen} from './ui/dom.js'
 import {applyTheme, getTheme} from './ui/theme.js'
+import {savedLocale, setLocale, t} from './i18n/i18n.js'
 
 // Item 11: the chosen theme before anything is drawn, so a dark choice never flashes light.
 applyTheme(getTheme(), {save: false})
+
+// Item 13: the chosen language before the first screen. English is in this file; another language
+// is its own small file, fetched now (and kept offline by the service worker).
+const localeReady = setLocale(savedLocale(), {save: false})
 
 /**
  * A screen loaded on first visit, so the map's first load stays light: the counts page, the poster
@@ -31,7 +36,7 @@ function lazyScreen(load, name) {
   return (root, ctx) => {
     let cleanup = null
     let gone = false
-    root.innerHTML = '<div class="page page--narrow page--center"><p role="status">Loading…</p></div>'
+    root.innerHTML = `<div class="page page--narrow page--center"><p role="status">${t('common.loading')}</p></div>`
     load()
       .then((module) => {
         if (gone) return
@@ -41,7 +46,7 @@ function lazyScreen(load, name) {
       })
       .catch((err) => {
         console.error('[app] screen failed to load', err)
-        if (!gone) root.innerHTML = '<div class="page page--narrow page--center"><p role="alert">This page could not load. Check your connection and try again.</p></div>'
+        if (!gone) root.innerHTML = `<div class="page page--narrow page--center"><p role="alert">${t('app.pageFailed')}</p></div>`
       })
     return () => {
       gone = true
@@ -90,10 +95,10 @@ window.addEventListener('unhandledrejection', (event) => console.error('[app] un
 // And count them anonymously: the kind only, never the message (src/stats/errors.js).
 watchGlobalErrors(window)
 
-window.addEventListener('offline', () => showToast('Offline, showing saved map', {tone: 'warning'}))
-window.addEventListener('online', () => showToast('Back online', {tone: 'success'}))
+window.addEventListener('offline', () => showToast(t('app.offline'), {tone: 'warning'}))
+window.addEventListener('online', () => showToast(t('app.online'), {tone: 'success'}))
 
 document.documentElement.classList.remove('no-js')
 startOpening()
 registerServiceWorker()
-signReady.then(() => router.start())
+Promise.all([signReady, localeReady]).then(() => router.start())

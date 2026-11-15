@@ -1,7 +1,10 @@
-// Spoken directions (item 3): each turn and the arrival, read aloud in an en-GB voice through the
+// Spoken directions (item 3): each turn and the arrival, read aloud in the language in use (item 13:
+// en-GB, zh-CN, ar-SA or es-ES) through the
 // Web Speech API. Off by default; the choice is remembered on this device. Speech happens on the
 // phone: no text leaves it. Where the browser cannot speak, nothing is offered and nothing fails.
 // What to say for each turn is createTurnAnnouncer (route/trip-steps.js), loaded with the trip.
+
+import {speechLang, t} from '../i18n/i18n.js'
 
 const KEY = 'welcomeAR.voice.v1'
 
@@ -10,11 +13,16 @@ export function speechSupported(win = globalThis) {
   return Boolean(win?.speechSynthesis && win?.SpeechSynthesisUtterance)
 }
 
-/** The voice to use: en-GB first (on the phone itself if possible), then any English one. */
-export function pickVoice(voices = []) {
+/**
+ * The voice to use for a language (item 13: "en-GB", "zh-CN", "ar-SA", "es-ES"): that exact one first
+ * (on the phone itself if possible), then any voice of the same language. Null: let the browser pick
+ * from utterance.lang.
+ */
+export function pickVoice(voices = [], want = 'en-GB') {
   const lang = (v) => String(v.lang || '').replace('_', '-').toLowerCase()
-  const gb = voices.filter((v) => lang(v) === 'en-gb')
-  return gb.find((v) => v.localService) ?? gb[0] ?? voices.find((v) => lang(v).startsWith('en')) ?? null
+  const exact = voices.filter((v) => lang(v) === want.toLowerCase())
+  const base = want.split('-')[0].toLowerCase()
+  return exact.find((v) => v.localService) ?? exact[0] ?? voices.find((v) => lang(v).split('-')[0] === base) ?? null
 }
 
 /** Is the switch on? Remembered between visits. */
@@ -66,8 +74,9 @@ export function createVoice({win = globalThis, doc = globalThis.document, storag
       try {
         stop()
         const utterance = new win.SpeechSynthesisUtterance(text)
-        utterance.lang = 'en-GB'
-        const chosen = pickVoice(synth.getVoices?.() ?? [])
+        const want = speechLang()
+        utterance.lang = want
+        const chosen = pickVoice(synth.getVoices?.() ?? [], want)
         if (chosen) utterance.voice = chosen
         synth.speak(utterance)
         last = text
@@ -82,7 +91,7 @@ export function createVoice({win = globalThis, doc = globalThis.document, storag
       if (!on) stop()
       else {
         last = ''
-        voice.say('Spoken directions on')
+        voice.say(t('voice.on'))
       }
     },
     stop,

@@ -1,13 +1,16 @@
 // Item 12: places a student pins ("My lectures", "My halls"), shown on the home sheet beside Recent.
 // Kept in this browser only (localStorage). Nothing is sent anywhere.
+import {t} from '../i18n/i18n.js'
 
 const KEY = 'welcomeAR.saved.v1'
 const MAX = 30
-export const SAVED_GROUPS = [
-  {id: 'lectures', label: 'My lectures'},
-  {id: 'halls', label: 'My halls'},
-  {id: 'other', label: 'Other places'},
-]
+// The label is read when drawn, in the language in use (item 13).
+export const SAVED_GROUPS = ['lectures', 'halls', 'other'].map((id) => ({
+  id,
+  get label() {
+    return t(`saved.${id}`)
+  },
+}))
 const groupIds = new Set(SAVED_GROUPS.map((g) => g.id))
 
 /** The few fields needed to open the place again (as Recent keeps them). */
@@ -56,5 +59,5 @@ export function unsavePlace(id, storage = globalThis.localStorage) {
 /** For the home sheet: the groups that have places, in their fixed order. */
 export function savedByGroup(storage = globalThis.localStorage) {
   const all = getSaved(storage)
-  return SAVED_GROUPS.map((g) => ({...g, places: all.filter((s) => s.group === g.id).map((s) => s.place)})).filter((g) => g.places.length)
+  return SAVED_GROUPS.map((g) => ({id: g.id, label: g.label, places: all.filter((s) => s.group === g.id).map((s) => s.place)})).filter((g) => g.places.length)
 }
