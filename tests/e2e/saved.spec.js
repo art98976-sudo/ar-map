@@ -18,6 +18,8 @@ test('save a room to My lectures, find it on the home sheet, remove it', async (
 
   await page.goto('/')
   await page.reload()
+  // Saved places are one step up from the chips (the top bar's star opens the sheet on them).
+  await page.getByRole('button', {name: 'Saved places', exact: true}).click({timeout: 45_000})
   const section = page.getByRole('region', {name: 'My lectures'})
   await expect(section.getByRole('button', {name: 'Library'})).toBeVisible({timeout: 45_000})
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('welcomeAR.saved.v1')).map((s) => [s.group, s.place.id]))).toEqual([['lectures', 'library']])
