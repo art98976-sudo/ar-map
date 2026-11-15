@@ -33,7 +33,8 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
             <span class="chip__dot"></span><span data-tracking-label>Starting tracking</span>
           </div>`
         : ''}
-      <button class="ar-lost chip chip--glass" type="button" data-action="im-lost" aria-label="${t('ar.lostLabel')}">${icon('locate', {size: 16})}<span>${t('trip.lost')}</span></button>
+      <!-- Item 7: the top bar is close, the trip (name, distance, time) and an "I'm lost" icon. -->
+      <button class="ar-lost icon-btn icon-btn--glass" type="button" data-action="im-lost" aria-label="${t('ar.lostLabel')}">${icon('locate', {size: 22})}</button>
       <button class="ar-realign chip chip--glass" type="button" data-action="realign" aria-label="${t('ar.realignLabel')}" hidden>
         ${icon('compass', {size: 16})}<span>${t('ar.realign')}</span>
       </button>
@@ -71,16 +72,24 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
       : ''}
 
 
-    <div class="ar__hints">
-    <!-- One message at a time (ar-status.js): the most urgent only, fading between them. -->
+    <!-- Item 6: one message at a time, in a banner under the top bar (never mid-screen). In order:
+         safety, tracking and coaching, alignment (ar-status.js), then a suggestion button. -->
+    <div class="ar__hints" data-hints>
     <p class="ar__hint ar-status-slot" data-status-slot role="status" aria-live="polite" hidden><span data-status-icon aria-hidden="true"></span><span data-status-text></span></p>
-    <button class="ar__hint ar__hint--action" type="button" data-action="go-live" hidden>${t('ar.live')}</button>
     <button class="ar__hint ar__hint--action" type="button" data-action="repick" hidden>${t('ar.repick')}</button>
+    <button class="ar__hint ar__hint--action" type="button" data-action="go-live" hidden>${t('ar.live')}</button>
     </div>
+
+    <!-- Item 7: the bottom card, the next turn. Another card (start, floor, door, outdoors,
+         line-up) takes its place while it shows; the map always sits above whichever it is. -->
+    <section class="ar-floor ar-next" data-next-turn aria-label="${t('ar.nextTurn')}" hidden>
+      <p class="ar-next__line"><span class="ar-next__icon" data-next-icon aria-hidden="true"></span><span data-next-text aria-live="polite"></span></p>
+    </section>
 
     <p class="ar-pill" data-trip-pill>${pillText}</p>
 
-    <section class="ar-map" data-compass-map aria-label="${t('ar.mapRegion')}">
+    <button class="ar-map-toggle icon-btn icon-btn--glass" type="button" data-action="collapse-map" aria-controls="ar-map" aria-expanded="true" aria-label="${t('ar.hideMap')}">${icon('map', {size: 20})}</button>
+    <section class="ar-map" id="ar-map" data-compass-map aria-label="${t('ar.mapRegion')}">
       <div class="ar-map__canvas" data-map-canvas></div>
       <canvas class="ar-map__fallback" data-minimap width="320" height="320" aria-label="${t('ar.plan')}" hidden></canvas>
       <p class="ar-map__status" data-map-status role="status">${t('ar.loadingMap')}</p>

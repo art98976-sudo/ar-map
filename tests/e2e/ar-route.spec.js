@@ -68,8 +68,8 @@ test.describe('route and arrows', () => {
     await expect(page.locator('[data-stat="phase"]')).toHaveText('ready', {timeout: 30_000})
     await expect(page.locator('[data-start]')).toBeHidden()
     await expect(page.locator('[data-compass-map]')).toBeVisible()
-    // Group B: no line-up step. The arrows show at once; "Re-align" opens the drag on demand,
-    // a drag turns the route and "Looks right" keeps it.
+    // Group B: no line-up step; "Re-align" opens the drag on demand (shown when offered, or in
+    // ?debug=1), a drag turns the route and "Looks right" keeps it.
     const lineUp = page.getByRole('region', {name: 'Line up the arrows'})
     const realign = page.getByRole('button', {name: 'Re-align the arrows with the path'})
     await expect(realign).toBeVisible({timeout: 10_000})
@@ -93,11 +93,11 @@ test.describe('route and arrows', () => {
     // The way is drawn on the floor: 3D chevrons in the AR scene. ?debug=1 says why they are there.
     await expect(page.locator('[data-ar-status]')).toHaveText(/aligned yes · chevrons \d+ visible, \d+ blocked · walls (no|level -?\d+) · in view \d+/, {timeout: 30_000})
     await expect(page.locator('[data-ar-status]')).toHaveText(/floor (tap|hits|fallback) \d+\.\d\d m below/)
-    // No directions in words, no flat overlay arrows, no numbered turns.
+    // No flat overlay arrows, no numbered turns. The next turn: one card at the bottom (item 7).
     for (const gone of ['[data-floor-arrows]', '[data-guidance]', '[data-steps]', '[data-start-direction]', '.ar-map__turn']) {
       await expect(page.locator(gone)).toHaveCount(0)
     }
-    await expect(page.getByText(/^Turn (left|right|around)/)).toHaveCount(0)
+    await expect(page.getByRole('region', {name: 'Next turn'})).toBeVisible()
     await expect(panel.locator('[data-stat="gps"]')).toHaveText(/±\d+ m/)
     await expect(panel.locator('[data-stat="remaining"]')).toHaveText(/\d+ m/)
     await expect(panel.locator('[data-stat="source"]')).toHaveText(/mazemap|footpaths|direct/)

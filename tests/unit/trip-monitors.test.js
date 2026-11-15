@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest'
 import {ARRIVAL, CONFIDENCE, OFF_ROUTE, SAFETY, TRACKING_STATE} from '../../src/config.js'
-import {createArrivalDetector, createConfidenceMonitor, createHeadDownMonitor, createOffRouteMonitor, trackingState, groundOutOfView} from '../../src/route/trip-monitors.js'
+import {createArrivalDetector, createConfidenceMonitor, createHeadDownMonitor, createOffRouteMonitor, trackingState, groundOutOfView, shouldOfferRealign} from '../../src/route/trip-monitors.js'
 
 const STEP = 0.1 // ten readings a second
 /** Feed a monitor readings from `from` to `to` seconds; returns the last result. */
@@ -250,5 +250,13 @@ describe('item 3: ground out of view, with hysteresis', () => {
     for (const d of [20, 12, 6, 4.9, 6, 9, 12, 14, 9, 6, 16, 12, 6]) seen.push((out = groundOutOfView(out, d)))
     const flips = seen.filter((v, i) => i && v !== seen[i - 1]).length
     expect(flips).toBe(2) // out once at 4.9°, back once at 16°
+  })
+})
+
+describe('item 7: Re-align offered at most once a trip', () => {
+  it('after 10 s unmatched, once', () => {
+    expect(shouldOfferRealign({unconfirmedForS: 9})).toBe(false)
+    expect(shouldOfferRealign({unconfirmedForS: 10})).toBe(true)
+    expect(shouldOfferRealign({unconfirmedForS: 60, offeredBefore: true})).toBe(false)
   })
 })

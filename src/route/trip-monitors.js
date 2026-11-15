@@ -5,7 +5,15 @@
 // - createOffRouteMonitor: has the user left the route long enough to plan a new one?
 // - createArrivalDetector: has the user reached the destination?
 import {angleDiff} from '../geo/geo.js'
-import {ARRIVAL, CONFIDENCE, OFF_ROUTE, SAFETY, TILT, TRACKING_STATE} from '../config.js'
+import {ARRIVAL, CONFIDENCE, LINE_UP, OFF_ROUTE, SAFETY, TILT, TRACKING_STATE} from '../config.js'
+
+/**
+ * Item 7: offer Re-align now? Only after the walk has not matched the route for LINE_UP.offerAfterS,
+ * and at most once a trip (the user can still tap Re-align whenever they like).
+ */
+export function shouldOfferRealign({offeredBefore = false, unconfirmedForS = 0} = {}) {
+  return !offeredBefore && unconfirmedForS >= LINE_UP.offerAfterS
+}
 
 /**
  * Item 3: is the ground ahead out of view? downDeg: how far below level the camera looks

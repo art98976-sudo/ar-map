@@ -125,3 +125,14 @@ describe('item 6: the hint while the floor arrows are hidden', async () => {
     expect(statusMessage({...ready, positionReason: 'compass'}).text).toBe('Finding your position. Follow the map for now.')
   })
 })
+
+describe('AR calm screen: one message slot, in priority order', async () => {
+  const {statusMessage} = await import('../../src/ui/screens/ar-status.js')
+  const ready = {phase: 'ready', arrived: false, tracking: 'NORMAL'}
+  it('safety, then tracking/coaching, then alignment; the coaching line reads as asked', () => {
+    expect(statusMessage({...ready, headDown: true, coaching: true, offerRealign: true}).key).toBe('head-down')
+    expect(statusMessage({...ready, coaching: true, offerRealign: true})).toMatchObject({key: 'tracking', text: 'Point your phone at the path ahead'})
+    expect(statusMessage({...ready, offerRealign: true, compassPoor: true}).key).toBe('realign')
+    expect(statusMessage({...ready})).toBeNull() // then a suggestion ("Switch to live location?") may show
+  })
+})

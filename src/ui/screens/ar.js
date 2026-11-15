@@ -108,6 +108,15 @@ export function arScreen(root, {navigate, params}) {
   count('trip-started')
 
   const actions = {
+    // Item 7: the mini-map folds away to one map button, and back.
+    'collapse-map': (_, button) => {
+      const map = root.querySelector('[data-compass-map]')
+      if (!map) return
+      const shown = map.classList.toggle('is-collapsed') === false
+      button.setAttribute('aria-expanded', String(shown))
+      button.setAttribute('aria-label', t(shown ? 'ar.hideMap' : 'ar.showMap'))
+      root.querySelector('.ar')?.classList.toggle('is-map-collapsed', !shown)
+    },
     'toggle-map': () => {
       if (performance.now() - mapSwipedAt > SWIPE_CLICK_MS) toggleMap()
     },
@@ -372,15 +381,17 @@ export function arScreen(root, {navigate, params}) {
     wasHeadDown = Boolean(s.headDown)
     paintStartCard(s)
     paintOutdoors(s)
+    paintNextTurn(s)
     if (s.debug) paintLiveDebug(root, s)
     const minimap = root.querySelector('[data-minimap]')
     if (minimap && mapFailed && s.minimap) drawMinimap(minimap, s.minimap)
     paintDebugStats(root, s)
     paintStatusLine(s)
-    paintLineUp(Boolean(s.lineUp), s.canRealign)
-    paintEdgeArrow(s.edgeArrowDeg)
+    paintLineUp(Boolean(s.lineUp), s.canRealign, Boolean(s.offerRealign))
+    paintEdgeArrow(s.tiltedUp ? null : s.edgeArrowDeg) // held up: the small 2D arrow says it instead
     paintFallback(root, s) // B7: WEAK or LOST, one big arrow instead of the floor arrows
     paintIndoorUi(s)
+    fitBottom()
     if (handoff.lib && !handoff.shown && !arrivedYet && handoff.lib.atEntrance({dest: destination, route, userS: s.userS, phase: s.phase, dismissed: handoff.dismissed, doorS: handoff.doorS})) startHandoff()
     // Item 3: spoken directions (if switched on in the menu): each turn as it comes up and close to it.
     if (announcer && spokenSteps && s.phase === 'ready' && !s.arrived && Number.isFinite(s.userS)) {
@@ -454,7 +465,7 @@ export function arScreen(root, {navigate, params}) {
   }
 
   /** The line-up step: its card while open, the "Re-align" button otherwise. */
-  function paintLineUp(open, canRealign = false) {
+  function paintLineUp(open, canRealign = false, offered = false) {
     const card = root.querySelector('[data-lineup]')
     const view = root.querySelector('.ar')
     const realign = root.querySelector('[data-action="realign"]')
@@ -463,7 +474,8 @@ export function arScreen(root, {navigate, params}) {
     lineUpOpen = open
     card.hidden = !open
     view.classList.toggle('is-lining-up', open)
-    if (realign) realign.hidden = open || !canRealign
+    // Item 7: Re-align only when it is offered (once a trip, ar-status "Arrows off the path?"), or in ?debug=1.
+    if (realign) realign.hidden = open || !canRealign || !(offered || showDebug)
   }
 
   /**
@@ -508,7 +520,8 @@ export function arScreen(root, {navigate, params}) {
     const r = (angleDeg * Math.PI) / 180
     // On an ellipse just inside the screen edge, turned to point outwards.
     el.style.left = `${50 + Math.cos(r) * 42}%`
-    el.style.top = `${50 + Math.sin(r) * 40}%`
+    // Item 7: never up in the top bar or down on the bottom card.
+    el.style.top = `${Math.max(24, Math.min(66, 50 + Math.sin(r) * 40))}%`
     el.style.transform = `translate(-50%, -50%) rotate(${angleDeg + 90}deg)`
   }
 
@@ -551,10 +564,49 @@ export function arScreen(root, {navigate, params}) {
         }
       }
     }
-    const live = root.querySelector('[data-action="go-live"]')
-    if (live) live.hidden = !s.liveAvailable
+    // Item 6: suggestions come last, and only when no message shows: one thing at a time.
+    const busy = Boolean(statusMessage(s))
     const repick = root.querySelector('[data-action="repick"]')
-    if (repick) repick.hidden = !s.repick
+    if (repick) repick.hidden = busy || !s.repick
+    const live = root.querySelector('[data-action="go-live"]')
+    if (live) live.hidden = busy || Boolean(s.repick) || !s.liveAvailable
+  }
+
+  /** Item 7: the bottom card, the next turn ("In 20 m, turn left"), while no other card shows. */
+  function paintNextTurn(s) {
+    const card = root.querySelector('[data-next-turn]')
+    if (!card) return
+    card.hidden = !(s.phase === 'ready' && !s.arrived && s.step?.text)
+    if (card.hidden) return
+    const text = card.querySelector('[data-next-text]')
+    if (text.textContent !== s.step.text) text.textContent = s.step.text
+    const iconHost = card.querySelector('[data-next-icon]')
+    if (iconHost.dataset.icon !== s.step.icon) {
+      iconHost.dataset.icon = s.step.icon
+      let svg
+      try {
+        svg = icon(s.step.icon || 'straight', {size: 28})
+      } catch {
+        svg = icon('straight', {size: 28}) // a manoeuvre with no icon of its own
+      }
+      render(iconHost, svg)
+    }
+  }
+
+  /**
+   * Item 7: the map (and the small 2D arrow) always sit just above the bottom card, whichever card
+   * it is, so the card never covers them. The first visible one, in the order they stack.
+   */
+  const BOTTOM_CARDS = ['[data-lineup]', '[data-floor-change]', '[data-handoff-card]', '[data-outdoors]', '[data-start]', '[data-pick]', '[data-next-turn]']
+  let bottomPx = -1
+  function fitBottom() {
+    const view = root.querySelector('.ar')
+    if (!view) return
+    const card = BOTTOM_CARDS.map((sel) => root.querySelector(sel)).find((el) => el && !el.hidden)
+    const px = card ? Math.round(card.getBoundingClientRect().height) : 0
+    if (px === bottomPx) return
+    bottomPx = px
+    view.style.setProperty('--ar-bottom-h', px + 'px')
   }
 
   function mapSettled() {

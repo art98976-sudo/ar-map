@@ -30,7 +30,7 @@ import {locationPermissionState, watchLocation} from '../geo/location.js'
 import {entrancesOf, isManual, PLACE_LIST} from '../route/start-point.js'
 import {entranceLabels} from './world-labels.js'
 import {createGuidance, landmarksFrom} from '../route/guidance.js'
-import {createArrivalDetector, createConfidenceMonitor, createHeadDownMonitor, createOffRouteMonitor, groundOutOfView, trackingState} from '../route/trip-monitors.js'
+import {createArrivalDetector, createConfidenceMonitor, createHeadDownMonitor, createOffRouteMonitor, groundOutOfView, shouldOfferRealign, trackingState} from '../route/trip-monitors.js'
 import {entranceOf, isOnCampus, planRoute} from '../route/route.js'
 import {markerName} from '../route/card-text.js'
 import {COMPASS_GUIDE, GPS, GROUND, GROUND_ARROWS, INDOOR, LINE_UP, MATCH, PIN, ROUTING, SAFETY, SCENE_FLOOR, SHELL, START, TRIP} from '../config.js'
@@ -830,6 +830,7 @@ export function createArTrip({
   // ---------- Group B: no line-up step ----------
   let unconfirmedSince = null
   let offerRealign = false
+  let realignOffered = false // item 7: the line-up is offered at most once a trip (Re-align still works)
 
   /** The arrows are placed for sure: the walked track matches the route, or the user lined them up. */
   function arrowsConfirmed() {
@@ -847,7 +848,10 @@ export function createArTrip({
       if (arrowsConfirmed()) offerRealign = false
     } else {
       unconfirmedSince ??= time
-      if (time - unconfirmedSince >= LINE_UP.offerAfterS) offerRealign = true
+      if (shouldOfferRealign({offeredBefore: realignOffered, unconfirmedForS: time - unconfirmedSince})) {
+        offerRealign = true
+        realignOffered = true
+      }
     }
   }
 
