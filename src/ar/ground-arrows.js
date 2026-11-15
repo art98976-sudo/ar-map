@@ -220,6 +220,7 @@ export function createGroundArrows(THREE) {
   let levelLift = null
   // Low power (a slow phone): a shorter range and no shadows.
   let lowPower = false
+  let depthTestOn = false
   let range = GROUND_ARROWS.aheadM
   const heightAt = (s, userS, slope) => Math.max(-GROUND_ARROWS.maxLiftM, Math.min(GROUND_ARROWS.maxLiftM, (s - userS) * slope)) + (levelLift ? levelLift(s) : 0)
 
@@ -397,6 +398,8 @@ export function createGroundArrows(THREE) {
      * walls, so they hide behind them and show through doors. Off: always drawn on top.
      */
     setDepthTest(on) {
+      if (depthTestOn === Boolean(on)) return // called every frame: recompile only on a change
+      depthTestOn = Boolean(on)
       group.traverse((o) => {
         if (o.material) {
           o.material.depthTest = Boolean(on)

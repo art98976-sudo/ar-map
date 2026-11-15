@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import {requestCameraPermission} from '../../src/ar/permissions.js'
 import {startCompass, topEdgeHeading} from '../../src/ar/compass.js'
 import {alignmentYaw, bearingAlong, createNavScene, rotateY, snapToRoute} from '../../src/ar/nav-scene.js'
-import {pointAt, shortestTurn} from '../../src/geo/geo.js'
+import {fromLocal, pointAt, shortestTurn} from '../../src/geo/geo.js'
 import {createArTrip} from '../../src/ar/trip.js'
 
 // The real pin draws its label on a 2D canvas, which the test DOM does not have.
@@ -451,7 +451,7 @@ function floorTap(user = () => []) {
 }
 
 describe('the arrows on the real ground', () => {
-  function start(userHitTest, {floorY = null} = {}) {
+  function start(userHitTest, {floorY = null, trip: tripOptions = {}} = {}) {
     const floor = floorTap(userHitTest)
     const hitTest = floorY == null ? userHitTest : floor.hitTest
     vi.useFakeTimers()
@@ -460,7 +460,7 @@ describe('the arrows on the real ground', () => {
     Object.defineProperty(navigator, 'geolocation', {configurable: true, value: {watchPosition: () => 1, clearWatch: () => {}}})
     const box = {stats: null}
     const scene = new THREE.Scene()
-    const trip = createArTrip({route: ROUTE, origin: ORIGIN, destination: {name: 'Library'}, onStats: (s) => (box.stats = s)})
+    const trip = createArTrip({route: ROUTE, origin: ORIGIN, destination: {name: 'Library'}, onStats: (s) => (box.stats = s), ...tripOptions})
     const camera = makeCamera()
     trip.onSceneReady({scene, camera, XR8: {XrController: {hitTest}}})
     trip.onTracking({status: 'NORMAL'})
@@ -495,6 +495,20 @@ describe('the arrows on the real ground', () => {
     expect(t.root.getObjectByName('ground-arrows').visible).toBe(false)
     t.run(10)
     expect(t.box.stats).toMatchObject({arrowsShown: false, coaching: true}) // still nothing on a guess
+    t.done()
+  })
+
+  it('item 4: the campus buildings hide the arrows from the first arrow on, before any walking', async () => {
+    // A building 20-40 m east of the start, beside the route north.
+    const ring = [[20, 20], [40, 20], [40, 40], [20, 40], [20, 20]].map(([x, y]) => fromLocal(ORIGIN, {x, y})).map(({lat, lng}) => [lng, lat])
+    const collection = {type: 'FeatureCollection', features: [{type: 'Feature', properties: {id: 1, name: 'Cottrell Building', height: 16}, geometry: {type: 'Polygon', coordinates: [ring]}}]}
+    const t = start(() => [], {floorY: 0.1, trip: {loadCampus: () => Promise.resolve(collection)}})
+    await vi.waitFor(() => expect(t.root.getObjectByName('campus-occluder')).toBeTruthy())
+    t.run(0.5)
+    expect(t.box.stats).toMatchObject({arrowsShown: true, arrowsConfirmed: false})
+    expect(t.root.getObjectByName('campus-occluder').visible).toBe(true)
+    const fill = t.root.getObjectByName('chevron-0').children[2].material
+    expect(fill.depthTest).toBe(true) // tested against the buildings' depth
     t.done()
   })
 

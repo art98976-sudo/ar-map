@@ -744,13 +744,6 @@ export function createArTrip({
     return true
   }
 
-  /** Placeholder until Step 5: how sure we are the arrows sit where the scene says (0 to 1). */
-  function alignQuality() {
-    if (compassLocked || matcher?.locked) return 0.9
-    if (matcher?.confident) return 0.75
-    return 0.3
-  }
-
   /** Keep the walls and doors around the user loaded, for the floor the route is on. */
   function updateShell(time) {
     if (phase !== 'ready' || !nav?.aligned) return
@@ -779,11 +772,13 @@ export function createArTrip({
     void time
   }
 
-  /** The occluder only once the route is confirmed; wall lines while lining up; doorway outlines. */
+  /** The occluders whenever arrows show; wall lines while lining up; doorway outlines. */
   function paintShell(routeS) {
-    if (!nav?.shellLoaded) return
-    // Step 4: walls hide arrows only when the alignment is good, so a bad one never hides them.
-    nav.setOccluder(alignQuality() >= SHELL.occluderMinQuality && arrowsShown)
+    if (!nav) return
+    // Item 4: the buildings (campus outlines outdoors, the building's own walls indoors) are
+    // depth-only occluders from the first arrow on, so no arrow is ever drawn through a wall.
+    nav.setOccluder(arrowsShown)
+    if (!nav.shellLoaded) return
     const wantLines = phase === 'ready' && lineUp && !arrived
     if (wantLines !== wallLinesShown) {
       wallLinesShown = wantLines
