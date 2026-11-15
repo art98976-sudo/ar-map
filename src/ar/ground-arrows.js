@@ -1,5 +1,6 @@
-// The way to walk, drawn on the real floor: flat green chevrons with a white edge and a soft
-// shadow, one every 1 m along the next 10 m of the route, inside the AR scene geo-root group.
+// The way to walk, drawn on the real floor: small flat green chevrons with a white edge and a soft
+// contact shadow, one every 1.25 m from 2.5 m to 18 m ahead (GROUND_ARROWS), fading with distance,
+// with a slow light band flowing forward (still under reduced motion), inside the geo-root group.
 // Being 3D objects in the world, the real camera gives them perspective and they stay on the floor.
 //
 // They are laid along the same polyline the map draws, with each corner rounded (about 1 m
@@ -11,7 +12,7 @@
 // Route frame: {x east, y north} metres. Geo-root: x = east, y = up, z = -north.
 import {localBearing, pointAt, polylineLength, projectOntoPolyline, toRad} from '../geo/geo.js'
 import {GROUND_ARROWS, GROUND_EXTRAS} from '../config.js'
-import {createPathStrip, createTurnRings, stripSamples} from './ground-extras.js'
+import {createTurnRings} from './ground-extras.js'
 
 /** Round every corner of a polyline (about `radius` m), as a list of points. Pure. */
 export function roundCorners(points, radius = GROUND_ARROWS.cornerRadiusM, steps = GROUND_ARROWS.cornerSteps) {
@@ -194,10 +195,10 @@ export function createGroundArrows(THREE) {
     return {item, shadowMat, edgeMat, fillMat, spot: null, alpha: 0}
   })
 
-  // The strip under the chevrons and the corner rings: same line, range and rules.
-  const strip = createPathStrip(THREE)
+  // The corner rings: same line, range and rules. (No translucent strip under the chevrons: seen
+  // from close it read as a green wedge over the camera image.)
   const rings = createTurnRings(THREE)
-  group.add(strip.mesh, ...rings.groups)
+  group.add(...rings.groups)
   const green = new THREE.Color(GROUND_ARROWS.green)
   const corner = new THREE.Color(GROUND_EXTRAS.cornerGreen)
   const pulse = new THREE.Color(GROUND_EXTRAS.pulseGreen)
@@ -222,10 +223,9 @@ export function createGroundArrows(THREE) {
   let range = GROUND_ARROWS.aheadM
   const heightAt = (s, userS, slope) => Math.max(-GROUND_ARROWS.maxLiftM, Math.min(GROUND_ARROWS.maxLiftM, (s - userS) * slope)) + (levelLift ? levelLift(s) : 0)
 
-  /** The strip and the corner rings, by the chevrons' rules: range, fades, eye level, blocking. */
+  /** The corner rings, by the chevrons' rules: range, fades, eye level, blocking. */
   function paintExtras({userS, slope, show, opacity, camera, spots}) {
     if (!show || rounded.length < 2 || !Number.isFinite(userS)) {
-      strip.hide()
       rings.hide()
       ringsShown = 0
       return
@@ -254,7 +254,6 @@ export function createGroundArrows(THREE) {
       if (s >= blockS) a *= 1 - blockShown
       return a
     }
-    strip.update(stripSamples(rounded, from, {aheadM: range}), (s) => heightAt(s, userS, slope), (q) => alphaAt(q.x, q.y, q.s, q.d))
     const corners = turns
       .map((c) => ({...c, d: c.s - from}))
       .filter((c) => c.d > -0.5 && c.d <= range)
@@ -438,7 +437,6 @@ export function createGroundArrows(THREE) {
       edgeGeo.dispose()
       shadowGeo.dispose()
       shadowMap?.dispose()
-      strip.dispose()
       rings.dispose()
       for (const {shadowMat, edgeMat, fillMat} of pool) {
         shadowMat.dispose()

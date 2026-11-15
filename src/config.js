@@ -105,16 +105,24 @@ export const CAMPUS_MODEL = {
 }
 
 // The way to walk: 3D chevrons lying on the real floor along the route (src/ar/ground-arrows.js).
+// A row of small flat chevrons painted on the path ahead (src/ar/ground-arrows.js).
 export const GROUND_ARROWS = {
-  spacingM: 1, // one chevron every this far along the route, so several lie close to the user
-  aheadM: 10, // drawn this far ahead: further away a flat arrow no longer reads as floor
-  lowPowerAheadM: 6, // on a slow phone (below 24 fps for 3 s): this far, and no shadows
-  nearM: 0.6, // the first one at least this far ahead (not under the feet)
-  poolSize: 11, // aheadM / spacingM, plus one: made once, recycled as the user walks
-  widthM: 0.5,
-  depthM: 0.35, // tip to back: deep enough to read when seen along the floor
-  edgeM: 0.022, // the thin white edge all round
-  solidM: 3, // fully solid this close, fading to nothing by aheadM
+  // 1.25 m apart: at walking pace about one a second goes under the feet, and at 5-15 m ahead the
+  // gaps still read as a dotted line rather than one long blur.
+  spacingM: 1.25,
+  // The first one 2.5 m ahead: with the phone held at chest height and tilted 30-45° down, the
+  // bottom of the screen meets the ground about 1.5-2.5 m out, so nearer arrows would be cut off
+  // at the screen edge (or look huge and float as the phone moves).
+  nearM: 2.5,
+  // The last one 18 m ahead: further away a flat 0.4 m chevron is only a few pixels high on a
+  // phone screen (seen almost edge-on), and the camera's ground estimate is least sure there.
+  aheadM: 18,
+  lowPowerAheadM: 10, // on a slow phone (below 24 fps for 3 s): this far, and no shadows
+  poolSize: 14, // (aheadM - nearM) / spacingM, plus one: made once, recycled as the user walks
+  widthM: 0.4, // small: a painted road marking, not a sign
+  depthM: 0.3, // tip to back: deep enough to read when seen along the floor
+  edgeM: 0.02, // the thin white edge all round
+  solidM: 6, // fully solid this close, fading to nothing by aheadM
   cornerRadiusM: 1, // corners are rounded so the arrows bend through the turn
   cornerSteps: 8,
   minCornerDeg: 8, // smaller bends are left as they are
@@ -471,6 +479,7 @@ export const BEACON = {
   hideWithinM: 25, // closer, the pin (PIN.showWithinM 30) shows where to stand and the beacon is gone...
   fadeInM: 40, // ...fully there again from this far
   renderOrder: 30, // after the campus occluders and the chevrons
+  maxOpacity: 0.6, // subtle: a far-off marker, not a wall of green
 }
 
 // B4: names pinned to the campus in AR (src/ar/world-labels.js).

@@ -116,8 +116,12 @@ describe('the AR scene with the campus', () => {
     expect(occ.visible).toBe(false)
     nav.dispose()
   })
-  it('shows the beacon over the entrance when far from it', () => {
+  it('shows the beacon over the entrance when far from it, only where buildings can hide it', () => {
     const {nav} = makeScene()
+    nav.update(0.016, 1)
+    expect(nav.beaconShown).toBe(false) // no campus occluders yet: it would stand through the walls
+    nav.setBuildings({features: [feature(square(20, 40, 20))]})
+    nav.setOccluder(true)
     nav.update(0.016, 1)
     expect(nav.beaconShown).toBe(true)
     nav.setVisible(false)

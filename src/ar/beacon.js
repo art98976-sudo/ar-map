@@ -85,7 +85,7 @@ export function createBeacon(THREE) {
     group,
     /** Each frame: seconds (0 with reduced motion) and the distance from the user. */
     update(time, distanceM, allowed = true) {
-      const opacity = allowed ? beaconOpacity(distanceM) : 0
+      const opacity = allowed ? beaconOpacity(distanceM) * BEACON.maxOpacity : 0
       group.visible = opacity > 0.01
       if (!group.visible) return
       const k = beaconScale(distanceM)

@@ -337,7 +337,9 @@ export function createNavScene({THREE, scene, camera, route, origin, name = null
     const pinWorld = pin.group.getWorldPosition(new THREE.Vector3())
     pin.update(reducedMotion ? 0 : time, Math.hypot(pinWorld.x - tmp.x, pinWorld.z - tmp.z), tmp)
     if (!pinAllowed) pin.group.visible = false
-    beacon.update(reducedMotion ? 0 : time, toPinM, pinAllowed)
+    // The beacon only where buildings can hide it: never from inside one, and only once the campus
+    // occluders are on (else it would stand in mid-air through the walls).
+    beacon.update(reducedMotion ? 0 : time, toPinM, pinAllowed && !insideBuilding && Boolean(campus?.mesh?.visible))
     if (labels) {
       labels.setVisible(pinAllowed)
       labels.update(dt, time, camera, {width: globalThis.innerWidth || 390, height: globalThis.innerHeight || 844})

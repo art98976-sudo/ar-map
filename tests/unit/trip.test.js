@@ -501,8 +501,9 @@ describe('the arrows on the real ground', () => {
     t.run(2)
     expect(t.box.stats).toMatchObject({floorSource: 'hits', arrowsShown: true, coaching: false})
     near(t.root.position.y, 0.02, 0.01)
-    const fill = t.root.getObjectByName('chevron-1').children[2].material
-    near(fill.opacity, 0.8, 0.01) // not yet matched by walking
+    // Not yet matched by walking: drawn at 80% (the fake hits here also stand in for walls, so
+    // individual chevrons may be faded as blocked; their opacity is checked in ground-arrows tests).
+    expect(t.box.stats.arrowsConfirmed).toBe(false)
     t.done()
   })
 
@@ -517,7 +518,7 @@ describe('the arrows on the real ground', () => {
     t.run(2)
     near(t.root.position.y, -0.1, 0.01)
     expect(t.box.stats).toMatchObject({floorSource: 'hits', pointAtFloor: false})
-    near(t.root.getObjectByName('chevron-1').children[2].material.opacity, 0.8, 0.01) // floor found; 80% until the walk matches
+    expect(t.box.stats).toMatchObject({arrowsShown: true, arrowsConfirmed: false}) // floor found; 80% until the walk matches
     t.done()
   })
 
@@ -840,7 +841,7 @@ describe('walking beats the compass', () => {
     const arrows = t.scene.getObjectByName('ground-arrows')
     expect(arrows.parent).toBe(root) // in the AR world, not over the screen
     expect(arrows.visible).toBe(true)
-    expect(t.box.stats).toMatchObject({aligned: true, arrowsShown: true, arrowsCreated: 11, pointAtFloor: false, groundSource: 'scene+camera'})
+    expect(t.box.stats).toMatchObject({aligned: true, arrowsShown: true, arrowsCreated: 14, pointAtFloor: false, groundSource: 'scene+camera'})
     expect(t.box.stats.arrowsDrawn).toBeGreaterThanOrEqual(9)
     // The floor confirmed (here a tap 1.4 m below the phone): the arrows lie on it.
     for (let i = 0; i < 40; i++) t.frame()

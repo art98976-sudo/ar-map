@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import {describe, expect, it} from 'vitest'
 import {angleFade, chevronSpots, createGroundArrows, fadeAt, roundCorners} from '../../src/ar/ground-arrows.js'
 import {GROUND_ARROWS, GROUND_EXTRAS} from '../../src/config.js'
-import {ringFill, stripSamples} from '../../src/ar/ground-extras.js'
+import {ringFill} from '../../src/ar/ground-extras.js'
 
 // North 30 m, then east 30 m (route frame: x east, y north).
 const L = [
@@ -37,18 +37,22 @@ describe('roundCorners', () => {
 })
 
 describe('chevronSpots', () => {
-  it('lays one every 1 m along the next 10 m, pointing along the path', () => {
+  it('a row of small chevrons 1.25 m apart, from 2.5 m to 18 m ahead, pointing along the path', () => {
+    expect(GROUND_ARROWS).toMatchObject({spacingM: 1.25, nearM: 2.5, aheadM: 18, widthM: 0.4})
     const spots = chevronSpots(straight, roundCorners(straight), 10)
-    expect(spots.length).toBeGreaterThanOrEqual(9)
+    expect(spots.length).toBeGreaterThanOrEqual(12)
     expect(spots.length).toBeLessThanOrEqual(GROUND_ARROWS.poolSize)
-    for (let i = 1; i < spots.length; i++) expect(spots[i].d - spots[i - 1].d).toBeCloseTo(1, 6)
-    expect(spots[0].d).toBeGreaterThanOrEqual(GROUND_ARROWS.nearM)
-    expect(spots.at(-1).d).toBeLessThanOrEqual(10 + 1e-6)
+    for (let i = 1; i < spots.length; i++) expect(spots[i].d - spots[i - 1].d).toBeCloseTo(1.25, 6)
+    expect(spots[0].d).toBeGreaterThanOrEqual(2.5)
+    expect(spots[0].d).toBeLessThanOrEqual(2.5 + 1.25)
+    expect(spots.at(-1).d).toBeLessThanOrEqual(18 + 1e-6)
+    expect(spots.at(-1).d).toBeGreaterThan(16.5)
     for (const s of spots) expect(s.bearingDeg).toBeCloseTo(0, 6)
   })
   it('anchors them to fixed spots on the route, so they do not slide as the user walks', () => {
     const at = (s) => chevronSpots(straight, roundCorners(straight), s).map((spot) => spot.y)
-    for (const y of [...at(10), ...at(10.5), ...at(11.37)]) expect(Math.abs(y - Math.round(y))).toBeLessThan(1e-6)
+    const onGrid = (y) => Math.abs(y / 1.25 - Math.round(y / 1.25)) < 1e-6
+    for (const y of [...at(10), ...at(10.5), ...at(11.37)]) expect(onGrid(y)).toBe(true)
     const a = at(10)
     const b = at(10.5)
     expect(b.filter((y) => a.some((v) => Math.abs(v - y) < 1e-6)).length).toBeGreaterThanOrEqual(b.length - 1)
@@ -69,11 +73,11 @@ describe('chevronSpots', () => {
 })
 
 describe('fadeAt', () => {
-  it('is solid near the user and gone by 10 m', () => {
-    expect(fadeAt(1)).toBe(1)
-    expect(fadeAt(3)).toBe(1)
-    expect(fadeAt(6.5)).toBeCloseTo(0.5, 6)
-    expect(fadeAt(10)).toBe(0)
+  it('is solid up to 6 m and fades out by 18 m', () => {
+    expect(fadeAt(2.5)).toBe(1)
+    expect(fadeAt(6)).toBe(1)
+    expect(fadeAt(12)).toBeCloseTo(0.5, 6)
+    expect(fadeAt(18)).toBe(0)
   })
 })
 
@@ -84,7 +88,7 @@ describe('createGroundArrows', () => {
     expect(arrows.created).toBe(GROUND_ARROWS.poolSize)
     const children = arrows.group.children.slice()
     const drawn = arrows.update({userS: 10, slope: 0, show: true, time: 0})
-    expect(drawn).toBeGreaterThanOrEqual(9)
+    expect(drawn).toBeGreaterThanOrEqual(12)
     arrows.update({userS: 20, slope: 0, show: true, time: 1})
     expect(arrows.group.children).toEqual(children) // same objects, recycled
     const first = arrows.group.children[0]
@@ -97,7 +101,7 @@ describe('createGroundArrows', () => {
     }
     const fill = first.children[2].geometry
     fill.computeBoundingBox()
-    expect(fill.boundingBox.max.x - fill.boundingBox.min.x).toBeCloseTo(0.5, 2) // 0.5 m wide
+    expect(fill.boundingBox.max.x - fill.boundingBox.min.x).toBeCloseTo(0.4, 2) // 0.4 m wide: small
     expect(fill.boundingBox.max.y - fill.boundingBox.min.y).toBeCloseTo(0, 6) // flat
   })
   it('follows the ground slope, and hides everything when told to', () => {
@@ -172,7 +176,7 @@ describe('only what reads as floor', () => {
   })
 })
 
-describe('the path strip and the corner rings', () => {
+describe('the corner rings (no path strip)', () => {
   const cam = () => {
     const c = new THREE.PerspectiveCamera(60, 0.5, 0.05, 100)
     c.position.set(0, 1.4, 0)
@@ -181,31 +185,11 @@ describe('the path strip and the corner rings', () => {
     return c
   }
 
-  it('the strip follows the same line over the same 10 m, 0.5 m wide', () => {
-    const samples = stripSamples(roundCorners(straight), 10)
-    expect(samples[0].d).toBeCloseTo(0.3, 6)
-    expect(samples.at(-1).d).toBeLessThanOrEqual(10 + 1e-9)
-    for (const q of samples) {
-      expect(q.x).toBeCloseTo(0, 6) // on the route line
-      expect(Math.hypot(q.nx, q.ny)).toBeCloseTo(1, 6)
-    }
-  })
-
-  it('is one mesh, updated in place, faint (25%) and fading out by 10 m', () => {
+  it('no translucent strip under the chevrons: seen from close it read as a green wedge', () => {
     const arrows = createGroundArrows(THREE)
     arrows.setRoute(straight)
-    const strip = arrows.group.getObjectByName('path-strip')
-    const geometry = strip.geometry
     arrows.update({userS: 10, show: true, camera: cam()})
-    arrows.update({userS: 12, show: true, camera: cam()})
-    expect(arrows.group.getObjectByName('path-strip')).toBe(strip)
-    expect(strip.geometry).toBe(geometry) // the same geometry, rewritten
-    expect(strip.visible).toBe(true)
-    const alpha = geometry.attributes.color.array
-    expect(alpha[3]).toBeLessThanOrEqual(0.25 + 1e-6)
-    expect(strip.material.depthTest).toBe(false)
-    arrows.update({userS: 12, show: false})
-    expect(arrows.group.visible).toBe(false)
+    expect(arrows.group.getObjectByName('path-strip')).toBeUndefined()
   })
 
   it('a ring on the floor at a corner within range, fuller as the user nears it, and brighter chevrons through the corner', () => {
@@ -227,7 +211,7 @@ describe('the path strip and the corner rings', () => {
     arrows.update({userS: 27, show: true, camera: at(27)})
     expect(ring.children[0].scale.x).toBeGreaterThan(far) // the disc grows as the corner nears
     expect(ringFill(0)).toBe(1)
-    expect(ringFill(10)).toBe(0)
+    expect(ringFill(GROUND_ARROWS.aheadM)).toBe(0)
     // A chevron within 1.6 m of the corner is the brighter green.
     const colours = arrows.group.children.filter((c) => c.name.startsWith('chevron-') && c.visible).map((c) => c.children[2].material.color.getHex())
     expect(colours).toContain(GROUND_EXTRAS.cornerGreen)
