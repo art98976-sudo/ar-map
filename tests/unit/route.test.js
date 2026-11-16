@@ -97,6 +97,28 @@ describe('planRoute', () => {
     expect(r.points.some((p) => p.z === 1)).toBe(true)
     expect(fallback).not.toHaveBeenCalled()
   })
+  it('keeps MazeMap’s indoor path when the chosen start is a room on an indoor floor', async () => {
+    const json = response(feature([A, B], 1009833, 1), feature([B, C], 1009833, 1), feature([C, D]))
+    const fallback = vi.fn(graph)
+    const inside = {...pt(A), floor: 1}
+    const r = await planRoute(inside, pathfoot, {mazemap: mazemap(json), graph: fallback})
+    expect(r.source).toBe('mazemap')
+    expect(r.points.some((p) => p.z === 1)).toBe(true)
+    expect(fallback).not.toHaveBeenCalled()
+  })
+  it('requests MazeMap routing from the selected indoor floor', async () => {
+    const fetchImpl = vi.fn(async () => ({ok: true, json: async () => response(feature([A, B], 1009833, 1), feature([B, C]))}))
+    vi.stubGlobal('fetch', fetchImpl)
+    try {
+      const inside = {...pt(A), floor: 1}
+      await planRoute(inside, pathfoot, {fit: async (mm) => mm, graph: noGraph})
+      const query = new URL(fetchImpl.mock.calls[0][0]).searchParams
+      expect(query.get('sourcez')).toBe('1')
+      expect(query.get('targetz')).toBe('0')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
   it('a route through a building with no footpaths: still better than a straight line', async () => {
     const warn = quiet()
     const json = response(feature([A, B]), feature([B, C], 1009833), feature([C, D]))

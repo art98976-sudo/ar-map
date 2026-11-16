@@ -42,7 +42,10 @@ export async function fitMazeMapRoute(mm, {from = null, fetchImpl = fetch, timeo
   // The route starts where the user is, so the start kink is measured from them, not from the
   // network node MazeMap began at.
   const first = mm.points[0]
-  const user = from && (Math.abs(from.lat - first.lat) > 1e-6 || Math.abs(from.lng - first.lng) > 1e-6) ? {lat: from.lat, lng: from.lng, z: first.z ?? OUTDOOR} : null
+  const userZ = Number.isFinite(from?.z) ? from.z : Number.isFinite(from?.floor) ? from.floor : first.z ?? OUTDOOR
+  const user = from && (Math.abs(from.lat - first.lat) > 1e-6 || Math.abs(from.lng - first.lng) > 1e-6 || userZ !== first.z)
+    ? {lat: from.lat, lng: from.lng, z: userZ}
+    : null
   const raw = user ? [user, ...mm.points] : mm.points
   let scene
   let sceneLoaded = true

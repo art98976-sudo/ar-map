@@ -74,12 +74,13 @@ export function parseMazeMapPath(json) {
  * for MazeMap's accessible route, which avoids stairs ("hc", supported on this campus).
  */
 async function mazemapRoute(from, to, {signal, targetZ = 0, stepFree = false} = {}) {
+  const sourceZ = Number.isFinite(from.z) ? from.z : Number.isFinite(from.floor) ? from.floor : 0
   const q = new URLSearchParams({
     srid: '4326',
     hc: String(Boolean(stepFree)),
     sourcelat: String(from.lat),
     sourcelon: String(from.lng),
-    sourcez: '0', // outdoors
+    sourcez: String(sourceZ), // an indoor start room: route from its own floor
     targetlat: String(to.lat),
     targetlon: String(to.lng),
     targetz: String(targetZ), // a room: its own floor, so the indoor part goes to the right level
@@ -165,7 +166,8 @@ export async function planRoute(from, dest, {mazemap = mazemapRoute, fit = fitWi
   // and floor levels. Do not replace it with the outdoor footpath graph just because MazeMap's
   // final feature was not tagged as an indoor segment (some room routes end on the room's floor
   // without that flag). The AR scene and arrows must use this fitted route.
-  if (dest?.category === 'room' && throughBuilding) return done(throughBuilding, 'mazemap', to)
+  const startsIndoors = (Number.isFinite(from.z) && from.z !== 0) || (Number.isFinite(from.floor) && from.floor !== 0)
+  if ((dest?.category === 'room' || startsIndoors) && throughBuilding) return done(throughBuilding, 'mazemap', to)
 
   // 2. Our outdoor footpath graph.
   try {

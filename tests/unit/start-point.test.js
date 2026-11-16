@@ -62,6 +62,13 @@ describe('choosing where to start', () => {
     expect(start.lng).toBe(cottrell.entrance.lng)
     expect(startLabel(start)).toBe('Cottrell main entrance')
   })
+  it('starts inside a selected MazeMap room on that room’s floor', () => {
+    const room = {id: 'mm-123456', name: 'Seminar Room 2B87', category: 'room', floor: 2, lat: 56.145, lng: -3.92}
+    const start = startFromPlace(room)
+    expect(start).toMatchObject({lat: room.lat, lng: room.lng, floor: 2, entranceName: null})
+    expect(startLabel(start)).toBe(room.name)
+    expect(startAsDestination(start)).toMatchObject({category: 'room', floor: 2, lat: room.lat, lng: room.lng})
+  })
   it('faces away from the building at a door, when nothing better is stored', () => {
     const heading = outwardHeading({lat: 56, lng: -3.9}, {lat: 56.001, lng: -3.9})
     near(heading, 0, 1)

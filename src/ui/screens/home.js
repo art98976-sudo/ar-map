@@ -73,9 +73,9 @@ export function homeScreen(root, {navigate, params}) {
   const startSheet = root.querySelector('[data-start-sheet]')
   const startSearch = createDestinationSearch(root.querySelector('[data-start-search]'), {
     label: 'Search for a starting point',
-    placeholder: 'Building, entrance or place',
+    placeholder: 'Room, building, entrance or place',
     places: PLACE_LIST,
-    searchRooms: false,
+    searchRooms: true,
     recent: {get: getRecentStarts, add: addRecentStart, clear: clearRecentStarts},
     onSelect: (place) => chooseStartPlace(placeById(place.id) ?? place),
   })

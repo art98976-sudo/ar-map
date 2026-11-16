@@ -79,16 +79,18 @@ export function entrancesOf(place) {
 }
 
 export function startFromPlace(place, entrance = entrancesOf(place)[0]) {
+  const room = place?.category === 'room'
   return {
     type: 'place',
     placeId: place.id,
     entranceId: entrance.id,
     name: place.name,
-    entranceName: entrance.name,
-    lat: entrance.lat,
-    lng: entrance.lng,
-    headingDeg: entrance.headingDeg,
-    facing: entrance.facing,
+    entranceName: room ? null : entrance.name,
+    lat: room ? place.lat : entrance.lat,
+    lng: room ? place.lng : entrance.lng,
+    headingDeg: room ? null : entrance.headingDeg,
+    facing: room ? null : entrance.facing,
+    floor: room && Number.isFinite(place.floor) ? place.floor : null,
   }
 }
 
@@ -100,7 +102,15 @@ export function startFromPin({lat, lng}) {
 export function startAsDestination(start) {
   const place = start.placeId && DESTINATIONS.find((d) => d.id === start.placeId)
   if (place) return place
-  return {id: `start-${Math.round(start.lat * 1e5)}-${Math.round(start.lng * 1e5)}`, name: start.name, category: 'landmark', building: '', floor: null, lat: start.lat, lng: start.lng}
+  return {
+    id: `start-${Math.round(start.lat * 1e5)}-${Math.round(start.lng * 1e5)}`,
+    name: start.name,
+    category: Number.isFinite(start.floor) ? 'room' : 'landmark',
+    building: '',
+    floor: Number.isFinite(start.floor) ? start.floor : null,
+    lat: start.lat,
+    lng: start.lng,
+  }
 }
 
 /** "Cottrell main entrance", "Bus Hub", "Pin on the map". */
