@@ -49,6 +49,7 @@ export function createCompassMap(host, {getState, onReady, onFailed}) {
   let bearing = null
   let expanded = false
   let drawnVersion = null
+  let shownFloor = null
   let dot = null
   let shownView = null
   let failTimer = 0
@@ -74,6 +75,13 @@ export function createCompassMap(host, {getState, onReady, onFailed}) {
   function paint(map, Marker, dt) {
     const state = getState()
     if (!state) return
+    // Keep the live map on the same MazeMap floor as the AR route. Without this, the line and
+    // position update indoors while the tiles remain on the default campus level.
+    const floor = Number.isFinite(state.floorLevel) ? state.floorLevel : 0
+    if (floor !== shownFloor && typeof map.setZLevel === 'function') {
+      shownFloor = floor
+      map.setZLevel(floor)
+    }
     if (drawnVersion !== state.routeVersion) drawRoute(map, Marker, state)
     dot ??= new Marker({element: markerElement('ar-map__dot')}).setLngLat(state.user).addTo(map)
     dot.setLngLat(state.user)

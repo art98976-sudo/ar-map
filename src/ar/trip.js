@@ -550,6 +550,7 @@ export function createArTrip({
     return {
       headingDeg: pose.headingDeg ?? guideHeading(),
       user: fromLocal(origin, pointAt(nav.route, s)),
+      floorLevel: levelAt(routeLevels, s),
       routeCoords: lineCache.coords,
       routeVersion,
       approximate: route.source === 'direct',
