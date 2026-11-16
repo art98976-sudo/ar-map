@@ -36,6 +36,14 @@ export function locationErrorCopy(code, device = {os: 'other'}) {
         body: 'Something went wrong while planning the walk. Check your connection and try again.',
         primary: {action: 'retry', label: 'Try again'},
       }
+    case 'no-indoor-route':
+      return {
+        icon: 'map',
+        tone: 'warn',
+        title: 'Indoor route unavailable',
+        body: 'MazeMap could not connect a route from this floor. Choose the room and floor where you are standing, check your connection, then try again.',
+        primary: {action: 'retry', label: 'Try again'},
+      }
     case 'timeout':
       return {
         icon: 'sun',

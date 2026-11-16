@@ -75,6 +75,10 @@ export const homePage = () => html`
             <span class="start-option__icon">${icon('compass')}</span>
             <span class="start-option__text"><strong>Current location</strong><span data-start-gps-text>Use GPS</span></span>
           </button>
+          <button class="start-option" type="button" data-action="start-indoor">
+            <span class="start-option__icon">${icon('door')}</span>
+            <span class="start-option__text"><strong>I'm inside a building</strong><span>Choose the room you're in to use its floor and indoor route</span></span>
+          </button>
           <button class="start-option" type="button" data-action="start-pick">
             <span class="start-option__icon">${icon('map')}</span>
             <span class="start-option__text"><strong>Pick on map</strong><span>Tap or drag a pin to where you are</span></span>

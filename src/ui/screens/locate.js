@@ -186,6 +186,10 @@ export function locateScreen(root, {navigate, params}) {
         stop()
         return showOffCampus(route.distanceM)
       }
+      if (route.status !== 'ok') {
+        stop()
+        return showError(route.status === 'no-indoor-route' ? 'no-indoor-route' : 'no-route')
+      }
       saveTripRoute({...route, destinationId: destination.id, origin: fix, start: manualStart ? startPoint : null, plannedAt: Date.now()})
       if (body) body.textContent = `${formatDistance(tripLengthM(route))} walk, about ${walkingMinutes(tripLengthM(route))} min. Opening the camera…`
       continueTimer = setTimeout(() => {

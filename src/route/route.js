@@ -134,6 +134,7 @@ export async function planRoute(from, dest, {mazemap = mazemapRoute, fit = fitWi
   if (!isInStirling(from)) return {status: 'off-campus', distanceM: distanceM(from, MAZEMAP.center)}
   const to = entranceOf(dest)
   const onCampus = isOnCampus(from) && isOnCampus(to)
+  const startsIndoors = (Number.isFinite(from.z) && from.z !== 0) || (Number.isFinite(from.floor) && from.floor !== 0)
   const done = (points, source, target = to, extra = {}) => {
     const pts = anchor(points, from, target)
     const lengthM = lengthOf(pts)
@@ -143,12 +144,13 @@ export async function planRoute(from, dest, {mazemap = mazemapRoute, fit = fitWi
 
   // 1. MazeMap, as long as it stays outdoors. If it ends indoors (a room), walk to that door.
   let throughBuilding = null
-  if (onCampus) {
+  if (onCampus || startsIndoors) {
     try {
       // A room: route to its own floor. Step-free: MazeMap's route without stairs.
       const targetZ = dest?.category === 'room' && Number.isFinite(dest.floor) ? dest.floor : 0
       // Step 2: the route fitted to MazeMap's own floors is the only route from here on.
       const mm = await fit(await mazemap(from, to, {targetZ, stepFree}), {from})
+      if (startsIndoors && mm.fitted?.sceneLoaded === false) return {status: 'no-indoor-route', source: 'mazemap', reason: 'floor-data-unavailable'}
       if (mm.points.length >= 2) {
         if (!mm.indoor) return done(mm.points, 'mazemap', to, {fitted: mm.fitted})
         // The walk ends at the door; the card also wants the whole way to the room and its floor.
@@ -166,8 +168,11 @@ export async function planRoute(from, dest, {mazemap = mazemapRoute, fit = fitWi
   // and floor levels. Do not replace it with the outdoor footpath graph just because MazeMap's
   // final feature was not tagged as an indoor segment (some room routes end on the room's floor
   // without that flag). The AR scene and arrows must use this fitted route.
-  const startsIndoors = (Number.isFinite(from.z) && from.z !== 0) || (Number.isFinite(from.floor) && from.floor !== 0)
   if ((dest?.category === 'room' || startsIndoors) && throughBuilding) return done(throughBuilding, 'mazemap', to)
+
+  // A floor-qualified manual start must never fall back to an outdoor graph or straight line.
+  // That would produce a plausible-looking route outside while the user is standing indoors.
+  if (startsIndoors) return {status: 'no-indoor-route', source: 'mazemap'}
 
   // 2. Our outdoor footpath graph.
   try {

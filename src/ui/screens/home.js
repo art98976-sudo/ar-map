@@ -47,6 +47,8 @@ export function homeScreen(root, {navigate, params}) {
   let selected = findDestination(params.to)
   let cardRoute = null // the route planned for the card (door, level, whole distance)
   let planningFor = null // the destination a quiet plan is running for
+  let planGeneration = 0 // discard a route if the selected start changed while it was loading
+  let choosingIndoorStart = false
   let disposed = false
   let enginePrefetched = false
   let startMarker = null
@@ -77,7 +79,17 @@ export function homeScreen(root, {navigate, params}) {
     places: PLACE_LIST,
     searchRooms: true,
     recent: {get: getRecentStarts, add: addRecentStart, clear: clearRecentStarts},
-    onSelect: (place) => chooseStartPlace(placeById(place.id) ?? place),
+    onSelect: (place) => {
+      const fullPlace = placeById(place.id) ?? place
+      if (choosingIndoorStart) {
+        choosingIndoorStart = false
+        if (fullPlace.category !== 'room' || !Number.isFinite(fullPlace.floor)) {
+          showToast('Choose a room result with a floor number for indoor AR.', {tone: 'warning'})
+          return
+        }
+      }
+      chooseStartPlace(fullPlace)
+    },
   })
   const search = createDestinationSearch(root.querySelector('[data-search]'), {
     label: 'Search for a destination',
@@ -467,11 +479,12 @@ export function homeScreen(root, {navigate, params}) {
     const start = getStart()
     const from = isManual(start) ? start : fixWatch.fix
     if (!from) return
+    const generation = ++planGeneration
     planningFor = dest
     refreshWalkText()
     try {
       const route = await planWhenStyleLoaded(instance?.map, () => planRoute(from, dest))
-      if (!route || disposed || selected !== dest || route.status !== 'ok') return
+      if (!route || disposed || selected !== dest || generation !== planGeneration || route.status !== 'ok') return
       cardRoute = route
       drawCardRoute()
       checkWalls(route)
@@ -481,7 +494,7 @@ export function homeScreen(root, {navigate, params}) {
     } catch (err) {
       console.warn('[home] could not plan the route for the card', err?.message)
     } finally {
-      if (planningFor === dest) planningFor = null
+      if (generation === planGeneration && planningFor === dest) planningFor = null
       refreshWalkText() // the route, or the estimate if planning failed
     }
   }
@@ -527,6 +540,8 @@ export function homeScreen(root, {navigate, params}) {
   }
 
   function useStart(start) {
+    planGeneration += 1
+    planningFor = null
     cardRoute = null // a new start: a new route
     setStart(start)
     clearRoute()
@@ -776,6 +791,10 @@ export function homeScreen(root, {navigate, params}) {
       })
     },
     'start-pick': () => enterPick(),
+    'start-indoor': () => {
+      choosingIndoorStart = true
+      startSearch.focus()
+    },
     'start-door': (_, target) => {
       const place = placeById(root.querySelector('[data-start-doors]').dataset.place)
       const door = place && entrancesOf(place).find((d) => d.id === target.dataset.door)
