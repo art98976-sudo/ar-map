@@ -161,6 +161,12 @@ export async function planRoute(from, dest, {mazemap = mazemapRoute, fit = fitWi
     }
   }
 
+  // For a room, an indoor MazeMap path is the only route that knows the real corridors, doors,
+  // and floor levels. Do not replace it with the outdoor footpath graph just because MazeMap's
+  // final feature was not tagged as an indoor segment (some room routes end on the room's floor
+  // without that flag). The AR scene and arrows must use this fitted route.
+  if (dest?.category === 'room' && throughBuilding) return done(throughBuilding, 'mazemap', to)
+
   // 2. Our outdoor footpath graph.
   try {
     const g = await (onCampus ? graph : townGraph)()

@@ -88,6 +88,15 @@ describe('planRoute', () => {
     const r = await planRoute(WALKWAY, pathfoot, {mazemap: mazemap(json), graph})
     expect(r.source).toBe('footpaths')
   })
+  it('keeps MazeMap’s indoor floor path for room destinations instead of replacing it with outdoor paths', async () => {
+    const json = response(feature([A, B]), feature([B, C], 1009833, 1), feature([C, D]))
+    const fallback = vi.fn(graph)
+    const room = {id: 'mm-123456', name: 'Seminar Room', category: 'room', floor: 1, ...pt(E)}
+    const r = await planRoute(WALKWAY, room, {mazemap: mazemap(json), graph: fallback})
+    expect(r.source).toBe('mazemap')
+    expect(r.points.some((p) => p.z === 1)).toBe(true)
+    expect(fallback).not.toHaveBeenCalled()
+  })
   it('a route through a building with no footpaths: still better than a straight line', async () => {
     const warn = quiet()
     const json = response(feature([A, B]), feature([B, C], 1009833), feature([C, D]))
