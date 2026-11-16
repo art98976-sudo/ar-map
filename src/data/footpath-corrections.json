@@ -1,0 +1,6 @@
+{
+  "_readme": "Manual pedestrian-network corrections, kept separate from the campus model and OSM source. Use /#/geometry to edit and export this file. Paths are GeoJSON LineString coordinate pairs [longitude, latitude]; only features with verified:true are included in routing.",
+  "removeEdges": [],
+  "paths": [],
+  "points": []
+}

@@ -69,6 +69,19 @@ function idx(id) {
   }
   return index.get(id)
 }
+function widthMetres(raw) {
+  const match = /^\s*(\d+(?:[.,]\d+)?)\s*(m|ft|')?\s*$/i.exec(String(raw ?? ''))
+  if (!match) return null
+  const value = Number(match[1].replace(',', '.'))
+  const metres = match[2]?.toLowerCase() === 'ft' || match[2] === "'" ? value * 0.3048 : value
+  return metres > 0 && metres <= 50 ? +metres.toFixed(1) : null
+}
+function walkingDirection(tags) {
+  const value = String(tags['oneway:foot'] ?? tags.oneway ?? '').toLowerCase()
+  if (['yes', '1', 'true'].includes(value)) return 'forward'
+  if (value === '-1') return 'reverse'
+  return 'both'
+}
 const TYPE = {steps: 'steps', footway: 'path', path: 'path', pedestrian: 'path', cycleway: 'path', bridleway: 'path', track: 'path'}
 const MAIN_ROAD = /^(primary|secondary)(_link)?$/
 
@@ -81,7 +94,18 @@ for (const el of osm.elements) {
     if (!nodeById.has(a) || !nodeById.has(b)) continue
     const ia = idx(a)
     const ib = idx(b)
-    edges.push([ia, ib, +metres(nodes[ia], nodes[ib]).toFixed(1), type])
+    const wheelchair = ['yes', 'no', 'limited', 'designated'].includes(el.tags.wheelchair) ? el.tags.wheelchair : null
+    const surface = typeof el.tags.surface === 'string' ? el.tags.surface : null
+    edges.push([
+      ia,
+      ib,
+      +metres(nodes[ia], nodes[ib]).toFixed(1),
+      type,
+      widthMetres(el.tags.width ?? el.tags['width:physical']),
+      walkingDirection(el.tags),
+      wheelchair,
+      surface,
+    ])
   }
 }
 
@@ -114,7 +138,7 @@ function largestNetwork() {
   const renumber = new Map(best.map((n, i) => [n, i]))
   return {
     nodes: best.map((n) => [+nodes[n][0].toFixed(6), +nodes[n][1].toFixed(6)]),
-    edges: edges.filter(([a]) => renumber.has(a)).map(([a, b, m, type]) => [renumber.get(a), renumber.get(b), m, type]),
+    edges: edges.filter(([a]) => renumber.has(a)).map(([a, b, ...metadata]) => [renumber.get(a), renumber.get(b), ...metadata]),
   }
 }
 

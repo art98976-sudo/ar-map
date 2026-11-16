@@ -7,6 +7,7 @@ import './styles/home.css'
 import './styles/ar.css'
 import './styles/search.css'
 import './styles/premium.css'
+import './styles/geometry-editor.css'
 
 import {createRouter} from './ui/router.js'
 import {homeScreen} from './ui/screens/home.js'
@@ -19,6 +20,22 @@ import {qrScreen} from './ui/screens/qr.js'
 import {showToast} from './ui/components/toast.js'
 import {startOpening} from './ui/opening.js'
 import {registerServiceWorker} from './offline.js'
+
+function geometryEditorScreen(root, context) {
+  let cancelled = false
+  let cleanup = null
+  root.textContent = 'Loading geometry editor…'
+  import('./ui/screens/geometry-editor.js').then(({geometryEditorScreen: renderEditor}) => {
+    if (!cancelled) cleanup = renderEditor(root, context)
+  }).catch((error) => {
+    console.error('[geometry-editor] could not load', error)
+    if (!cancelled) root.textContent = 'The geometry editor could not be loaded.'
+  })
+  return () => {
+    cancelled = true
+    cleanup?.()
+  }
+}
 
 const root = document.getElementById('app')
 
@@ -36,6 +53,7 @@ const router = createRouter({
     '/indoor': indoorScreen,
     '/stats': statsScreen,
     '/qr': qrScreen,
+    '/geometry': geometryEditorScreen,
   },
 })
 

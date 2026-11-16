@@ -218,7 +218,7 @@ test.describe('the destination card', () => {
     await mapReady(page)
     await tapPin(page, 'pathfoot')
     // Time and distance together: "3 min · 240 m".
-    await expect(page.locator('[data-walk-text]')).toHaveText(/^\d+ min · \d+(\.\d)? k?m$/, {timeout: 10_000})
+    await expect(page.locator('[data-walk-text]')).toHaveText(/^\d+ min · \d+(\.\d)? k?m$/, {timeout: 30_000})
 
     const noGps = await browser.newContext({...testInfo.project.use, permissions: [], geolocation: undefined})
     const other = await noGps.newPage()

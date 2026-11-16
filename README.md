@@ -6,7 +6,7 @@ No app to install.
 
 Status: **Outdoor V1, Steps A–D**: destination search, GPS location, walking route, compass, arrows on the ground.
 
-**A trip:** the home screen is the campus map. Tap a pin or search, then "Walk here in AR" on the card: the phone asks for motion, camera and location in that tap, GPS reaches ±20 m or better, the route is planned, and the camera opens with arrows on the ground. The compass keeps calibrating silently in the background, and map matching lays the walked track onto the route after 6 m, even turning it round if the compass had it backwards. Arrows stop 3 m past the next corner, so they never show through a building. Within 8 m of the entrance you get "You've arrived".
+**A trip:** the home screen is the campus map. Tap a pin or search, then "Walk here in AR" on the card: the phone asks for motion, camera and location in that tap, waits for a fix reporting ±20 m accuracy or better, plans a route, and opens the camera. The compass provides an initial bearing; local camera tracking and walked-track matching can refine placement. GPS and indoor positioning remain uncertain, and actual alignment must be field-tested.
 
 ## Quick start
 
@@ -57,7 +57,8 @@ First time running e2e tests: `npx playwright install chromium webkit`.
   iPhone Safari has no WebXR, so 8th Wall is the only free engine that does both on iPhone.
   The engine is self-hosted from this site and downloads only when the user taps **Start AR**.
 - **3D:** Three.js (lazy-loaded with the AR screen).
-- **Map and routes:** the University's MazeMap campus map (campus 2058) and its walking routes, used with the University's permission. If a MazeMap route goes indoors (GPS does not work there) or MazeMap is unreachable, an OpenStreetMap footpath network with A* is used instead ([src/nav/footpaths.js](src/nav/footpaths.js)).
+- **Map and routes:** the University's MazeMap campus map (campus 2058) and its walking routes, used with the University's permission. If a MazeMap route goes indoors (GPS does not work there) or MazeMap is unreachable, an OpenStreetMap footpath network with A* is used instead ([src/route/footpaths.js](src/route/footpaths.js)).
+- **Positioning:** GPS initializes and nudges progress along a route; the compass gives the initial bearing; 8th Wall world tracking supplies local motion; walked-track matching can correct the local route rotation and offset. AR is not absolutely visually positioned against the campus GLB.
 - **Direction:** compass (iPhone `webkitCompassHeading`, Android `deviceorientationabsolute`), averaged over 3 s, rotates the AR world to real north.
 - **App:** plain JavaScript modules and Vite. No framework.
 
@@ -68,7 +69,7 @@ src/
   ar/                device check, permissions, engine, compass, trip, AR scene, arrows, pin
   geo/               GPS location, GPS <-> metres and angle maths
   route/             route planning, A*, footpaths, guidance, start point
-  data/              destinations.json (with entrances), footpaths.json
+  data/              destinations.json, footpaths.json, footpath-corrections.json
   map/               MazeMap loader, destinations, search, 3D campus model layer
   ui/                router, DOM helpers, icons, toast, screens/
   styles/            design tokens (Stirling brand palette), components, screens
@@ -108,6 +109,22 @@ The **3D** button on the map draws `public/data/stirling_campus.glb` over MazeMa
 layer with three.js). It downloads only the first time 3D is turned on. It shows the floor chosen in
 MazeMap's floor bar, and colours the chosen room, found by its MazeMap poiId (the number at the end of
 each room mesh's name). Floor heights and door positions in the model are estimates, not surveyed.
+
+The GLB's `Outdoor` objects use a generic `outdoor` material; it does not reliably distinguish
+pavement from grass, water, planting, or obstacles. Horizontal triangles alone are therefore not
+safe evidence of a walkable path. The app keeps using its existing MazeMap and OpenStreetMap
+pedestrian networks instead of manufacturing routes from those surfaces. The OSM import script
+retains tagged widths, surfaces, one-way foot access, and wheelchair tags when available; the
+checked-in network predates those attributes, so its missing values remain unknown until regenerated.
+
+Open `/#/geometry` to inspect the campus OSM path graph and create separate manual corrections.
+The editor can hide a wrongly mapped source segment, draw a path/stairs/ramp with width and
+direction, move its nodes, and add entrances/navigation points. New path endpoints snap to nearby
+mapped nodes within 3 m. New geometry is **excluded from routing until marked field-verified**. Save downloads
+`footpath-corrections.json` and stores a local copy; reload the app to rebuild its cached graph for
+local testing. Review the export and replace `src/data/footpath-corrections.json` to publish it. The original GLB and OSM source are
+never modified. An entrance point is metadata, not a path connection: draw a verified path to it if
+the entrance is not already connected.
 
 **Alignment check:** open `/#/?debug=align`. The model is drawn at 50% over MazeMap's floor plan (a
 slider changes that), a red dot marks the model's origin (56.1455, -3.92), and clicking the map shows
@@ -155,6 +172,12 @@ point by the loch. The green arrow is what AR would show and the orange dot is t
 The slider pushes the fake user up to 25 m off the route (past 15 m for 5 s: a new route). The GPS
 accuracy slider and "Compass swinging" set off "Finding your position", and walking to the end
 shows "You have arrived".
+
+The route graph and AR alignment are not validated to survey-grade accuracy. AR placement uses GPS,
+compass, and local camera tracking; it is not anchored to the GLB in the camera's world. GPS does not
+identify a floor. Indoor floor transitions require MazeMap data, and new outdoor paths, entrances,
+stairs, and ramps require field verification. Physical iPhone and Android field testing is required
+before making accuracy or accessibility claims.
 
 ## Entrances
 

@@ -1,0 +1,150 @@
+.geometry-editor {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+  color: #17231d;
+}
+
+.geometry-editor__header h1 {
+  margin: 12px 0 4px;
+}
+
+.geometry-editor__header p,
+.geometry-editor__legend {
+  color: #52635a;
+}
+
+.geometry-editor__back {
+  color: #006938;
+  font-weight: 600;
+}
+
+.geometry-editor__notice {
+  margin: 18px 0;
+  padding: 12px 16px;
+  border-left: 4px solid #d59a19;
+  background: #fff8e6;
+}
+
+.geometry-editor__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: end;
+}
+
+.geometry-editor__toolbar button,
+.geometry-editor__toolbar label {
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid #c9d2cc;
+  border-radius: 6px;
+  background: #fff;
+  color: inherit;
+}
+
+.geometry-editor__toolbar label {
+  display: grid;
+  gap: 3px;
+  font-size: 12px;
+}
+
+.geometry-editor__toolbar input,
+.geometry-editor__toolbar select {
+  max-width: 160px;
+}
+
+.geometry-editor__upload input {
+  max-width: 180px;
+}
+
+.geometry-editor__status {
+  min-height: 1.5em;
+  color: #344b3d;
+}
+
+.geometry-editor__map {
+  display: block;
+  width: 100%;
+  max-height: 75vh;
+  border: 1px solid #c9d2cc;
+  background-color: #f3f5ef;
+  touch-action: none;
+}
+
+.geometry-editor__edge,
+.geometry-editor__correction,
+.geometry-editor__drawing {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.geometry-editor__edge {
+  stroke-width: 2;
+  cursor: pointer;
+  opacity: 0.8;
+}
+
+.geometry-editor__edge.is-removed {
+  stroke: #bd3030 !important;
+  stroke-dasharray: 4 4;
+  opacity: 0.3;
+}
+
+.geometry-editor__edge.is-selected,
+.geometry-editor__correction.is-selected {
+  stroke: #ff8a00 !important;
+  opacity: 1;
+}
+
+.geometry-editor__correction {
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.geometry-editor__path-hit-target {
+  fill: none;
+  stroke: transparent;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.geometry-editor__drawing {
+  stroke: #a21caf;
+  stroke-dasharray: 3 2;
+  pointer-events: none;
+}
+
+.geometry-editor__handle {
+  fill: #fff;
+  stroke: #a21caf;
+  stroke-width: 2;
+  cursor: move;
+}
+
+.geometry-editor__draw-point {
+  fill: #a21caf;
+  pointer-events: none;
+}
+
+.geometry-editor__marker {
+  fill: #fbbf24;
+  stroke: #7c5110;
+  stroke-width: 2;
+  cursor: pointer;
+}
+
+.geometry-editor__marker.is-selected {
+  fill: #ff8a00;
+}
+
+.geometry-editor__legend {
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .geometry-editor {
+    padding: 16px;
+  }
+}

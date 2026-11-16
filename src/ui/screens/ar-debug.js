@@ -22,10 +22,12 @@ export function paintDebugStats(root, s) {
   stat('match', `${s.matchOffsetM.toFixed(1)} m, ${s.matchYawDeg.toFixed(1)}°${s.matchFlipped ? ', flipped' : ''}`)
   stat('quality', s.matchResidualM == null ? 'walk 8 m first' : `${s.matchResidualM.toFixed(2)} m`, s.matchResidualM != null && s.matchResidualM < 1 ? 'ok' : 'warn')
   stat('turn', s.nextManoeuvre ? `${s.nextManoeuvre.type}, ${formatDistance(Math.max(0, s.nextManoeuvre.s - s.userS))}` : '–')
-  stat('source', `${s.source}, ${s.routePoints} points`, s.source === 'direct' ? 'warn' : 'ok')
+  const approximateJoin = s.approximate ?? ['direct', 'footpaths'].includes(s.source)
+  stat('source', `${s.source}, ${s.routePoints} points`, approximateJoin ? 'warn' : 'ok')
   stat('route-points', String(s.routePoints))
   stat('turns', String(s.turns))
   stat('start-gap', `${Math.round(s.startGapM)} m`)
+  stat('path-connections', s.source === 'footpaths' ? `${fmt(s.snapStartM)} start, ${fmt(s.snapEndM)} end` : 'Not available', approximateJoin ? 'warn' : 'ok')
   stat('height', `${s.cameraHeight.toFixed(2)} m`)
   if (s.floorEyeM != null) stat('floor', `${s.floorEyeM.toFixed(2)} m`)
   if (s.groundHeight != null) {

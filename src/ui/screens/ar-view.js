@@ -136,6 +136,7 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
         <div class="stats__row"><dt>Floor below phone</dt><dd data-stat="floor">–</dd></div>
         <div class="stats__row"><dt>Route source</dt><dd data-stat="source">${routeSource}</dd></div>
         <div class="stats__row"><dt>Route points</dt><dd data-stat="route-points">–</dd></div>
+        <div class="stats__row"><dt>Path connections</dt><dd data-stat="path-connections">–</dd></div>
         <div class="stats__row"><dt>Turns</dt><dd data-stat="turns">–</dd></div>
         <div class="stats__row"><dt>Start gap (GPS to path)</dt><dd data-stat="start-gap">–</dd></div>
         <div class="stats__row"><dt>Frame rate</dt><dd data-stat="fps">–</dd></div>

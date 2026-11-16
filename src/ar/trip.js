@@ -553,7 +553,7 @@ export function createArTrip({
       floorLevel: levelAt(routeLevels, s),
       routeCoords: lineCache.coords,
       routeVersion,
-      approximate: route.source === 'direct',
+      approximate: route.approximate ?? ['direct', 'footpaths'].includes(route.source),
     }
   }
 
@@ -1058,6 +1058,9 @@ export function createArTrip({
         nextTurnM: nav.aligned ? (poseTurn ? Math.max(0, poseTurn.s - routeS) : null) : null,
         nextTurnDir: nav.aligned && poseTurn ? (poseTurn.angle > 0 ? 'right' : 'left') : null,
         source: route.source,
+        snapStartM: route.snapStartM ?? null,
+        snapEndM: route.snapEndM ?? null,
+        approximate: route.approximate ?? ['direct', 'footpaths'].includes(route.source),
         fps,
       })
     }

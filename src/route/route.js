@@ -138,8 +138,16 @@ export async function planRoute(from, dest, {mazemap = mazemapRoute, fit = fitWi
   const done = (points, source, target = to, extra = {}) => {
     const pts = anchor(points, from, target)
     const lengthM = lengthOf(pts)
+    const approximate = source === 'direct' || (
+      source === 'footpaths' && (
+        !Number.isFinite(extra.snapStartM) ||
+        !Number.isFinite(extra.snapEndM) ||
+        extra.snapStartM > ROUTING.snapToPathM ||
+        extra.snapEndM > ROUTING.entranceAppendM
+      )
+    )
     console.info('[route]', source, pts.length, 'points')
-    return {status: 'ok', points: pts, lengthM, minutes: walkingMinutes(lengthM), source, entrance: target, stepFree: Boolean(stepFree), ...extra}
+    return {status: 'ok', points: pts, lengthM, minutes: walkingMinutes(lengthM), source, entrance: target, stepFree: Boolean(stepFree), ...extra, approximate}
   }
 
   // 1. MazeMap, as long as it stays outdoors. If it ends indoors (a room), walk to that door.
@@ -178,7 +186,9 @@ export async function planRoute(from, dest, {mazemap = mazemapRoute, fit = fitWi
   try {
     const g = await (onCampus ? graph : townGraph)()
     const fp = routeOnFootpaths(g, from, to)
-    if (fp && fp.points.length >= 2) return done(fp.points, 'footpaths')
+    if (fp && fp.points.length >= 2) {
+      return done(fp.points, 'footpaths', to, {snapStartM: fp.snapStartM, snapEndM: fp.snapEndM})
+    }
   } catch (err) {
     console.warn('[route] footpath routing failed', err?.message)
   }
