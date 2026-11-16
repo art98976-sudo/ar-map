@@ -994,6 +994,30 @@ describe('walking beats the compass', () => {
     t.done()
   })
 
+  it('keeps the indoor AR arrows visible when GPS becomes inaccurate on an indoor floor', () => {
+    let onFix
+    const indoorRoute = {
+      points: [
+        {...ORIGIN, z: 1},
+        {lat: ORIGIN.lat + 0.001, lng: ORIGIN.lng, z: 1},
+      ],
+      entrance: {lat: ORIGIN.lat + 0.001, lng: ORIGIN.lng, z: 1},
+      lengthM: 111,
+      source: 'mazemap',
+    }
+    const t = startTrip(0, {
+      route: indoorRoute,
+      destination: {name: 'Room 101', category: 'room', floor: 1},
+      geolocation: {watchPosition: (ok) => ((onFix = ok), 1), clearWatch: () => {}},
+    })
+    const arrows = t.scene.getObjectByName('ground-arrows')
+    onFix({coords: {latitude: ORIGIN.lat, longitude: ORIGIN.lng, accuracy: 60}})
+    for (let i = 0; i < 4 / 0.05; i++) t.frame()
+    expect(t.box.stats.positionUncertain).toBe(false)
+    expect(arrows.visible).toBe(true)
+    t.done()
+  })
+
   it('a compass swinging 60° while the phone holds still hides the arrow', () => {
     const t = startTrip(0)
     for (let i = 0; i < 10; i++) t.frame()

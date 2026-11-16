@@ -361,11 +361,15 @@ export function createArTrip({
   function checkConfidence(time) {
     const f = lookDirection()
     const level = Math.hypot(f.x, f.z) >= TRIP.minHorizontalLook // looking straight down has no yaw
+    // GPS is useful for placing and correcting the outdoor leg, but it becomes unreliable inside
+    // buildings. Once the tracked route reaches a MazeMap floor, let SLAM and the compass carry
+    // the position confidence instead of hiding the arrows because an indoor GPS fix wandered.
+    const onIndoorFloor = levelAt(routeLevels, tracker?.s ?? 0) !== 0
     confidenceNow = confidence.update({
       time,
       gpsAccuracy: lastFix?.accuracy ?? null,
       // Judged from the first reading here on: the trip starts from Locate's good fix.
-      useGps: !manual && lastFix != null,
+      useGps: !manual && !onIndoorFloor && lastFix != null,
       heading: compassStale() ? null : heading,
       useCompass: compassSteers(),
       cameraYawDeg: level ? toDeg(Math.atan2(f.x, -f.z)) : null, // the phone's own turn, clockwise
