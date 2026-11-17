@@ -142,6 +142,7 @@ export function createArTrip({
   // until it is ready (and always without the flag) the trip works exactly as before.
   let netTrip = null
   let netTripPending = null // begin() arguments that arrived before the network finished loading
+  let netArrows = null // this frame's network arrows (network-arrows.js planArrows)
   if (networkEnabled() && firstRoute.source === 'network') {
     Promise.all([import('./network-trip.js'), import('../route/network-router.js')])
       .then(([{createNetworkTrip}, {loadNetwork}]) => loadNetwork().then((net) => createNetworkTrip({route: firstRoute, origin, net})))
@@ -1004,7 +1005,19 @@ export function createArTrip({
     watchLineUp(time)
     const floorOpacity = 1 // the scene knows the floor: no half-transparent "guess"
     const matchOpacity = arrowsConfirmed() ? 1 : LINE_UP.unconfirmedOpacity
-    nav.updateArrows({userS: routeS, slope: groundNow.slope, show: arrowsShown, opacity: floorOpacity * matchOpacity, dt, time, lift: arrowLevelLift(routeS)})
+    // ?network=1: the pose's confidence decides normal / faded / hidden, and the arrows stop at the
+    // next turn, door or stair (or before a wall). Recomputed every frame, so after every anchor.
+    netArrows = netTrip?.current.started && route.source === 'network' ? netTrip.arrows() : null
+    nav.updateArrows({
+      userS: routeS,
+      slope: groundNow.slope,
+      show: arrowsShown && netArrows?.mode !== 'hidden',
+      opacity: floorOpacity * matchOpacity * (netArrows?.opacity ?? 1),
+      dt,
+      time,
+      lift: arrowLevelLift(routeS),
+      maxS: netArrows ? netArrows.untilS : null,
+    })
     updateShell(time)
     checkIndoor(time)
     watchHeldUp(dt, time)
@@ -1153,6 +1166,7 @@ export function createArTrip({
         // ?network=1: the map-constrained pose's confidence (null without it).
         networkConfidence: netTrip?.current.started ? netTrip.current.confidence : null,
         networkFloor: netTrip?.current.started ? netTrip.current.z : null,
+        networkArrows: netArrows ? {mode: netArrows.mode, minimap: netArrows.minimap, stop: netArrows.stopKind} : null,
         fps,
       })
     }

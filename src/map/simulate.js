@@ -15,7 +15,7 @@ import {createGuidance} from '../route/guidance.js'
 import {createNavPose, steeredBearing} from '../route/nav-pose.js'
 import {createArrivalDetector, createConfidenceMonitor, createOffRouteMonitor} from '../route/trip-monitors.js'
 import {planRoute} from '../route/route.js'
-import {ARRIVAL, ARROW, COLOURS, CONFIDENCE, GROUND_ARROWS, OFF_ROUTE, ROUTING} from '../config.js'
+import {ARRIVAL, ARROW, COLOURS, CONFIDENCE, GROUND_ARROWS, networkEnabled, OFF_ROUTE, ROUTING} from '../config.js'
 
 /** A fixed start on a campus path, by the loch walkway, when no start was chosen. */
 export const SIM_START = {lat: 56.14525, lng: -3.9201}
@@ -93,6 +93,8 @@ export function createSimulator(map, {from = SIM_START, dest, host = document.bo
         return
       }
       run(route)
+      // ?network=1: also walk the route through the map-constrained pose, with a phone's errors.
+      if (networkEnabled() && route.source === 'network') showNetworkPose(map, route, panel).catch((err) => console.warn('[sim] network pose', err?.message))
     })
     .catch((err) => {
       if (!destroyed) panel.status.textContent = `Could not plan the route (${err?.message ?? err}).`
@@ -370,6 +372,54 @@ function removeLayers(map) {
   }
 }
 
+/**
+ * ?simulate=1&network=1 (Gate C/D): the network route walked through the map-constrained pose with
+ * the compass 25° out, tracking drifting 2 m every 20 m and GPS jumping 30 m. Draws where the pose
+ * put the user (blue line) and writes the errors in the panel.
+ */
+async function showNetworkPose(map, route, panel) {
+  const [{simulateNetworkWalk}, {wallTesterFrom}, router, {CAMPUS_ORIGIN}, arrows] = await Promise.all([
+    import('./network-sim.js'),
+    import('../ar/network-pose.js'),
+    import('../route/network-router.js'),
+    import('./campus-geo.js'),
+    import('../ar/network-arrows.js'),
+  ])
+  const net = await router.loadNetwork()
+  const crossesWall = wallTesterFrom(net)
+  const arrowStats = {normal: 0, faded: 0, hidden: 0, throughWall: 0}
+  const m = simulateNetworkWalk({
+    points: route.points,
+    crossesWall,
+    insideBuilding: (p) => router.buildingAt(net, p) != null,
+    floorHeights: Object.values(net.floors)[0]?.levels ?? {},
+    onStep: (step) => {
+      const plan = arrows.planArrows({points: route.points, pose: step.pose, crossesWall})
+      arrowStats[plan.mode] += 1
+      if (plan.segments.some((sgm) => crossesWall(sgm.z, sgm.a, sgm.b))) arrowStats.throughWall += 1
+    },
+  })
+  const ll = (p) => {
+    const g = fromLocal(CAMPUS_ORIGIN, p)
+    return [g.lng, g.lat]
+  }
+  const line = {type: 'Feature', properties: {}, geometry: {type: 'LineString', coordinates: m.trace.map((t) => ll(t.pose))}}
+  if (map.getSource?.('sim-network-pose')) map.getSource('sim-network-pose').setData(line)
+  else if (map.addSource) {
+    map.addSource('sim-network-pose', {type: 'geojson', data: line})
+    map.addLayer({id: 'sim-network-pose', type: 'line', source: 'sim-network-pose', paint: {'line-color': '#1d4ed8', 'line-width': 3, 'line-opacity': 0.8}})
+  }
+  const steps = m.trace.length
+  const pct = (n) => `${Math.round((100 * n) / steps)}%`
+  panel.network.textContent = [
+    `Network pose (compass 25° out, drift 2 m / 20 m, GPS jumps 30 m):`,
+    `max lateral ${m.maxLateralM.toFixed(2)} m · max position error ${m.maxPositionErrorM.toFixed(1)} m · end ${m.finalAlongErrorM.toFixed(1)} m from the room`,
+    `wrong floor ${m.floorMismatches} · behind a wall ${m.wallCrossings} · anchors ${m.anchors} · GPS used ${m.gpsUsed}, ignored ${m.gpsRejected}`,
+    `arrows: normal ${pct(arrowStats.normal)}, faded ${pct(arrowStats.faded)}, hidden ${pct(arrowStats.hidden)} · through a wall ${arrowStats.throughWall}`,
+  ].join('\n')
+  console.info('[sim] network pose', {...m, trace: undefined, arrows: arrowStats})
+}
+
 function buildPanel(host) {
   const root = document.createElement('section')
   root.className = 'sim-panel'
@@ -422,6 +472,7 @@ function buildPanel(host) {
       <button type="button" data-sim-floor aria-pressed="false">Floor change</button>
     </div>
     <p class="sim-readout" data-sim-readout></p>
+    <p class="sim-readout" data-sim-network></p>
     <p class="sim-key"><b style="color:#2563eb">●</b> fake user · <b style="color:${COLOURS.arrowGreen}">➤</b> AR arrow ·
       <b style="color:#f97316">●</b> point ${ARROW.aheadM} m ahead on the route</p>`
   host.append(root)
@@ -443,5 +494,6 @@ function buildPanel(host) {
     tracking: q('[data-sim-tracking]'),
     floor: q('[data-sim-floor]'),
     readout: q('[data-sim-readout]'),
+    network: q('[data-sim-network]'),
   }
 }

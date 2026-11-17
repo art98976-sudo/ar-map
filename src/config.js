@@ -482,6 +482,16 @@ export const POSE = {
   unlockedFactor: 0.75, // confidence before the heading is locked to the route
 }
 
+// Ground arrows from the network (src/ar/network-arrows.js), ?network=1 only.
+export const ARROWS_NET = {
+  fadeBelow: 0.7, // confidence below this: faded arrows and the minimap
+  hideBelow: 0.4, // below this: no arrows, the minimap only, until the next anchor
+  fadedOpacity: 0.45,
+  minAheadM: 0.5, // a stop closer than this is behind the user already
+  maxAheadM: 10, // never drawn further than the ground arrows' own range
+  stepM: 0.5, // the route ahead is checked against the walls this finely
+}
+
 /** ?network=1 before the # (it survives screen changes) or in the screen's own query. */
 export function networkEnabled(search = globalThis.location?.search ?? '', hash = globalThis.location?.hash ?? '') {
   if (new URLSearchParams(search).get(NETWORK.flag) === '1') return true

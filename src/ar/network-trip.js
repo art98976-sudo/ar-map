@@ -4,6 +4,7 @@
 import {CAMPUS_ORIGIN} from '../map/campus-geo.js'
 import {fromLocal, toLocal} from '../geo/geo.js'
 import {createNetworkPose, wallTesterFrom} from './network-pose.js'
+import {planArrows} from './network-arrows.js'
 import {buildingAt} from '../route/network-router.js'
 
 /**
@@ -60,6 +61,10 @@ export function createNetworkTrip({route, origin, net}) {
         pose.gps({x: c.x, y: c.y, accuracyM: fix.accuracy})
       }
       return pose.current
+    },
+    /** The ground arrows for this frame (network-arrows.js): mode, opacity, where they stop. */
+    arrows() {
+      return planArrows({points, pose: pose.current, crossesWall})
     },
     get current() {
       return pose.current

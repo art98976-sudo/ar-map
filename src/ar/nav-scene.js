@@ -366,8 +366,8 @@ export function createNavScene({THREE, scene, camera, route, origin, name = null
      * Lay the chevrons for this frame: userS from the pose, the ground slope, whether to show,
      * and their opacity (half while the floor is still a guess).
      */
-    updateArrows({userS, slope, show, opacity = 1, dt = 0, time = 0, lift = null}) {
-      return arrows.update({userS, slope, show: show && aligned, opacity, dt, time: reducedMotion ? 0 : time, camera, lift})
+    updateArrows({userS, slope, show, opacity = 1, dt = 0, time = 0, lift = null, maxS = null}) {
+      return arrows.update({userS, slope, show: show && aligned, opacity, dt, time: reducedMotion ? 0 : time, camera, lift, maxS})
     },
     /**
      * The walls and doors of the floor in use (route frame, from floorToLocal). Replaces the

@@ -220,6 +220,9 @@ export function createGroundArrows(THREE) {
   // Low power (a slow phone): a shorter range and no shadows.
   let lowPower = false
   let range = GROUND_ARROWS.aheadM
+  // ?network=1: the arrows stop at the next turn, door or stair (or before a wall): metres ahead.
+  let limitM = Infinity
+  const reach = () => Math.min(range, limitM)
   const heightAt = (s, userS, slope) => Math.max(-GROUND_ARROWS.maxLiftM, Math.min(GROUND_ARROWS.maxLiftM, (s - userS) * slope)) + (levelLift ? levelLift(s) : 0)
 
   /** The strip and the corner rings, by the chevrons' rules: range, fades, eye level, blocking. */
@@ -254,10 +257,10 @@ export function createGroundArrows(THREE) {
       if (s >= blockS) a *= 1 - blockShown
       return a
     }
-    strip.update(stripSamples(rounded, from, {aheadM: range}), (s) => heightAt(s, userS, slope), (q) => alphaAt(q.x, q.y, q.s, q.d))
+    strip.update(stripSamples(rounded, from, {aheadM: reach()}), (s) => heightAt(s, userS, slope), (q) => alphaAt(q.x, q.y, q.s, q.d))
     const corners = turns
       .map((c) => ({...c, d: c.s - from}))
-      .filter((c) => c.d > -0.5 && c.d <= range)
+      .filter((c) => c.d > -0.5 && c.d <= reach())
       .sort((a, b) => a.d - b.d)
       .map((c) => ({x: c.x, y: c.y, d: Math.max(0, c.d), height: heightAt(c.s, userS, slope), alpha: alphaAt(c.x, c.y, c.s, Math.max(0, c.d))}))
     ringsShown = rings.update(corners)
@@ -276,10 +279,11 @@ export function createGroundArrows(THREE) {
      * Lay the chevrons, the strip and the corner rings for this frame. camera: the AR camera
      * (world). time: seconds, for the slow pulse (0 with reduced motion). Returns how many are placed.
      */
-    update({userS, slope = 0, show, opacity = 1, dt = 0, time = 0, camera = null, lift = null}) {
+    update({userS, slope = 0, show, opacity = 1, dt = 0, time = 0, camera = null, lift = null, maxS = null}) {
       levelLift = lift
+      limitM = Number.isFinite(maxS) && Number.isFinite(userS) ? Math.max(0, maxS - userS) : Infinity
       group.visible = Boolean(show)
-      const spots = show ? chevronSpots(route, rounded, userS, {aheadM: range}) : []
+      const spots = show ? chevronSpots(route, rounded, userS, {aheadM: reach()}) : []
       active = Math.min(spots.length, pool.length)
       visibleCount = 0
       const live = new Set(spots.slice(0, active).map((s) => keyOf(s.s)))

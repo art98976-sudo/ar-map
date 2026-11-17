@@ -293,7 +293,8 @@ export function arScreen(root, {navigate, params}) {
     if (s.rerouting && !wasRerouting) count('rerouted')
     wasRerouting = Boolean(s.rerouting)
     paintHints(s)
-    followMapWhileUncertain(s.positionUncertain)
+    // ?network=1: faded or hidden arrows bring the minimap up too (networkArrows is null without it).
+    followMapWhileUncertain(s.positionUncertain || Boolean(s.networkArrows?.minimap))
     if (s.locked && !wasLocked) haptic(18)
     wasLocked = s.locked
     paintStartCard(s)
