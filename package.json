@@ -15,7 +15,9 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "check": "npm run lint && npm test && npm run build && npm run test:e2e",
-    "scene:report": "node tools/scene-report.mjs"
+    "scene:report": "node tools/scene-report.mjs",
+    "build:network": "node --dns-result-order=ipv4first tools/build-network.mjs",
+    "network:report": "node tools/network-report.mjs"
   },
   "engines": {
     "node": ">=20"

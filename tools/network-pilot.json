@@ -1,0 +1,11 @@
+{
+  "_readme": "Pilot for tools/build-network.mjs: one building and one route. Change the start or the rooms here, then run npm run build:network.",
+  "building": {"id": 1009833, "name": "Cottrell Building", "floors": [-1, 1, 2, 3, 4]},
+  "rooms": [{"poiId": 1002085033, "name": "A3 Lecture Theatre"}],
+  "route": {
+    "name": "Pathfoot Front Car Park (east) to Cottrell A3",
+    "start": {"name": "Pathfoot Front Car Park (east)", "poiId": 1002292401, "lat": 56.148174267358, "lng": -3.9257070226467197, "z": 0},
+    "toPoiId": 1002085033
+  },
+  "outdoorMarginM": 150
+}

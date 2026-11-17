@@ -13,3 +13,5 @@ playwright-report/
 .vercel
 *.code-workspace
 .DS_Store
+# MazeMap and Overpass responses for tools/build-network.mjs
+tools/.cache/
