@@ -117,7 +117,7 @@ pedestrian networks instead of manufacturing routes from those surfaces. The OSM
 retains tagged widths, surfaces, one-way foot access, and wheelchair tags when available; the
 checked-in network predates those attributes, so its missing values remain unknown until regenerated.
 
-Open `/#/geometry` to inspect the campus OSM path graph and create separate manual corrections.
+Open `/?debug=1#/geometry` (hidden without `?debug`) to inspect the campus OSM path graph and create separate manual corrections.
 The editor can hide a wrongly mapped source segment, draw a path/stairs/ramp with width and
 direction, move its nodes, and add entrances/navigation points. New path endpoints snap to nearby
 mapped nodes within 3 m. New geometry is **excluded from routing until marked field-verified**. Save downloads
@@ -178,6 +178,33 @@ compass, and local camera tracking; it is not anchored to the GLB in the camera'
 identify a floor. Indoor floor transitions require MazeMap data, and new outdoor paths, entrances,
 stairs, and ramps require field verification. Physical iPhone and Android field testing is required
 before making accuracy or accessibility claims.
+
+## Campus walking network (pilot)
+
+One pre-generated, automatically checked walking network, inside and outside, for one pilot
+building and route (`tools/network-pilot.json`: Pathfoot Front Car Park to Cottrell A3). The live
+router, AR pose and arrows do not use it yet.
+
+| Command | What it does |
+|---|---|
+| `npm run build:network` | Builds `src/data/campus-network.json`. MazeMap and Overpass answers are cached in `tools/.cache/` (2 requests a second, first run about an hour). `-- --offline` builds from the cache only |
+| `npm run network:report` | Counts, generator errors and every check failure with node ids and coordinates |
+| `npx vitest run tests/unit/network.test.js` | The six checks on the generated file |
+
+- **Frame:** metres east (x) and north (y) of the campus model origin (56.1455, -3.92), MazeMap floor `z`
+  (0 outdoors) and `heightM` from `src/data/floor-heights.json` (placeholders until measured).
+- **Indoors:** MazeMap floor tiles (walls, doors, stairs, lifts, outlines, room and area shapes) and
+  MazeMap routes between every pair of exterior doors, stairs, lifts and the pilot room, merged
+  into one graph. A level change is a stair or lift only where MazeMap's route flags it.
+- **Outdoors:** the OSM footpaths plus verified `footpath-corrections.json`. A door joins the nearest
+  path within 5 m, otherwise it is an error. Unjoined doors get a *proposed* connection (MazeMap's own
+  approach line) in `tools/network-proposed-corrections.json`: never routed; check it on site, then
+  copy it into `footpath-corrections.json` with `verified: true`.
+- **Viewer:** `/?debug=1#/geometry` → **Show network layer**: the network over MazeMap, one floor at a
+  time, failures in red. `/#/geometry` is hidden without `?debug`.
+- **Trip log:** with `?debug=1`, the AR debug panel's **Download trip log** saves one row a second
+  (route source, start floor, position, campus x/y, heading, tracking, distance from the route,
+  confidence) as JSON. Kept in memory only.
 
 ## Entrances
 

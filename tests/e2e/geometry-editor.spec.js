@@ -1,7 +1,7 @@
 import {expect, test} from '@playwright/test'
 
 test('geometry editor stores only field-verified additions as route corrections', async ({page}) => {
-  await page.goto('/#/geometry')
+  await page.goto('/?debug=1#/geometry')
   await expect(page.getByRole('heading', {name: 'Pedestrian geometry corrections'})).toBeVisible()
 
   const map = page.locator('[data-map]')
@@ -21,4 +21,10 @@ test('geometry editor stores only field-verified additions as route corrections'
   expect(saved.paths[0].properties).toMatchObject({verified: true, widthM: 2.2, type: 'path'})
   expect(saved.paths[0].geometry.coordinates).toHaveLength(2)
   expect(box.width).toBeGreaterThan(0)
+})
+
+test('geometry editor is hidden without ?debug', async ({page}) => {
+  await page.goto('/#/geometry')
+  await expect(page.getByRole('heading', {name: 'Pedestrian geometry corrections'})).toHaveCount(0)
+  await expect(page).not.toHaveURL(/#\/geometry/)
 })

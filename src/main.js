@@ -22,6 +22,12 @@ import {startOpening} from './ui/opening.js'
 import {registerServiceWorker} from './offline.js'
 
 function geometryEditorScreen(root, context) {
+  // A developer tool: normal users never see it. ?debug in the address (before the # or in the
+  // screen's own query, /#/geometry?debug=1) opens it; otherwise it is the home screen.
+  if (!new URLSearchParams(window.location.search).has('debug') && context?.params?.debug == null) {
+    queueMicrotask(() => context?.navigate?.('/', {replace: true})) // after this render returns
+    return () => {}
+  }
   let cancelled = false
   let cleanup = null
   root.textContent = 'Loading geometry editor…'

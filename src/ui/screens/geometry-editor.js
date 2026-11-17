@@ -96,6 +96,12 @@ export function geometryEditorScreen(root) {
       <p class="geometry-editor__status" data-status role="status">Select a mapped segment to remove it, or add a path by clicking its centerline points. New endpoints snap only to mapped nodes within 3 m.</p>
       <svg class="geometry-editor__map" data-map viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="Campus pedestrian path network; click to edit geometry"></svg>
       <p class="geometry-editor__legend">Green: mapped pedestrian path · Blue: ramp · Amber: stairs · Gray: shared road · Dashed red: removed source segment · Circle: entrance/point. Drag added-path handles to move nodes.</p>
+      <section class="geometry-editor__network" aria-labelledby="network-title">
+        <h2 id="network-title">Network</h2>
+        <p>The generated campus walking network (npm run build:network), inside and outside, over the MazeMap map. Failed automatic checks and generator errors are red.</p>
+        <button type="button" data-action="network">Show network layer</button>
+        <div data-network></div>
+      </section>
     </main>
   `)
 
@@ -391,8 +397,23 @@ export function geometryEditorScreen(root) {
     }
   })
 
+  // The generated campus walking network (Stage 3): loaded only when asked for, as it pulls in
+  // MazeMap's map and the network file.
+  let stopNetwork = null
+  const networkHost = root.querySelector('[data-network]')
+  root.querySelector('[data-action="network"]').addEventListener('click', (event) => {
+    if (stopNetwork) return
+    event.currentTarget.disabled = true
+    Promise.all([import('./network-layer.js'), import('../../map/mazemap.js')]).then(([{mountNetworkLayer}, {loadMazeMap, createCampusMap}]) => {
+      stopNetwork = mountNetworkLayer(networkHost, {loadMap: loadMazeMap, createMap: createCampusMap})
+    }).catch((error) => {
+      networkHost.textContent = `The network layer could not be loaded: ${error?.message ?? error}`
+    })
+  })
+
   draw()
   return () => {
     svg.replaceChildren()
+    stopNetwork?.()
   }
 }

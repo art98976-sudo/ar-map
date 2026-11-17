@@ -148,3 +148,29 @@
     padding: 16px;
   }
 }
+
+/* The generated campus network over MazeMap (?debug only). */
+.geometry-editor__network {
+  margin-top: 24px;
+}
+
+.geometry-editor__network-map {
+  width: 100%;
+  height: 70vh;
+  min-height: 360px;
+  border: 1px solid #c9d2cc;
+}
+
+.geometry-editor__checks {
+  margin: 8px 0;
+  padding-left: 1.2em;
+}
+
+.geometry-editor__checks [data-ok="false"] {
+  color: #b91c1c;
+}
+
+.geometry-editor__network [aria-pressed="true"] {
+  font-weight: 700;
+  outline: 2px solid #006938;
+}
