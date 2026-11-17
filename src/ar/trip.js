@@ -35,6 +35,7 @@ import {markerName} from '../route/card-text.js'
 import {COMPASS_GUIDE, GPS, GROUND, GROUND_ARROWS, INDOOR, LINE_UP, MATCH, PIN, ROUTING, SAFETY, SCENE_FLOOR, SHELL, START, TRIP} from '../config.js'
 import {createHeightProfile} from '../scene/route-height.js'
 import {createTripLog} from './trip-log.js'
+import {networkEnabled} from '../config.js'
 
 /** Compass-style bearing of a direction: degrees clockwise from north (or from SLAM -Z). */
 function bearing(east, north) {
@@ -137,6 +138,31 @@ export function createArTrip({
   const calibrator = createCalibrator()
   // ?debug=1 only: one row a second of what the trip believed, for "Download trip log".
   const tripLog = debug ? createTripLog() : null
+  // ?network=1 with a network route only: the map-constrained pose (Part C). Loaded in the background;
+  // until it is ready (and always without the flag) the trip works exactly as before.
+  let netTrip = null
+  let netTripPending = null // begin() arguments that arrived before the network finished loading
+  if (networkEnabled() && firstRoute.source === 'network') {
+    Promise.all([import('./network-trip.js'), import('../route/network-router.js')])
+      .then(([{createNetworkTrip}, {loadNetwork}]) => loadNetwork().then((net) => createNetworkTrip({route: firstRoute, origin, net})))
+      .then((t) => {
+        if (stopped) return
+        netTrip = t
+        if (netTripPending) netTrip.begin(netTripPending)
+      })
+      .catch((err) => console.warn('[trip] network pose unavailable', err?.message))
+  }
+  const beginNetworkPose = (info) => {
+    const args = {
+      at: manual ? fromLocal(origin, pointAt(nav.route, info.s)) : (lastFix ?? fromLocal(origin, pointAt(nav.route, info.s))),
+      manual,
+      accuracyM: manual ? 0 : (lastFix?.accuracy ?? Infinity),
+      z: startFloorOf(),
+      onRoute: fromLocal(origin, pointAt(nav.route, info.s)),
+    }
+    if (netTrip) netTrip.begin(args)
+    else netTripPending = args
+  }
   const startFloorOf = () => {
     for (const v of [startPoint?.floor, startPoint?.z, origin?.floor, origin?.z, route.points[0]?.z]) if (Number.isFinite(v)) return v
     return null
@@ -325,6 +351,7 @@ export function createArTrip({
     tracker = createRouteTracker(nav.route, info.s)
     navPose.reset()
     startS = info.s
+    if (networkEnabled() && route.source === 'network') beginNetworkPose(info)
     restartWindow()
     // Group B: no line-up step. The arrows show at once (dimmed) and the walk lines them up;
     // "Re-align" opens the drag step on demand. facingKnown is kept for the record.
@@ -927,6 +954,11 @@ export function createArTrip({
         noteCampus(lastFix)
       }
       tracker.tick(dt)
+      // ?network=1: the map-constrained pose places the user on the route (it owns s from here).
+      if (netTrip?.current.started && route.source === 'network' && nav.aligned) {
+        const np = netTrip.tick({camera: camera.position, worldToRoute: nav.worldToRoute, tracking, heading, fix: manual ? null : lastFix})
+        tracker.set(np.s)
+      }
       // The one pose for this frame. Everything below, and the map and arrow, read only this.
       navPose.update({
         route: nav.route,
@@ -1006,6 +1038,18 @@ export function createArTrip({
         positionReliable: confidenceNow.reliable,
         positionReason: confidenceNow.reason,
         matchResidualM: matcher?.residualM ?? null,
+        // ?network=1: the map-constrained pose (Part C).
+        ...(netTrip?.current.started ? (({x, y, z: nz, s: ns, confidence: nc, headingLocked, lastAnchor, sinceAnchorM, offRouteM}) => ({
+          networkX: Number(x.toFixed(2)),
+          networkY: Number(y.toFixed(2)),
+          networkFloor: nz,
+          networkS: Number(ns.toFixed(2)),
+          networkConfidence: Number(nc.toFixed(3)),
+          networkHeadingLocked: headingLocked,
+          networkAnchor: lastAnchor?.kind ?? null,
+          networkSinceAnchorM: Number(sinceAnchorM.toFixed(1)),
+          networkOffRouteM: Number(offRouteM.toFixed(2)),
+        }))(netTrip.current) : {}),
       }
     })
     statsTimer += dt
@@ -1106,6 +1150,9 @@ export function createArTrip({
         snapStartM: route.snapStartM ?? null,
         snapEndM: route.snapEndM ?? null,
         approximate: route.approximate ?? ['direct', 'footpaths'].includes(route.source),
+        // ?network=1: the map-constrained pose's confidence (null without it).
+        networkConfidence: netTrip?.current.started ? netTrip.current.confidence : null,
+        networkFloor: netTrip?.current.started ? netTrip.current.z : null,
         fps,
       })
     }

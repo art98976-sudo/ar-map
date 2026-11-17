@@ -451,6 +451,37 @@ export const NETWORK = {
   areaSnapM: 30, // a trip end this close to a network path (or inside its building) routes on it
 }
 
+// The map-constrained pose (src/ar/network-pose.js), ?network=1 only.
+export const POSE = {
+  doorGapM: 0.5, // a wall crossing this close to a door line is the door gap
+  backWindowM: 8, // the pose is matched on to the route this far behind...
+  aheadWindowM: 25, // ...and this far ahead of where it was
+  maxLateralIndoorM: 1, // at most this far to the side of the route indoors (a corridor's half width)
+  maxLateralOutdoorM: 2, // and outdoors
+  startGpsM: 15, // an outdoor start needs GPS this good
+  pieceM: 0.5, // tracking movement is gathered into pieces this long
+  straightSamples: 12, // pieces kept for the heading lock and turn detection (6 m)
+  lockAfterM: 4.5, // straight walking needed to lock the heading to the route
+  straightToleranceDeg: 15, // "straight": every piece (and the route) within this of the mean
+  maxLockErrorDeg: 45, // a compass further out than this is not locked (wrong stretch)
+  refineGain: 0.2, // after the lock, later straight stretches nudge the heading by this share
+  turnMinDeg: 35, // a route or walked turn at least this sharp
+  turnMatchM: 6, // a walked turn matches a route turn this close along the route
+  turnAngleToleranceDeg: 30, // with this similar an angle
+  doorSnapM: 2, // passing within this of a door snaps the pose to it
+  climbWindowM: 4, // height change counts this close to a stair or lift
+  floorTolerance: 0.3, // the floor switches within 30% of the expected height difference
+  gpsMaxAccuracyM: 15, // GPS used outdoors only at this accuracy or better
+  gpsMaxOffRouteM: 20, // and only this close to the route
+  gpsMaxJumpM: 15, // a fix this much further along than accuracy allows is a jump: ignored
+  gpsGain: 0.3, // share of the gap to a good fix closed per fix
+  gpsAnchorFactor: 2, // a good fix bounds the walk since the last anchor to twice its accuracy
+  anchorDecayM: 80, // confidence falls to its floor after this much walking without an anchor
+  minAnchorFactor: 0.3,
+  offRouteZeroM: 6, // confidence is 0 when tracking puts the user this far off the route
+  unlockedFactor: 0.75, // confidence before the heading is locked to the route
+}
+
 /** ?network=1 before the # (it survives screen changes) or in the screen's own query. */
 export function networkEnabled(search = globalThis.location?.search ?? '', hash = globalThis.location?.hash ?? '') {
   if (new URLSearchParams(search).get(NETWORK.flag) === '1') return true
