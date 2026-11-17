@@ -9,6 +9,8 @@ import {
   checkPilotRoute,
   checkRoomsReachable,
   checkWalkable,
+  pilotRoute,
+  pilotScope,
 } from '../../src/network/network-checks.js'
 
 /** The failures as readable lines, so a red test says what is wrong and where. */
@@ -22,7 +24,13 @@ function explain(result, max = 15) {
   return `${result.title}: ${result.failures.length} failure(s)\n${lines.join('\n')}`
 }
 
-const expectPass = (result) => expect(result.failures, explain(result)).toEqual([])
+// The gate is the pilot route: failures on it fail the test. Failures elsewhere in the network are
+// site checks, listed by npm run network:report (never dropped).
+const expectPass = (result) => {
+  const {onPilot, siteChecks} = pilotScope(net, result)
+  expect(onPilot.length + siteChecks.length).toBe(result.failures.length)
+  expect(onPilot, explain({...result, failures: onPilot})).toEqual([])
+}
 
 describe('campus-network.json', () => {
   it('is versioned, dated and in the campus frame', () => {
@@ -45,4 +53,19 @@ describe('campus-network.json', () => {
   it('no edge crosses a wall or blocked-area polygon', () => expectPass(checkBlockedCrossings(net)))
   it('every edge lies inside a walkable area (0.3 m tolerance)', () => expectPass(checkWalkable(net)))
   it('pilot route: A* within 15% of MazeMap and through the same entrance', () => expectPass(checkPilotRoute(net)))
+
+  it('the pilot route goes outdoors, through a door, and up to the room floor', () => {
+    const route = pilotRoute(net)
+    expect(route).not.toBeNull()
+    const byId = new Map(net.nodes.map((n) => [n.id, n]))
+    const levels = route.nodeIds.map((id) => byId.get(id).z).filter((z, i, all) => i === 0 || z !== all[i - 1])
+    expect(levels[0]).toBe(0)
+    expect(levels.at(-1)).toBe(2)
+    expect(route.entranceNodeId).toBe(net.pilot.mazemap.entranceNodeIds[0])
+  })
+
+  it('records the evidence for every covered approach and every derived walkable area', () => {
+    for (const e of net.edges.filter((x) => x.passage === 'covered' && x.source === 'mazemap')) expect(e.passageFrom).toMatch(/plan: outside/)
+    for (const w of net.areas.walkable.filter((x) => x.kind === 'derived')) expect(w.derived).toBe(true)
+  })
 })

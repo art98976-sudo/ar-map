@@ -27,6 +27,7 @@ import {decodeFloorTile, mergeFloor, tilesFor, tileUrl} from '../src/ar/mazemap-
 import {CAMPUS_ORIGIN} from '../src/map/campus-geo.js'
 import {fromLocal, toLocal} from '../src/geo/geo.js'
 import {buildGraph, footpathEdgeId} from '../src/route/footpaths.js'
+import {floorIndex} from '../src/scene/scene-data.js'
 import {
   closestOnSegment,
   createBoxIndex,
@@ -35,6 +36,7 @@ import {
   polygonBoundaryDistance,
   ringCentroid,
   ringDistance,
+  segmentCross,
   segmentQuad,
 } from '../src/network/network-geometry.js'
 
@@ -187,6 +189,7 @@ function indoorPolylines(json) {
   let cur = null
   // MazeMap's outdoor stretches that touch the pilot building: how its routes reach the doors.
   const outdoorRuns = []
+  const outdoorLines = [] // every outdoor stretch of the route: MazeMap's own outdoor paths
   let run = null
   let prevBuilding
   for (const f of json?.path?.features ?? []) {
@@ -199,6 +202,7 @@ function indoorPolylines(json) {
       for (const c of coords) run.points.push(L(c[0], c[1]))
     } else if (run) {
       run.endsAtBuilding = b === BUILDING_ID
+      outdoorLines.push(run.points)
       if (run.startsAtBuilding || run.endsAtBuilding) outdoorRuns.push(run)
       run = null
     }
@@ -225,8 +229,9 @@ function indoorPolylines(json) {
     prevBuilding = b
   }
   if (cur && cur.length > 1) out.push(cur)
+  if (run) outdoorLines.push(run.points)
   if (run?.startsAtBuilding) outdoorRuns.push({...run, endsAtBuilding: false})
-  return {polylines: out, entries, links, outdoorRuns}
+  return {polylines: out, entries, links, outdoorRuns, outdoorLines}
 }
 
 // ---------- the building and its floors ----------
@@ -479,6 +484,7 @@ function mergePolyline(line) {
 
 const buildingLinks = new Map()
 const outdoorRuns = []
+const mazemapOutdoor = [] // MazeMap's outdoor stretches (all routes): outdoor edges, source "mazemap"
 // Where routes to (or from) a room end: MazeMap stops at the room's door, not at its centre.
 const roomEnds = new Map() // poiId -> Map(node -> count)
 const merged = [
@@ -491,10 +497,11 @@ const merged = [
 ]
 for (const {json, room} of merged) {
   if (!json) continue
-  const {polylines, links, outdoorRuns: runs} = indoorPolylines(json)
+  const {polylines, links, outdoorRuns: runs, outdoorLines: lines} = indoorPolylines(json)
   for (const line of polylines) mergePolyline(line)
   for (const l of links) buildingLinks.set(l.toBuilding, l)
   outdoorRuns.push(...runs)
+  mazemapOutdoor.push(...lines)
   if (room && polylines.length) {
     const p = room.at === 'end' ? polylines.at(-1).at(-1) : polylines[0][0]
     const n = nodeAt(p)
@@ -633,7 +640,20 @@ const area = {
   y1: Math.max(...allPts.map((p) => p.y)) + margin,
 }
 const campusRing = campusBoundary.geometry.coordinates[0].map(([lng, lat]) => L(lng, lat))
-const inArea = (p) => p.x >= area.x0 && p.x <= area.x1 && p.y >= area.y0 && p.y <= area.y1 && insidePolygon(p, [campusRing])
+// The pilot area: within the margin of MazeMap's pilot route (start to room), or of the building.
+// The Overpass box above is this area's bounding box.
+const buildingBox = {
+  x0: Math.min(...buildingPolys.flat(2).map((p) => p.x)) - margin,
+  x1: Math.max(...buildingPolys.flat(2).map((p) => p.x)) + margin,
+  y0: Math.min(...buildingPolys.flat(2).map((p) => p.y)) - margin,
+  y1: Math.max(...buildingPolys.flat(2).map((p) => p.y)) + margin,
+}
+const pilotLine = [startLocal, ...pilotPts]
+const inArea = (p) => {
+  if (p.x >= buildingBox.x0 && p.x <= buildingBox.x1 && p.y >= buildingBox.y0 && p.y <= buildingBox.y1) return true
+  for (let i = 1; i < pilotLine.length; i++) if (closestOnSegment(p, pilotLine[i - 1], pilotLine[i]).d <= margin) return true
+  return false
+}
 const areaSW = fromLocal(CAMPUS_ORIGIN, {x: area.x0, y: area.y0})
 const areaNE = fromLocal(CAMPUS_ORIGIN, {x: area.x1, y: area.y1})
 const bbox = [areaSW.lat, areaSW.lng, areaNE.lat, areaNE.lng].map((v) => v.toFixed(6)).join(',')
@@ -690,6 +710,15 @@ for (const el of osm?.elements ?? []) {
   }
   const kind = tags.building ? 'building' : tags.natural === 'water' || tags.natural === 'wetland' || tags.waterway === 'riverbank' ? 'water' : tags.natural === 'scrub' || tags.landuse === 'flowerbed' ? 'planting' : tags.barrier ? tags.barrier : null
   if (!kind) continue
+  // OSM's outline of the pilot building is the same building from a second source. MazeMap's
+  // outline (the source of its doors and floors) blocks instead; how far they differ is reported.
+  if (tags.building && tags.name === pilot.building.name) {
+    const verts = (el.type === 'relation' ? (el.members ?? []).filter((m) => m.geometry).flatMap((m) => m.geometry) : (el.geometry ?? [])).map((g) => L(g.lon, g.lat))
+    const off = verts.map((q) => (buildingPolys.some((pl) => insidePolygon(q, pl)) ? 0 : Math.min(...buildingPolys.map((pl) => polygonBoundaryDistance(q, pl)))))
+    const worst = off.indexOf(Math.max(...off))
+    warnings.push({kind: 'osm-outline-replaced', message: `OSM ${el.type} ${el.id} "${tags.name}" replaced by MazeMap's outline of the pilot building; OSM's outline lies up to ${off[worst].toFixed(1)} m outside MazeMap's (site check: which is right?)`, x: round(verts[worst]?.x), y: round(verts[worst]?.y), z: 0})
+    continue
+  }
   const ways = el.type === 'relation' ? (el.members ?? []).filter((m) => m.type === 'way' && m.role !== 'inner' && m.geometry).map((m) => m.geometry) : [el.geometry ?? []]
   for (const g of ways) {
     const ring = ringOf(g)
@@ -713,7 +742,8 @@ const outdoorNode = new Map()
 function outNode(i) {
   if (outdoorNode.has(i)) return outdoorNode.get(i)
   const ll = coordOf(i)
-  const n = newNode({...L(ll.lng, ll.lat), z: 0, building: null, type: 'path'})
+  // Through nodeAt: an OSM node and a MazeMap outdoor point within 0.5 m are one node.
+  const n = nodeAt({...L(ll.lng, ll.lat), z: 0})
   outdoorNode.set(i, n)
   return n
 }
@@ -743,6 +773,84 @@ for (const e of graph.edges) {
 }
 console.log(`Outdoor: ${outdoorNode.size} nodes, ${outdoorCount} edges in the pilot area (${passages.size} OSM bridge/covered/tunnel pieces, ${blocked.filter((b) => b.z === 0).length} blocked areas, ${openings.length} barrier openings)`)
 
+// ---------- MazeMap's own outdoor paths ----------
+// MazeMap's outdoor route stretches (cached routes, pilot area only) are outdoor edges, source
+// "mazemap": they reach the doors, where OSM paths stop metres short. They meet the OSM network
+// where they cross an OSM path (both split there), or where a point of one lies within CONNECT_M
+// of the other (a connector that short: the two maps' own drift, never a made-up path).
+const CONNECT_M = 1
+const segBox = (e) => ({x0: Math.min(e.from.x, e.to.x), y0: Math.min(e.from.y, e.to.y), x1: Math.max(e.from.x, e.to.x), y1: Math.max(e.from.y, e.to.y)})
+const mazemapEdgeStats = {edges: 0, crossings: 0, connectors: 0}
+{
+  const before = edgeMap.size
+  for (const line of mazemapOutdoor) {
+    let prev = null
+    for (const q of line) {
+      if (!inArea(q)) {
+        prev = null
+        continue
+      }
+      const n = nodeAt({x: q.x, y: q.y, z: 0})
+      if (prev && prev !== n) addEdge(prev, n, {type: 'outdoor', source: 'mazemap', widthM: null, stepFree: true, oneWay: false, verified: false})
+      prev = n
+    }
+  }
+  mazemapEdgeStats.edges = edgeMap.size - before
+
+  const outdoor = () => [...edgeMap.values()].filter((e) => e.type === 'outdoor')
+  const splits = new Map() // edge -> [{n, t}]
+  const splitAt = (e, n, t) => {
+    if (e.from === n || e.to === n) return
+    if (!splits.has(e)) splits.set(e, [])
+    splits.get(e).push({n, t})
+  }
+  const mm = outdoor().filter((e) => e.source === 'mazemap')
+  const other = outdoor().filter((e) => e.source !== 'mazemap')
+  const otherIndex = createBoxIndex(other.map((e) => ({e, box: segBox(e)})), 10)
+  const mmIndex = createBoxIndex(mm.map((e) => ({e, box: segBox(e)})), 10)
+  // Crossings.
+  for (const m of mm) {
+    for (const {e} of otherIndex.near(m.from, m.to)) {
+      const hit = segmentCross(m.from, m.to, e.from, e.to)
+      if (!hit || hit.t <= 0.001 || hit.t >= 0.999 || hit.u <= 0.001 || hit.u >= 0.999) continue
+      const n = nodeAt({x: hit.x, y: hit.y, z: 0})
+      splitAt(m, n, hit.t)
+      splitAt(e, n, hit.u)
+      mazemapEdgeStats.crossings += 1
+    }
+  }
+  // Near misses: a point of one network within CONNECT_M of an edge of the other.
+  const connectors = []
+  const nearMiss = (nodesOf, index) => {
+    for (const n of nodesOf) {
+      for (const {e} of index.near(n, n, CONNECT_M)) {
+        if (e.from === n || e.to === n) continue
+        const c = closestOnSegment(n, e.from, e.to)
+        if (c.d > CONNECT_M) continue
+        const p = c.t <= 0 ? e.from : c.t >= 1 ? e.to : nodeAt({x: c.x, y: c.y, z: 0})
+        if (p !== e.from && p !== e.to) splitAt(e, p, c.t)
+        if (p !== n) connectors.push([n, p, dist(n, p)])
+      }
+    }
+  }
+  nearMiss(new Set(mm.flatMap((e) => [e.from, e.to])), otherIndex)
+  nearMiss(new Set(other.flatMap((e) => [e.from, e.to])), mmIndex)
+  for (const [e, list] of splits) {
+    if (!edgeMap.has(edgeKey(e.from, e.to))) continue
+    edgeMap.delete(edgeKey(e.from, e.to))
+    const props = edgeProps(e)
+    const chain = [e.from, ...list.sort((a, b) => a.t - b.t).map((s) => s.n), e.to].filter((n, i, all) => i === 0 || n !== all[i - 1])
+    for (let k = 1; k < chain.length; k++) addEdge(chain[k - 1], chain[k], props)
+  }
+  for (const [a, b, d] of connectors) {
+    if (a !== b && !edgeMap.has(edgeKey(a, b))) {
+      addEdge(a, b, {type: 'outdoor', source: 'mazemap', widthM: null, stepFree: true, oneWay: false, verified: false, connectM: round(d)})
+      mazemapEdgeStats.connectors += 1
+    }
+  }
+  console.log(`MazeMap outdoor: ${mazemapEdgeStats.edges} edges, ${mazemapEdgeStats.crossings} crossings with OSM, ${mazemapEdgeStats.connectors} connectors <= ${CONNECT_M} m`)
+}
+
 // ---------- join each door to the outdoor network ----------
 for (const d of doorNodes) {
   let best = null
@@ -768,6 +876,44 @@ for (const d of doorNodes) {
     addEdge(target, e.to, props)
   }
   addEdge(d, target, {type: 'door', source: 'join', widthM: d.door?.widthM ?? null, stepFree: null, verified: false, joinM: round(c.d)})
+}
+
+// ---------- covered approaches under the building's footprint ----------
+// MazeMap's footprint (full and visible outline alike) includes upper floors that overhang an
+// entrance. An outdoor edge under it is a covered passage only when MazeMap's ground-floor plan
+// agrees it is outside: it crosses no wall and touches no floor shape of the floor MazeMap walks in
+// on at the nearest threshold. Each one is a site check; anything else stays an error.
+const coveredEdges = []
+{
+  const uniqueThresholds = [...new Set(thresholds)]
+  const shapesOf = (z) => [...(floors[z]?.outlines ?? []), ...(floors[z]?.rooms ?? []), ...(floors[z]?.areas ?? [])].map((s) => s.polygon)
+  const wallsOf = (z) => (floors[z]?.walls ?? []).map((w) => w.polygon)
+  const underFootprint = (a, b) => {
+    const mid = {x: (a.x + b.x) / 2, y: (a.y + b.y) / 2}
+    return buildingPolys.some((pl) => insidePolygon(mid, pl) || insidePolygon(a, pl) || insidePolygon(b, pl))
+  }
+  for (const e of edgeMap.values()) {
+    if (e.type !== 'outdoor' || !underFootprint(e.from, e.to)) continue
+    const mid = {x: (e.from.x + e.to.x) / 2, y: (e.from.y + e.to.y) / 2}
+    const nearest = uniqueThresholds.map((t) => ({t, d: dist(t, mid)})).sort((p, q) => p.d - q.d)[0]
+    if (!nearest) continue
+    const ground = nearest.t.z
+    const len = dist(e.from, e.to)
+    const steps = Math.max(1, Math.ceil(len / 0.5))
+    let clear = true
+    for (let i = 0; i <= steps && clear; i++) {
+      const q = {x: e.from.x + ((e.to.x - e.from.x) * i) / steps, y: e.from.y + ((e.to.y - e.from.y) * i) / steps}
+      if (shapesOf(ground).some((pl) => insidePolygon(q, pl) && polygonBoundaryDistance(q, pl) > 0.3)) clear = false
+    }
+    if (clear && wallsOf(ground).some((pl) => pl.some((ring) => ring.some((p, i) => i > 0 && segmentCross(e.from, e.to, ring[i - 1], p))))) clear = false
+    if (!clear) continue
+    const above = FLOORS.filter((z) => floorIndex(z) > floorIndex(ground) && shapesOf(z).some((pl) => insidePolygon(mid, pl)))
+    e.passage = 'covered'
+    e.passageFrom = `mazemap level ${ground} plan: outside${above.length ? `, under level ${above.join('/')}` : ''}`
+    coveredEdges.push(e)
+  }
+  for (const e of coveredEdges) warnings.push({kind: 'covered-approach', message: `Outdoor ${e.source} edge under the building's footprint, outside its level plan (${e.passageFrom}): covered entrance? site check`, x: round((e.from.x + e.to.x) / 2), y: round((e.from.y + e.to.y) / 2), z: 0})
+  if (coveredEdges.length) console.log(`Covered approaches under the footprint: ${coveredEdges.length} edges`)
 }
 
 // ---------- proposals for doors that do not join ----------
@@ -870,9 +1016,11 @@ const edges = [...edgeMap.values()].map((e, i) => {
     source: e.source,
   }
   if (e.passage) out.passage = e.passage
+  if (e.passageFrom) out.passageFrom = e.passageFrom
   if (e.osmType) out.osmType = e.osmType
   if (e.levelChangeFrom) out.levelChangeFrom = e.levelChangeFrom
   if (e.joinM != null) out.joinM = e.joinM
+  if (e.connectM != null) out.connectM = e.connectM
   if (e.uses > 1) out.routes = e.uses
   return out
 })
@@ -889,6 +1037,31 @@ for (const z of FLOORS) {
   floors[z].outlines.forEach((o, i) => walkable.push({id: `walk-${z}-${i}`, z, building: BUILDING_ID, kind: 'floor', source: 'mazemap', polygon: poly2(o.polygon)}))
   floors[z].rooms.forEach((o, i) => walkable.push({id: `walk-${z}-r${i}`, z, building: BUILDING_ID, kind: 'room', source: 'mazemap', polygon: poly2(o.polygon)}))
   floors[z].areas.forEach((o, i) => walkable.push({id: `walk-${z}-a${i}`, z, building: BUILDING_ID, kind: 'area', source: 'mazemap', polygon: poly2(o.polygon)}))
+}
+// A floor MazeMap draws no shapes for (Cottrell -1): its walkable area is MazeMap's route corridor
+// on it, buffered 1 m, marked derived. It shows where MazeMap walks, not where walls are.
+for (const z of FLOORS) {
+  const f = floors[z]
+  if (f.outlines.length || f.rooms.length || f.areas.length) continue
+  let k = 0
+  const square = (n) => segmentQuad({x: n.x - 1, y: n.y}, {x: n.x + 1, y: n.y}, 1)
+  for (const e of edgeMap.values()) {
+    if (e.from.z === z && e.to.z === z) {
+      const len = dist(e.from, e.to)
+      if (len < 0.01) {
+        walkable.push({id: `walk-${z}-d${k++}`, z, building: BUILDING_ID, kind: 'derived', source: 'mazemap', derived: true, polygon: poly2(square(e.from))})
+        continue
+      }
+      const ux = (e.to.x - e.from.x) / len
+      const uy = (e.to.y - e.from.y) / len
+      const a = {x: e.from.x - ux, y: e.from.y - uy}
+      const b = {x: e.to.x + ux, y: e.to.y + uy}
+      walkable.push({id: `walk-${z}-d${k++}`, z, building: BUILDING_ID, kind: 'derived', source: 'mazemap', derived: true, polygon: poly2(segmentQuad(a, b, 1))})
+    } else {
+      for (const n of [e.from, e.to]) if (n.z === z) walkable.push({id: `walk-${z}-d${k++}`, z, building: BUILDING_ID, kind: 'derived', source: 'mazemap', derived: true, polygon: poly2(square(n))})
+    }
+  }
+  if (k) warnings.push({kind: 'derived-walkable', z, message: `Level ${z}: MazeMap has no floor shapes; walkable area derived from its route corridor (1 m each side) in ${k} pieces`})
 }
 const startXY = L(startPoint.lng, startPoint.lat)
 
@@ -930,6 +1103,8 @@ const out = {
   },
   doorLines: FLOORS.flatMap((z) => floors[z].doors.map((d) => ({z, a: [round(d.a.x), round(d.a.y)], b: [round(d.b.x), round(d.b.y)], exterior: d.exterior}))),
   openings: openings.map((o) => ({x: round(o.x), y: round(o.y), kind: o.kind, osmId: o.osmId})),
+  // Where MazeMap's routes step from outdoors into the building (doorways, with or without a door line).
+  thresholds: [...new Set(thresholds)].map((n) => ({x: round(n.x), y: round(n.y), z: n.z})),
   errors,
   warnings,
   build: {
@@ -939,7 +1114,8 @@ const out = {
     httpRequests: stats.requests,
     cacheHits: stats.cached,
     mazemapFlagsSeen: [...flagsSeen].sort(),
-    outdoorArea: {x0: round(area.x0), y0: round(area.y0), x1: round(area.x1), y1: round(area.y1)},
+    outdoorArea: {x0: round(area.x0), y0: round(area.y0), x1: round(area.x1), y1: round(area.y1), rule: `within ${margin} m of MazeMap's pilot route or of the building`},
+    mazemapOutdoor: mazemapEdgeStats,
   },
 }
 writeFileSync(join(root, 'src', 'data', 'campus-network.json'), JSON.stringify(out))

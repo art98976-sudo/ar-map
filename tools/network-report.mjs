@@ -5,7 +5,7 @@
 import {readFileSync} from 'node:fs'
 import {dirname, join} from 'node:path'
 import {fileURLToPath} from 'node:url'
-import {runChecks} from '../src/network/network-checks.js'
+import {pilotScope, runChecks} from '../src/network/network-checks.js'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const net = JSON.parse(readFileSync(join(root, 'src', 'data', 'campus-network.json'), 'utf8'))
@@ -49,12 +49,16 @@ for (const w of net.warnings.filter((x) => x.kind !== 'route-failed').slice(0, M
 out()
 const results = runChecks(net)
 let failed = 0
+out('Checks, scoped to the pilot route (the edges and nodes it uses, or within 1 m of it on its floor); the rest are site checks:')
 for (const r of results) {
-  const ok = r.failures.length === 0
+  const {onPilot, nearPilot, siteChecks} = pilotScope(net, r)
+  const ok = onPilot.length === 0
   if (!ok) failed += 1
-  out(`${ok ? 'PASS' : 'FAIL'}  ${r.title}${ok ? '' : `: ${r.failures.length} failure(s)`}`)
-  for (const f of r.failures.slice(0, MAX)) out(`        ${f.message}${where(f)}${ids(f)}`)
-  if (r.failures.length > MAX) out(`        … ${r.failures.length - MAX} more (--max=N to show more)`)
+  out(`${ok ? 'PASS' : 'FAIL'}  ${r.title}: ${onPilot.length} on the pilot route, ${siteChecks.length} site checks (${nearPilot.length} near the pilot route but not on it)${r.expected ? `, ${r.expected.length} expected at doorways` : ''}`)
+  for (const f of onPilot.slice(0, MAX)) out(`        ✗ ${f.message}${where(f)}${ids(f)}`)
+  if (onPilot.length > MAX) out(`        … ${onPilot.length - MAX} more (--max=N to show more)`)
+  for (const f of siteChecks.slice(0, Math.min(MAX, 6))) out(`        site check: ${f.message}${where(f)}${ids(f)}`)
+  if (siteChecks.length > Math.min(MAX, 6)) out(`        … ${siteChecks.length - Math.min(MAX, 6)} more site checks (--max=N)`)
   if (r.id === 'pilot-route' && r.route) {
     const nodes = new Map(net.nodes.map((n) => [n.id, n]))
     const entrance = nodes.get(r.route.entranceNodeId)

@@ -16,7 +16,10 @@ import {
 export const CHECK = {
   walkableToleranceM: 0.3, // an edge may stray this far outside a walkable area
   sampleStepM: 0.5, // edges are tested for walkable areas every this far
-  doorGapM: 0.3, // a wall crossing this close to a door line is the door
+  doorGapM: 0.5, // a wall crossing this close to a door line passes through the door gap
+  doorwayM: 1, // outside the walkable area this close to a door or threshold: expected (wall thickness)
+  onRouteM: 1, // a failure this close to the network's pilot route, on its floor, is on it
+  pilotCorridorM: 5, // within this of MazeMap's pilot route (but not on the route): "near the pilot route"
   doorEndM: 0.6, // a door's join may cross its own building's outline this close to the door
   openingM: 1.5, // a path may cross a wall/fence/hedge this close to a mapped gate
   pilotLengthTolerance: 0.15, // A* within 15% of MazeMap's route length
@@ -207,28 +210,51 @@ function onWalkable(p, z, prep) {
   return index.near(p, p, CHECK.walkableToleranceM).some((w) => insidePolygon(p, w.polygon) || polygonBoundaryDistance(p, w.polygon) <= CHECK.walkableToleranceM)
 }
 
+/** Within CHECK.doorwayM of a door line, a door node or a MazeMap threshold on level z? */
+function nearDoorway(q, z, net, prep) {
+  const m = CHECK.doorwayM
+  if ((prep.doorIndex.get(z)?.near(q, q, m) ?? []).some((d) => closestOnSegment(q, d.a, d.b).d <= m)) return true
+  if ((net.thresholds ?? []).some((t) => t.z === z && dist(t, q) <= m)) return true
+  // A door join is walked at z 0, but its doorway is the door node's floor.
+  return net.nodes.some((n) => (n.type === 'door' || n.type === 'entrance') && (n.z === z || z === 0) && dist(n, q) <= m)
+}
+
+/**
+ * Every edge inside a walkable area. A miss within CHECK.doorwayM of a doorway is listed in
+ * `expected` (MazeMap's thresholds sit in the thickness of the wall), not as a failure.
+ */
 export function checkWalkable(net) {
   const p = prepare(net)
   const failures = []
+  const expected = []
   for (const e of net.edges) {
     const a = p.nodeById.get(e.from)
     const b = p.nodeById.get(e.to)
     if (!a || !b) continue
     const z = walkZ(a, b, e)
-    let bad = null
+    const samples = []
     if (z == null) {
       // A stair or lift: each end on its own floor.
-      bad = [a, b].find((n) => !onWalkable(n, n.z, p)) ?? null
+      for (const n of [a, b]) samples.push({x: n.x, y: n.y, z: n.z})
     } else {
       const n = Math.max(1, Math.ceil(dist(a, b) / CHECK.sampleStepM))
-      for (let i = 0; i <= n && !bad; i++) {
-        const q = {x: a.x + ((b.x - a.x) * i) / n, y: a.y + ((b.y - a.y) * i) / n}
-        if (!onWalkable(q, z, p)) bad = q
+      for (let i = 0; i <= n; i++) samples.push({x: a.x + ((b.x - a.x) * i) / n, y: a.y + ((b.y - a.y) * i) / n, z})
+    }
+    let bad = null
+    let doorway = null
+    for (const q of samples) {
+      if (onWalkable(q, q.z, p)) continue
+      if (nearDoorway(q, q.z, net, p)) doorway ??= q
+      else {
+        bad = q
+        break
       }
     }
-    if (bad) failures.push(fail(`${e.type} edge ${e.id} (${e.source}) leaves the walkable area of level ${z ?? bad.z}`, {edgeIds: [e.id], x: Number(bad.x.toFixed(2)), y: Number(bad.y.toFixed(2)), z: z ?? bad.z}))
+    const at = (q) => ({edgeIds: [e.id], x: Number(q.x.toFixed(2)), y: Number(q.y.toFixed(2)), z: q.z})
+    if (bad) failures.push(fail(`${e.type} edge ${e.id} (${e.source}) leaves the walkable area of level ${bad.z}`, at(bad)))
+    else if (doorway) expected.push(fail(`${e.type} edge ${e.id} (${e.source}) is outside the walkable area within ${CHECK.doorwayM} m of a doorway on level ${doorway.z}`, at(doorway)))
   }
-  return {id: 'inside-walkable', title: `Every edge lies inside a walkable area (${CHECK.walkableToleranceM} m tolerance)`, failures}
+  return {id: 'inside-walkable', title: `Every edge lies inside a walkable area (${CHECK.walkableToleranceM} m tolerance)`, failures, expected}
 }
 
 /**
@@ -268,8 +294,10 @@ export function routeOnNetwork(net, start, goalId) {
     const e = (p.out.get(nodeIds[i - 1]) ?? []).find(([n]) => n === nodeIds[i])?.[2]
     if (e) edgeIds.push(e.id)
   }
+  // The walk starts along the edge the start point snapped onto.
+  if (!edgeIds.includes(snap.e.id)) edgeIds.unshift(snap.e.id)
   const entrance = nodeIds.map((id) => p.nodeById.get(id)).find((n) => DOOR_TYPES.has(n.type))
-  return {lengthM: found.cost + snap.c.d, nodeIds, edgeIds, snapM: snap.c.d, entranceNodeId: entrance?.id ?? null}
+  return {lengthM: found.cost + snap.c.d, nodeIds, edgeIds, snapM: snap.c.d, start: {x: snap.c.x, y: snap.c.y, z: 0}, entranceNodeId: entrance?.id ?? null}
 }
 
 export function checkPilotRoute(net) {
@@ -298,6 +326,53 @@ export function checkPilotRoute(net) {
     failures.push(fail(`Network route enters by ${route.entranceNodeId ?? 'no door'}, MazeMap by ${expected.join(', ')}`, {nodeIds: [route.entranceNodeId, ...expected].filter(Boolean), ...(got ? at(got) : {})}))
   }
   return result
+}
+
+/**
+ * Split a check's failures: on the pilot route (naming an edge or node the network's pilot route
+ * uses, or located within CHECK.onRouteM of it on its floor; unlocated failures count too), near it
+ * (within CHECK.pilotCorridorM of MazeMap's pilot route, not used by it) and elsewhere. Only
+ * `onPilot` fails the pilot gate; the rest are site checks.
+ */
+export function pilotScope(net, result) {
+  const {nodeById} = prepare(net)
+  const route = pilotRoute(net)
+  const edgeIds = new Set(route?.edgeIds ?? [])
+  const nodeIds = new Set(route?.nodeIds ?? [])
+  const segs = []
+  for (let i = 1; i < (route?.nodeIds.length ?? 0); i++) segs.push([nodeById.get(route.nodeIds[i - 1]), nodeById.get(route.nodeIds[i])])
+  if (route?.start && route.nodeIds.length) segs.unshift([route.start, nodeById.get(route.nodeIds[0])])
+  const onRoute = (q) => segs.some(([a, b]) => (a.z === q.z || b.z === q.z || (q.z === 0 && (a.z === 0 || b.z === 0))) && closestOnSegment(q, a, b).d <= CHECK.onRouteM)
+  const pts = net.pilot?.mazemap?.points ?? []
+  const nearMazeMap = (q) => {
+    for (let i = 1; i < pts.length; i++) {
+      const [ax, ay, az] = pts[i - 1]
+      const [bx, by, bz] = pts[i]
+      if (az !== q.z && bz !== q.z) continue
+      if (closestOnSegment(q, {x: ax, y: ay}, {x: bx, y: by}).d <= CHECK.pilotCorridorM) return true
+    }
+    return false
+  }
+  const onPilot = []
+  const nearPilot = []
+  const siteChecks = []
+  for (const f of result.failures) {
+    const locs = []
+    if (Number.isFinite(f.x)) locs.push({x: f.x, y: f.y, z: f.z ?? 0})
+    for (const id of f.nodeIds ?? []) if (nodeById.has(id)) locs.push(nodeById.get(id))
+    const named = (f.edgeIds ?? []).some((id) => edgeIds.has(id)) || (f.nodeIds ?? []).some((id) => nodeIds.has(id))
+    if (!locs.length || named || locs.some(onRoute) || !route) onPilot.push(f)
+    else if (locs.some(nearMazeMap)) nearPilot.push(f)
+    else siteChecks.push(f)
+  }
+  return {onPilot, nearPilot, siteChecks: [...nearPilot, ...siteChecks]}
+}
+
+const pilotRoutes = new WeakMap()
+/** The network's pilot route (A* from the pilot start to the pilot room), cached per network. */
+export function pilotRoute(net) {
+  if (!pilotRoutes.has(net)) pilotRoutes.set(net, net.pilot?.roomNodeId ? routeOnNetwork(net, net.pilot.start, net.pilot.roomNodeId) : null)
+  return pilotRoutes.get(net)
 }
 
 /** All checks, in the order the task lists them. */

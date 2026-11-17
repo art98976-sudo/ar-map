@@ -8,6 +8,7 @@ import {
   checkPilotRoute,
   checkRoomsReachable,
   checkWalkable,
+  pilotScope,
   runChecks,
 } from '../../src/network/network-checks.js'
 import {networkGeoJSON} from '../../src/ui/screens/network-layer.js'
@@ -117,6 +118,39 @@ describe('network checks', () => {
     const other = makeNet()
     other.pilot.mazemap.entranceNodeIds = ['o2']
     expect(checkPilotRoute(other).failures[0].message).toMatch(/enters by d/)
+  })
+})
+
+describe('network checks: Part A rules', () => {
+  it('a miss within 1 m of a doorway is expected, not a failure', () => {
+    const net = makeNet()
+    net.nodes.find((n) => n.id === 'd').x = -0.6 // the threshold sits in the wall's thickness
+    const r = checkWalkable(net)
+    expect(r.failures).toEqual([])
+    expect(r.expected.map((f) => f.edgeIds[0])).toContain('e3')
+  })
+
+  it('a wall crossing within 0.5 m of a door line passes through the door gap', () => {
+    const net = makeNet()
+    net.doorLines.push({z: 1, a: [5, 1.6], b: [5, 2.4], exterior: false})
+    net.nodes.find((n) => n.id === 'c1').y = 1
+    net.nodes.find((n) => n.id === 's1').y = 2.3 // crosses x = 5 at y ≈ 1.6, beside the door
+    expect(checkBlockedCrossings(net).failures.map((f) => f.edgeIds[0])).not.toContain('e4')
+  })
+
+  it('pilot scope: failures on the route fail the gate, failures elsewhere are site checks', () => {
+    const net = makeNet()
+    net.nodes.push({id: 'x1', x: 50, y: 50, z: 0, type: 'path'}, {id: 'x2', x: 60, y: 50, z: 0, type: 'path'})
+    net.edges.push({id: 'e9', from: 'x1', to: 'x2', type: 'outdoor', lengthM: 10, source: 'osm', oneWay: false})
+    net.areas.blocked.push({id: 'b9', z: 0, kind: 'water', source: 'osm', polygon: square(54, 45, 56, 55)})
+    const r = checkBlockedCrossings(net)
+    const {onPilot, siteChecks} = pilotScope(net, r)
+    expect(onPilot).toEqual([])
+    expect(siteChecks.map((f) => f.edgeIds[0])).toEqual(['e9'])
+    // The same fault on the pilot route fails the gate (a fresh network: checks cache their indexes).
+    const onRoute = makeNet()
+    onRoute.areas.blocked.push({id: 'b10', z: 0, kind: 'water', source: 'osm', polygon: square(-12, 0, -10, 10)})
+    expect(pilotScope(onRoute, checkBlockedCrossings(onRoute)).onPilot.map((f) => f.edgeIds[0])).toContain('e1')
   })
 })
 
