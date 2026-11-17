@@ -34,6 +34,7 @@ import {entranceOf, isOnCampus, planRoute} from '../route/route.js'
 import {markerName} from '../route/card-text.js'
 import {COMPASS_GUIDE, GPS, GROUND, GROUND_ARROWS, INDOOR, LINE_UP, MATCH, PIN, ROUTING, SAFETY, SCENE_FLOOR, SHELL, START, TRIP} from '../config.js'
 import {createHeightProfile} from '../scene/route-height.js'
+import {createTripLog} from './trip-log.js'
 
 /** Compass-style bearing of a direction: degrees clockwise from north (or from SLAM -Z). */
 function bearing(east, north) {
@@ -134,6 +135,20 @@ export function createArTrip({
   const floor = createFloorFinder() // the floor height under the user
   let floorNow = floor.current
   const calibrator = createCalibrator()
+  // ?debug=1 only: one row a second of what the trip believed, for "Download trip log".
+  const tripLog = debug ? createTripLog() : null
+  const startFloorOf = () => {
+    for (const v of [startPoint?.floor, startPoint?.z, origin?.floor, origin?.z, route.points[0]?.z]) if (Number.isFinite(v)) return v
+    return null
+  }
+  tripLog?.setMeta({
+    destination: destination?.id ?? null,
+    routeSource: route.source ?? null,
+    startFloor: startFloorOf(),
+    manualStart: Boolean(manual),
+    tripOrigin: origin ? {lat: origin.lat, lng: origin.lng} : null,
+    routeLengthM: route.lengthM ?? null,
+  })
 
   function setPhase(next, detail = {}) {
     if (phase === next) return
@@ -963,6 +978,36 @@ export function createArTrip({
     watchHeldUp(dt, time)
     paintShell(routeS)
     watchFps(time)
+    tripLog?.sample(() => {
+      const tracked = pose.tracked ?? null
+      const where = tracked ? fromLocal(origin, tracked) : lastFix
+      return {
+        phase,
+        routeSource: route.source ?? null,
+        startFloor: startFloorOf(),
+        floorLevel: pose.floorLevel ?? null,
+        lat: where?.lat ?? null,
+        lng: where?.lng ?? null,
+        positionFrom: tracked ? 'tracking' : lastFix ? 'gps' : null,
+        gpsLat: lastFix?.lat ?? null,
+        gpsLng: lastFix?.lng ?? null,
+        gpsAccuracyM: lastFix?.accuracy ?? null,
+        // Route-local metres (x east, y north of the trip origin), as the pose holds them.
+        x: tracked && Number.isFinite(tracked.x) ? Number(tracked.x.toFixed(2)) : null,
+        y: tracked && Number.isFinite(tracked.y) ? Number(tracked.y.toFixed(2)) : null,
+        headingDeg: pose.headingDeg ?? null,
+        compassDeg: heading,
+        compassSource,
+        tracking,
+        routeS: pose.routeS ?? null,
+        snapDistanceM: pose.lateralOffsetM != null ? Number(Math.abs(pose.lateralOffsetM).toFixed(2)) : null,
+        routeSnapStartM: route.snapStartM ?? null,
+        confident: Boolean(pose.confident),
+        positionReliable: confidenceNow.reliable,
+        positionReason: confidenceNow.reason,
+        matchResidualM: matcher?.residualM ?? null,
+      }
+    })
     statsTimer += dt
     if (statsTimer >= 0.25) {
       const poseTurn = nav.aligned ? nav.nextTurnAt(routeS) : null
@@ -1072,6 +1117,10 @@ export function createArTrip({
     onTick,
     mapState,
     setFps: (value) => (fps = value),
+    /** ?debug=1: the in-memory trip log (null for normal users). */
+    get tripLog() {
+      return tripLog
+    },
     /** ?debug=1: show the building shell as a see-through wireframe. */
     setWireframe(on) {
       wireOn = Boolean(on)

@@ -19,6 +19,7 @@ import {icon} from '../icons.js'
 import {FIRST_USE, GROUND, INDOOR} from '../../config.js'
 import {markSeen, seen} from '../first-use.js'
 import {paintDebugStats, paintLiveDebug, setStat as setDebugStat, toggleDebugPanel} from './ar-debug.js'
+import {downloadTripLog} from '../../ar/trip-log.js'
 import {errorCopy} from './ar-errors.js'
 import {statusMessage} from './ar-status.js'
 import {count, newTrip} from '../../stats/counts.js'
@@ -151,6 +152,10 @@ export function arScreen(root, {navigate, params}) {
     retry: () => begin(),
     reload: () => window.location.reload(),
     debug: () => toggleDebugPanel(root),
+    // ?debug=1 only (the button is not rendered otherwise): the trip log as a JSON file.
+    'download-trip-log': () => {
+      if (!downloadTripLog(trip?.tripLog)) showToast('No trip log yet')
+    },
     recalibrate: () => {
       trip?.recalibrate()
       toggleDebugPanel(root, false)
