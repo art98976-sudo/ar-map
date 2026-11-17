@@ -443,6 +443,20 @@ export const ROUTING = {
   entranceAppendM: 3,
 }
 
+// The connected campus walking network (src/data/campus-network.json). Everything that uses it runs
+// only with ?network=1 in the address: without it the app behaves exactly as before.
+export const NETWORK = {
+  flag: 'network',
+  stairsCost: 1.5, // a metre of stairs costs this much in the route search
+  areaSnapM: 30, // a trip end this close to a network path (or inside its building) routes on it
+}
+
+/** ?network=1 before the # (it survives screen changes) or in the screen's own query. */
+export function networkEnabled(search = globalThis.location?.search ?? '', hash = globalThis.location?.hash ?? '') {
+  if (new URLSearchParams(search).get(NETWORK.flag) === '1') return true
+  return new URLSearchParams(hash.split('?')[1] ?? '').get(NETWORK.flag) === '1'
+}
+
 // Colours drawn from JavaScript (map lines, canvases). CSS colours are in styles/tokens.css.
 export const COLOURS = {
   brandGreen: '#006938',

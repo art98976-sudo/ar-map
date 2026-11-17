@@ -9,7 +9,8 @@
 // A trip with either end off campus: the Stirling-wide OpenStreetMap graph, then the straight line.
 // The AR screen plans again as the user crosses on to campus, so MazeMap takes over from there.
 import campusBoundary from '../data/campus-boundary.json'
-import {MAZEMAP, ROUTING, TOWN_BBOX} from '../config.js'
+import {MAZEMAP, networkEnabled, ROUTING, TOWN_BBOX} from '../config.js'
+import {CAMPUS_ORIGIN} from '../map/campus-geo.js'
 import {distanceM, fromLocal, pointInRing, projectOntoPolyline, toLocal} from '../geo/geo.js'
 import {loadCampusGraph, loadTownGraph, routeOnFootpaths} from './footpaths.js'
 import {normaliseRoute} from './arrow-direction.js'
@@ -130,8 +131,18 @@ function lengthOf(points) {
  *   {status: 'off-campus', distanceM}
  *   {status: 'ok', points: [{lat,lng}], lengthM, minutes, source: 'mazemap'|'footpaths'|'direct', entrance}
  */
-export async function planRoute(from, dest, {mazemap = mazemapRoute, fit = fitWithScene, graph = loadCampusGraph, townGraph = loadTownGraph, stepFree = getStepFree()} = {}) {
+export async function planRoute(from, dest, {mazemap = mazemapRoute, fit = fitWithScene, graph = loadCampusGraph, townGraph = loadTownGraph, stepFree = getStepFree(), network = networkEnabled(), networkRoute = planOnNetwork} = {}) {
   if (!isInStirling(from)) return {status: 'off-campus', distanceM: distanceM(from, MAZEMAP.center)}
+  // ?network=1 only: the connected campus network first, for any trip inside its area. Outside
+  // it (or if it finds no path) the chain below runs exactly as without the flag.
+  if (network) {
+    try {
+      const viaNetwork = await networkRoute(from, dest, {stepFree})
+      if (viaNetwork) return viaNetwork
+    } catch (err) {
+      console.warn('[route] network routing failed, using the usual chain', err?.message)
+    }
+  }
   const to = entranceOf(dest)
   const onCampus = isOnCampus(from) && isOnCampus(to)
   const startsIndoors = (Number.isFinite(from.z) && from.z !== 0) || (Number.isFinite(from.floor) && from.floor !== 0)
@@ -198,6 +209,36 @@ export async function planRoute(from, dest, {mazemap = mazemapRoute, fit = fitWi
 
   // 4. Straight line: still useful on open lawns, and the UI says it is approximate.
   return done([from, to], 'direct')
+}
+
+/**
+ * ?network=1: plan on the connected campus network (network-router.js). A room ends at its own
+ * room node on its floor; anything else at its entrance. Returns null when either end is outside
+ * the network's area or no path joins them. Points carry {z, heightM, edgeType, nodeId} so the
+ * AR knows the doors, stairs and floors along the way.
+ */
+export async function planOnNetwork(from, dest, {stepFree = false, load = null} = {}) {
+  const router = await import('./network-router.js')
+  const net = await (load ?? router.loadNetwork)()
+  const room = dest?.category === 'room' && Number.isFinite(dest.floor)
+  const target = room ? {lat: dest.lat, lng: dest.lng, floor: dest.floor, poiId: dest.mazemapPoi ?? null} : entranceOf(dest)
+  if (!router.inNetworkArea(net, toLocal(CAMPUS_ORIGIN, from)) || !router.inNetworkArea(net, toLocal(CAMPUS_ORIGIN, target))) return null
+  const r = router.routeOnNetwork(net, from, target, {stepFree})
+  if (!r) return null
+  const points = r.points.map(({lat, lng, z, x, y, heightM, edgeType, nodeId}) => ({lat, lng, z, x, y, heightM, edgeType, nodeId}))
+  console.info('[route] network', points.length, 'points', Math.round(r.lengthM), 'm')
+  return {
+    status: 'ok',
+    points,
+    lengthM: r.lengthM,
+    totalM: r.lengthM,
+    minutes: walkingMinutes(r.lengthM),
+    source: 'network',
+    entrance: {lat: points.at(-1).lat, lng: points.at(-1).lng},
+    stepFree: Boolean(stepFree),
+    approximate: false,
+    network: {doors: r.doors, floorChanges: r.floorChanges, entranceNodeId: r.entranceNodeId, startPlace: r.startPlace, endPlace: r.endPlace, nodeIds: r.nodeIds, edgeIds: r.edgeIds},
+  }
 }
 
 /** The fitting step, loaded only when a MazeMap route is planned (it pulls in the floor tiles). */
