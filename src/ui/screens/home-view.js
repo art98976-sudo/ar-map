@@ -106,13 +106,12 @@ export const homePage = () => html`
   </div>
 `
 
-/** Grey blocks in the shape of what is coming, instead of a blank screen or a lone spinner. */
-export const mapLoading = () => html`<div class="skeleton" aria-hidden="true">
-    <span class="skeleton__bar"></span>
-    <span class="skeleton__rail"></span>
-    <span class="skeleton__sheet"><span></span><span></span><span></span></span>
-  </div>
-  <p class="sr-only" role="status">Loading the University map…</p>`
+/** While MazeMap loads: the University's logo and one line, faded out when the map is ready. */
+export const mapLoading = () => html`<div class="map-loading" data-map-loading>
+    <img class="map-loading__logo" src="/brand/stirling-logo.svg" alt="University of Stirling" width="200" height="50" fetchpriority="high" />
+    <p class="map-loading__text" role="status">Loading campus map</p>
+    <span class="map-loading__dots" aria-hidden="true"><span></span><span></span><span></span></span>
+  </div>`
 
 /** One row of the quick-chip results: what it is, where, how far. */
 export const placeRow = (place, i) => html`

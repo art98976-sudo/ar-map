@@ -41,6 +41,21 @@ const mapReady = (page) => expect(page.locator('[data-overlay]')).toBeHidden({ti
 const tapPin = (page, id) => page.locator(`[data-pin="${id}"]`).dispatchEvent('click')
 
 test.describe('the map home', () => {
+  test('first shows the University logo while the campus map loads, then fades it out', async ({page}) => {
+    // Hold MazeMap back a moment so the loading screen can be seen.
+    await page.route('https://api.mazemap.com/js/**', async (route) => {
+      await new Promise((r) => setTimeout(r, 1500))
+      await route.continue()
+    })
+    await page.goto('/')
+    const loading = page.locator('[data-overlay] [data-map-loading]')
+    await expect(loading).toBeVisible()
+    await expect(loading.getByRole('img', {name: 'University of Stirling'})).toBeVisible()
+    await expect(loading.getByRole('status')).toHaveText('Loading campus map')
+    await expect(page.locator('[data-overlay] .skeleton')).toHaveCount(0) // no grey boxes
+    await mapReady(page)
+  })
+
   test('is the University map, with search, chips and pins', async ({page}, testInfo) => {
     test.skip(onlyOn(...CHROME)(testInfo))
     const errors = watchErrors(page)

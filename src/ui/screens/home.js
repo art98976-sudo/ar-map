@@ -38,6 +38,9 @@ import {onAction, render} from '../dom.js'
 import {GPS, HOME_MAP, INDOOR, MAZEMAP, START} from '../../config.js'
 import {createSheets} from './home-sheets.js'
 import {doorList, homePage, mapError, mapLoading, placeCard, placeLoading, placeNotFound} from './home-view.js'
+import {prefersReducedMotion} from '../components/arrival.js'
+
+const MAP_LOADING_FADE_MS = 300 // the loading screen fades out over this when the map is ready
 
 export function homeScreen(root, {navigate, params}) {
   const forced = params.force === '1'
@@ -704,13 +707,32 @@ export function homeScreen(root, {navigate, params}) {
   }
 
   // ---------- map loading ----------
+  /** The loading screen fades out once the map style is ready (at once with reduced motion). */
+  let fadeTimer = 0
+  function fadeOutOverlay() {
+    clearTimeout(fadeTimer)
+    if (prefersReducedMotion()) {
+      overlay.hidden = true
+      return
+    }
+    overlay.classList.add('is-fading')
+    fadeTimer = setTimeout(() => {
+      overlay.hidden = true
+      overlay.classList.remove('is-fading')
+    }, MAP_LOADING_FADE_MS)
+  }
+
   function showMapError(err) {
     if (disposed) return
+    clearTimeout(fadeTimer)
+    overlay.classList.remove('is-fading')
     overlay.hidden = false
     render(overlay, mapError(err?.code === 'offline' || navigator.onLine === false))
   }
 
   async function load() {
+    clearTimeout(fadeTimer)
+    overlay.classList.remove('is-fading')
     render(overlay, mapLoading())
     overlay.hidden = false
     try {
@@ -732,7 +754,7 @@ export function homeScreen(root, {navigate, params}) {
         onReady: () => {
           if (disposed) return
           mapReady = true
-          overlay.hidden = true
+          fadeOutOverlay()
           if (params.debug === '1') window.__homeMap = instance.map // inspect it from the console
           quietIndoorLabels(instance.map)
           labelBlockers = createLabelBlockers(instance.map, {

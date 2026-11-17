@@ -363,65 +363,78 @@
   width: 60%;
 }
 
-/* ---------- Loading: the shape of the screen, not a lone spinner ---------- */
+/* ---------- Loading: the University's logo, faded out when the map is ready ---------- */
 .map-home__overlay {
   position: absolute;
   inset: 0;
   z-index: 6;
   display: grid;
   place-items: center;
-  background: var(--c-surface);
-}
-.skeleton {
-  position: absolute;
-  inset: 0;
-}
-.skeleton span {
-  position: absolute;
-  display: block;
-  background: var(--c-skeleton);
-}
-.skeleton__bar {
-  top: calc(var(--safe-top) + var(--sp-2));
-  left: var(--side);
-  right: var(--side);
-  height: var(--bar);
-  border-radius: var(--radius);
-}
-.skeleton__rail {
-  right: var(--side);
-  top: 40%;
-  width: var(--tap);
-  height: 132px;
-  border-radius: var(--radius-round);
-}
-.skeleton .skeleton__sheet {
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: calc(104px + var(--safe-bottom));
-  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
   background: var(--c-bg);
-}
-.skeleton__sheet span {
-  position: static;
-  display: inline-block;
-  width: 96px;
-  height: var(--tap);
-  margin: 36px 0 0 var(--side);
-  border-radius: var(--radius-round);
+  opacity: 1;
 }
 @media (prefers-reduced-motion: no-preference) {
-  .skeleton span {
-    animation: skeleton-pulse 1.4s ease-in-out infinite alternate;
+  .map-home__overlay {
+    transition: opacity 0.3s ease-out;
   }
 }
-@keyframes skeleton-pulse {
-  to {
-    opacity: 0.55;
+.map-home__overlay.is-fading {
+  opacity: 0;
+  pointer-events: none;
+}
+.map-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 var(--side);
+  text-align: center;
+}
+.map-loading__logo {
+  width: min(200px, 60vw);
+  height: auto;
+}
+@media (prefers-color-scheme: dark) {
+  .theme-auto .map-loading__logo {
+    filter: brightness(0) invert(1); /* the green logo in white on the dark background */
   }
 }
-/* The map error sits on top of the skeleton. */
+.map-loading__text {
+  margin: 0;
+  font-weight: 600;
+  color: var(--c-text);
+}
+.map-loading__dots {
+  display: flex;
+  gap: 6px;
+}
+.map-loading__dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green-02, #006938);
+  opacity: 0.35;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .map-loading__dots span {
+    animation: map-loading-dot 1.2s ease-in-out infinite;
+  }
+  .map-loading__dots span:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+  .map-loading__dots span:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+}
+@keyframes map-loading-dot {
+  50% {
+    opacity: 1;
+  }
+}
+/* The map error sits on top of the loading screen. */
 .map-home__overlay .map-home__error {
   position: relative;
   z-index: 1;
