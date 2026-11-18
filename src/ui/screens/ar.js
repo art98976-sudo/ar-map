@@ -87,6 +87,7 @@ export function arScreen(root, {navigate, params}) {
   const setStat = (name, text, tone) => setDebugStat(root, name, text, tone)
 
   // Anonymous counts (8.2): one trip per AR screen.
+  let compassHinted = false
   let arrivedYet = false
   let wasRerouting = false
   newTrip()
@@ -298,6 +299,11 @@ export function arScreen(root, {navigate, params}) {
     if (s.rerouting && !wasRerouting) count('rerouted')
     wasRerouting = Boolean(s.rerouting)
     paintHints(s)
+    // Phase 1: a door start whose compass disagrees with the map: say so once, change nothing.
+    if (s.compassHint != null && !compassHinted) {
+      compassHinted = true
+      showToast(`Your compass reads ${s.compassHint}° away from the map. Check you’re facing ${tripStart?.doorFacing ?? 'the right way'}.`, {tone: 'warning', duration: 5000})
+    }
     // ?network=1: faded or hidden arrows bring the minimap up too (networkArrows is null without it).
     followMapWhileUncertain(s.positionUncertain || Boolean(s.networkArrows?.minimap))
     if (s.locked && !wasLocked) haptic(18)

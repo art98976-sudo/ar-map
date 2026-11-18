@@ -32,7 +32,7 @@ import {createGuidance, landmarksFrom} from '../route/guidance.js'
 import {createArrivalDetector, createConfidenceMonitor, createOffRouteMonitor} from '../route/trip-monitors.js'
 import {entranceOf, isOnCampus, planRoute} from '../route/route.js'
 import {markerName} from '../route/card-text.js'
-import {COMPASS_GUIDE, GPS, GROUND, GROUND_ARROWS, INDOOR, LINE_UP, MATCH, PIN, ROUTING, SAFETY, SCENE_FLOOR, SHELL, START, TRIP} from '../config.js'
+import {AR_START, COMPASS_GUIDE, GROUND, GROUND_ARROWS, INDOOR, LINE_UP, MATCH, PIN, ROUTING, SAFETY, SCENE_FLOOR, SHELL, START, TRIP} from '../config.js'
 import {createHeightProfile} from '../scene/route-height.js'
 import {createTripLog} from './trip-log.js'
 import {createHeadingHold, createIndoorGpsGate, entranceIndex, planEntranceAnchor} from './entrance-anchor.js'
@@ -164,6 +164,7 @@ export function createArTrip({
   let instructionAt = -Infinity
   let rerouting = false
   let compassOff = false
+  let compassDisagreeDeg = null // Phase 1: at a door start, how far the compass was from the door's heading
   let stopped = false
   let xr = null
   let blockIndex = 0 // the next chevron to test for being behind something
@@ -348,7 +349,9 @@ export function createArTrip({
   /** The freshest good GPS fix for "where am I standing"; else the trip start. */
   function bestFix() {
     if (manual) return origin
-    return lastFix && lastFix.accuracy <= GPS.goodAccuracyM ? lastFix : origin
+    // Phase 1: a fresher fix replaces the origin only if it is as good as the location step demanded
+    // (AR_START.gpsMaxM, within what map matching can still correct); else the checked origin stays.
+    return lastFix && lastFix.accuracy <= AR_START.gpsMaxM ? lastFix : origin
   }
 
   function trackingReady() {
@@ -474,9 +477,13 @@ export function createArTrip({
     const fix = bestFix()
     const startInfo = nav.startInfo(fix)
     if (startInfo.offset > ROUTING.snapToPathM) return 'path'
-    // Standing at a door with it behind you: the stored heading beats a compass beside a building.
+    // Standing at a door: its heading (the wall's, from the map) beats a compass beside a building.
     if (manual && Number.isFinite(startPoint.headingDeg)) {
       compassOff = true
+      // Phase 1: the compass is only a check. Far off the door's heading, a small hint; never a change.
+      const reading = compassUsable() ? recentHeading() : null
+      compassDisagreeDeg = reading == null ? null : Math.abs(angleDiff(startPoint.headingDeg, reading))
+      if (compassDisagreeDeg != null) recorder?.event('door-compass-check', {doorDeg: startPoint.headingDeg, compassDeg: reading, diffDeg: compassDisagreeDeg})
       beginGuidance(startPoint.headingDeg, {facingKnown: true})
       return 'ok'
     }
@@ -1205,6 +1212,8 @@ export function createArTrip({
         manual,
         startBlocked,
         repick: manual && !arrived && time < repickUntil,
+        // Phase 1: the compass disagreed with the door's heading by more than this at Start (a hint only).
+        compassHint: compassDisagreeDeg != null && compassDisagreeDeg > AR_START.compassCheckDeg ? Math.round(compassDisagreeDeg) : null,
         liveAvailable: manual && !arrived && phase === 'ready' && liveFixes >= TRIP.liveFixes,
         step: phase === 'ready' && !arrived ? guidance.step(routeS) : null,
         steps: phase === 'ready' ? guidance.steps(routeS) : null,

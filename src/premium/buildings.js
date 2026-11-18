@@ -57,16 +57,21 @@ export function outlineMask(collection, metres = 6) {
 }
 
 let cache = null
-export function loadBuildings({fetchImpl = fetch} = {}) {
+/** MazeMap's building records for the campus (outlines, names, floors), fetched once a session. */
+export function loadBuildingRecords({fetchImpl = fetch} = {}) {
   cache ??= fetchImpl(`https://api.mazemap.com/api/buildings/?campusid=${MAZEMAP.campusId}&srid=4326`)
     .then((r) => {
       if (!r.ok) throw new Error(`buildings ${r.status}`)
       return r.json()
     })
-    .then((j) => buildingFeatures(j.buildings))
+    .then((j) => j.buildings ?? [])
     .catch((err) => {
       cache = null
       throw err
     })
   return cache
+}
+
+export function loadBuildings(options) {
+  return loadBuildingRecords(options).then(buildingFeatures)
 }

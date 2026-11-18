@@ -115,7 +115,11 @@ test.describe('location step', () => {
     await page.evaluate(() => window.__emitFix(48))
     await expect(page.getByRole('heading', {name: 'Weak GPS – move into the open'})).toBeVisible()
     await expect(page.getByText('±48 m')).toBeVisible()
-    await expect(page.getByText('Needs ±20 m or better')).toBeVisible()
+    await expect(page.getByText('Needs ±15 m or better')).toBeVisible()
+    // 18 m (good enough before Phase 1) is still not good enough to start AR.
+    await page.evaluate(() => window.__emitFix(18))
+    await page.waitForTimeout(500)
+    await expect(page).toHaveURL(/#\/locate/)
     // Still waiting a moment later: it must not continue on weak GPS.
     await page.waitForTimeout(1500)
     await expect(page).toHaveURL(/#\/locate/)
@@ -124,7 +128,7 @@ test.describe('location step', () => {
     await expect(page).toHaveURL(/#\/ar\?to=atrium/, {timeout: 5000})
   })
 
-  test('indoors: after 30 s of weak GPS it suggests the 2D map', async ({page}, testInfo) => {
+  test('weak GPS for 10 s: "Where are you?" with the doors nearby and Choose on map', async ({page}, testInfo) => {
     test.skip(onlyOn('android-chrome')(testInfo))
     await page.addInitScript(controllableGps)
     await page.clock.install()
@@ -133,11 +137,39 @@ test.describe('location step', () => {
     await expect(page.locator('[data-title]')).toHaveText('Finding your location…')
     await page.evaluate(() => window.__emitFix(65))
     await expect(page.getByRole('heading', {name: 'Weak GPS – move into the open'})).toBeVisible()
-    await expect(page.getByText('You may be indoors.')).toBeHidden()
-    await page.clock.fastForward(31_000)
-    await expect(page.getByText('You may be indoors.')).toBeVisible()
-    await page.getByRole('button', {name: 'View 2D map instead'}).click()
-    await expect(page.locator('[data-card]').getByRole('heading', {name: 'Library'})).toBeVisible()
+    await expect(page.getByRole('heading', {name: 'Where are you?'})).toHaveCount(0)
+    await page.clock.fastForward(11_000)
+    await expect(page.getByRole('heading', {name: 'Where are you?'})).toBeVisible()
+    await expect(page.getByText('GPS is too weak to line up the arrows.')).toBeVisible()
+    await page.getByRole('button', {name: 'Choose on map'}).click()
+    await expect(page).toHaveURL(/start=map/)
+  })
+
+  test('a good fix inside a building goes straight to "Where are you?"; a door starts the trip there', async ({page}, testInfo) => {
+    test.skip(onlyOn('desktop-chrome')(testInfo))
+    // MazeMap's building list: one building around the test GPS position. Its floors have no tiles
+    // here, so the doors offered are our own named entrances nearby (Cottrell main entrance).
+    const d = 0.0003
+    const ring = [[-3.9201 - d, 56.14525 - d], [-3.9201 + d, 56.14525 - d], [-3.9201 + d, 56.14525 + d], [-3.9201 - d, 56.14525 + d], [-3.9201 - d, 56.14525 - d]]
+    await page.route('https://api.mazemap.com/api/buildings/**', (route) =>
+      route.fulfill({json: {buildings: [{id: 1, name: 'Test Hall', fullOutline: {type: 'Polygon', coordinates: [ring]}, floors: [{z: 1}]}]}}),
+    )
+    await page.route('https://tiles.mazemap.com/**', (route) => route.fulfill({status: 204}))
+    await page.addInitScript(controllableGps)
+    await page.goto('/#/locate?to=library&force=1')
+    await page.getByRole('button', {name: 'Tap to start'}).click({timeout: 30_000})
+    await page.evaluate(() => window.__emitFix(8))
+    await expect(page.getByRole('heading', {name: 'Where are you?'})).toBeVisible({timeout: 5000})
+    await expect(page.getByText('You seem to be inside.')).toBeVisible()
+    const doors = page.locator('[data-action="pick-door"]')
+    await expect(doors.first()).toBeVisible({timeout: 10_000})
+    await expect(doors.first()).toContainText('main entrance')
+    await expect(page.getByRole('button', {name: 'Choose on map'})).toBeVisible()
+    await doors.first().click()
+    await expect(page).toHaveURL(/#\/ar\?to=library/, {timeout: 20_000})
+    const start = await page.evaluate(() => JSON.parse(sessionStorage.getItem('welcomeAR.route.v1') || 'null')?.start)
+    expect(start).toMatchObject({type: 'door', doorFacing: expect.stringMatching(/inside|outside/)})
+    expect(Number.isFinite(start.headingDeg)).toBe(true)
   })
 
   for (const [code, title] of [

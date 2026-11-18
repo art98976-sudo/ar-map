@@ -105,14 +105,15 @@ test.describe('starting point', () => {
     await expect(page.getByRole('heading', {name: 'Where are you starting from?'})).toBeVisible()
   })
 
-  test('weak GPS: the prompt appears without blocking the wait', async ({page, context}, testInfo) => {
+  test('weak GPS: "Where are you?" appears by itself, with a way out', async ({page, context}, testInfo) => {
     test.skip(onlyOn('android-chrome')(testInfo))
     await context.setGeolocation({latitude: 56.14525, longitude: -3.9201, accuracy: 60})
     await page.addInitScript(FAKE_REAR_CAMERA)
     await page.goto('/#/locate?to=library&force=1')
     await page.getByRole('button', {name: 'Tap to start'}).click({timeout: 30_000})
-    await expect(page.getByText("We can't find you precisely.")).toBeVisible({timeout: 20_000})
-    await expect(page.getByRole('button', {name: 'Choose starting point'})).toBeVisible()
+    // Phase 1: ±60 m never starts AR; after AR_START.waitForGpsMs the door picker opens by itself.
+    await expect(page.getByRole('heading', {name: 'Where are you?'})).toBeVisible({timeout: 20_000})
+    await expect(page.getByRole('button', {name: 'Choose on map'})).toBeVisible()
     await expect(page.getByRole('button', {name: 'Cancel'})).toBeVisible()
   })
 

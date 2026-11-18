@@ -20,12 +20,16 @@ import {errorCopy} from './ar-errors.js'
 import {locationErrorCopy} from './locate-errors.js'
 import {googleMapsWalkingUrl, planRoute, saveTripRoute, tripLengthM, walkingMinutes} from '../../route/route.js'
 import {getStart, isManual, startLabel} from '../../route/start-point.js'
+import {gpsStartDecision} from '../../route/ar-start.js'
+import {doorStartPoint, doorwaySides, rankDoors, resolveDoorHeading} from '../../route/door-start.js'
+import {fromLocal, toLocal} from '../../geo/geo.js'
+import {whereSheet} from '../components/where-sheet.js'
 import {formatDistance} from '../../ar/pin.js'
 import {findDestination} from '../../map/destinations.js'
 import {showToast} from '../components/toast.js'
 import {focusScreen, haptic, html, onAction, render} from '../dom.js'
 import {CATEGORY_ICON, icon} from '../icons.js'
-import {GPS} from '../../config.js'
+import {AR_START} from '../../config.js'
 import {guideLines, markSeen} from '../first-use.js'
 
 const CONTINUE_DELAY_MS = 900
@@ -51,6 +55,13 @@ export function locateScreen(root, {navigate, params}) {
   let disposed = false
   const startPoint = getStart()
   const manualStart = isManual(startPoint)
+  // Alignment Phase 1: GPS starts AR only when good and outdoors; else "Where are you?".
+  let doorData = null // door-data.js, loaded on first use (it pulls in the floor tile reader)
+  let shapes // MazeMap building outlines: undefined while loading, null if unavailable
+  let gpsStartedAt = 0
+  let rankFix = null // the best fix so far, however rough: it only ranks the doors
+  let where = null // {reason, doors}: the picker is showing
+  const loadDoorData = () => (doorData ??= import('../../map/door-data.js'))
 
   function setView(fragment, state) {
     root.dataset.locateState = state
@@ -111,7 +122,7 @@ export function locateScreen(root, {navigate, params}) {
                 <strong data-accuracy>–</strong>
               </div>
               <div class="gps-meter__track" aria-hidden="true"><span class="gps-meter__fill" data-fill></span></div>
-              <p class="gps-meter__hint">Needs ±${GPS.goodAccuracyM} m or better</p>
+              <p class="gps-meter__hint">Needs ±${AR_START.gpsMaxM} m or better</p>
             </div>
             <div class="locate-card__indoors" data-choose-start hidden>
               <p>${icon('info', {size: 20})}<span><strong>We can't find you precisely.</strong> Choose your starting point instead.</span></p>
@@ -161,16 +172,176 @@ export function locateScreen(root, {navigate, params}) {
   function onFix(position) {
     if (disposed || !gate) return
     const s = gate.update(position)
+    noteRankFix(s.fix)
+    if (where) return
     paint(s)
-    if (s.status === 'ready' && !continueTimer && !planning) {
-      haptic(18)
-      saveTripFix(s.fix)
-      planTrip(s.fix)
-    } else if (s.status !== 'ready' && continueTimer) {
+    if (s.status !== 'ready' && continueTimer) {
       // Accuracy dropped again before we left: keep waiting.
       clearTimeout(continueTimer)
       continueTimer = null
+      return
     }
+    decide(s)
+  }
+
+  /** Any fix ranks the doors in "Where are you?"; a rough one says which are near, no more. */
+  function noteRankFix(fix) {
+    if (!fix || !(fix.accuracy <= AR_START.rankFixMaxM)) return
+    const first = !rankFix
+    if (first || fix.accuracy < rankFix.accuracy) rankFix = fix
+    if (first && where && where.doors && !where.doors.length) loadDoors() // the picker had no position yet
+  }
+
+  /** Step 1: start from this GPS fix, keep waiting, or ask "Where are you?". */
+  function decide(s) {
+    if (disposed || planning || continueTimer || where || !gate) return
+    const fix = s.fix
+    const good = fix && fix.accuracy <= AR_START.gpsMaxM
+    // A good fix waits for the outlines (one request, cached): it must not start AR from indoors.
+    if (good && shapes === undefined) return
+    const inside = fix && shapes ? insideBuilding(fix) : null
+    const d = gpsStartDecision({fix, inside, waitedMs: Date.now() - gpsStartedAt})
+    if (d.action === 'gps') {
+      if (d.reason === 'outline-unknown') console.warn('[locate] building outlines unavailable: starting from GPS without the indoor check')
+      haptic(18)
+      saveTripFix(fix)
+      planTrip(fix)
+    } else if (d.action === 'pick') showWhere(d.reason)
+  }
+
+  let insideBuilding = () => false
+  function loadShapes() {
+    if (shapes !== undefined) return
+    loadDoorData()
+      .then(async (mod) => {
+        const list = await mod.loadBuildingShapes()
+        if (disposed) return
+        shapes = list
+        insideBuilding = (fix) => Boolean(list && mod.buildingAt(fix, list))
+        if (gate) decide(gate.check())
+      })
+      .catch(() => {
+        shapes = null
+        if (gate) decide(gate.check())
+      })
+  }
+
+  // ---------- "Where are you?" (steps 2-3) ----------
+  function showWhere(reason) {
+    if (where || disposed) return
+    clearInterval(tick) // GPS keeps listening, only to rank the doors better
+    where = {reason, doors: null}
+    paintWhere()
+    loadDoors()
+  }
+
+  function paintWhere() {
+    setView(
+      html`
+        <div class="page page--narrow page--center locate">
+          <div class="locate-card">
+            ${destinationCard()}
+            ${whereSheet({reason: where.reason, doors: where.doors})}
+            <button class="btn btn--ghost" type="button" data-action="back" aria-label="Cancel">Cancel</button>
+          </div>
+        </div>
+      `,
+      'where',
+    )
+  }
+
+  async function loadDoors() {
+    const here = rankFix
+    if (!here) {
+      where.doors = []
+      return paintWhere()
+    }
+    try {
+      const mod = await loadDoorData()
+      const found = await mod.doorsNear(here)
+      if (disposed || !where) return
+      where.doors = rankDoors(found, {x: 0, y: 0})
+    } catch (err) {
+      console.warn('[locate] doors unavailable', err?.message)
+      if (where) where.doors = []
+    }
+    if (where && !planning) paintWhere()
+  }
+
+  /**
+   * Plan from the doorway (just inside it and just outside it; the shorter walk wins) and start
+   * with the wall's heading, facing in or out as the route goes (step 3). label: what the user chose.
+   */
+  async function planDoorTrip(door, label = null) {
+    stop()
+    where = null
+    planning = true
+    showWaiting('Planning your walking route…', 'From the door you chose.')
+    root.querySelector('[data-meter]').hidden = true
+    const centre = {lat: door.lat, lng: door.lng}
+    const wall = Number.isFinite(door.inwardDeg)
+    const sides = wall ? doorwaySides({x: 0, y: 0, inwardDeg: door.inwardDeg}) : null
+    const level = Number.isFinite(door.level) ? {floor: door.level, z: door.level} : {}
+    const candidates = wall
+      ? [
+          {side: 'inside', at: {...fromLocal(centre, sides.inside), ...level}},
+          {side: 'outside', at: fromLocal(centre, sides.outside)},
+        ]
+      : [{side: 'outside', at: centre}]
+    try {
+      const planned = await Promise.all(candidates.map((c) => planRoute(c.at, destination).then((route) => ({...c, route}), () => ({...c, route: {status: 'error'}}))))
+      if (disposed) return
+      const ok = planned.filter((p) => p.route.status === 'ok').sort((a, b) => tripLengthM(a.route) - tripLengthM(b.route))
+      if (!ok.length) {
+        const route = planned.find((p) => p.route.reason === 'floor-data-unavailable')?.route ?? planned[0].route
+        if (route.reason === 'floor-data-unavailable') return showError('indoor-map-failed')
+        return showError(route.status === 'no-indoor-route' ? 'no-indoor-route' : 'no-route')
+      }
+      const best = ok[0]
+      const points = [...best.route.points, ...(best.route.indoorPoints ?? []).slice(1)]
+      const local = points.map((p) => toLocal(best.at, p))
+      // From outside, the walk goes in if the route's indoor part starts at this doorway.
+      const entry = best.route.indoorPoints?.[0] ? toLocal(best.at, best.route.indoorPoints[0]) : null
+      const goesIn = best.side === 'inside' ? null : Boolean(entry && Math.hypot(entry.x, entry.y) <= 8)
+      const heading = resolveDoorHeading(door, local, {goesIn})
+      const names = label ? {name: label.name, entranceName: label.entranceName} : {}
+      // No heading at all (a route too short to read): a plain chosen point, as before Phase 1.
+      const start = heading
+        ? {...doorStartPoint(door, best.at, heading, {indoor: best.side === 'inside'}), headingSource: heading.source, ...names}
+        : {type: 'map', name: label?.name ?? door.buildingName ?? 'Door', entranceName: null, lat: best.at.lat, lng: best.at.lng, headingDeg: null, facing: null}
+      const origin = {lat: best.at.lat, lng: best.at.lng, ...(start.floor != null ? {floor: start.floor, z: start.floor} : {})}
+      saveTripRoute({...best.route, destinationId: destination.id, origin, start, plannedAt: Date.now()})
+      console.info('[locate] door start', {facing: start.doorFacing, headingDeg: start.headingDeg, source: heading?.source, side: best.side})
+      const body = root.querySelector('[data-body]')
+      if (body) body.textContent = `${formatDistance(tripLengthM(best.route))} walk, about ${walkingMinutes(tripLengthM(best.route))} min. Opening the camera…`
+      continueTimer = setTimeout(() => {
+        if (!disposed) navigate(`/ar?${nextQuery}`, {replace: true})
+      }, CONTINUE_DELAY_MS)
+    } catch (err) {
+      console.error('[locate] route planning failed', err)
+      if (!disposed) showError('no-route')
+    } finally {
+      planning = false
+    }
+  }
+
+  /**
+   * A start chosen on the map at one of our entrances: plan it as that doorway, so the heading is
+   * the wall's, not the compass's or the building centre's. No door data: as before.
+   */
+  async function planChosenStart() {
+    const entrance = startPoint.type === 'place' && !Number.isFinite(startPoint.floor)
+    if (entrance) {
+      try {
+        const mod = await loadDoorData()
+        const doors = await mod.doorsNear(startPoint, {radiusM: AR_START.namedDoorM * 3})
+        const door = rankDoors(doors, {x: 0, y: 0}, 1)[0]
+        if (!disposed && door && door.d <= AR_START.namedDoorM) return planDoorTrip(door, {name: startPoint.name, entranceName: startPoint.entranceName})
+      } catch (err) {
+        console.warn('[locate] no door data for the chosen entrance', err?.message)
+      }
+    }
+    if (!disposed) planTrip(startPoint)
   }
 
   // Plan the walking route as soon as GPS is good, then open the camera.
@@ -234,12 +405,15 @@ export function locateScreen(root, {navigate, params}) {
       tapWatch = null
       showWaiting('Planning your walking route…', `From ${startLabel(startPoint)}.`)
       root.querySelector('[data-meter]').hidden = true
-      planTrip(startPoint)
+      planChosenStart()
       return
     }
     stop()
+    where = null
     showWaiting(title, body)
-    gate = createFixGate()
+    gpsStartedAt = Date.now()
+    gate = createFixGate({goodAccuracyM: AR_START.gpsMaxM, askStartAfterMs: AR_START.waitForGpsMs})
+    loadShapes()
     if (tapWatch) {
       // The watch started in the tap carries on, with any fix it already has.
       stopWatch = tapWatch.stop
@@ -249,8 +423,13 @@ export function locateScreen(root, {navigate, params}) {
     } else {
       stopWatch = watchLocation({onFix, onError: showError})
     }
-    // Re-check once a second so the "indoors" hint appears even when no fixes arrive.
-    tick = setInterval(() => gate && paint(gate.check()), 1000)
+    // Re-check once a second: the "indoors" hint, and "Where are you?" when no good fix came.
+    tick = setInterval(() => {
+      if (!gate || where) return
+      const s = gate.check()
+      paint(s)
+      decide(s)
+    }, 1000)
   }
 
   function stop() {
@@ -277,6 +456,7 @@ export function locateScreen(root, {navigate, params}) {
 
   // ---------- errors ----------
   function showError(code) {
+    if (where) return // "Where are you?" is open: a GPS error there changes nothing
     showErrorCopy(locationErrorCopy(code, device))
   }
 
@@ -344,7 +524,16 @@ export function locateScreen(root, {navigate, params}) {
     retry: () => start(),
     reload: () => window.location.reload(),
     map: () => navigate(`/?to=${encodeURIComponent(destination.id)}`),
-    'choose-start': () => navigate(`/?${new URLSearchParams({...Object.fromEntries(nextQuery), start: 'pick'})}`),
+    'choose-start': () => {
+      if (manualStart) return navigate(`/?${new URLSearchParams({...Object.fromEntries(nextQuery), start: 'pick'})}`)
+      where = null
+      showWhere(gate?.check().fix ? 'weak' : 'no-fix')
+    },
+    'pick-door': (_, target) => {
+      const door = where?.doors?.[Number(target.dataset.door)]
+      if (door && !planning) planDoorTrip(door)
+    },
+    'pick-on-map': () => navigate(`/?${new URLSearchParams({...Object.fromEntries(nextQuery), start: 'map'})}`),
     copy: async () => {
       const url = window.location.href.split('#')[0]
       try {

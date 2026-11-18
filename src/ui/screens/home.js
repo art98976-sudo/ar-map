@@ -798,6 +798,8 @@ export function homeScreen(root, {navigate, params}) {
           drawCardRoute() // planned before the map was ready
           paintStartMarker()
           if (params.start === 'pick' && selected) openStartSheet()
+          // "Choose on map" in "Where are you?" (locate.js): straight to dropping the pin.
+          if (params.start === 'map' && selected) enterPick()
           startSimulation()
           startAlignDebug()
         },

@@ -31,7 +31,8 @@ const write = (storage, key, value) => {
   }
 }
 
-export const isManual = (start) => start?.type === 'place' || start?.type === 'map'
+// 'door': a doorway picked in "Where are you?" (locate screen): its heading is the wall's (door-start.js).
+export const isManual = (start) => start?.type === 'place' || start?.type === 'map' || start?.type === 'door'
 
 /** The start chosen in this session, GPS if none. */
 export function getStart(storage = globalThis.sessionStorage) {
@@ -122,6 +123,8 @@ export function startLabel(start) {
 /** The one short line on the AR screen: where to stand, and which way to face. */
 export function standHereText(start) {
   if (start.type === 'map') return 'Stand where you put the pin.'
+  // A doorway: its heading is the wall's, so where to face is all there is to say.
+  if (start.doorFacing) return `Stand in the doorway, facing ${start.doorFacing}.`
   const at = `Stand at ${landmarkPhrase(startLabel(start))}`
   if (start.facing) return `${at}, facing ${start.facing}.`
   if (start.headingDeg == null) return `${at}.`

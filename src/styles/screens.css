@@ -696,3 +696,26 @@
     width: 12cm;
   }
 }
+
+/* "Where are you?" (alignment Phase 1): the doors near the user, in the location card. */
+.where {
+  display: grid;
+  gap: var(--s-3);
+  width: 100%;
+}
+.where__list {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  background: var(--c-bg, var(--bg));
+}
+.where__list .place-row:last-child {
+  border-bottom: 0;
+}
+.where__empty {
+  padding: var(--s-3) var(--s-4);
+  border-bottom: 1px solid var(--c-border);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}

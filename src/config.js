@@ -402,7 +402,8 @@ export const TRIP = {
 }
 
 export const GPS = {
-  // A fix must be at least this accurate (metres, 68% radius) before AR starts.
+  // The GPS meter's colours and the home screen's quiet fix. AR itself starts only at
+  // AR_START.gpsMaxM, and outdoors (alignment Phase 1).
   goodAccuracyM: 20,
   // If we never reach a good fix for this long, the user is probably indoors.
   indoorAfterMs: 30_000,
@@ -417,6 +418,27 @@ export const GPS = {
 export const START = {
   weakGpsM: 25, // GPS worse than this: suggest choosing a start instead
   liveGpsM: 15, // GPS this good, a few times running: offer to switch back to it
+}
+
+// Alignment Phase 1: where an AR trip may start from (src/route/ar-start.js, src/route/door-start.js).
+// GPS starts AR only when it is this good AND the fix is outside every MazeMap building outline;
+// otherwise the user picks the door they stand at, and the door's wall gives the heading.
+// GPS.goodEnoughFixM (50 m) stays for the map's blue dot and the "nearby" list only.
+export const AR_START = {
+  gpsMaxM: 15, // must stay <= MATCH.maxTotalM: a start further off than that can never be corrected
+  waitForGpsMs: 10_000, // outdoors, no fix this good within this long: show the door picker
+  rankFixMaxM: 150, // a fix this rough still says which doors are near (never where the user is)
+  doorCount: 3, // the picker lists this many doors, nearest first
+  doorSearchM: 70, // doors are looked for this far around the rough fix
+  doorMergeM: 3, // door lines closer than this are one doorway (double doors, a lobby's two sets)
+  exteriorDoorM: 0.6, // a door line's centre this close to the building outline is an exterior door
+  recessedDoorM: 3, // ...or up to this far inside it, facing the outline (an entrance under a canopy)
+  recessedAgreeDeg: 35, // "facing the outline": the door's normal within this of the outline's normal
+  outlineSnapDeg: 20, // the outline edge beside the door agrees this well: use its (longer, truer) direction
+  namedDoorM: 6, // a door this close to a named entrance (destinations.json) takes its name
+  stepOffM: 0.5, // routes are planned from this far inside, and this far outside, the doorway
+  facingLookM: 3, // the route's first this many metres say whether the walk goes in or out
+  compassCheckDeg: 45, // the compass further than this from the door's heading: a small hint, never a change
 }
 
 export const COMPASS_MAP = {
