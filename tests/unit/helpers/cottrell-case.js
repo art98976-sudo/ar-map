@@ -1,7 +1,10 @@
 // Phase 3 test cases: 100 m indoor walks in the Cottrell Building on MazeMap's real level-2 walls
 // and doors (campus-network.json), replayed through the real trip logic (replay.js) with a
 // synthetic walk that knows the truth (synth-walk.js). Used by indoor-walls-replay.test.js.
+import {readFileSync} from 'node:fs'
+import {resolve} from 'node:path'
 import * as THREE from 'three'
+import {decodeFloorTile} from '../../../src/ar/mazemap-floor.js'
 import network from '../../../src/data/campus-network.json'
 import {createArTrip} from '../../../src/ar/trip.js'
 import {synthWalk} from '../../../src/replay/synth-walk.js'
@@ -18,12 +21,47 @@ const ll = ([x, y]) => {
   return [p.lng, p.lat]
 }
 
+// Item 9: MazeMap's own stair and lift shapes, from the recorded Cottrell tile (level 2, zoom 18,
+// tests/fixtures/mazemap-tiles). Only that one tile is recorded (MazeMap is out of this sandbox's
+// reach), so it covers two stair cores and two lifts. A stair core or a lift shaft stands straight
+// up, so its level-2 footprint is used on the floors above and below it too.
+const RECORDED_TILE = {file: 'tests/fixtures/mazemap-tiles/2.0-18-128217-81440.mvt', x: 128217, y: 81440, z: 18}
+let recorded = null
+function recordedShafts() {
+  if (recorded) return recorded
+  const raw = decodeFloorTile(readFileSync(resolve(process.cwd(), RECORDED_TILE.file)), RECORDED_TILE)
+  const local = (s, type) => ({type, id: s.id, polygon: s.polygon, ring: s.polygon[0].map(([lng, lat]) => toLocal(CAMPUS_ORIGIN, {lat, lng}))})
+  recorded = [...raw.stairs.map((s) => local(s, 'stairs')), ...raw.lifts.map((s) => local(s, 'lift'))]
+  return recorded
+}
+const inRing = (ring, p) => {
+  let inside = false
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [a, b] = [ring[i], ring[j]]
+    if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) inside = !inside
+  }
+  return inside
+}
+/** The recorded MazeMap shape of this stair or lift node, or null when none was recorded there. */
+export function recordedShaftFor(n) {
+  return recordedShafts().find((s) => s.type === n.type && inRing(s.ring, n)) ?? null
+}
+
 /** One Cottrell floor as mazemap-floor.js returns it: walls, doors, and stair and lift shapes. */
-function floorOf(level, box) {
+function floorOf(level, box, {shapes = 'recorded'} = {}) {
   const near = (ring) => ring.some(([x, y]) => x >= box.x0 && x <= box.x1 && y >= box.y0 && y <= box.y1)
-  // The network keeps stairs and lifts as nodes: a 3 m square around each stands for MazeMap's shape.
-  const shape = (n) => [[[n.x - 1.5, n.y - 1.5], [n.x + 1.5, n.y - 1.5], [n.x + 1.5, n.y + 1.5], [n.x - 1.5, n.y + 1.5], [n.x - 1.5, n.y - 1.5]].map(ll)]
-  const shafts = (type) => network.nodes.filter((n) => n.z === level && n.type === type && near([[n.x, n.y]])).map((n) => ({id: n.id, polygon: shape(n)}))
+  // Where no shape was recorded: a 3 m square around the network's node stands for MazeMap's.
+  const square = (n) => [[[n.x - 1.5, n.y - 1.5], [n.x + 1.5, n.y - 1.5], [n.x + 1.5, n.y + 1.5], [n.x - 1.5, n.y + 1.5], [n.x - 1.5, n.y - 1.5]].map(ll)]
+  const shafts = (type) => {
+    const out = new Map()
+    for (const n of network.nodes.filter((m) => m.z === level && m.type === type && near([[m.x, m.y]]))) {
+      const real = shapes === 'recorded' ? recordedShaftFor(n) : null
+      // Several nodes can sit in one recorded shape: it is one stair or lift.
+      if (real) out.set(`r${real.id}`, {id: real.id, polygon: real.polygon, recorded: true})
+      else out.set(n.id, {id: n.id, polygon: square(n), recorded: false})
+    }
+    return [...out.values()]
+  }
   return {
     level,
     walls: network.areas.blocked.filter((w) => w.kind === 'wall' && w.z === level && near(w.polygon[0])).map((w, i) => ({id: `w${level}-${i}`, polygon: w.polygon.map((ring) => ring.map(ll))})),
@@ -40,7 +78,7 @@ function floorOf(level, box) {
  * A route through Cottrell between two network nodes (on any floors), and its floors. Points keep
  * their floor (z), height (h, from the network) and the kind of edge leading to them (edgeType).
  */
-export function cottrellRoute(fromId, toId, {stepFree = false} = {}) {
+export function cottrellRoute(fromId, toId, {stepFree = false, shapes = 'recorded'} = {}) {
   const node = (id) => network.nodes.find((n) => n.id === id)
   const at = (n) => ({...fromLocal(CAMPUS_ORIGIN, n), z: n.z})
   const r = routeOnNetwork(network, at(node(fromId)), at(node(toId)), {stepFree})
@@ -49,7 +87,7 @@ export function cottrellRoute(fromId, toId, {stepFree = false} = {}) {
   const ys = r.points.map((p) => p.y)
   const box = {x0: Math.min(...xs) - 30, x1: Math.max(...xs) + 30, y0: Math.min(...ys) - 30, y1: Math.max(...ys) + 30}
   const levels = [...new Set(points.map((p) => p.z).filter((z) => z !== 0))]
-  const floors = Object.fromEntries(levels.map((z) => [z, floorOf(z, box)]))
+  const floors = Object.fromEntries(levels.map((z) => [z, floorOf(z, box, {shapes})]))
   const route = {status: 'ok', source: 'mazemap', points, lengthM: r.lengthM, totalM: r.lengthM, entrance: points.at(-1), entryLevel: points[0].z}
   return {route, floors, floor: floors[points[0].z], lengthM: r.lengthM, startLevel: points[0].z, endLevel: points.at(-1).z}
 }

@@ -3,8 +3,23 @@
 // stair or rides a lift in place, with SLAM's height (and its scale and drift) as a phone sees it.
 // Done = the right floor in 20/20 changes (here 21/21), switched when the climb is done.
 import {afterAll, describe, expect, it, vi} from 'vitest'
-import {FLOOR_CASES, cottrellRoute, runCase} from './helpers/cottrell-case.js'
+import {FLOOR_CASES, cottrellRoute, recordedShaftFor, runCase} from './helpers/cottrell-case.js'
 import {floorChanges} from '../../src/replay/metrics.js'
+import {CAMPUS_ORIGIN} from '../../src/map/campus-geo.js'
+import {toLocal} from '../../src/geo/geo.js'
+
+/** Each level change on the route: did both ends get MazeMap's recorded shape (item 9)? */
+function shapeSources(route) {
+  const out = []
+  const pts = route.points
+  for (let i = 1; i < pts.length; i++) {
+    if (pts[i].z === pts[i - 1].z) continue
+    const type = pts[i].edgeType === 'lift' ? 'lift' : 'stairs'
+    const ends = [pts[i - 1], pts[i]].map((p) => recordedShaftFor({type, ...toLocal(CAMPUS_ORIGIN, p)}))
+    out.push(ends.every(Boolean) ? 'recorded' : 'square')
+  }
+  return out
+}
 
 vi.mock('../../src/ar/pin.js', async (original) => ({
   ...(await original()),
@@ -20,7 +35,8 @@ describe('floor changes on stairs and lifts', () => {
     for (const [a, b, stepFree] of FLOOR_CASES) {
       const c = cottrellRoute(a, b, {stepFree})
       const {result} = await runCase(c, ++seed)
-      for (const f of floorChanges(result)) rows.push({route: `${a}->${b}`, seed, ...f})
+      const shapes = shapeSources(c.route)
+      floorChanges(result).forEach((f, i) => rows.push({route: `${a}->${b}`, seed, shape: shapes[i] ?? '?', ...f}))
       // Start and destination in the same building: the trip never thinks the user went outdoors.
       const outdoors = result.samples.filter((x) => x.phase === 'ready' && x.floorLevel === 0)
       expect(outdoors, `${a}->${b} left the building`).toHaveLength(0)
@@ -28,9 +44,12 @@ describe('floor changes on stairs and lifts', () => {
     const flags = (r) => ['early', 'strange', 'late', 'unstable'].filter((k) => r[k]).join(' ')
     process.stdout.write(
       '\nPHASE 4: floor changes (Cottrell)\n' +
-        rows.map((r) => `  ${r.ok ? 'OK  ' : 'FAIL'} ${r.route} ${r.kind} ${r.from}->${r.to}: landing ${r.landingM} m ${flags(r)}`).join('\n') +
-        `\n  right floor: ${rows.filter((r) => r.ok).length}/${rows.length}\n`,
+        rows.map((r) => `  ${r.ok ? 'OK  ' : 'FAIL'} ${r.route} ${r.kind} ${r.from}->${r.to} (${r.shape} shape): landing ${r.landingM} m ${flags(r)}`).join('\n') +
+        `\n  right floor: ${rows.filter((r) => r.ok).length}/${rows.length}` +
+        `; on MazeMap's recorded shapes: ${rows.filter((r) => r.ok && r.shape === 'recorded').length}/${rows.filter((r) => r.shape === 'recorded').length}\n`,
     )
+    // The recorded tile holds two stair cores; every change through them uses the real shape.
+    expect(rows.filter((r) => r.shape === 'recorded').length).toBeGreaterThanOrEqual(8)
     expect(rows.length).toBeGreaterThanOrEqual(20)
     expect(rows.filter((r) => r.ok).length).toBe(rows.length)
   }, 900_000)
