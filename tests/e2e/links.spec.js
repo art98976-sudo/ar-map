@@ -24,12 +24,17 @@ test.describe('place links', () => {
   })
 
   test('shows a loading card while it looks the room up', async ({page}) => {
+    // Hold the lookup until the loading card has been seen. A fixed delay raced the page's load
+    // event, which waits for the MazeMap script and can take longer than the delay.
+    let release
+    const held = new Promise((r) => (release = r))
     await page.route('https://api.mazemap.com/api/pois/**', async (route) => {
-      await new Promise((r) => setTimeout(r, 1500))
+      await held
       await route.continue()
     })
-    await page.goto('/#/?to=mm-1002085033')
-    await expect(page.locator('.dest-sheet__name')).toHaveText('Finding the place…')
+    await page.goto('/#/?to=mm-1002085033', {waitUntil: 'domcontentloaded'})
+    await expect(page.locator('.dest-sheet__name')).toHaveText('Finding the place…', {timeout: 30_000})
+    release()
     await expect(page.locator('.dest-sheet__name')).toHaveText('A3 Lecture Theatre', {timeout: 30_000})
   })
 
