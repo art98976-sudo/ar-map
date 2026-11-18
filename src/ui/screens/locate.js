@@ -21,7 +21,7 @@ import {locationErrorCopy} from './locate-errors.js'
 import {googleMapsWalkingUrl, leavesAfterEntering, planRoute, saveTripRoute, tripLengthM, walkingMinutes} from '../../route/route.js'
 import {getStart, isManual, startLabel} from '../../route/start-point.js'
 import {gpsStartDecision} from '../../route/ar-start.js'
-import {doorStartPoint, doorwaySides, mapHeadingStart, pickDoorRoute, rankDoors, resolveDoorHeading} from '../../route/door-start.js'
+import {doorStartPoint, doorwaySides, leavesSameBuilding, mapHeadingStart, pickDoorRoute, rankDoors, resolveDoorHeading} from '../../route/door-start.js'
 import {fromLocal, toLocal} from '../../geo/geo.js'
 import {whereSheet} from '../components/where-sheet.js'
 import {formatDistance} from '../../ar/pin.js'
@@ -295,6 +295,7 @@ export function locateScreen(root, {navigate, params}) {
       // Phase 5: a destination in the door's own building is reached without going back outside.
       const sameBuilding = await sameBuildingAs(door)
       const best = pickDoorRoute(planned, {sameBuilding, lengthOf: tripLengthM, leaves: (r) => leavesAfterEntering([...r.points, ...(r.indoorPoints ?? []).slice(1)])})
+      console.info('[locate] door routes', planned.map((p) => ({side: p.side, status: p.route.status, m: p.route.status === 'ok' ? Math.round(tripLengthM(p.route)) : null, leaves: p.route.status === 'ok' ? leavesAfterEntering([...p.route.points, ...(p.route.indoorPoints ?? []).slice(1)]) : null})))
       if (disposed) return
       if (!best) {
         const route = planned.find((p) => p.route.reason === 'floor-data-unavailable')?.route ?? planned[0].route
@@ -314,7 +315,7 @@ export function locateScreen(root, {navigate, params}) {
         : {type: 'map', name: label?.name ?? door.buildingName ?? 'Door', entranceName: null, lat: best.at.lat, lng: best.at.lng, headingDeg: null, facing: null}
       const origin = {lat: best.at.lat, lng: best.at.lng, ...(start.floor != null ? {floor: start.floor, z: start.floor} : {})}
       saveTripRoute({...best.route, destinationId: destination.id, origin, start, plannedAt: Date.now()})
-      console.info('[locate] door start', {facing: start.doorFacing, headingDeg: start.headingDeg, source: heading?.source, side: best.side})
+      console.info('[locate] door start', {facing: start.doorFacing, headingDeg: start.headingDeg, source: heading?.source, side: best.side, sameBuilding})
       const body = root.querySelector('[data-body]')
       if (body) body.textContent = `${formatDistance(tripLengthM(best.route))} walk, about ${walkingMinutes(tripLengthM(best.route))} min. Opening the camera…`
       continueTimer = setTimeout(() => {
@@ -328,14 +329,34 @@ export function locateScreen(root, {navigate, params}) {
     }
   }
 
+  /** Item 6: does the planned walk leave the building the start and the destination are both in? */
+  async function leavesOwnBuilding(route) {
+    try {
+      const mod = await loadDoorData()
+      const list = (await mod.loadBuildingShapes()) ?? []
+      const verdict = leavesSameBuilding({
+        startBuildingId: mod.buildingAt(startPoint, list)?.id ?? null,
+        destinationBuildingId: mod.buildingAt({lat: destination.lat, lng: destination.lng}, list)?.id ?? null,
+        leaves: leavesAfterEntering([...route.points, ...(route.indoorPoints ?? []).slice(1)]),
+      })
+      if (verdict) console.warn('[locate] the walk leaves the building the start and destination are in')
+      return verdict
+    } catch {
+      return false
+    }
+  }
+
   /** Is the destination inside the door's building (MazeMap outlines)? False when unknown. */
   async function sameBuildingAs(door) {
     if (door.buildingId == null) return false
     try {
       const mod = await loadDoorData()
       const list = await mod.loadBuildingShapes()
-      return Boolean(list) && mod.buildingAt({lat: destination.lat, lng: destination.lng}, list)?.id === door.buildingId
-    } catch {
+      const at = mod.buildingAt({lat: destination.lat, lng: destination.lng}, list ?? [])
+      console.info('[locate] destination building', {door: door.buildingId, destination: at?.id ?? null})
+      return Boolean(list) && at?.id === door.buildingId
+    } catch (err) {
+      console.warn('[locate] same-building check failed', err?.message)
       return false
     }
   }
@@ -423,6 +444,12 @@ export function locateScreen(root, {navigate, params}) {
         return showError(route.status === 'no-indoor-route' ? 'no-indoor-route' : 'no-route')
       }
       const decorated = decorate ? await decorate(route) : null
+      if (disposed) return
+      // A room or pin in the destination's own building, on a way that goes outside and back in.
+      if (manualStart && (await leavesOwnBuilding(route))) {
+        route.leavesBuilding = true
+        showToast('This way goes outside and back in: the map has no way through inside.', {tone: 'warning', duration: 6000})
+      }
       if (disposed) return
       saveTripRoute({...route, destinationId: destination.id, origin: decorated?.origin ?? fix, start: decorated?.start ?? (manualStart ? startPoint : null), plannedAt: Date.now()})
       if (body) body.textContent = `${formatDistance(tripLengthM(route))} walk, about ${walkingMinutes(tripLengthM(route))} min. Opening the camera…`

@@ -4,7 +4,7 @@ import {describe, expect, it} from 'vitest'
 import {createFloorWatch, routeFloorLinks} from '../../src/ar/floor-change.js'
 import {createCorridorGuard, nearestCorridorPoint, wallRules} from '../../src/ar/corridor-guard.js'
 import {leavesAfterEntering} from '../../src/route/route.js'
-import {pickDoorRoute} from '../../src/route/door-start.js'
+import {leavesSameBuilding, pickDoorRoute} from '../../src/route/door-start.js'
 import {fromLocal} from '../../src/geo/geo.js'
 import {FLOOR_CHANGE} from '../../src/config.js'
 
@@ -114,6 +114,7 @@ describe('staying inside the building', () => {
     expect(leavesAfterEntering(inThenOut)).toBe(true)
     expect(leavesAfterEntering([{z: 0}, {z: 1}, {z: 2}])).toBe(false)
     expect(leavesAfterEntering([{z: 1}, {z: 2}])).toBe(false)
+    expect(leavesAfterEntering([{z: 1}, {z: 1}, {lat: 1, lng: 2}])).toBe(false) // the entrance appended, no level
   })
 
   it('from a door to a room in the same building: the way that stays inside, even if longer', () => {
@@ -125,5 +126,12 @@ describe('staying inside the building', () => {
     expect(pickDoorRoute(planned, {...opts, sameBuilding: true}).side).toBe('inside')
     expect(pickDoorRoute(planned, {...opts, sameBuilding: false}).side).toBe('outside') // another building: shorter
     expect(pickDoorRoute([{route: {status: 'error'}}], {...opts, sameBuilding: true})).toBeNull()
+  })
+
+  it('a room or pin start in the same building is told when the walk goes out and back in', () => {
+    expect(leavesSameBuilding({startBuildingId: 1, destinationBuildingId: 1, leaves: true})).toBe(true)
+    expect(leavesSameBuilding({startBuildingId: 1, destinationBuildingId: 1, leaves: false})).toBe(false)
+    expect(leavesSameBuilding({startBuildingId: 1, destinationBuildingId: 2, leaves: true})).toBe(false) // another building
+    expect(leavesSameBuilding({startBuildingId: null, destinationBuildingId: null, leaves: true})).toBe(false) // a pin outdoors
   })
 })

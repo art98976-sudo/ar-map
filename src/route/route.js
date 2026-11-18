@@ -102,9 +102,10 @@ async function mazemapRoute(from, to, {signal, targetZ = 0, stepFree = false} = 
 export function leavesAfterEntering(points) {
   let inside = false
   for (const p of points ?? []) {
-    const indoor = Number.isFinite(p.z) && p.z !== 0
-    if (indoor) inside = true
-    else if (inside) return true
+    // Only MazeMap's outdoor level (z 0) is outdoors. A point with no level (the destination's
+    // entrance appended to the end of the walk) says nothing about leaving the building.
+    if (Number.isFinite(p.z) && p.z !== 0) inside = true
+    else if (inside && p.z === 0) return true
   }
   return false
 }

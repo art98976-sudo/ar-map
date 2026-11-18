@@ -238,6 +238,16 @@ function doorCrossingsNear(route, doors, maxS) {
   return null
 }
 
+/**
+ * Items 6-7, for any start: the start and the destination are in the same building (MazeMap
+ * building ids, null when outside every outline) and the walk goes outside and back in. A door start
+ * avoids it by choosing (pickDoorRoute); a room or a pin cannot: MazeMap is the only router, so the
+ * trip is told. Returns true when it should be.
+ */
+export function leavesSameBuilding({startBuildingId, destinationBuildingId, leaves}) {
+  return startBuildingId != null && startBuildingId === destinationBuildingId && Boolean(leaves)
+}
+
 /** Two points to plan from: just inside the doorway (on its floor) and just outside it. */
 export function doorwaySides(door, stepM = AR_START.stepOffM) {
   const v = fromBearing(door.inwardDeg)
