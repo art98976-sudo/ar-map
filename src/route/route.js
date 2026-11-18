@@ -168,9 +168,22 @@ export async function planRoute(from, dest, {mazemap = mazemapRoute, fit = fitWi
       // A room: route to its own floor. Step-free: MazeMap's route without stairs.
       const targetZ = dest?.category === 'room' && Number.isFinite(dest.floor) ? dest.floor : 0
       // Step 2: the route fitted to MazeMap's own floors is the only route from here on.
-      const mm = await fit(await mazemap(from, to, {targetZ, stepFree}), {from})
-      if (startsIndoors && mm.fitted?.sceneLoaded === false) return {status: 'no-indoor-route', source: 'mazemap', reason: 'floor-data-unavailable'}
-      if (mm.points.length >= 2) {
+      const planned = await mazemap(from, to, {targetZ, stepFree})
+      let mm
+      try {
+        mm = await fit(planned, {from})
+      } catch (err) {
+        console.warn('[route] could not fit the route to the building', err?.message)
+        mm = {...planned, fitted: {sceneLoaded: false}}
+      }
+      // Fix 1: the floors did not load (after one retry). A trip that starts or ends indoors must
+      // not fall back to an outdoor-only route: AR would point the wrong way. Wherever it starts.
+      const floorsMissing = mm.fitted?.sceneLoaded === false
+      if (floorsMissing && (startsIndoors || mm.endsIndoor || (dest?.category === 'room' && mm.indoor))) {
+        // MazeMap's own line, unfitted: good enough for the 2D map, never for AR.
+        return {status: 'no-indoor-route', source: 'mazemap', reason: 'floor-data-unavailable', preview: planned.points}
+      }
+      if (mm.points.length >= 2 && !(floorsMissing && mm.indoor)) {
         if (!mm.indoor) return done(mm.points, 'mazemap', to, {fitted: mm.fitted})
         // The walk ends at the door; the card also wants the whole way to the room and its floor.
         if (mm.endsIndoor && mm.outdoorPoints.length >= 2) {
@@ -248,7 +261,7 @@ async function fitWithScene(mm, {from} = {}) {
     return await fitMazeMapRoute(mm, {from})
   } catch (err) {
     console.warn('[route] could not fit the route to the building', err?.message)
-    return mm
+    return {...mm, fitted: {sceneLoaded: false}}
   }
 }
 

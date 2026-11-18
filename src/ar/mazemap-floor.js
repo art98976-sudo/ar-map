@@ -88,20 +88,45 @@ export function boxAround(centre, metres) {
   return {west: sw.lng, east: ne.lng, south: sw.lat, north: ne.lat}
 }
 
-/** Fetch one floor level over a box. Missing tiles (outside any building) are simply empty. */
+// Decoded tiles, kept for the session so the floors a destination needs are loaded once (when the
+// destination is picked) and are already there when the user taps Go. One cache per fetch
+// function, so tests with their own fetch never share it. Failures are never cached.
+let tileCaches = new WeakMap()
+
+/** Forget every cached floor tile (tests). */
+export function clearFloorCache() {
+  tileCaches = new WeakMap()
+}
+
+/** HTTP statuses that mean "no floor drawn here", a real answer: the tile is empty. */
+const EMPTY_TILE = new Set([204, 404])
+
+/** One tile, from the cache or the network. Rejects on a network error or a server error. */
+function loadTile(level, t, fetchImpl, signal) {
+  const url = tileUrl(level, t)
+  let cache = tileCaches.get(fetchImpl)
+  if (!cache) tileCaches.set(fetchImpl, (cache = new Map()))
+  if (cache.has(url)) return cache.get(url)
+  const load = (async () => {
+    const res = await fetchImpl(url, {signal})
+    if (!res.ok) {
+      if (EMPTY_TILE.has(res.status)) return null
+      throw new Error(`floor tile HTTP ${res.status}`)
+    }
+    return decodeFloorTile(await res.arrayBuffer(), t)
+  })()
+  cache.set(url, load)
+  load.catch(() => cache.delete(url)) // a failure is tried again next time
+  return load
+}
+
+/**
+ * Fetch one floor level over a box. Missing tiles (outside any building) are simply empty, but a
+ * tile that could not be downloaded fails the whole floor: a floor without its walls must never
+ * pass for a loaded one.
+ */
 export async function fetchFloor(level, box, {fetchImpl = fetch, signal} = {}) {
   const tiles = tilesFor(box)
-  const parts = await Promise.all(
-    tiles.map(async (t) => {
-      try {
-        const res = await fetchImpl(tileUrl(level, t), {signal})
-        if (!res.ok) return null
-        return decodeFloorTile(await res.arrayBuffer(), t)
-      } catch (err) {
-        if (err?.name === 'AbortError') throw err
-        return null
-      }
-    }),
-  )
+  const parts = await Promise.all(tiles.map((t) => loadTile(level, t, fetchImpl, signal)))
   return {level, box, ...mergeFloor(parts.filter(Boolean))}
 }

@@ -30,21 +30,26 @@ const failingGps = (code) => {
 }
 
 test.describe('location step', () => {
-  test('first time: one screen says what each permission is for, once', async ({page}, testInfo) => {
+  test('a direct link (no tap yet): one screen says what each permission is for, then one tap', async ({page}, testInfo) => {
     test.skip(onlyOn('desktop-chrome')(testInfo))
     await page.addInitScript(controllableGps)
     await page.goto('/#/locate?to=library&force=1')
-    await expect(page.getByRole('heading', {name: 'Before we start'})).toBeVisible({timeout: 15_000})
-    const lines = page.locator('[data-guide] li')
-    await expect(lines).toHaveText([
+    await expect(page.getByRole('heading', {name: 'Ready when you are'})).toBeVisible({timeout: 15_000})
+    await expect(page.getByRole('heading', {name: 'Before we start'})).toHaveCount(0)
+    await expect(page.locator('[data-guide] li')).toHaveText([
       'We use your camera to show arrows',
       'We use your location to find the route',
       'We use motion to keep the arrows on the floor',
     ])
-    await page.getByRole('button', {name: 'Tap to start'}).click()
-    await page.reload()
-    await expect(page.getByRole('heading', {name: 'Ready when you are'})).toBeVisible({timeout: 15_000})
-    await expect(page.locator('[data-guide]')).toHaveCount(0)
+  })
+
+  test('a chosen start: the guide says where the walk starts, not that it uses the location', async ({page}, testInfo) => {
+    test.skip(onlyOn('desktop-chrome')(testInfo))
+    await page.addInitScript(() => {
+      sessionStorage.setItem('welcomeAR.start.v1', JSON.stringify({type: 'place', placeId: 'library', name: 'Library', entranceName: 'main entrance', lat: 56.14525, lng: -3.9201}))
+    })
+    await page.goto('/#/locate?to=pathfoot&force=1')
+    await expect(page.locator('[data-guide] li').nth(1)).toHaveText('Starting from Library main entrance', {timeout: 15_000})
   })
 
   test('a screen that arrives later takes focus, so a screen reader hears it', async ({page}, testInfo) => {

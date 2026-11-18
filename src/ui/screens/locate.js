@@ -26,7 +26,7 @@ import {showToast} from '../components/toast.js'
 import {focusScreen, haptic, html, onAction, render} from '../dom.js'
 import {CATEGORY_ICON, icon} from '../icons.js'
 import {GPS} from '../../config.js'
-import {GUIDE_LINES, markSeen, seen} from '../first-use.js'
+import {guideLines, markSeen} from '../first-use.js'
 
 const CONTINUE_DELAY_MS = 900
 
@@ -70,21 +70,21 @@ export function locateScreen(root, {navigate, params}) {
     </div>
   `
 
-  // ---------- tap to start: the first time, and after a reload ----------
-  // The first time it is the guide: three lines, one per prompt, in the order the phone asks.
+  // ---------- tap to start: only after a reload or a direct link ----------
+  // "Go" on the map is the tap the phone needs, so the usual way in never shows this. A reload has
+  // no tap to use, so one button asks; the lines say what each prompt is for (a chosen start does
+  // not use the location: its line says where the walk starts).
   function showTapToStart() {
-    const first = !seen('guide')
+    const lines = guideLines(manualStart ? startLabel(startPoint) : null)
     setView(
       html`
         <div class="page page--narrow page--center locate">
           <div class="locate-card">
             ${destinationCard()}
-            <h1 class="locate-card__title" tabindex="-1">${first ? 'Before we start' : 'Ready when you are'}</h1>
-            ${first
-              ? html`<ul class="guide-lines" data-guide>
-                  ${GUIDE_LINES.map((l) => html`<li>${icon(l.icon, {size: 20})}<span>${l.text}</span></li>`)}
-                </ul>`
-              : ''}
+            <h1 class="locate-card__title" tabindex="-1">Ready when you are</h1>
+            <ul class="guide-lines" data-guide>
+              ${lines.map((l) => html`<li>${icon(l.icon, {size: 20})}<span>${l.text}</span></li>`)}
+            </ul>
             <button class="btn btn--primary btn--block" type="button" data-action="tap" aria-label="Tap to start" data-autofocus>
               ${icon('camera')}<span>Tap to start</span>
             </button>
@@ -188,6 +188,7 @@ export function locateScreen(root, {navigate, params}) {
       }
       if (route.status !== 'ok') {
         stop()
+        if (route.reason === 'floor-data-unavailable') return showError('indoor-map-failed')
         return showError(route.status === 'no-indoor-route' ? 'no-indoor-route' : 'no-route')
       }
       saveTripRoute({...route, destinationId: destination.id, origin: fix, start: manualStart ? startPoint : null, plannedAt: Date.now()})
@@ -263,7 +264,10 @@ export function locateScreen(root, {navigate, params}) {
   /** Wait for the answers to the requests made in the tap, then look for a good fix. */
   async function awaitPermissions(pending) {
     tapWatch = pending.gps
-    showWaiting('Tap Allow when your phone asks', 'Your phone asks about the camera, your location and motion.')
+    showWaiting(
+      'Tap Allow when your phone asks',
+      manualStart ? `Starting from ${startLabel(startPoint)}. Your phone asks about the camera and motion.` : 'Your phone asks about the camera, your location and motion.',
+    )
     const answer = await settlePermissions(pending)
     if (disposed) return
     if (answer.camera === 'denied') return showErrorCopy(errorCopy('camera-denied', device))
@@ -292,11 +296,13 @@ export function locateScreen(root, {navigate, params}) {
             <button class="btn btn--primary btn--lg btn--block" type="button" data-action="${copy.primary.action}" aria-label="${copy.primary.label}">
               ${icon('refresh')}<span>${copy.primary.label}</span>
             </button>
-            <button class="btn btn--secondary btn--lg btn--block" type="button" data-action="choose-start">
-              ${icon('pin')}<span>Choose starting point</span>
-            </button>
-            <button class="btn btn--secondary btn--lg btn--block" type="button" data-action="map" aria-label="View 2D map instead">
-              ${icon('map')}<span>View 2D map instead</span>
+            ${copy.noStartChoice
+              ? ''
+              : html`<button class="btn btn--secondary btn--lg btn--block" type="button" data-action="choose-start">
+                  ${icon('pin')}<span>Choose starting point</span>
+                </button>`}
+            <button class="btn btn--secondary btn--lg btn--block" type="button" data-action="map" aria-label="${copy.mapLabel ?? 'View 2D map instead'}">
+              ${icon('map')}<span>${copy.mapLabel ?? 'View 2D map instead'}</span>
             </button>
           </div>
         </div>
@@ -363,7 +369,7 @@ export function locateScreen(root, {navigate, params}) {
     locationPermissionState().then((state) => {
       if (disposed) return
       if (state === 'denied' && !manualStart) showError('denied')
-      else if (permissionsAllowed() && seen('guide')) start()
+      else if (permissionsAllowed()) start()
       else showTapToStart()
     })
   }

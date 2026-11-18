@@ -44,6 +44,16 @@ export function locationErrorCopy(code, device = {os: 'other'}) {
         body: 'MazeMap could not connect a route from this floor. Choose the room and floor where you are standing, check your connection, then try again.',
         primary: {action: 'retry', label: 'Try again'},
       }
+    case 'indoor-map-failed':
+      return {
+        icon: 'map',
+        tone: 'warn',
+        title: "Indoor map didn't load",
+        body: 'The route goes inside a building, and its floor plan could not be downloaded. Without it the arrows could point the wrong way, so AR will not start.',
+        primary: {action: 'retry', label: 'Retry'},
+        mapLabel: 'Show 2D route',
+        noStartChoice: true,
+      }
     case 'timeout':
       return {
         icon: 'sun',

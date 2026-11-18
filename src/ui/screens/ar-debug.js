@@ -45,6 +45,11 @@ export function paintLiveDebug(root, s) {
     align: deg(s.yawDeg),
     segment: deg(s.debug.firstSegmentDeg),
     look: deg(s.debug.lookDeg),
+    // Fix 3: what the position and heading come from right now, and how good they are.
+    position: s.positionSource ?? '–',
+    gpsacc: Number.isFinite(s.gpsAccuracyM) ? `±${Math.round(s.gpsAccuracyM)} m${s.gpsIgnored ? ' (ignored indoors)' : ''}` : '–',
+    heading: s.headingSource ?? '–',
+    frompath: Number.isFinite(s.offRouteM) ? `${s.offRouteM.toFixed(1)} m` : '–',
   }
   for (const [name, text] of Object.entries(live)) {
     const el = root.querySelector(`[data-live="${name}"]`)

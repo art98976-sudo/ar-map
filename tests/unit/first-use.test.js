@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {GUIDE_LINES, markSeen, seen} from '../../src/ui/first-use.js'
+import {GUIDE_LINES, guideLines, markSeen, seen} from '../../src/ui/first-use.js'
 import {markerName} from '../../src/route/card-text.js'
 import {errorCopy} from '../../src/ui/screens/ar-errors.js'
 
@@ -26,6 +26,13 @@ describe('first-time guide (6.2)', () => {
   it('has three lines: camera, location, motion, in that order', () => {
     expect(GUIDE_LINES.map((l) => l.icon)).toEqual(['camera', 'pin', 'compass'])
     expect(GUIDE_LINES[0].text).toBe('We use your camera to show arrows')
+  })
+
+  it('a chosen start: the location line says where the walk starts instead', () => {
+    expect(guideLines(null)[1].text).toBe('We use your location to find the route')
+    const lines = guideLines('Library main entrance')
+    expect(lines[1].text).toBe('Starting from Library main entrance')
+    expect(lines.map((l) => l.icon)).toEqual(['camera', 'pin', 'compass'])
   })
 
   it('a refusal names the permission and says how to turn it on', () => {

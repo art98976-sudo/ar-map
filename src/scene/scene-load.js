@@ -32,12 +32,38 @@ export async function loadScene(route, origin = route[0], {fetchImpl = fetch, si
   return buildScene({route, origin, floors: Object.fromEntries(entries)})
 }
 
+/** loadScene, or a rejection after timeoutMs. */
+function loadSceneWithin(raw, fetchImpl, timeoutMs) {
+  let timer
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error('timeout')), timeoutMs)
+  })
+  return Promise.race([loadScene(raw, raw[0], {fetchImpl}), timeout]).finally(() => clearTimeout(timer))
+}
+
 /**
- * Step 2: MazeMap's route, fitted to the scene. This is the route everything uses. If the floors
- * cannot be loaded in time, the route is still fitted outdoors (the start kink) and marked so.
+ * Load the floor a destination room is on as soon as it is picked, so its tiles are cached when
+ * the user taps Go. Errors are ignored here: planning loads (and retries) the floors anyway.
+ */
+export function prefetchFloors(dest, {fetchImpl = fetch} = {}) {
+  if (dest?.category !== 'room' || !Number.isFinite(dest.floor) || !Number.isFinite(dest.lat) || !Number.isFinite(dest.lng)) return Promise.resolve(false)
+  const sw = fromLocal(dest, {x: -SCENE.marginM, y: -SCENE.marginM})
+  const ne = fromLocal(dest, {x: SCENE.marginM, y: SCENE.marginM})
+  return fetchFloor(dest.floor, {west: sw.lng, south: sw.lat, east: ne.lng, north: ne.lat}, {fetchImpl}).then(
+    () => true,
+    () => false,
+  )
+}
+
+/**
+ * Step 2: MazeMap's route, fitted to the scene. This is the route everything uses. The floors
+ * get one more try, with a longer wait, if the first load fails or times out. If they still
+ * cannot be loaded, the route is fitted outdoors only and marked `sceneLoaded: false`; the
+ * planner then refuses any route that goes indoors (route.js), so AR never shows outdoor-only
+ * arrows for an indoor trip.
  * Returns the parsed MazeMap route with fitted points, plus `fitted` for ?debug=route.
  */
-export async function fitMazeMapRoute(mm, {from = null, fetchImpl = fetch, timeoutMs = FIT.loadTimeoutMs} = {}) {
+export async function fitMazeMapRoute(mm, {from = null, fetchImpl = fetch, timeoutMs = FIT.loadTimeoutMs, retryTimeoutMs = FIT.retryTimeoutMs} = {}) {
   if (!mm.points || mm.points.length < 2) return mm
   // The route starts where the user is, so the start kink is measured from them, not from the
   // network node MazeMap began at.
@@ -50,12 +76,16 @@ export async function fitMazeMapRoute(mm, {from = null, fetchImpl = fetch, timeo
   let scene
   let sceneLoaded = true
   try {
-    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), timeoutMs))
-    scene = await Promise.race([loadScene(raw, raw[0], {fetchImpl}), timeout])
-  } catch (err) {
-    console.warn('[route] floors not loaded, fitting outdoors only', err?.message)
-    scene = buildScene({route: raw, origin: raw[0], floors: {}})
-    sceneLoaded = false
+    scene = await loadSceneWithin(raw, fetchImpl, timeoutMs)
+  } catch (first) {
+    console.warn('[route] floors not loaded, trying once more', first?.message)
+    try {
+      scene = await loadSceneWithin(raw, fetchImpl, retryTimeoutMs)
+    } catch (err) {
+      console.warn('[route] floors not loaded, fitting outdoors only', err?.message)
+      scene = buildScene({route: raw, origin: raw[0], floors: {}})
+      sceneLoaded = false
+    }
   }
   const fitted = fitRoute(scene)
   const points = fitted.latlng

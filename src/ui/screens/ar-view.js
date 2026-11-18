@@ -105,6 +105,10 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
     ${showDebug
       ? html`<section class="ar-live" data-live-debug aria-label="Live alignment">
           <dl class="ar-live__rows">
+            <div><dt>Position from</dt><dd data-live="position">–</dd></div>
+            <div><dt>GPS accuracy</dt><dd data-live="gpsacc">–</dd></div>
+            <div><dt>Heading from</dt><dd data-live="heading">–</dd></div>
+            <div><dt>From path</dt><dd data-live="frompath">–</dd></div>
             <div><dt>Compass</dt><dd data-live="compass">–</dd></div>
             <div><dt>Source</dt><dd data-live="source">–</dd></div>
             <div><dt>Tilt (beta)</dt><dd data-live="beta">–</dd></div>

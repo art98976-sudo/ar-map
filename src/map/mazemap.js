@@ -18,14 +18,26 @@ export function loadMazeMap() {
   if (window.Mazemap?.Map) return Promise.resolve(window.Mazemap)
   if (ready) return ready
 
+  // mazemap.min.css carries the Mapbox GL styles (MazeMap ships no separate mapbox-gl.css). The map
+  // checks for them when it is created and warns "missing CSS declarations for Mapbox GL JS" if
+  // they are not applied yet, so loading resolves only once the stylesheet has loaded too (or
+  // failed, or MAZEMAP.cssWaitMs has passed: the map still works without it).
+  let cssReady = Promise.resolve()
+  if (!document.querySelector('link[data-mazemap]')) {
+    const css = document.createElement('link')
+    css.rel = 'stylesheet'
+    css.href = `${MAZEMAP.scriptBase}mazemap.min.css`
+    css.dataset.mazemap = ''
+    cssReady = new Promise((done) => {
+      const timer = setTimeout(done, MAZEMAP.cssWaitMs)
+      css.onload = css.onerror = () => {
+        clearTimeout(timer)
+        done()
+      }
+    })
+    document.head.appendChild(css)
+  }
   ready = new Promise((resolve, reject) => {
-    if (!document.querySelector('link[data-mazemap]')) {
-      const css = document.createElement('link')
-      css.rel = 'stylesheet'
-      css.href = `${MAZEMAP.scriptBase}mazemap.min.css`
-      css.dataset.mazemap = ''
-      document.head.appendChild(css)
-    }
     const script = document.createElement('script')
     script.src = `${MAZEMAP.scriptBase}mazemap.min.js`
     script.async = true
@@ -45,7 +57,9 @@ export function loadMazeMap() {
       reject(new MapLoadError(navigator.onLine ? 'network' : 'offline', 'The campus map could not be downloaded.'))
     }
     document.head.appendChild(script)
-  }).catch((err) => {
+  })
+    .then((Mazemap) => cssReady.then(() => Mazemap))
+    .catch((err) => {
     ready = null // allow "Try again"
     throw err
   })

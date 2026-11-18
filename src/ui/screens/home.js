@@ -11,7 +11,7 @@ import {createHomeSheet} from '../components/home-sheet.js'
 import {showToast} from '../components/toast.js'
 import {deviceIssue} from '../../ar/device.js'
 import {startPermissionRequests} from '../../ar/permissions.js'
-import {seen} from '../first-use.js'
+import {markSeen} from '../first-use.js'
 import {openingMove} from '../opening.js'
 import {createFixWatch, locationPermissionState, readTripFix} from '../../geo/location.js'
 import {addRecent, DESTINATIONS, findDestination, setCurrentDestination} from '../../map/destinations.js'
@@ -195,6 +195,8 @@ export function homeScreen(root, {navigate, params}) {
       cardRoute = null
     }
     selected = dest
+    // Fix 1: a room's floor plan starts downloading now, so it is cached when the user taps Go.
+    import('../../scene/scene-load.js').then(({prefetchFloors}) => prefetchFloors(dest)).catch(() => {})
     setCurrentDestination(dest) // a room from the search is not in our list: this finds it after a reload
     addRecent(dest) // "Recent" in the sheet at rest: the last 3 places, however they were picked
     homeSheet?.refreshRest()
@@ -487,7 +489,12 @@ export function homeScreen(root, {navigate, params}) {
     refreshWalkText()
     try {
       const route = await planWhenStyleLoaded(instance?.map, () => planRoute(from, dest))
-      if (!route || disposed || selected !== dest || generation !== planGeneration || route.status !== 'ok') return
+      if (!route || disposed || selected !== dest || generation !== planGeneration) return
+      // The floor plan did not load: no AR route, but MazeMap's own line still shows on the 2D map.
+      if (route.reason === 'floor-data-unavailable' && route.preview?.length >= 2 && instance?.map && mapReady) {
+        drawRouteLine(instance.map, route.preview, card.offsetHeight + 40)
+      }
+      if (route.status !== 'ok') return
       cardRoute = route
       drawCardRoute()
       checkWalls(route)
@@ -710,6 +717,8 @@ export function homeScreen(root, {navigate, params}) {
   /** The loading screen fades out once the map style is ready (at once with reduced motion). */
   let fadeTimer = 0
   function fadeOutOverlay() {
+    // Only the loading screen fades: an error message stays until the user acts on it.
+    if (overlay.hidden || overlay.classList.contains('is-fading') || !overlay.querySelector('[data-map-loading]')) return
     clearTimeout(fadeTimer)
     if (prefersReducedMotion()) {
       overlay.hidden = true
@@ -783,6 +792,11 @@ export function homeScreen(root, {navigate, params}) {
           startAlignDebug()
         },
       })
+      // The loading screen leaves as soon as the style is drawn. A phone may wait a long time for
+      // the full 'load' (every first tile), so 'style.load' and the first 'idle' also count.
+      const map = instance.map
+      map.once?.('style.load', () => !disposed && fadeOutOverlay())
+      map.once?.('idle', () => !disposed && fadeOutOverlay())
     } catch (err) {
       console.warn('[home] map load failed', err)
       showMapError(err)
@@ -863,9 +877,12 @@ export function homeScreen(root, {navigate, params}) {
       btn.setAttribute('aria-expanded', String(!panel.hidden))
     },
     walk: () => {
-      // First, inside the tap: iPhone only shows the motion prompt here. The very first time,
-      // the next screen explains the three prompts before asking.
-      if (!deviceIssue(forced) && seen('guide')) startPermissionRequests({gps: !isManual(getStart())})
+      // First, inside the tap: iPhone only shows the camera and motion prompts in a user gesture,
+      // and this tap on Go is that gesture. No extra "Before we start" step: the camera opens next.
+      if (!deviceIssue(forced)) {
+        startPermissionRequests({gps: !isManual(getStart())})
+        markSeen('guide')
+      }
       setCurrentDestination(selected)
       const next = new URLSearchParams({to: selected.id})
       if (forced) next.set('force', '1')

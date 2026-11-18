@@ -21,6 +21,7 @@ export const MAZEMAP = {
   zoom: 15.6,
   // Fail with a clear message instead of a blank map when the network is slow.
   loadTimeoutMs: 15000,
+  cssWaitMs: 4000, // the map waits at most this for its stylesheet (mazemap.min.css)
 }
 
 export const XR = {
@@ -206,7 +207,8 @@ export const FIT = {
   startLookM: 60, // the start kink is looked for in the first this many metres
   startSnapM: 25, // the start joins the route at its nearest point within this
   startMinSaveM: 2, // and removed if going straight saves at least this much
-  loadTimeoutMs: 6000, // the floors for fitting: past this, fit outdoors only
+  loadTimeoutMs: 6000, // the floors for fitting: past this, try once more...
+  retryTimeoutMs: 12000, // ...with this long; still nothing: an indoor trip gets no AR route (Fix 1)
 }
 
 // Step 3: the floor height comes from the scene; the camera only refines it, silently.
@@ -363,6 +365,20 @@ export const NAV_SCENE = {
 }
 
 // One AR trip, from Start to arrival.
+// Fix 3: at the building entrance the AR path is re-anchored to the door (known from MazeMap) and
+// to the corridor direction behind it; indoors SLAM carries the position, not GPS.
+export const ENTRANCE = {
+  beforeM: 0.5, // route progress from this far before the door...
+  nearM: 2, // ...to this far after it: re-anchor on the door, once
+  walkM: 3, // the last this many metres walked give the walking direction
+  minWalkM: 2, // less walked than this: anchor the position only, not the heading
+  corridorM: 3, // the route's direction through the door: from this far before it to this far after
+  maxTurnDeg: 40, // a heading correction bigger than this is not trusted (a sidestep, not drift)
+  outsideFixes: 3, // indoors, this many good GPS fixes in a row mean the user has gone back outside
+  outsideAccuracyM: 10, // "good" for that test
+  holdSwingDeg: 20, // the compass swinging more than this (near steel or concrete): keep the last good heading
+}
+
 export const TRIP = {
   uprightMaxTilt: 0.55, // |forward.y|: about 33° up or down from level
   firstHeadingWindowMs: 500, // the Start tap averages this much compass history
@@ -381,6 +397,7 @@ export const TRIP = {
   liveFixes: 3, // good GPS this many times running: offer to switch to it
   repickForS: 20, // how long to offer choosing the start again, after going off route
   campusCheckEveryS: 1,
+  entranceLabelS: 3, // ?debug=1: "entrance anchor" shows this long after the re-anchor, then "SLAM"
   instructionEveryS: 0.5,
 }
 

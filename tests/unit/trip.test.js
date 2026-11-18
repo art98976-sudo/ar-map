@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import {requestCameraPermission} from '../../src/ar/permissions.js'
 import {startCompass, topEdgeHeading} from '../../src/ar/compass.js'
 import {alignmentYaw, bearingAlong, createNavScene, rotateY, snapToRoute} from '../../src/ar/nav-scene.js'
-import {pointAt, shortestTurn} from '../../src/geo/geo.js'
+import {distanceM, pointAt, shortestTurn} from '../../src/geo/geo.js'
 import {createArTrip} from '../../src/ar/trip.js'
 
 // The real pin draws its label on a 2D canvas, which the test DOM does not have.
@@ -654,6 +654,7 @@ describe('walking beats the compass', () => {
       compass({webkitCompassHeading: now, webkitCompassAccuracy: accuracy})
       trip.onTick({dt: 0.05, time: 1000 + i++ * 0.05})
     }
+    extra.startBeforeFix?.()
     frame()
     expect(trip.start()).toBe('ok')
     const walk = (metres) => {
@@ -1038,6 +1039,125 @@ describe('walking beats the compass', () => {
     onFix?.({coords: {latitude: ORIGIN.lat, longitude: ORIGIN.lng, accuracy: 60}})
     for (let i = 0; i < 6 / 0.05; i++) t.frame()
     expect(t.box.stats.positionUncertain).toBe(false)
+    t.done()
+  })
+
+  it('Fix 2: a manual start anchors the route at that spot, not at a GPS fix 20 m away', () => {
+    let onFix
+    // The chosen door is 30 m up the route; GPS (good, ±5 m) says the user is 20 m east of it.
+    const door = {type: 'place', placeId: 'library', name: 'Library', entranceName: 'main entrance', lat: ORIGIN.lat + 30 / 111_320, lng: ORIGIN.lng}
+    const gpsWatch = {watchPosition: (ok) => ((onFix = ok), 1), clearWatch: () => {}}
+    const gps = {latitude: door.lat, longitude: door.lng + 20 / 62_300, accuracy: 5}
+    const t = startTrip(0, {startPoint: door, origin: door, geolocation: gpsWatch, startBeforeFix: () => onFix?.({coords: gps})})
+    for (let i = 0; i < 4; i++) {
+      onFix?.({coords: gps})
+      t.frame()
+    }
+    expect(distanceM(t.trip.mapState().user, door)).toBeLessThan(0.5)
+    expect(t.box.stats.positionSource).toBe("manual")
+    t.done()
+  })
+
+  it('Fix 2: a GPS trip anchors at the GPS fix', () => {
+    let onFix
+    const fixAt = {lat: ORIGIN.lat + 30 / 111_320, lng: ORIGIN.lng}
+    const t = startTrip(0, {
+      geolocation: {watchPosition: (ok) => ((onFix = ok), 1), clearWatch: () => {}},
+      startBeforeFix: () => onFix?.({coords: {latitude: fixAt.lat, longitude: fixAt.lng, accuracy: 5}}),
+    })
+    for (let i = 0; i < 6; i++) t.frame() // stats go out every 0.25 s
+    expect(distanceM(t.trip.mapState().user, fixAt)).toBeLessThan(1)
+    expect(t.box.stats.positionSource).toBe('GPS')
+    t.done()
+  })
+
+  it('Fix 3: at the entrance the path re-anchors on the door; indoors a GPS fix no longer moves the position', () => {
+    let onFix
+    const door = {lat: ORIGIN.lat + 20 / 111_320, lng: ORIGIN.lng}
+    const end = {lat: ORIGIN.lat + 40 / 111_320, lng: ORIGIN.lng, z: 1}
+    const route = {
+      points: [{...ORIGIN, z: 0}, {...door, z: 0}],
+      indoorPoints: [{...door, z: 1}, end],
+      entrance: door,
+      lengthM: 20,
+      source: 'mazemap',
+    }
+    const t = startTrip(0, {
+      route,
+      destination: {name: 'A3', category: 'room', floor: 1},
+      geolocation: {watchPosition: (ok) => ((onFix = ok), 1), clearWatch: () => {}},
+      startBeforeFix: () => onFix?.({coords: {latitude: ORIGIN.lat, longitude: ORIGIN.lng, accuracy: 5}}),
+    })
+    t.walk(12)
+    for (let i = 0; i < 6; i++) t.frame()
+    expect(t.box.stats.entranceAnchored).toBe(false)
+    expect(t.box.stats.positionSource).toBe('GPS')
+    t.walk(7.5) // route progress reaches the door
+    for (let i = 0; i < 6; i++) t.frame()
+    expect(t.box.stats.entranceAnchored).toBe(true)
+    expect(t.box.stats.positionSource).toBe('entrance anchor')
+    expect(t.box.stats.headingSource).toBe('entrance (SLAM)')
+    near(t.box.stats.userS, 20, 0.6) // on the door
+    // Indoors: an indoor-quality fix 15 m away is ignored; SLAM carries the position.
+    const s = t.box.stats.userS
+    onFix({coords: {latitude: door.lat + 15 / 111_320, longitude: door.lng + 15 / 62_300, accuracy: 30}})
+    for (let i = 0; i < 70; i++) t.frame() // 3.5 s, without walking
+    expect(t.box.stats.gpsIgnored).toBe(true)
+    expect(t.box.stats.positionSource).toBe('SLAM')
+    near(t.box.stats.userS, s, 0.3)
+    t.done()
+  })
+
+  it('Fix 3: a path placed 15° off by the compass is turned straight at the door, by the way the user walked in', () => {
+    const door = {lat: ORIGIN.lat + 5 / 111_320, lng: ORIGIN.lng}
+    const route = {
+      points: [{...ORIGIN, z: 0}, {...door, z: 0}],
+      indoorPoints: [{...door, z: 1}, {lat: ORIGIN.lat + 30 / 111_320, lng: ORIGIN.lng, z: 1}],
+      entrance: door,
+      lengthM: 5,
+      source: 'mazemap',
+    }
+    // The camera faces true north (the corridor); the compass says 15°.
+    const t = startTrip(15, {route, startPoint: {type: 'place', name: 'Library', lat: ORIGIN.lat, lng: ORIGIN.lng}, destination: {name: 'A3', category: 'room', floor: 1}})
+    for (let i = 0; i < 6; i++) t.frame()
+    near(Math.abs(wrapped(t.box.stats.yawDeg)), 15, 1)
+    t.walk(5.5)
+    for (let i = 0; i < 6; i++) t.frame()
+    expect(t.box.stats.entranceAnchored).toBe(true)
+    near(wrapped(t.box.stats.yawDeg), 0, 3)
+    t.done()
+  })
+
+  it('Fix 3: a compass swinging more than 20° does not turn the arrows; the last good heading is kept', () => {
+    const t = startTrip(0)
+    for (let i = 0; i < 10; i++) t.frame()
+    const before = t.trip.guideDeg
+    for (let i = 0; i < 40; i++) {
+      t.faceNorth(i % 4 < 2 ? 25 : 335) // swings ±25° while the phone holds still
+      t.frame()
+    }
+    expect(t.box.stats.headingSwingDeg).toBeGreaterThan(20)
+    expect(t.box.stats.headingSource).toBe('compass (held, swinging)')
+    if (t.trip.guideDeg != null) near(t.trip.guideDeg, before, 2)
+    t.done()
+  })
+
+  it('a reroute keeps the indoor part: the arrows still go in through the door to the room', async () => {
+    const door = {lat: ORIGIN.lat + 20 / 111_320, lng: ORIGIN.lng}
+    const room = {lat: ORIGIN.lat + 40 / 111_320, lng: ORIGIN.lng, z: 1}
+    const planned = {status: 'ok', source: 'mazemap', lengthM: 20, entrance: door, points: [{...ORIGIN, z: 0}, {...door, z: 0}], indoorPoints: [{...door, z: 1}, room]}
+    const plan = vi.fn(async () => planned)
+    let onFix
+    const t = startTrip(0, {route: planned, plan, destination: {name: 'A3', category: 'room', floor: 1}, geolocation: {watchPosition: (ok) => ((onFix = ok), 1), clearWatch: () => {}}})
+    onFix({coords: {latitude: ORIGIN.lat, longitude: ORIGIN.lng + 40 / 62_000, accuracy: 10}})
+    t.sidestep(40)
+    for (let i = 0; i < 5.2 / 0.05; i++) t.frame()
+    expect(plan).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(0)
+    for (let i = 0; i < 6; i++) t.frame()
+    // The route still ends at the room, 40 m north, not at the door 20 m north.
+    const [, lat] = t.trip.mapState().routeCoords.at(-1)
+    expect(Math.abs(lat - room.lat)).toBeLessThan(2e-6)
     t.done()
   })
 

@@ -16,7 +16,7 @@
 // While walking, map matching (route-matcher.js) lays the walked track onto the route, and hit
 // tests (ground.js) lay the route onto the real ground.
 import {circularMean, createCalibrator, isPoorAccuracy, startCompass} from './compass.js'
-import {angleDiff, distanceM, fromLocal, pointAt, polylineLength, projectOntoPolyline, toDeg, toLocal, wrap360} from '../geo/geo.js'
+import {angleDiff, distanceM, fromLocal, pointAt, polylineLength, projectOntoPolyline, toDeg, toLocal, toRad, wrap360} from '../geo/geo.js'
 import {DESTINATIONS} from '../map/destinations.js'
 import {getRoomCentre} from '../map/room-centres.js'
 import {arrowTarget, arrowYawDeg, createRouteTracker, walkingCorrection} from '../route/compass-guide.js'
@@ -35,6 +35,7 @@ import {markerName} from '../route/card-text.js'
 import {COMPASS_GUIDE, GPS, GROUND, GROUND_ARROWS, INDOOR, LINE_UP, MATCH, PIN, ROUTING, SAFETY, SCENE_FLOOR, SHELL, START, TRIP} from '../config.js'
 import {createHeightProfile} from '../scene/route-height.js'
 import {createTripLog} from './trip-log.js'
+import {createHeadingHold, createIndoorGpsGate, entranceIndex, planEntranceAnchor} from './entrance-anchor.js'
 import {networkEnabled} from '../config.js'
 
 /** Compass-style bearing of a direction: degrees clockwise from north (or from SLAM -Z). */
@@ -65,7 +66,10 @@ export function createArTrip({
   onEnterCampus,
 }) {
   // Indoor AR on: the arrows carry on through the door, along MazeMap's indoor route to the room.
-  let route = INDOOR.indoorAR && firstRoute.indoorPoints?.length >= 2 ? {...firstRoute, points: [...firstRoute.points, ...firstRoute.indoorPoints.slice(1)], entrance: firstRoute.indoorPoints.at(-1)} : firstRoute
+  // Every route the trip uses (the first one and every reroute) goes through here: a reroute that
+  // dropped the indoor part would send the arrows only to the door, outdoors.
+  const withIndoor = (r) => (INDOOR.indoorAR && r.indoorPoints?.length >= 2 ? {...r, points: [...r.points, ...r.indoorPoints.slice(1)], entrance: r.indoorPoints.at(-1)} : r)
+  let route = withIndoor(firstRoute)
   let phase = null
   let nav = null
   let camera = null
@@ -94,6 +98,18 @@ export function createArTrip({
   let arrowBearingDeg = null // where the arrow points, degrees from north (for ?fieldtest=1)
   // The one pose the map dot, map rotation, arrow, instructions, distance left and off-route all read.
   const navPose = createNavPose()
+  // Fix 3: the door the route goes in by (MazeMap's first point on a floor). Reaching it re-anchors
+  // the path there; after it SLAM carries the position and GPS only says "back outside".
+  const doorIndex = INDOOR.indoorAR && firstRoute.indoorPoints?.length >= 2 ? firstRoute.points.length - 1 : entranceIndex(route.points)
+  let doorS = null // the door's distance along nav.route, once the scene is ready
+  let entranceAnchored = false
+  let entranceAt = -Infinity
+  let walkTrack = [] // the user's recent walk in the route frame (SLAM), every ~0.25 m
+  const gpsGate = createIndoorGpsGate()
+  const headingHold = createHeadingHold()
+  let heldHeading = null
+  let gpsIgnored = false
+  let backOutside = false
   let routeLevels = levelsAlong(route.points, origin) // floor level along the route (0 outdoors)
   let cameFromOutside = !isOnCampus(origin)
   let fixesOnCampus = 0
@@ -270,6 +286,8 @@ export function createArTrip({
   function realignFromCompass(h) {
     // Once walking has shown the compass is badly wrong, it could only turn the route back.
     if (!directionKnown || matcher.flipped || compassOff || !compassMayTurn()) return
+    // Fix 3: a compass swinging near steel or concrete never turns the arrows.
+    if (headingHold.holding) return
     // A compass that only woke up after Start: remember its error, do not act on it.
     if (compassBias == null) {
       compassBias = angleDiff(cameraBearing() + matcher.totalYawDeg, h)
@@ -329,8 +347,60 @@ export function createArTrip({
 
   function guideHeading() {
     if (directionKnown && (compassOff || matcher.locked || compassStale())) return cameraBearing()
-    if (heading != null) return recentHeading()
+    // Fix 3: while the compass swings, the last good heading.
+    if (heading != null) return headingHold.holding && heldHeading != null ? heldHeading : recentHeading()
     return directionKnown ? cameraBearing() : null
+  }
+
+  // ---------- Fix 3: the entrance, indoor GPS, and where position and heading come from ----------
+  /** Is the user inside by route progress (re-anchored at the door, or on a floor)? */
+  function indoorsNow() {
+    return entranceAnchored || levelAt(routeLevels, tracker?.s ?? 0) !== 0
+  }
+
+  function positionSourceNow(time) {
+    if (phase !== 'ready') return manual ? 'manual' : 'gps'
+    if (entranceAnchored && time - entranceAt < TRIP.entranceLabelS) return 'entrance anchor'
+    if (indoorsNow() && !backOutside) return 'SLAM'
+    return manual ? 'manual' : 'GPS'
+  }
+
+  function headingSourceNow() {
+    if (phase !== 'ready' || !directionKnown) return 'none yet'
+    if (entranceAnchored) return 'entrance (SLAM)'
+    if (lineUpTouched || compassLocked || matcher?.locked) return 'walking (SLAM)'
+    if (compassOff) return manual && Number.isFinite(startPoint?.headingDeg) ? 'door' : 'walking (SLAM)'
+    if (headingHold.holding) return 'compass (held, swinging)'
+    return heading != null ? 'compass' : 'SLAM'
+  }
+
+  /** The user's walk in the route frame, a point every 0.25 m: the direction for the door anchor. */
+  function recordWalk() {
+    const p = nav.worldToRoute({x: camera.position.x, z: camera.position.z})
+    const last = walkTrack.at(-1)
+    if (last && Math.hypot(p.x - last.x, p.y - last.y) < 0.25) return
+    walkTrack.push(p)
+    if (walkTrack.length > 40) walkTrack.shift()
+  }
+
+  /**
+   * At the door (route progress within a couple of metres of it), once: put the user on the door
+   * and turn the path so its direction through the door is the way they walked in. From then on
+   * the heading and position are SLAM's, not the compass's or GPS's.
+   */
+  function anchorAtEntrance(time) {
+    if (entranceAnchored || doorS == null || !directionKnown || tracking !== 'NORMAL' || nav.easing) return
+    if (netTrip && route.source === 'network') return // ?network=1 has its own door anchors
+    const plan = planEntranceAnchor({route: nav.route, doorS, s: tracker.s, track: walkTrack})
+    if (!plan) return
+    if (plan.turnDeg) nav.rotateAboutUser(-toRad(plan.turnDeg)) // clockwise: rotateAboutUser takes anticlockwise
+    reanchorAtLocal(plan.at)
+    entranceAnchored = true
+    entranceAt = time
+    compassOff = true
+    compassLocked = true
+    walkTrack = []
+    console.info('[trip] re-anchored at the entrance', {turnDeg: Math.round(plan.turnDeg * 10) / 10, walkedM: Math.round(plan.walkedM * 10) / 10})
   }
 
   /** Place the route and start guiding. headingDeg: the compass; null: find out by walking. */
@@ -417,6 +487,8 @@ export function createArTrip({
       useCompass: compassSteers(),
       cameraYawDeg: level ? toDeg(Math.atan2(f.x, -f.z)) : null, // the phone's own turn, clockwise
     })
+    // Fix 3: a swing of more than ENTRANCE.holdSwingDeg keeps the last good heading.
+    heldHeading = headingHold.update(heading != null && !compassStale() ? recentHeading() : null, confidenceNow.swingDeg)
     if (confidenceNow.reliable === positionOk) return
     positionOk = confidenceNow.reliable
     nav.setVisible(directionKnown && positionOk)
@@ -464,18 +536,26 @@ export function createArTrip({
 
   /** Plan again from where the user is, keeping the current placement. */
   async function reroute() {
-    const from = manual ? trackedPosition() : lastFix
-    if (!from || (!manual && from.accuracy > TRIP.rerouteFixM)) return
+    // Indoors (Fix 3) a GPS fix is noise: plan from where SLAM puts the user, on their floor.
+    const inside = indoorsNow() && !backOutside
+    const level = levelAt(routeLevels, tracker?.s ?? 0)
+    const from = inside ? {...trackedPosition(), z: level, floor: level} : manual ? trackedPosition() : lastFix
+    if (!from || (!manual && !inside && from.accuracy > TRIP.rerouteFixM)) return
     rerouting = true
     try {
-      const next = await plan(from, destination)
-      if (stopped || arrived || !nav || next.status !== 'ok') return
+      const planned = await plan(from, destination)
+      if (stopped || arrived || !nav || planned.status !== 'ok') return
+      const next = withIndoor(planned)
       route = next
       nav.setRoute(next)
       heightAt = createHeightProfile(next.points, nav.route, origin)
       routeVersion += 1
       lineCache = null
       routeLevels = levelsAlong(next.points, origin)
+      if (!entranceAnchored) {
+        const door = INDOOR.indoorAR && planned.indoorPoints?.length >= 2 ? planned.points.length - 1 : entranceIndex(next.points)
+        doorS = door > 0 ? projectOntoPolyline(nav.route, toLocal(origin, next.points[door])).s : null
+      }
       startS = nav.startInfo(from).s
       tracker = createRouteTracker(nav.route, startS)
       // The walk so far no longer has a route to fit, so matching starts afresh. Its turn stays in
@@ -647,6 +727,7 @@ export function createArTrip({
     xr = XR8
     const name = markerName(destination, route.entrance ?? null, DESTINATIONS, INDOOR.indoorAR)
     nav = createNavScene({THREE, scene, camera, route, origin, name, reducedMotion})
+    doorS = doorIndex > 0 ? projectOntoPolyline(nav.route, toLocal(origin, route.points[doorIndex])).s : null
     heightAt = createHeightProfile(route.points, nav.route, origin)
     placePinInRoom()
     matcher = createRouteMatcher(nav.route)
@@ -907,7 +988,7 @@ export function createArTrip({
     }
     if (phase === 'ready' && !arrived) {
       // A compass that recovers before walking has shown the way: use it, from where the user is.
-      if (!directionKnown && compassUsable() && compassMayTurn()) {
+      if (!directionKnown && compassUsable() && compassMayTurn() && !headingHold.holding) {
         nav.align(recentHeading(), fromLocal(origin, pointAt(nav.route, tracker.s)))
         compassBias = 0
         directionFound()
@@ -944,6 +1025,8 @@ export function createArTrip({
       nav.setGround(groundNow.height, 0, s.s)
       nav.setPinLift(heightAt(Infinity) - hUser)
       if (tracking === 'NORMAL') tracker.walk(camera.position, directionKnown ? nav.worldToRoute : null)
+      if (tracking === 'NORMAL' && directionKnown) recordWalk()
+      anchorAtEntrance(time)
       if (manual) {
         if (directionKnown && time >= campusCheckAt) {
           campusCheckAt = time + TRIP.campusCheckEveryS
@@ -951,7 +1034,11 @@ export function createArTrip({
         }
       } else if (lastFix && lastFix !== fedFix) {
         fedFix = lastFix
-        tracker.fix(toLocal(origin, lastFix), lastFix.accuracy)
+        // Fix 3: indoors a fix never moves the position; it only says the user went back outside.
+        const gate = gpsGate.update(lastFix, indoorsNow())
+        gpsIgnored = !gate.use
+        backOutside = gate.outside
+        if (gate.use) tracker.fix(toLocal(origin, lastFix), lastFix.accuracy)
         noteCampus(lastFix)
       }
       tracker.tick(dt)
@@ -1088,6 +1175,13 @@ export function createArTrip({
         // 9.2: the camera's tracked heading beside the compass, and how far apart they are.
         ...trackedHeading(),
         gpsAccuracy: lastFix?.accuracy ?? null,
+        // Fix 3, for the ?debug=1 overlay: where the position and heading come from right now.
+        positionSource: positionSourceNow(time),
+        headingSource: headingSourceNow(),
+        gpsAccuracyM: lastFix?.accuracy ?? null,
+        gpsIgnored,
+        backOutside,
+        entranceAnchored,
         gpsLat: lastFix?.lat ?? null,
         gpsLng: lastFix?.lng ?? null,
         ...trackedLatLng(),

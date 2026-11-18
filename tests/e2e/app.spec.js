@@ -47,7 +47,7 @@ test.describe('the map home', () => {
       await new Promise((r) => setTimeout(r, 1500))
       await route.continue()
     })
-    await page.goto('/')
+    await page.goto('/', {waitUntil: 'domcontentloaded'}) // not 'load': that waits for MazeMap's script
     const loading = page.locator('[data-overlay] [data-map-loading]')
     await expect(loading).toBeVisible()
     await expect(loading.getByRole('img', {name: 'University of Stirling'})).toBeVisible()
