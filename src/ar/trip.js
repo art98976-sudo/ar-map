@@ -444,17 +444,25 @@ export function createArTrip({
    * and turn the path so its direction through the door is the way they walked in. From then on
    * the heading and position are SLAM's, not the compass's or GPS's.
    */
+  let trackingBackAt = null // when tracking last came back after being lost
   function anchorAtEntrance(time) {
     // Phase 5: an easing correction no longer blocks it (the anchor replaces the placement anyway).
     if (entranceAnchored || doorS == null || !directionKnown || tracking !== 'NORMAL') return
     if (netTrip && route.source === 'network') return // ?network=1 has its own door anchors
+    // Progress stands still while tracking is lost; SLAM's own pose does not. Just after a dropout
+    // (item 5: a sharp turn in the doorway, a hand over the camera) where SLAM puts the user along
+    // the route by the door is where they really are, and the further along of the two decides.
+    // Otherwise progress alone: SLAM's position runs a little ahead of it (tried: 12/20 against 14).
+    const justBack = trackingBackAt != null && lastTime - trackingBackAt <= ENTRANCE.afterDropoutS
+    const sHere = justBack ? sNearDoor(nav.worldToRoute({x: camera.position.x, z: camera.position.z})) : null
+    const sNow = Math.max(tracker.s, sHere ?? -Infinity)
     // At the door by progress (which follows where SLAM puts the user, outdoors too: Phase 5).
-    let plan = planEntranceAnchor({route: nav.route, doorS, s: tracker.s, track: walkTrack})
-    // Past the door without it (a jump in progress): never skipped. The user is placed on the
-    // indoor route where progress says, and the record says it was late.
+    let plan = planEntranceAnchor({route: nav.route, doorS, s: sNow, track: walkTrack})
+    // Past the door without it (a jump in progress, tracking lost through the doorway): never
+    // skipped. The user is placed on the indoor route where they are, and the record says late.
     let late = false
-    if (!plan && tracker.s > doorS + ENTRANCE.nearM) {
-      plan = {s: tracker.s, at: pointAt(nav.route, tracker.s), turnDeg: 0, walkedM: 0}
+    if (!plan && sNow > doorS + ENTRANCE.nearM) {
+      plan = {s: sNow, at: pointAt(nav.route, sNow), turnDeg: 0, walkedM: 0}
       late = true
     }
     if (!plan) return
@@ -474,6 +482,18 @@ export function createArTrip({
     alignConfidence.alongFixed(tripWalkedM(), ENTRANCE.alongErrM)
     console.info('[trip] re-anchored at the entrance', {late})
     emit('entrance-anchor', {s: plan.s, late})
+  }
+
+  /** Distance along the route of point p, near the door only (either side of it), or null. */
+  function sNearDoor(p) {
+    const total = polylineLength(nav.route)
+    let best = null
+    for (let q = Math.max(0, doorS - ENTRANCE.lateBackM); q <= Math.min(total, doorS + ENTRANCE.lateAheadM); q += 0.25) {
+      const r = pointAt(nav.route, q)
+      const d = Math.hypot(r.x - p.x, r.y - p.y)
+      if (!best || d < best.d) best = {s: q, d}
+    }
+    return best && best.d <= ENTRANCE.lateNearM ? best.s : null
   }
 
   /** Place the route and start guiding. headingDeg: the compass; null: find out by walking. */
@@ -1053,6 +1073,7 @@ export function createArTrip({
     recorder?.tracking(status, reason)
     if (status !== 'NORMAL' && tracking === 'NORMAL') trackingLostAt = lastTime
     if (status === 'NORMAL') {
+      if (tracking !== 'NORMAL' && trackingLostAt != null) trackingBackAt = lastTime // item 5
       // Back after a real loss: the world may have moved, so the floor (and a tapped floor) is found again.
       if (trackingLostAt != null && lastTime - trackingLostAt > GROUND_ARROWS.trackingLostS) {
         floor.clear()

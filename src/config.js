@@ -380,6 +380,10 @@ export const ENTRANCE = {
   holdSwingDeg: 20, // the compass swinging more than this (near steel or concrete): keep the last good heading
   gpsQuietM: 25, // Phase 5: within this of the door GPS (off the facade) no longer moves the progress
   alongErrM: 1.5, // Phase 5: the entrance anchor's own error along the corridor (when outdoor progress said "door")
+  lateBackM: 5, // item 5: where SLAM puts the user is read along the route from this far before the door...
+  lateAheadM: 12, // ...to this far after it...
+  lateNearM: 3, // ...when it is this close to the route there
+  afterDropoutS: 2, // ...in the first this many seconds after tracking comes back (progress stood still)
 }
 
 export const TRIP = {
