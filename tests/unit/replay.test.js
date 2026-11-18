@@ -94,5 +94,8 @@ describe('replay through the real trip', () => {
     }
     // Printed so each phase can show before / after. Targets are asserted from Phase 3 on.
     process.stdout.write('\nBASELINE (current logic)\n' + runs.map((r) => `seed ${r.seed} ${r.start} facing ${r.facing}\n  ` + formatMetrics(r).join('\n  ')).join('\n') + '\n')
+    // Item 23: seed 5 (GPS start, facing away) had the arrows under the user pointing round the
+    // first corner for 2.7 s while the user still walked straight. No run may have one now.
+    for (const r of runs) expect(r.wrongWayMoments, `seed ${r.seed} wrong-way moments`).toBe(0)
   }, 180_000)
 })

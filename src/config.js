@@ -295,6 +295,12 @@ export const TRACK = {
   windowM: 15, // GPS can only move the user this far (plus its error) along the route
   gainAt5M: 0.35, // SLAM carries the distance: each fix only nudges it, less if it is poor
   easeS: 0.4,
+  // Item 23: at a sharp turn, walking and GPS carry the user no closer than holdM before the
+  // corner until the walk itself goes the new way (its last trailM nearer the next leg than this one).
+  // A GPS start can put the user metres ahead; without this the arrows under them turn the
+  // corner while they are still walking straight. Anchors and path matching still move them.
+  // Only after a GPS start, until the first turn is seen (trip.js): elsewhere it only adds lag.
+  corner: {minTurnDeg: 45, holdM: 1.5, trailM: 1.5, turnWindowM: 6}, // a turn this far before the corner is it (GPS-sized)
 }
 
 export const MATCH = {

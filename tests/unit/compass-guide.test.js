@@ -4,6 +4,7 @@ import {
   arrowYawDeg,
   blendBearing,
   createRouteTracker,
+  sharpCorners,
   stepBearing,
   walkingCorrection,
 } from '../../src/route/compass-guide.js'
@@ -260,3 +261,43 @@ describe('reading the direction from walking', () => {
   })
 })
 
+
+// Item 23: placed by GPS metres ahead, the progress must not turn a corner the walk has not turned.
+describe('the corner gate', () => {
+  const L = [{x: 0, y: 0}, {x: 0, y: -10}, {x: -20, y: -10}] // south 10 m, then west
+  const walkTo = (t, pts) => {
+    for (const p of pts) t.walk({x: p.x, z: -p.y}, (w) => ({x: w.x, y: -w.z}))
+  }
+  const line = (from, to, stepM = 0.3) => {
+    const n = Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / stepM)
+    return Array.from({length: n + 1}, (_, i) => ({x: from.x + ((to.x - from.x) * i) / n, y: from.y + ((to.y - from.y) * i) / n}))
+  }
+  it('finds the sharp turns, a curve of short segments as one', () => {
+    expect(sharpCorners(L).map((c) => Math.round(c.s))).toEqual([10])
+    const curve = [{x: 0, y: 0}, {x: 0, y: -10}, {x: -0.5, y: -10.8}, {x: -1.2, y: -11.2}, {x: -2, y: -11.3}, {x: -20, y: -11.3}]
+    expect(sharpCorners(curve, 45)).toHaveLength(1)
+  })
+  it('holds 1.5 m short of the corner while the walk goes straight on, and lets go when it turns', () => {
+    const t = createRouteTracker(L, 4) // placed 4 m ahead of the truth
+    t.setCornerGate(true)
+    walkTo(t, line({x: 0, y: -4}, {x: 0, y: -14})) // straight on, 10 m, past the corner
+    expect(t.s).toBeCloseTo(8.5, 1)
+    t.follow(12, {x: 0, y: -12}) // the tracked point still straight on: hold
+    expect(t.s).toBeCloseTo(8.5, 1)
+    walkTo(t, line({x: 0, y: -14}, {x: -3, y: -14})) // the walk turns west
+    expect(t.turnsSeen).toBe(1)
+    expect(t.s).toBeGreaterThanOrEqual(10)
+  })
+  it('lets the progress past when the tracked point is on the new leg', () => {
+    const t = createRouteTracker(L, 8)
+    t.setCornerGate(true)
+    t.follow(12, {x: -2, y: -10.2})
+    expect(t.s).toBe(12)
+    expect(t.turnsSeen).toBe(1)
+  })
+  it('does nothing while off', () => {
+    const t = createRouteTracker(L, 4)
+    t.follow(12, {x: 0, y: -12})
+    expect(t.s).toBe(12)
+  })
+})

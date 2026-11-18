@@ -1036,7 +1036,8 @@ export function createArTrip({
       wallBlocked += 1
     }
     wasBlocked = Boolean(r.blocked)
-    if (r.progressS != null && !r.snap) tracker.set(r.progressS)
+    // The tracked position carries the placement's along error: it may not turn a corner unwalked.
+    if (r.progressS != null && !r.snap) tracker.follow ? tracker.follow(r.progressS, p) : tracker.set(r.progressS)
     if (r.events.length) forceMatch = true
     for (const e of r.events) if (e.kind === 'door') emit('door-crossing', {s: e.s})
     // Matched round a corner of 35°+ (the walk now has both legs): that fixes the along error.
@@ -1375,6 +1376,13 @@ export function createArTrip({
       groundNow = {height: sceneBase + hUser, slope: 0, source: sceneBaseFromCamera ? 'scene+camera' : 'scene'}
       nav.setGround(groundNow.height, 0, s.s)
       nav.setPinLift(heightAt(Infinity) - hUser)
+      // Item 23: placed by GPS, the along position can be metres out: outdoors, no turning a corner
+      // the walk has not turned, until one turn has been seen (it fixes the along position). A
+      // chosen start knows where the user is: there, holding back at corners only adds lag.
+      // Not in the last metres to the building door: GPS is quiet there (Phase 5) and the door anchor
+      // needs the progress to reach the door when the user does.
+      const doorApproach = doorS != null && doorS - tracker.s <= ENTRANCE.gpsQuietM
+      tracker.setCornerGate?.(currentLevel() === 0 && !manual && !entranceAnchored && !doorApproach && (tracker.turnsSeen ?? 0) === 0)
       if (tracking === 'NORMAL') tracker.walk(camera.position, directionKnown ? nav.worldToRoute : null)
       if (tracking === 'NORMAL' && directionKnown) recordWalk()
       watchFloor(time)
