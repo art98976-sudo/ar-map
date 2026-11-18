@@ -6,7 +6,7 @@ import {createArTrip} from '../../src/ar/trip.js'
 import {createTripRecorder, isTripRecord} from '../../src/replay/trip-recorder.js'
 import {cameraQuaternion, synthWalk} from '../../src/replay/synth-walk.js'
 import {replayTrip} from '../../src/replay/replay.js'
-import {formatMetrics, tripMetrics} from '../../src/replay/metrics.js'
+import {arrowCorridorError, formatMetrics, tripMetrics} from '../../src/replay/metrics.js'
 
 vi.mock('../../src/ar/pin.js', async (original) => ({
   ...(await original()),
@@ -87,8 +87,9 @@ describe('replay through the real trip', () => {
       [5, 'away', 'gps'],
     ]) {
       const record = walk({seed, facing, startPoint: start === 'manual' ? fixture.startPoint : null})
-      const m = tripMetrics(await replay(record))
-      runs.push({seed, facing, start, ...m})
+      const result = await replay(record)
+      const m = tripMetrics(result)
+      runs.push({seed, facing, start, ...m, corridor: arrowCorridorError(result)})
       expect(m.truth).toBe(true)
       expect(m.frames).toBeGreaterThan(1000)
     }
@@ -97,5 +98,12 @@ describe('replay through the real trip', () => {
     // Item 23: seed 5 (GPS start, facing away) had the arrows under the user pointing round the
     // first corner for 2.7 s while the user still walked straight. No run may have one now.
     for (const r of runs) expect(r.wrongWayMoments, `seed ${r.seed} wrong-way moments`).toBe(0)
+    // Found by the live check: past the entrance the matcher kept the outdoor stretch of route and
+    // pulled every indoor step back to the door; the indoor arrows sat 13-18 m off the corridor up
+    // to A3. Now matched floor by floor: measured median 0.3-0.9 m, p95 0.9-2.1 m.
+    for (const r of runs) {
+      expect(r.corridor.medianM, `seed ${r.seed} indoor arrows, median`).toBeLessThan(1)
+      expect(r.corridor.p95M, `seed ${r.seed} indoor arrows, p95`).toBeLessThan(2.5)
+    }
   }, 180_000)
 })

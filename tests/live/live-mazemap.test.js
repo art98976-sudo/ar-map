@@ -4,6 +4,7 @@
 //
 //   npm run test:live                  all checks (about 2-5 minutes, a few hundred requests)
 //   LIVE_ROOMS=0 npm run test:live     skip the extra rooms found by search
+//   Behind an HTTPS proxy (a cloud sandbox): NODE_USE_ENV_PROXY=1 npm run test:live
 //
 // Checks (each PASS, WARN or FAIL; FAIL fails the run):
 //   1. route    Library main entrance -> A3 Lecture Theatre: MazeMap plans it, the floors load,
@@ -35,6 +36,7 @@ import {CAMPUS_ORIGIN} from '../../src/map/campus-geo.js'
 import {fromLocal, projectOntoPolyline, toLocal} from '../../src/geo/geo.js'
 
 setDefaultResultOrder('ipv4first') // MazeMap over IPv6 stalls on some networks (as tools/build-network.mjs)
+globalThis.window ??= globalThis // the trip reads window.THREE, all it needs of a browser here
 
 vi.mock('../../src/ar/pin.js', async (original) => ({
   ...(await original()),
@@ -184,12 +186,16 @@ describe('LIVE MazeMap', () => {
     const dir = resolve(process.cwd(), 'tests/fixtures/mazemap-tiles/live')
     mkdirSync(dir, {recursive: true})
     const found = []
+    const failed = []
     for (const level of levels) {
       let stairs = 0
       let lifts = 0
       let saved = 0
       for (const t of tilesFor(boxAround(centre, half))) {
-        const res = await fetch(tileUrl(level, t), {signal: AbortSignal.timeout(20_000)})
+        // One retry: a dropped request on a long run should not lose the floor.
+        const once = () => fetch(tileUrl(level, t), {signal: AbortSignal.timeout(20_000)})
+        const res = await once().catch(() => once()).catch((e) => ({ok: false, error: e}))
+        if (res.error) failed.push(`level ${level} ${t.x}/${t.y}: ${res.error.message}`)
         if (!res.ok) continue // no tile there on this floor
         const buf = Buffer.from(await res.arrayBuffer())
         writeFileSync(resolve(dir, `${levelPath(level)}-${t.z ?? 18}-${t.x}-${t.y}.mvt`), buf)
@@ -200,6 +206,6 @@ describe('LIVE MazeMap', () => {
       }
       found.push(`level ${level}: ${saved} tiles, ${stairs} stair and ${lifts} lift shapes`)
     }
-    note('record Cottrell tiles', found.length ? 'PASS' : 'FAIL', `${found.join('; ')} -> tests/fixtures/mazemap-tiles/live/`)
+    note('record Cottrell tiles', found.length && !failed.length ? 'PASS' : 'FAIL', `${found.join('; ')} -> tests/fixtures/mazemap-tiles/live/${failed.length ? `; NOT SAVED: ${failed.join(', ')}` : ''}`)
   })
 })

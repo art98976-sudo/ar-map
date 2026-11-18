@@ -444,7 +444,14 @@ export function fitRoute(scene) {
   const repairs = []
   for (const leg of legs) {
     const indoors = leg.z !== OUTDOOR && scene.floors[leg.z] && leg.pts.length >= 2
-    const fitted = indoors ? fitLeg(scene, leg.z, leg.pts) : {points: leg.pts.map((p) => ({x: p.x, y: p.y, z: p.z})), doors: [], repairs: []}
+    const raw = leg.pts.map((p) => ({x: p.x, y: p.y, z: p.z}))
+    let fitted = indoors ? fitLeg(scene, leg.z, leg.pts) : {points: raw, doors: [], repairs: []}
+    // The fit may never make a leg worse: if it crosses more walls than MazeMap's own line (a repair
+    // it could not make), the leg keeps MazeMap's line. Found live on the way into V1 Lecture
+    // Theatre: MazeMap's line clear, the fitted one through a wall twice by the room's door.
+    if (indoors && wallCrossings(scene, leg.z, fitted.points) > wallCrossings(scene, leg.z, raw)) {
+      fitted = {points: raw, doors: fitted.doors, repairs: fitted.repairs.map((r) => ({...r, keptMazeMap: true}))}
+    }
     points.push(...fitted.points)
     doors.push(...fitted.doors.map((d) => ({level: leg.z, ...d})))
     repairs.push(...fitted.repairs)
@@ -458,6 +465,13 @@ export function fitRoute(scene) {
     repairs,
     startSavedM: start.savedM,
   }
+}
+
+/** How many of a leg's segments on floor z go through a wall. */
+function wallCrossings(scene, z, pts) {
+  let n = 0
+  for (let i = 1; i < pts.length; i++) if (scene.crossesWall(z, pts[i - 1], pts[i])) n += 1
+  return n
 }
 
 /**

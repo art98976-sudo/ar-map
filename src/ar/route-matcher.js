@@ -299,6 +299,20 @@ export function createRouteMatcher(route) {
       total.yaw += correction.yaw
       return correction
     },
+    /**
+     * Phase 4: the floor has changed. Match against the new floor's stretch of route, from a fresh
+     * walk (the old one went up the stair: fitted to the new floor, it pulls the user back to the
+     * stair). The correction budget is kept: a floor change is not an anchor.
+     */
+    setRoute(next) {
+      route = next
+      samples = []
+      walked = 0
+      lastAt = null
+      residual = null
+      confident = false
+      wrongWayCount = 0
+    },
     get walkedM() {
       return walked
     },

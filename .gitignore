@@ -15,3 +15,5 @@ playwright-report/
 .DS_Store
 # MazeMap and Overpass responses for tools/build-network.mjs
 tools/.cache/
+# The live MazeMap check's last report (npm run test:live)
+tests/live/report.json

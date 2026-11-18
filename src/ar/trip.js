@@ -618,6 +618,7 @@ export function createArTrip({
       return
     }
     // Phase 3: at a door crossing or a turn of 35°+ the walk is matched at once, not on the timer.
+    followFloorInMatching()
     if ((!forceMatch && time - lastMatchAt < TRIP.matchEveryS) || !matcher.moving(time) || nav.easing) return
     if (forceMatch) matchesAtPoints += 1
     forceMatch = false
@@ -854,9 +855,24 @@ export function createArTrip({
     return walkedBefore + (matcher?.everWalkedM ?? 0)
   }
   /** A new path matcher on the user's floor's stretch of route: its correction budget starts again. */
+  let matchLevel = null // the indoor floor the matcher's stretch of route is on (matchStretch key)
   function newMatcher() {
     walkedBefore += matcher?.everWalkedM ?? 0
     matcher = createRouteMatcher(matchRoute())
+    matchLevel = matchKey()
+  }
+  /**
+   * The indoor floor has changed since the matcher took its stretch (up a stair, in at a door to
+   * another floor's stretch): the walk is matched against the new one from here. Fitted to the old
+   * one, it is pulled back to where that ends, frame after frame (found on Library -> A3: the
+   * matcher kept the outdoor stretch, so every indoor step was pulled back to the door, 13-18 m).
+   */
+  function followFloorInMatching() {
+    if (!matcher?.setRoute) return
+    const key = matchKey()
+    if (key === matchLevel) return
+    matchLevel = key
+    matcher.setRoute(matchRoute())
   }
 
   // ---------- Phase 4: floor changes from SLAM's height (floor-change.js) ----------
@@ -913,20 +929,37 @@ export function createArTrip({
    * A route can pass over itself on another floor (out of a lift and back along the corridor
    * above): fitted to that, the walk looks like the wrong way and the arrows flip.
    */
-  function matchRoute() {
-    if (!nav?.route?.length || !routeLevels?.length) return nav?.route ?? []
-    const levels = new Set(routeLevels.map((l) => l.z))
-    if (levels.size < 2) return nav.route
+  /**
+   * The stretch of route the walk is matched against, around the progress: the user's floor only.
+   * A route can pass over itself on another floor (out of a lift and back along the corridor
+   * above): fitted to that, the walk looks like the wrong way and the arrows flip. key: its floor.
+   * (Spanning a door into the outdoors too was tried: it moved the Phase 5 door entries.)
+   */
+  function matchStretch() {
     const total = polylineLength(nav.route)
-    const at = Math.max(0, Math.min(total, tracker?.s ?? startS ?? 0))
+    let at = Math.max(0, Math.min(total, tracker?.s ?? startS ?? 0))
     const level = floorWatch ? floorWatch.level : levelAt(routeLevels, at)
+    // Just off a stair, the progress can still be on the floor below: the new floor's stretch ahead.
+    for (let q = at; levelAt(routeLevels, at) !== level && q <= Math.min(total, at + FLOOR_CHANGE.progressAheadM); q += 0.5) {
+      if (levelAt(routeLevels, q) === level) at = q
+    }
+    const fits = (z) => z === level
     let a = at
     let b = at
-    while (a > 0 && levelAt(routeLevels, a - 0.5) === level) a -= 0.5
-    while (b < total && levelAt(routeLevels, b + 0.5) === level) b += 0.5
+    while (a > 0 && fits(levelAt(routeLevels, a - 0.5))) a -= 0.5
+    while (b < total && fits(levelAt(routeLevels, b + 0.5))) b += 0.5
+    return {a, b, total, key: level}
+  }
+
+  /** The route path matching fits the walk to (matchStretch). */
+  function matchRoute() {
+    if (!nav?.route?.length || !routeLevels?.length) return nav?.route ?? []
+    if (new Set(routeLevels.map((l) => l.z)).size < 2) return nav.route
+    const {a, b, total} = matchStretch()
     const slice = polylineSlice(nav.route, Math.max(0, a - FLOOR_CHANGE.matchMarginM), Math.min(total, b + FLOOR_CHANGE.matchMarginM))
     return slice.length >= 2 ? slice : nav.route
   }
+  const matchKey = () => (nav?.route?.length && routeLevels?.length ? matchStretch().key : 0)
 
   /** The route's stairs and lifts, told apart by the scene once it has loaded. */
   function floorLinks() {

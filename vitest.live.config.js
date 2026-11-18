@@ -7,9 +7,9 @@ import viteConfig from './vite.config.js'
 export default defineConfig({
   ...viteConfig,
   test: {
-    // As the unit tests (the trip needs a window). Requests go as a browser's would, which MazeMap
-    // allows: the deployed app fetches the same routes and tiles from another origin.
-    environment: 'happy-dom',
+    // Node, with Node's own fetch (it honours a proxy: NODE_USE_ENV_PROXY=1). The trip needs only
+    // window.THREE, which the test file provides.
+    environment: 'node',
     include: ['tests/live/**/*.test.js'],
     setupFiles: [], // no fetch stub: the trip and the checks reach MazeMap for real
     testTimeout: 900_000,

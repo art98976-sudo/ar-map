@@ -497,15 +497,16 @@ test.describe('arrow test mode', () => {
     await panel.getByRole('button', {name: 'Pause'}).click()
 
     // 1. GPS worse than 20 m for 3 s: the arrow hides and the map takes over; 3 s of good GPS brings it back.
+    // The 3 s is measured, not raced: a fixed "not yet at 2 s" check fails on a loaded machine.
+    let since = Date.now()
     await panel.getByLabel('GPS accuracy').fill('35')
-    await page.waitForTimeout(2000)
-    await expect(banner).toBeHidden()
-    await expect(banner).toHaveText('Finding your position. Follow the map for now.', {timeout: 3000})
+    await expect(banner).toHaveText('Finding your position. Follow the map for now.', {timeout: 8000})
+    expect(Date.now() - since, 'the banner waits about 3 s of poor GPS').toBeGreaterThanOrEqual(2500)
     await expect(readout).toContainText('arrow hidden')
+    since = Date.now()
     await panel.getByLabel('GPS accuracy').fill('6')
-    await page.waitForTimeout(2000)
-    await expect(banner).toBeVisible()
-    await expect(banner).toBeHidden({timeout: 3000})
+    await expect(banner).toBeHidden({timeout: 8000})
+    expect(Date.now() - since, 'and about 3 s of good GPS to clear').toBeGreaterThanOrEqual(2500)
     await expect(readout).toContainText(/arrow \d+°/)
 
     // ...and the compass swinging while the phone holds still.

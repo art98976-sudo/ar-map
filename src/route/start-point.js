@@ -122,8 +122,8 @@ export function startLabel(start) {
 
 /** The one short line on the AR screen: where to stand, and which way to face. */
 export function standHereText(start) {
-  // A doorway: its heading is the wall's, so where to face is all there is to say.
-  if (start.doorFacing) return `Stand in the doorway, facing ${start.doorFacing}.`
+  // A doorway: its heading is the wall's. Named, so the user knows it is the one they picked.
+  if (start.doorFacing) return `Stand in the doorway${start.name ? ` at ${landmarkPhrase(startLabel(start))}` : ''}, facing ${start.doorFacing}.`
   // No wall to face by (a pin away from any door, a room with no door on the route): the map's
   // route itself gives the heading (door-start.js mapHeadingStart).
   if (start.faceRoute) return start.type === 'map' ? 'Stand where you put the pin, facing the way the route starts on the map.' : `Stand at ${landmarkPhrase(startLabel(start))}, facing the way the route starts on the map.`

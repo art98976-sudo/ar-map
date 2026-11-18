@@ -253,3 +253,26 @@ describe('route matcher', () => {
     expect(matcher.walkedM).toBe(0)
   })
 })
+
+// The floor changed (in at a door, up a stair): the walk is matched against the new floor's stretch.
+describe('route matcher, new floor', () => {
+  it('setRoute starts a fresh walk on the new stretch and keeps the correction budget', () => {
+    const outdoor = [{x: 0, y: 0}, {x: 0, y: -10}]
+    const indoor = [{x: 0, y: -10}, {x: 0, y: -40}]
+    const m = createRouteMatcher(outdoor)
+    m.spend({dx: 1.5, dy: 0})
+    const room = m.roomM
+    let t = 0
+    for (let z = 0; z <= 12; z += 0.65) m.addSample(0, z, (t += 0.5))
+    expect(m.walkedM).toBeGreaterThan(MATCH.minWalkedM)
+    m.setRoute(indoor)
+    expect(m.walkedM).toBe(0) // the stair or the doorway is not fitted to the new floor
+    expect(m.samples).toEqual([])
+    expect(m.roomM).toBe(room) // not an anchor: the budget carries on
+    // The walk carries on along the indoor stretch (SLAM -z is route +y here: straight on, south).
+    for (let z = 12; z <= 24; z += 0.65) m.addSample(0, z, (t += 0.5))
+    const toRoute = (p) => ({x: p.x, y: -p.z})
+    const c = m.update(toRoute)
+    expect(c == null || Math.hypot(c.dx, c.dy) < 0.5).toBe(true) // on the stretch: nothing to pull back
+  })
+})

@@ -101,8 +101,10 @@ test.describe('starting point', () => {
     })
     await page.goto('/#/locate?to=library&force=1')
     await page.getByRole('button', {name: 'Choose starting point'}).click({timeout: 15_000})
-    await expect(page.locator('[data-start-sheet]')).toBeVisible({timeout: 45_000})
-    await expect(page.getByRole('heading', {name: 'Where are you starting from?'})).toBeVisible()
+    // Phase 1: the "Where are you?" sheet (doors nearby, when the position is known; a pin always).
+    await expect(page.getByRole('heading', {name: 'Where are you?'})).toBeVisible({timeout: 45_000})
+    await expect(page.getByRole('button', {name: /Choose on map/})).toBeVisible()
+    await expect(page.getByRole('button', {name: 'Cancel'})).toBeVisible()
   })
 
   test('weak GPS: "Where are you?" appears by itself, with a way out', async ({page, context}, testInfo) => {
@@ -143,7 +145,8 @@ test.describe('starting point', () => {
     })
     await page.goto('/#/locate?to=library&force=1&debug=1')
     await page.getByRole('button', {name: 'Tap to start'}).click({timeout: 30_000})
-    await expect(page.getByRole('heading', {name: /^Stand at the Cottrell main entrance, with the door behind you, facing south-east\.$/})).toBeVisible({timeout: 90_000})
+    // Phase 1: an entrance start is a door start; its heading is the door wall's (facing outside: the Library is outdoors).
+    await expect(page.getByRole('heading', {name: /^Stand in the doorway at the Cottrell main entrance, facing outside\.$/})).toBeVisible({timeout: 90_000})
     await page.getByRole('button', {name: 'Start', exact: true}).click({timeout: 30_000})
     await expect(page.locator('[data-stat="phase"]')).toHaveText('ready', {timeout: 30_000})
     await expect(page.locator('[data-guidance]')).toHaveCount(0) // no directions in words

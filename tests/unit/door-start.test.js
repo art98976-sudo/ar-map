@@ -112,8 +112,8 @@ describe('door start', () => {
     const start = doorStartPoint({id: 7, level: 1, inwardDeg: 180, buildingName: 'Cottrell Building', name: 'A3 entrance'}, {lat: 56.1449, lng: -3.9203}, {facing: 'inside', headingDeg: 180})
     expect(isManual(start)).toBe(true)
     expect(start).toMatchObject({type: 'door', floor: 1, headingDeg: 180, doorFacing: 'inside'})
-    expect(standHereText(start)).toBe('Stand in the doorway, facing inside.')
-    expect(standHereText({...start, doorFacing: 'outside'})).toBe('Stand in the doorway, facing outside.')
+    expect(standHereText(start)).toBe('Stand in the doorway at the Cottrell A3 entrance, facing inside.')
+    expect(standHereText({...start, doorFacing: 'outside'})).toBe('Stand in the doorway at the Cottrell A3 entrance, facing outside.')
   })
 
   it('labels a door by its building and side, with a rounded distance', () => {
@@ -238,7 +238,7 @@ describe('item 20: room and pin starts take their heading from the map', () => {
   })
 
   it('says where to stand and which way to face', () => {
-    expect(standHereText({type: 'place', name: 'A3 Lecture Theatre', entranceName: null, doorFacing: 'out of the room'})).toBe('Stand in the doorway, facing out of the room.')
+    expect(standHereText({type: 'place', name: 'A3 Lecture Theatre', entranceName: null, doorFacing: 'out of the room'})).toBe('Stand in the doorway at the A3 Lecture Theatre, facing out of the room.')
     expect(standHereText({type: 'map', name: 'Pin on the map', faceRoute: true})).toBe('Stand where you put the pin, facing the way the route starts on the map.')
     expect(standHereText({type: 'place', name: 'A3 Lecture Theatre', entranceName: null, faceRoute: true})).toMatch(/A3 Lecture Theatre, facing the way the route starts on the map\.$/)
   })
