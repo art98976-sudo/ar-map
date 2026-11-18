@@ -60,7 +60,7 @@ export function cottrellCase(fromId, toId) {
 }
 
 /** Replay one synthetic walk of a case; the trip gets the real walls through its scene. */
-export async function runCase(c, seed, {drift = {}, gpsStart = false} = {}) {
+export async function runCase(c, seed, {drift = {}, gpsStart = false, overrides = {}} = {}) {
   const local = c.route.points.map((p) => toLocal(c.route.points[0], p))
   // Where the walker faces at the start: the route's first 2 m, as synth-walk.js has it.
   const startDeg = localBearing(pointAt(local, 0), pointAt(local, 2))
@@ -70,7 +70,7 @@ export async function runCase(c, seed, {drift = {}, gpsStart = false} = {}) {
   const startPoint = gpsStart ? null : {type: 'door', name: 'Cottrell Building', entranceName: 'door', lat: c.route.points[0].lat, lng: c.route.points[0].lng, floor: level, headingDeg: startDeg + (seed % 2 ? 5 : -5), doorFacing: 'inside'}
   const record = synthWalk({route: c.route, destination: {id: 'test', name: 'Test', category: 'room', floor: c.endLevel ?? level, ...c.route.points.at(-1)}, startPoint, seed, drift: {compassBiasDeg: 30, ...drift}})
   const loadScene = (points, origin) => Promise.resolve(buildScene({route: points, origin, floors: c.floors}))
-  const result = await replayTrip(record, {THREE, createArTrip, loadScene})
+  const result = await replayTrip(record, {THREE, createArTrip, loadScene, overrides})
   return {result, corridor: arrowCorridorError(result), metrics: tripMetrics(result)}
 }
 

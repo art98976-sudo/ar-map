@@ -185,6 +185,7 @@ export function homeScreen(root, {navigate, params}) {
     if (params.debug === '1' || params.debug === 'align' || params.debug === 'walls' || params.debug === 'scene' || params.debug === 'route') query.set('debug', params.debug)
     if (params.simulate === '1') query.set('simulate', '1')
     if (params.fieldtest === '1') query.set('fieldtest', '1')
+    if (params.fieldlog === '1') query.set('fieldlog', '1')
     const text = query.toString()
     navigate(text ? `/?${text}` : '/', {replace: true, silent: true})
   }
@@ -900,6 +901,7 @@ export function homeScreen(root, {navigate, params}) {
       if (forced) next.set('force', '1')
       if (params.debug === '1') next.set('debug', '1')
       if (params.fieldtest === '1') next.set('fieldtest', '1')
+      if (params.fieldlog === '1') next.set('fieldlog', '1')
       navigate(`/locate?${next}`)
     },
   })

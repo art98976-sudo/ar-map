@@ -44,6 +44,11 @@ export function arScreen(root, {navigate, params}) {
   const showDebug = params.debug === '1' || new URLSearchParams(window.location.search).get('debug') === '1'
   // ?fieldtest=1: a readout, a once-a-second log and marker buttons for walking a route (ar-fieldtest.js).
   const fieldTestOn = params.fieldtest === '1' || new URLSearchParams(window.location.search).get('fieldtest') === '1'
+  // ?fieldlog=1: the campus walking log (field-logger.js), saved with one "Export log" button.
+  const fieldLogOn = params.fieldlog === '1' || new URLSearchParams(window.location.search).get('fieldlog') === '1'
+  let fieldLog = null
+  let fieldLogMod = null
+  let lastStatsForLog = null
   // Every trip starts with a destination. Without one, go and pick it first.
   const destination = findDestination(params.to)
   if (!destination) {
@@ -59,7 +64,7 @@ export function arScreen(root, {navigate, params}) {
   // A chosen start is where the user stands, whatever an old GPS fix says.
   const origin = manualStart ? route.origin : readTripFix() || route?.origin
   if (!route || route.destinationId !== destination.id || !origin || !permissionsAllowed()) {
-    const debugQuery = (params.debug === '1' ? '&debug=1' : '') + (fieldTestOn ? '&fieldtest=1' : '')
+    const debugQuery = (params.debug === '1' ? '&debug=1' : '') + (fieldTestOn ? '&fieldtest=1' : '') + (fieldLogOn ? '&fieldlog=1' : '')
     queueMicrotask(() => navigate(`/locate?to=${encodeURIComponent(destination.id)}${allowDesktop ? '&force=1' : ''}${debugQuery}`, {replace: true}))
     return
   }
@@ -221,6 +226,31 @@ export function arScreen(root, {navigate, params}) {
   function mountFieldTest() {
     const host = root.querySelector('.ar')
     if (fieldTest && host) fieldTest.mount(host)
+    mountFieldLog(host)
+  }
+
+  /** ?fieldlog=1: the Export log button and its row count, on the camera view. */
+  function mountFieldLog(host) {
+    if (!fieldLog || !host || host.querySelector('[data-fieldlog]')) return
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = 'fieldlog-export'
+    button.dataset.fieldlog = ''
+    button.setAttribute('aria-label', 'Export field log')
+    button.innerHTML = 'Export log <span data-fieldlog-n>0</span>'
+    button.addEventListener('click', () => {
+      const json = fieldLog.toJSON({
+        destination: {id: destination.id, name: destination.name, floor: destination.floor ?? null},
+        start: tripStart ?? {type: 'gps'},
+        origin,
+        route: {source: route.source ?? null, lengthM: route.lengthM ?? null, points: route.points, indoorPoints: route.indoorPoints ?? null},
+        device: navigator.userAgent,
+        page: window.location.href,
+      })
+      fieldLogMod.downloadFieldLog(json)
+      showToast(`Log saved: ${json.rows.length} rows`, {tone: 'success'})
+    })
+    host.append(button)
   }
 
   function toggleMap(force) {
@@ -295,6 +325,13 @@ export function arScreen(root, {navigate, params}) {
 
   function onStats(s) {
     fieldTest?.update(s)
+    if (fieldLog) {
+      lastStatsForLog = s
+      if (fieldLog.sample(s)) {
+        const n = root.querySelector('[data-fieldlog-n]')
+        if (n) n.textContent = String(fieldLog.rows.length)
+      }
+    }
     if (statusMessage(s)?.key === 'tracking') count('tracking-lost', {onceKey: 'tracking-lost'})
     if (s.rerouting && !wasRerouting) count('rerouted')
     wasRerouting = Boolean(s.rerouting)
@@ -573,8 +610,13 @@ export function arScreen(root, {navigate, params}) {
     showLive()
     const canvas = root.querySelector('[data-canvas]')
     const {createArTrip} = await import('../../ar/trip.js')
+    if (fieldLogOn && !fieldLog) {
+      fieldLogMod = await import('../../ar/field-logger.js')
+      fieldLog = fieldLogMod.createFieldLogger()
+      mountFieldLog(root.querySelector('.ar'))
+    }
     if (disposed) return
-    trip = createArTrip({route, origin, destination, allowDesktop, debug: showDebug, record: showDebug || fieldTestOn, arriveLabel: arriveLabel(destination), onPhase, onStats, onArrived, onTurnClose: () => haptic(30), onTurnNow: () => haptic([30, 50, 30]), startPoint: tripStart, autoStart: !manualStart, reducedMotion: prefersReducedMotion(), onEnterCampus: () => showToast('Welcome to campus', {tone: 'success'})})
+    trip = createArTrip({route, origin, destination, allowDesktop, debug: showDebug, record: showDebug || fieldTestOn, arriveLabel: arriveLabel(destination), onPhase, onStats, onArrived, onTurnClose: () => haptic(30), onTurnNow: () => haptic([30, 50, 30]), startPoint: tripStart, autoStart: !manualStart, reducedMotion: prefersReducedMotion(), onEnterCampus: () => showToast('Welcome to campus', {tone: 'success'}), onEvent: fieldLogOn ? (name, data) => fieldLog?.event(name, data, lastStatsForLog) : null})
     wireMapSwipe()
     wireFloorTap()
     wireLineUpDrag()

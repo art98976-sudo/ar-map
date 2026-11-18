@@ -46,6 +46,7 @@ export function locateScreen(root, {navigate, params}) {
   if (params.force === '1') nextQuery.set('force', '1')
   if (params.debug === '1') nextQuery.set('debug', '1')
   if (params.fieldtest === '1' || new URLSearchParams(window.location.search).get('fieldtest') === '1') nextQuery.set('fieldtest', '1')
+  if (params.fieldlog === '1' || new URLSearchParams(window.location.search).get('fieldlog') === '1') nextQuery.set('fieldlog', '1')
 
   let stopWatch = null
   let tapWatch = null

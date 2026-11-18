@@ -717,3 +717,24 @@
   0% { transform: perspective(200px) rotateX(0deg); }
   60%, 100% { transform: perspective(200px) rotateX(55deg); }
 }
+
+/* ?fieldlog=1: one button to save the campus walking log (field-logger.js). Left edge, mid height:
+   clear of the trip pill (top), the arrows and step card (bottom) and the mini-map (bottom left). */
+.fieldlog-export {
+  position: absolute;
+  left: 8px;
+  top: 45%;
+  z-index: 7;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  font: 600 13px/1.2 system-ui, sans-serif;
+}
+.fieldlog-export span {
+  margin-left: 4px;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}

@@ -67,6 +67,8 @@ export function createArTrip({
   onTurnNow,
   onTurnPassed,
   onEnterCampus,
+  // ?fieldlog=1: every trip event (anchors, floor changes, door crossings, arrows faded) as it happens.
+  onEvent = null,
   // Phase 1: record = keep a replayable record (?debug=1 / ?fieldtest=1). recorder: one to use
   // instead (tests). sensors: the compass, GPS and floor loaders, replaced by a replay. clock: ms.
   record = false,
@@ -84,6 +86,11 @@ export function createArTrip({
     ...sensors,
   }
   const recorder = givenRecorder ?? (record ? createTripRecorder({clock}) : null)
+  /** A trip event: into the replay record, and to the field log. */
+  const emit = (name, data = {}) => {
+    recorder?.event(name, data)
+    onEvent?.(name, data)
+  }
   recorder?.meta({
     destination: destination ? {id: destination.id ?? null, name: destination.name ?? null, category: destination.category ?? null, floor: destination.floor ?? null, lat: destination.lat ?? null, lng: destination.lng ?? null, mazemapPoi: destination.mazemapPoi ?? null} : null,
     route: firstRoute,
@@ -270,6 +277,23 @@ export function createArTrip({
     return camera.getWorldDirection(new THREE.Vector3())
   }
 
+  /** The camera's yaw in SLAM's own world (degrees clockwise from -Z), for the field log. */
+  function slamYawDeg() {
+    const f = lookDirection()
+    return Math.hypot(f.x, f.z) < 1e-6 ? null : wrap360(toDeg(Math.atan2(f.x, -f.z)))
+  }
+
+  /** Which segment of the route (between its points) distance s falls on. */
+  function segmentAt(s) {
+    if (!nav?.route?.length || !Number.isFinite(s)) return null
+    let acc = 0
+    for (let i = 1; i < nav.route.length; i++) {
+      acc += Math.hypot(nav.route[i].x - nav.route[i - 1].x, nav.route[i].y - nav.route[i - 1].y)
+      if (s <= acc) return i - 1
+    }
+    return nav.route.length - 2
+  }
+
   /** Average heading of the last ~0.5 s, or the last reading if the compass paused. */
   function recentHeading() {
     const now = clock()
@@ -449,7 +473,7 @@ export function createArTrip({
     // How far along the corridor the user may be from the door: outdoor progress decided when.
     alignConfidence.alongFixed(tripWalkedM(), ENTRANCE.alongErrM)
     console.info('[trip] re-anchored at the entrance', {late})
-    recorder?.event('entrance-anchor', {s: plan.s, late})
+    emit('entrance-anchor', {s: plan.s, late})
   }
 
   /** Place the route and start guiding. headingDeg: the compass; null: find out by walking. */
@@ -507,7 +531,7 @@ export function createArTrip({
       // Phase 1: the compass is only a check. Far off the door's heading, a small hint; never a change.
       const reading = compassUsable() ? recentHeading() : null
       compassDisagreeDeg = reading == null ? null : Math.abs(angleDiff(startPoint.headingDeg, reading))
-      if (compassDisagreeDeg != null) recorder?.event('door-compass-check', {doorDeg: startPoint.headingDeg, compassDeg: reading, diffDeg: compassDisagreeDeg})
+      if (compassDisagreeDeg != null) emit('door-compass-check', {doorDeg: startPoint.headingDeg, compassDeg: reading, diffDeg: compassDisagreeDeg})
       beginGuidance(startPoint.headingDeg, {facingKnown: true})
       return 'ok'
     }
@@ -614,7 +638,7 @@ export function createArTrip({
       const next = withIndoor(planned)
       route = next
       // The planned route itself, so a replay plans the same one at the same moment.
-      recorder?.event('reroute', {from: {lat: from.lat, lng: from.lng, z: from.z ?? null}, route: planned})
+      emit('reroute', {from: {lat: from.lat, lng: from.lng, z: from.z ?? null}, route: planned})
       nav.setRoute(next)
       guard = createCorridorGuard(nav.route, {levelAtS: (q) => levelAt(routeLevels, q)})
       applyGuardFloor()
@@ -913,7 +937,7 @@ export function createArTrip({
       pendingLanding = r.switched
       const {from, to, link, landingS} = r.switched
       console.info('[trip] floor change', {from, to, kind: link.kind})
-      recorder?.event('floor-change', {from, to, kind: link.kind, s: landingS})
+      emit('floor-change', {from, to, kind: link.kind, s: landingS})
     }
     // On the landing: near the new floor's height, and no longer climbing (a lift has stopped).
     const still = heightTrail.length > 1 && time - heightTrail[0].t >= FLOOR_CHANGE.stillS * 0.9 && Math.abs(camera.position.y - heightTrail[0].y) < FLOOR_CHANGE.stillM
@@ -921,7 +945,7 @@ export function createArTrip({
       const {landing, landingS, link} = pendingLanding
       pendingLanding = null
       reanchorAtLocal(landing, Math.min(tracker.totalM, landingS + FLOOR_CHANGE.landingAheadM))
-      recorder?.event('landing-anchor', {kind: link.kind, s: landingS})
+      emit('landing-anchor', {kind: link.kind, s: landingS})
     }
   }
 
@@ -962,7 +986,7 @@ export function createArTrip({
         tracker.set(r.snap.s)
         guard.accept(cam)
         wallSnaps += 1
-        recorder?.event('wall-snap', {byM: Math.hypot(by.dx, by.dy), s: r.snap.s, hit: r.snap.hit, from: nav.worldToRoute(cam)})
+        emit('wall-snap', {byM: Math.hypot(by.dx, by.dy), s: r.snap.s, hit: r.snap.hit, from: nav.worldToRoute(cam)})
       } else {
         alignConfidence.blocked(time)
         wallBlocked += 1
@@ -970,12 +994,13 @@ export function createArTrip({
     } else if (r.blocked) {
       alignConfidence.blocked(time)
       // The start of a blocked spell goes in the record (field logs say where and why).
-      if (!wasBlocked) recorder?.event('wall-blocked', {at: p, from: r.from ?? null, s: tracker.s, level: currentLevel()})
+      if (!wasBlocked) emit('wall-blocked', {at: p, from: r.from ?? null, s: tracker.s, level: currentLevel()})
       wallBlocked += 1
     }
     wasBlocked = Boolean(r.blocked)
     if (r.progressS != null && !r.snap) tracker.set(r.progressS)
     if (r.events.length) forceMatch = true
+    for (const e of r.events) if (e.kind === 'door') emit('door-crossing', {s: e.s})
     // Matched round a corner of 35°+ (the walk now has both legs): that fixes the along error.
     if (r.events.some((e) => e.kind === 'turn')) alignConfidence.alongFixed(tripWalkedM())
     if (r.doorAnchor) {
@@ -986,7 +1011,7 @@ export function createArTrip({
       alignConfidence.confirm(tripWalkedM())
       guard.accept(cam)
       doorAnchors += 1
-      recorder?.event('door-anchor', {byM: Math.hypot(r.doorAnchor.by.dx, r.doorAnchor.by.dy), s: r.doorAnchor.door.s})
+      emit('door-anchor', {byM: Math.hypot(r.doorAnchor.by.dx, r.doorAnchor.by.dy), s: r.doorAnchor.door.s})
     }
   }
 
@@ -1393,7 +1418,9 @@ export function createArTrip({
     const lowConfidence = indoorGuarded()
       ? arrowsForConfidence(alignConfidence.update({walkedM: tripWalkedM(), time, residualM: matcher.residualM, tracking, turnSin: turnSinAhead(tracker?.s ?? 0)}))
       : {opacity: 1, keepWalking: false}
+    const wasKeepWalking = keepWalking
     keepWalking = arrowsShown && lowConfidence.keepWalking
+    if (keepWalking !== wasKeepWalking) emit(keepWalking ? 'arrows-faded' : 'arrows-unfaded', {confidence: Math.round(alignConfidence.value * 100) / 100, why: alignConfidence.why})
     arrowOpacityNow = arrowsShown ? Math.min(matchOpacity, lowConfidence.opacity) : 0
     // ?network=1: the pose's confidence decides normal / faded / hidden, and the arrows stop at the
     // next turn, door or stair (or before a wall). Recomputed every frame, so after every anchor.
@@ -1473,6 +1500,11 @@ export function createArTrip({
         keepWalking,
         alignConfidence: Math.round(alignConfidence.value * 100) / 100,
         alignWhy: alignConfidence.why,
+        // ?fieldlog=1: the SLAM pose as the engine gives it, the map heading, where on the route.
+        slamPose: camera ? {x: camera.position.x, y: camera.position.y, z: camera.position.z, yawDeg: slamYawDeg()} : null,
+        mapHeadingDeg: pose.headingDeg ?? null,
+        routeSegment: segmentAt(routeS),
+        corridorOffsetM: pose.lateralOffsetM != null ? Math.abs(pose.lateralOffsetM) : null,
         corridor: {wallSnaps, wallBlocked, doorAnchors, matchesAtPoints, walls: Boolean(guard?.hasWalls)},
         // Phase 4: the floor from SLAM's height.
         floorSwitches,

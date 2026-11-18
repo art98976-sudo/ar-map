@@ -151,6 +151,29 @@ test.describe('starting point', () => {
   })
 })
 
+test.describe('field log mode', () => {
+  test('?fieldlog=1: an Export log button on the camera view saves the walking log as JSON', async ({page}, testInfo) => {
+    test.skip(onlyOn('android-chrome')(testInfo))
+    test.setTimeout(180_000)
+    await page.addInitScript(FAKE_REAR_CAMERA)
+    await page.addInitScript(() => {
+      sessionStorage.setItem('welcomeAR.start.v1', JSON.stringify({type: 'place', placeId: 'cottrell', name: 'Cottrell Building', entranceName: 'main entrance', lat: 56.144904, lng: -3.920317, headingDeg: 120, facing: null}))
+    })
+    await page.goto('/#/locate?to=library&force=1&fieldlog=1')
+    await page.getByRole('button', {name: 'Tap to start'}).click({timeout: 30_000})
+    const exportButton = page.getByRole('button', {name: 'Export field log'})
+    await expect(exportButton).toBeVisible({timeout: 90_000})
+    await page.waitForTimeout(2000) // a few rows (the fake camera never tracks: the trip waits for Start)
+    const [download] = await Promise.all([page.waitForEvent('download'), exportButton.click()])
+    expect(download.suggestedFilename()).toMatch(/^field-log-.*\.json$/)
+    const json = JSON.parse(await (await download.createReadStream()).toArray().then((c) => Buffer.concat(c).toString('utf8')))
+    expect(json.schema).toBe('welcome-ar-field-log/1')
+    expect(json.destination.id).toBe('library')
+    expect(json.rows.length).toBeGreaterThan(1)
+    expect(json.rows[0]).toHaveProperty('compass')
+  })
+})
+
 test.describe('field test mode', () => {
   const overlaps = (a, b) => a && b && a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
 
