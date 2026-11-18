@@ -4,7 +4,7 @@
 //   targets: heading error < 10° at first arrows, median offset from the path < 3 m outdoors and
 //   < 1 m indoors, zero wrong-way moments (arrow > 45° off the path for > 2 s), the right door and
 //   the right floor.
-import {angleDiff, localBearing, pointAt, toLocal} from '../geo/geo.js'
+import {angleDiff, localBearing, pointAt, projectOntoPolyline, toLocal} from '../geo/geo.js'
 import {entranceIndex} from '../ar/entrance-anchor.js'
 import {routeToLocal} from '../ar/nav-scene.js'
 
@@ -137,6 +137,61 @@ export function tripMetrics(result) {
     floor: out.wrongFloorS === 0,
   }
   return out
+}
+
+/**
+ * Phase 3: the ground arrows against the real corridor, indoors, two ways.
+ * placement: each frame with arrows shown (and not faded below `fadedBelow`), the chevrons from the
+ *   trip's progress to GROUND_ARROWS.aheadM beyond it are where the route placement puts them; carried
+ *   into the real world by the trip's errors (the tracked camera position against the true one, and
+ *   the heading about it) they are measured against the true route (the corridor centre).
+ * progress: how far the trip's progress along the route (where the arrows start) is from where the
+ *   user truly is, along the route. Placement can be perfect with progress stuck behind the user.
+ * Returns {frames, shownShare, fadedShare, medianM, p95M, maxM, over1mShare, progressP95M, progressMaxM}.
+ */
+export function arrowCorridorError(result, {aheadM = 10, stepM = 2, fadedBelow = 0.5, indoorOnly = true} = {}) {
+  const samples = (result.samples ?? []).filter((x) => x.truth?.walking && (!indoorOnly || x.truth.level !== 0))
+  const origin = result.meta.route.points[0]
+  const pts = [...result.meta.route.points, ...(result.meta.route.indoorPoints ?? []).slice(1)]
+  const route = routeToLocal(origin, pts)
+  const frameErr = []
+  const progressErr = []
+  let faded = 0
+  for (const x of samples) {
+    if (!x.arrowsShown || !x.tracked || !Number.isFinite(x.userS) || !Number.isFinite(x.trackedHeadingDeg)) continue
+    if (Number.isFinite(x.arrowOpacity) && x.arrowOpacity < fadedBelow) {
+      faded += 1
+      continue
+    }
+    const u = toLocal(origin, x.tracked)
+    const t = toLocal(origin, {lat: x.truth.lat, lng: x.truth.lng})
+    const d = (angleDiff(x.trackedHeadingDeg, x.truth.headingDeg) * Math.PI) / 180 // trip -> real world
+    let worst = 0
+    for (let a = 0; a <= aheadM; a += stepM) {
+      const r = pointAt(route, x.userS + a)
+      const v = {x: r.x - u.x, y: r.y - u.y}
+      // Turned clockwise by d (bearings): where the chevron really lies, from where the user really is.
+      const p = {x: t.x + v.x * Math.cos(d) + v.y * Math.sin(d), y: t.y - v.x * Math.sin(d) + v.y * Math.cos(d)}
+      worst = Math.max(worst, projectOntoPolyline(route, p).offset)
+    }
+    frameErr.push(worst)
+    progressErr.push(Math.abs(x.userS - x.truth.s))
+  }
+  const q = (list, f) => {
+    const sorted = [...list].sort((a, b) => a - b)
+    return sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(f * sorted.length))] : null
+  }
+  return {
+    frames: samples.length,
+    shownShare: samples.length ? round(frameErr.length / samples.length, 3) : null,
+    fadedShare: samples.length ? round(faded / samples.length, 3) : null,
+    medianM: round(median(frameErr)),
+    p95M: round(q(frameErr, 0.95)),
+    maxM: round(max(frameErr)),
+    over1mShare: frameErr.length ? round(frameErr.filter((e) => e > 1).length / frameErr.length, 3) : null,
+    progressP95M: round(q(progressErr, 0.95)),
+    progressMaxM: round(max(progressErr)),
+  }
 }
 
 /** One line per metric, for the console and the replay panel. */

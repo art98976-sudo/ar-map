@@ -124,9 +124,11 @@ describe('route matcher', () => {
     expect(matcher.confident).toBe(false)
   })
 
-  it('does nothing before 5 m of walking', () => {
+  it('does nothing before the minimum walk (MATCH.minWalkedM)', () => {
     const matcher = createRouteMatcher(L)
-    for (let i = 0; i < 7; i++) matcher.addSample(2, i * 0.7, i)
+    const step = 0.7
+    const steps = Math.floor((MATCH.minWalkedM - 0.1) / step)
+    for (let i = 0; i <= steps; i++) matcher.addSample(2, i * step, i)
     expect(matcher.walkedM).toBeLessThan(MATCH.minWalkedM)
     expect(matcher.update((w) => ({x: w.x, y: w.z}))).toBeNull()
   })

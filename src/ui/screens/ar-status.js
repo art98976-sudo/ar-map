@@ -14,6 +14,8 @@ export function statusMessage(s) {
     [ready && s.tracking && s.tracking !== 'NORMAL' && s.arrowsShown === false, {key: 'tracking', icon: 'alert', text: 'Tracking lost. Move slowly'}],
     // Group B: the walk has not matched the route for 10 s: the arrows may be off.
     [ready && s.offerRealign, {key: 'realign', icon: 'drag', text: 'Arrows off the path? Tap Re-align'}],
+    // Phase 3: indoors, the arrows may be off the corridor: they fade, and the walk lines them up.
+    [ready && s.keepWalking, {key: 'keep-walking', icon: 'footsteps', text: 'Keep walking. Lining up the arrows'}],
     [ready && s.positionUncertain, {key: 'position', icon: 'compass', text: 'Finding your position. Follow the map for now.'}],
     // Indoors, the walk keeps missing the route: the user can say where they are.
     [ready && s.offerReanchor, {key: 'reanchor', icon: 'pin', text: "Lost? Tap I'm here"}],

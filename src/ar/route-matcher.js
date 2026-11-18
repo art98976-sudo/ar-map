@@ -18,11 +18,26 @@ function transform(p, {dx, dy, yaw}, pivot) {
   return {x: x * c - y * s + pivot.x + dx, y: x * s + y * c + pivot.y + dy}
 }
 
-function nearInliers(track, route, gateM) {
-  return track.map((p) => {
+function nearInliers(track, route, gateM, weights = null) {
+  return track.map((p, i) => {
     const hit = projectOntoPolyline(route, p)
-    return hit.offset <= gateM ? {p, q: {x: hit.x, y: hit.y}, offset: hit.offset} : null
+    return hit.offset <= gateM ? {p, q: {x: hit.x, y: hit.y}, offset: hit.offset, weight: weights ? weights[i] : 1} : null
   })
+}
+
+/**
+ * Phase 3: SLAM's heading drifts with every metre walked, so the walked track is slightly bent and
+ * its far end says least about where the user faces now. Each sample counts e^(-metres back / M).
+ */
+export function recencyWeights(track, halfLifeM = MATCH.recentWeightM) {
+  if (!Number.isFinite(halfLifeM) || halfLifeM <= 0) return null
+  const w = new Array(track.length)
+  let back = 0
+  for (let i = track.length - 1; i >= 0; i--) {
+    if (i < track.length - 1) back += Math.hypot(track[i + 1].x - track[i].x, track[i + 1].y - track[i].y)
+    w[i] = Math.exp(-back / halfLifeM)
+  }
+  return w
 }
 
 /** Best rigid move of points onto their matches (weighted 2D Procrustes). */
@@ -130,26 +145,33 @@ function coarseFit(track, route, pivot) {
  * Fit a walked track onto the route. Returns {dx, dy, yaw, pivot} about the pivot (the user),
  * or null when the track is too far from the route to say anything.
  */
-export function fitTrackToRoute(track, route, {pivot = track.at(-1), gateM = MATCH.gateM, iterations = MATCH.iterations, minInliers = MATCH.minInliers, useCorners = true} = {}) {
+export function fitTrackToRoute(track, route, {pivot = track.at(-1), gateM = MATCH.gateM, iterations = MATCH.iterations, minInliers = MATCH.minInliers, useCorners = true, recentM = MATCH.recentWeightM} = {}) {
   const corner = useCorners ? findCornerAnchor(track, route) : null
   let moved = track
   let user = pivot
   let yaw = 0
-  for (let i = 0; i < iterations; i++) {
-    const pairs = nearInliers(moved, route, gateM).filter(Boolean)
-    if (pairs.length < minInliers) {
-      if (i === 0) return coarseFit(track, route, pivot)
-      break
+  /** ICP rounds with these weights (null: all samples alike). False: too few inliers at the start. */
+  const rounds = (weights, count, withCorner = true) => {
+    for (let i = 0; i < count; i++) {
+      const pairs = nearInliers(moved, route, gateM, weights).filter(Boolean)
+      if (pairs.length < minInliers) return i > 0
+      // As strong as all the other samples together.
+      if (corner && withCorner) pairs.push({p: moved[corner.index], q: corner.q, weight: pairs.reduce((sum, x) => sum + x.weight, 0)})
+      const step = bestRigid(pairs)
+      const apply = (p) => transform(p, {dx: step.to.x - step.from.x, dy: step.to.y - step.from.y, yaw: step.yaw}, step.from)
+      moved = moved.map(apply)
+      user = apply(user)
+      yaw += step.yaw
+      if (Math.abs(step.yaw) < 1e-5 && Math.hypot(step.to.x - step.from.x, step.to.y - step.from.y) < 1e-3) break
     }
-    // As strong as all the other samples together.
-    if (corner) pairs.push({p: moved[corner.index], q: corner.q, weight: pairs.length})
-    const step = bestRigid(pairs)
-    const apply = (p) => transform(p, {dx: step.to.x - step.from.x, dy: step.to.y - step.from.y, yaw: step.yaw}, step.from)
-    moved = moved.map(apply)
-    user = apply(user)
-    yaw += step.yaw
-    if (Math.abs(step.yaw) < 1e-5 && Math.hypot(step.to.x - step.from.x, step.to.y - step.from.y) < 1e-3) break
+    return true
   }
+  // First every sample alike: the whole walk's shape pulls a big offset in (and pins the turn).
+  if (!rounds(null, iterations)) return coarseFit(track, route, pivot)
+  // Phase 3: then the latest metres count most, so the heading is the one SLAM has drifted to now.
+  const weights = recencyWeights(track, recentM)
+  // The corner already placed the walk along the route in the first rounds; here only the heading.
+  if (weights) rounds(weights, iterations, false)
   return {dx: user.x - pivot.x, dy: user.y - pivot.y, yaw, pivot}
 }
 
@@ -303,6 +325,27 @@ export function createRouteMatcher(route) {
     },
     get totalOffsetM() {
       return Math.hypot(total.dx, total.dy)
+    },
+    /**
+     * Phase 3: what is left of the correction budget (MATCH.maxTotalM since the last confirmed
+     * anchor), for corrections made outside the matcher (a wall snap). spend() counts one in.
+     */
+    get roomM() {
+      return Math.max(0, MATCH.maxTotalM - Math.hypot(total.dx, total.dy))
+    },
+    spend({dx = 0, dy = 0, yaw = 0}) {
+      total.dx += dx
+      total.dy += dy
+      total.yaw += yaw
+    },
+    /**
+     * A confirmed anchor (a door crossed, the entrance, a sign): the placement is known good here,
+     * so the drift budget starts again. Only an anchor may move the placement past MATCH.maxTotalM.
+     */
+    resetBudget() {
+      total.dx = 0
+      total.dy = 0
+      total.yaw = 0
     },
     get totalYawDeg() {
       return toDeg(total.yaw)

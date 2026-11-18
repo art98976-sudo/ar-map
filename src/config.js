@@ -301,14 +301,15 @@ export const MATCH = {
   sampleEveryS: 0.5,
   minStepM: 0.25, // ignore smaller moves, so a user standing still builds up no fake "walk"
   trackM: 30, // keep this much of the walk
-  minWalkedM: 5, // no correction before this
+  minWalkedM: 3, // no correction before this
   gateM: 8, // samples further than this from the route are ignored by the fine fit
   coarseM: 16, // with too few samples in the gate, line up by direction if the user is this close
   iterations: 10,
   minInliers: 6,
   maxStepM: 3, // per update
   maxStepDeg: 10,
-  maxTotalM: 20, // over the whole trip
+  maxTotalM: 20, // since the last confirmed anchor (Phase 3: a door, the entrance, "I'm here"; a sign later)
+  recentWeightM: 6, // Phase 3: a sample this many metres back counts 1/e as much (SLAM heading drifts per metre)
   maxTotalDeg: 75, // more than the 60° Start allows, plus some drift, or a bad compass stays uncorrected
   confidentResidualM: 1,
   cornerArmM: 4, // a turn in the walk needs this much straight walking either side
@@ -488,6 +489,36 @@ export const NETWORK = {
   flag: 'network',
   stairsCost: 1.5, // a metre of stairs costs this much in the route search
   areaSnapM: 30, // a trip end this close to a network path (or inside its building) routes on it
+}
+
+// Alignment Phase 3 (src/ar/corridor-guard.js): MazeMap's walls as rules for every indoor trip.
+export const CORRIDOR = {
+  doorGapM: 0.5, // a wall crossing this close to a door line is the doorway, not the wall
+  backM: 8, // the corridor point for a snap is looked for this far back along the route...
+  aheadM: 25, // ...and this far ahead of the trip's progress
+  maxSnapM: 6, // a corridor point further than this from the tracked position is not this corridor
+  progressGapM: 0.75, // the tracked position's corridor point this far from the progress: move the progress
+  maxLateralM: 3, // ...but only when the tracked position is this close to the route (not lost)
+  turnMinDeg: 35, // a route turn this sharp re-runs path matching...
+  turnArmM: 4, // ...this far past it (enough straight walking after the corner to see it)
+  doorArmM: 1.5, // a door crossing re-runs path matching this far past it
+  doorConfirmM: 2, // the tracked walk crossing the door's line this close to the route's crossing: a door anchor
+  recentM: 8, // the tracked walk kept this long, to find where it crossed a door line
+  // Confidence 0..1 that the arrows lie where the corridor is.
+  decayM: 35, // walking this far since the last anchor or confident match takes it from 1 to 0
+  violationHoldS: 4, // a wall crossing that could not be snapped keeps it low this long
+  poorResidualM: 2.5, // a match residual worse than this caps it at...
+  poorCap: 0.35,
+  alongDriftPerM: 0.03, // the along-corridor error grows this much per metre (SLAM scale; to check on phone logs)
+  visibleAheadM: 6.5, // the chevrons are at least half visible this far ahead (GROUND_ARROWS solidM..aheadM)
+  innovationAheadM: 6, // a correction's turn counted this far out: the last arrows still half visible
+  innovationHalfM: 4, // the expected error from a correction halves every this many metres walked
+  dimErrorM: 0.7, // the arrows' expected error (from corrections, or the along error at a turn): dim them...
+  fadeErrorM: 1, // ...and past the 1 m goal: fade them, "Keep walking"
+  fadeBelow: 0.45, // below this: the arrows fade and "Keep walking" shows instead
+  dimBelow: 0.7, // below this: the arrows are a little dimmer
+  fadedOpacity: 0.2,
+  dimOpacity: 0.65,
 }
 
 // The map-constrained pose (src/ar/network-pose.js), ?network=1 only.
