@@ -36,6 +36,7 @@ import {COMPASS_GUIDE, GPS, GROUND, GROUND_ARROWS, INDOOR, LINE_UP, MATCH, PIN, 
 import {createHeightProfile} from '../scene/route-height.js'
 import {createTripLog} from './trip-log.js'
 import {createHeadingHold, createIndoorGpsGate, entranceIndex, planEntranceAnchor} from './entrance-anchor.js'
+import {createTripRecorder} from '../replay/trip-recorder.js'
 import {networkEnabled} from '../config.js'
 
 /** Compass-style bearing of a direction: degrees clockwise from north (or from SLAM -Z). */
@@ -64,7 +65,31 @@ export function createArTrip({
   onTurnNow,
   onTurnPassed,
   onEnterCampus,
+  // Phase 1: record = keep a replayable record (?debug=1 / ?fieldtest=1). recorder: one to use
+  // instead (tests). sensors: the compass, GPS and floor loaders, replaced by a replay. clock: ms.
+  record = false,
+  recorder: givenRecorder = null,
+  sensors = {},
+  clock = () => Date.now(),
 }) {
+  const io = {
+    startCompass,
+    watchLocation,
+    locationPermissionState,
+    fetchFloor,
+    getRoomCentre,
+    loadScene: (points, from) => import('../scene/scene-load.js').then(({loadScene}) => loadScene(points, from)),
+    ...sensors,
+  }
+  const recorder = givenRecorder ?? (record ? createTripRecorder({clock}) : null)
+  recorder?.meta({
+    destination: destination ? {id: destination.id ?? null, name: destination.name ?? null, category: destination.category ?? null, floor: destination.floor ?? null, lat: destination.lat ?? null, lng: destination.lng ?? null, mazemapPoi: destination.mazemapPoi ?? null} : null,
+    route: firstRoute,
+    origin,
+    startPoint,
+    autoStart,
+    allowDesktop,
+  })
   // Indoor AR on: the arrows carry on through the door, along MazeMap's indoor route to the room.
   // Every route the trip uses (the first one and every reroute) goes through here: a reroute that
   // dropped the indoor part would send the arrows only to the door, outdoors.
@@ -200,9 +225,10 @@ export function createArTrip({
   }
 
   // ---------- sensors ----------
-  const stopCompass = startCompass({
+  const stopCompass = io.startCompass({
     onReading: ({heading: h, accuracy, source, beta: tilt}) => {
-      const now = Date.now()
+      recorder?.compass({heading: h, accuracy, source, beta: tilt})
+      const now = clock()
       heading = h
       headingAccuracy = accuracy
       compassSource = source
@@ -220,8 +246,9 @@ export function createArTrip({
 
   let stopGps = () => {}
   const startGps = () => {
-    stopGps = watchLocation({
+    stopGps = io.watchLocation({
       onFix: (pos) => {
+        recorder?.gps(pos.coords, pos.timestamp)
         lastFix = {lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy}
         liveFixes = lastFix.accuracy <= START.liveGpsM ? liveFixes + 1 : 0
       },
@@ -231,7 +258,7 @@ export function createArTrip({
   // A chosen start never asks for location. If the phone already allows it, GPS may be offered later.
   if (!manual) startGps()
   else {
-    locationPermissionState().then((state) => {
+    io.locationPermissionState().then((state) => {
       if (state === 'granted' && !stopped) startGps()
     })
   }
@@ -242,7 +269,7 @@ export function createArTrip({
 
   /** Average heading of the last ~0.5 s, or the last reading if the compass paused. */
   function recentHeading() {
-    const now = Date.now()
+    const now = clock()
     const fresh = recent.filter((r) => now - r.at <= TRIP.firstHeadingWindowMs)
     return fresh.length ? circularMean(fresh.map((r) => r.heading)) : heading
   }
@@ -334,7 +361,7 @@ export function createArTrip({
 
   function compassStale() {
     const newest = recent.at(-1)
-    return !newest || Date.now() - newest.at > TRIP.compassStaleMs
+    return !newest || clock() - newest.at > TRIP.compassStaleMs
   }
 
   /** Which way the user faces for the arrow and the map: walking has the last word once it has spoken. */
@@ -401,6 +428,7 @@ export function createArTrip({
     compassLocked = true
     walkTrack = []
     console.info('[trip] re-anchored at the entrance', {turnDeg: Math.round(plan.turnDeg * 10) / 10, walkedM: Math.round(plan.walkedM * 10) / 10})
+    recorder?.event('entrance-anchor', {turnDeg: plan.turnDeg, walkedM: plan.walkedM, s: plan.s})
   }
 
   /** Place the route and start guiding. headingDeg: the compass; null: find out by walking. */
@@ -547,6 +575,8 @@ export function createArTrip({
       if (stopped || arrived || !nav || planned.status !== 'ok') return
       const next = withIndoor(planned)
       route = next
+      // The planned route itself, so a replay plans the same one at the same moment.
+      recorder?.event('reroute', {from: {lat: from.lat, lng: from.lng, z: from.z ?? null}, route: planned})
       nav.setRoute(next)
       heightAt = createHeightProfile(next.points, nav.route, origin)
       routeVersion += 1
@@ -713,7 +743,7 @@ export function createArTrip({
   function placePinInRoom() {
     // Indoor AR off: the walk ends at the door, so the marker stays there with the door's name.
     if (!destination.mazemapPoi || (destination.category === 'room' && !INDOOR.indoorAR)) return
-    getRoomCentre(destination.mazemapPoi).then((centre) => {
+    io.getRoomCentre(destination.mazemapPoi).then((centre) => {
       const entrance = route.entrance || route.points.at(-1)
       if (!centre || !nav || distanceM(centre, entrance) > PIN.roomMaxM) return
       nav.setMarker(centre)
@@ -735,7 +765,8 @@ export function createArTrip({
     setPhase('await-start')
   }
 
-  function onTracking({status}) {
+  function onTracking({status, reason}) {
+    recorder?.tracking(status, reason)
     if (status !== 'NORMAL' && tracking === 'NORMAL') trackingLostAt = lastTime
     if (status === 'NORMAL') {
       // Back after a real loss: the world may have moved, so the floor (and a tapped floor) is found again.
@@ -798,8 +829,7 @@ export function createArTrip({
   function loadRouteScene() {
     if (routeScene || routeSceneLoading || !route.points?.some((p) => Number.isFinite(p.z) && p.z !== 0)) return
     routeSceneLoading = true
-    import('../scene/scene-load.js')
-      .then(({loadScene}) => loadScene(route.points, origin))
+    Promise.resolve(io.loadScene(route.points, origin))
       .then((scene) => {
         if (!stopped) routeScene = scene
       })
@@ -841,7 +871,7 @@ export function createArTrip({
     if (shellAt && shellAt.level === level && distanceM(shellAt.centre, here) < SHELL.reloadAfterM) return
     shellLoading = true
     const centre = {lat: here.lat, lng: here.lng}
-    fetchFloor(level, boxAround(centre, SHELL.loadRadiusM))
+    io.fetchFloor(level, boxAround(centre, SHELL.loadRadiusM))
       .then((floor) => {
         if (stopped || !nav) return
         shellFloor = floorToLocal(floor, origin)
@@ -977,8 +1007,18 @@ export function createArTrip({
     } else lowFpsSince = null
   }
 
+  /** Stats out to the screen, and into the record (with what the replay metrics also need). */
+  function emitStats(s) {
+    s.guideDeg = guideDeg
+    s.routeVersion = routeVersion
+    s.directionKnown = directionKnown
+    recorder?.output(s)
+    onStats?.(s)
+  }
+
   function onTick({dt, time}) {
     if (!nav) return
+    recorder?.frame({dt, time, camera})
     startedAt ??= time
     lastTime = time
     // A trip from GPS starts by itself: there is nothing to line up, and nothing to tap.
@@ -1156,10 +1196,10 @@ export function createArTrip({
     if (statsTimer >= 0.25) {
       const poseTurn = nav.aligned ? nav.nextTurnAt(routeS) : null
       statsTimer = 0
-      onStats?.({
+      emitStats({
         phase,
         tracking,
-        compassUnsteady: unsteadySince != null && Date.now() - unsteadySince > TRIP.compassPillAfterMs,
+        compassUnsteady: unsteadySince != null && clock() - unsteadySince > TRIP.compassPillAfterMs,
         compassPoor: compassPoor() && !placementTrusted(),
         directionKnown,
         manual,
@@ -1266,7 +1306,7 @@ export function createArTrip({
     }
   }
 
-  return {
+  const api = {
     onSceneReady,
     onTracking,
     onTick,
@@ -1382,5 +1422,22 @@ export function createArTrip({
       nav?.dispose()
       nav = null
     },
+    /** Phase 1: the replayable record (null unless ?debug=1 or ?fieldtest=1). */
+    get recorder() {
+      return recorder
+    },
   }
+  // Every tap or call that changes the trip goes into the record, so a replay makes the same call
+  // at the same moment (replay.js).
+  for (const name of REPLAYED_ACTIONS) {
+    const fn = api[name]
+    api[name] = (...args) => {
+      recorder?.action(name, args)
+      return fn(...args)
+    }
+  }
+  return api
 }
+
+/** The trip calls a replay repeats, in the order the user made them. */
+export const REPLAYED_ACTIONS = ['start', 'tapFloor', 'rotateRoute', 'confirmLineUp', 'reanchorAt', 'confirmFloor', 'onResume', 'reopenLineUp', 'switchToLive', 'recalibrate', 'nudgeFloor']

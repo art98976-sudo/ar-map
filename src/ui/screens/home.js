@@ -224,6 +224,16 @@ export function homeScreen(root, {navigate, params}) {
     stopSimulation()
     const map = instance?.map
     if (!simulate || !map || disposed) return
+    // ?simulate=1&replay=1 (Phase 1): replay a downloaded trip log instead of a made-up walk.
+    if (params.replay === '1' || new URLSearchParams(window.location.search).get('replay') === '1') {
+      const token = {}
+      sim = token
+      import('../../map/replay-viewer.js').then(({createReplayViewer}) => {
+        if (sim !== token || disposed || instance?.map !== map) return
+        sim = createReplayViewer(map, {host: root.querySelector('.map-home') || root})
+      })
+      return
+    }
     if (!selected) {
       showToast('Test mode: pick a place to watch a simulated walk to it')
       return

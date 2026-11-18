@@ -157,6 +157,9 @@ export const liveView = ({showDebug, routeSource, pillText, startTitle}) => html
       <button class="btn btn--secondary btn--block" type="button" data-action="download-trip-log">
         <span>Download trip log</span>
       </button>
+      <button class="btn btn--secondary btn--block" type="button" data-action="download-trip-record">
+        <span>Download replay log</span>
+      </button>
     </section>`
       : ''}
   </div>

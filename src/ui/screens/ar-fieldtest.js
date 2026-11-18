@@ -162,7 +162,7 @@ const fmt = (v, unit, digits = 1) => (Number.isFinite(v) ? `${v.toFixed(digits)}
  * @param o.haptic  vibrate on a tap (dom.js haptic)
  * @returns {mount(host), update(stats), destroy()}
  */
-export function createFieldTest({haptic = () => {}, storage, intervalMs = 1000} = {}) {
+export function createFieldTest({haptic = () => {}, storage, intervalMs = 1000, getRecorder = () => null, download = null} = {}) {
   const log = createFieldLog({storage})
   let latest = null
   let ui = null
@@ -197,6 +197,7 @@ export function createFieldTest({haptic = () => {}, storage, intervalMs = 1000} 
           <textarea class="fieldtest__csv" data-ft-csv readonly hidden aria-label="Log as CSV"></textarea>
           <div class="fieldtest__actions">
             <button type="button" class="fieldtest__primary" data-ft-copy>Copy CSV</button>
+            <button type="button" class="fieldtest__primary" data-ft-record>Download replay log</button>
             <button type="button" data-ft-continue>Continue</button>
             <button type="button" data-ft-clear>Clear log</button>
           </div>
@@ -210,6 +211,7 @@ export function createFieldTest({haptic = () => {}, storage, intervalMs = 1000} 
     for (const button of root.querySelectorAll('[data-ft-mark]')) {
       button.addEventListener('click', () => {
         log.add(latest, button.dataset.ftMark)
+        getRecorder()?.event('mark', {mark: button.dataset.ftMark}) // the replay shows it on the timeline
         haptic(25)
         button.classList.remove('is-flash')
         void button.offsetWidth // restart the flash
@@ -218,6 +220,11 @@ export function createFieldTest({haptic = () => {}, storage, intervalMs = 1000} 
       })
     }
     q('[data-ft-finish]').addEventListener('click', openSummary)
+    // Phase 1: the whole trip (every frame, compass reading and GPS fix) as JSON, for replay.
+    q('[data-ft-record]').addEventListener('click', () => {
+      const rec = getRecorder()
+      ui.status.textContent = rec && download?.(rec) ? `Saved the replay log (${rec.frames} frames).` : 'No replay log yet: start the walk first.'
+    })
     q('[data-ft-continue]').addEventListener('click', () => {
       ui.sheet.hidden = true
     })

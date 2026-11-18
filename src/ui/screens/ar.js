@@ -20,6 +20,7 @@ import {FIRST_USE, GROUND, INDOOR} from '../../config.js'
 import {markSeen, seen} from '../first-use.js'
 import {paintDebugStats, paintLiveDebug, setStat as setDebugStat, toggleDebugPanel} from './ar-debug.js'
 import {downloadTripLog} from '../../ar/trip-log.js'
+import {downloadRecord} from '../../replay/trip-recorder.js'
 import {errorCopy} from './ar-errors.js'
 import {statusMessage} from './ar-status.js'
 import {count, newTrip} from '../../stats/counts.js'
@@ -74,7 +75,7 @@ export function arScreen(root, {navigate, params}) {
   if (fieldTestOn) {
     import('./ar-fieldtest.js').then(({createFieldTest}) => {
       if (disposed) return
-      fieldTest = createFieldTest({haptic})
+      fieldTest = createFieldTest({haptic, getRecorder: () => trip?.recorder ?? null, download: (rec) => downloadRecord(rec)})
       mountFieldTest()
     })
   }
@@ -155,6 +156,10 @@ export function arScreen(root, {navigate, params}) {
     // ?debug=1 only (the button is not rendered otherwise): the trip log as a JSON file.
     'download-trip-log': () => {
       if (!downloadTripLog(trip?.tripLog)) showToast('No trip log yet')
+    },
+    // Phase 1: every frame, compass reading, GPS fix and tap, for ?simulate=1&replay on a laptop.
+    'download-trip-record': () => {
+      if (!downloadRecord(trip?.recorder)) showToast('No replay log yet')
     },
     recalibrate: () => {
       trip?.recalibrate()
@@ -563,7 +568,7 @@ export function arScreen(root, {navigate, params}) {
     const canvas = root.querySelector('[data-canvas]')
     const {createArTrip} = await import('../../ar/trip.js')
     if (disposed) return
-    trip = createArTrip({route, origin, destination, allowDesktop, debug: showDebug, arriveLabel: arriveLabel(destination), onPhase, onStats, onArrived, onTurnClose: () => haptic(30), onTurnNow: () => haptic([30, 50, 30]), startPoint: tripStart, autoStart: !manualStart, reducedMotion: prefersReducedMotion(), onEnterCampus: () => showToast('Welcome to campus', {tone: 'success'})})
+    trip = createArTrip({route, origin, destination, allowDesktop, debug: showDebug, record: showDebug || fieldTestOn, arriveLabel: arriveLabel(destination), onPhase, onStats, onArrived, onTurnClose: () => haptic(30), onTurnNow: () => haptic([30, 50, 30]), startPoint: tripStart, autoStart: !manualStart, reducedMotion: prefersReducedMotion(), onEnterCampus: () => showToast('Welcome to campus', {tone: 'success'})})
     wireMapSwipe()
     wireFloorTap()
     wireLineUpDrag()
