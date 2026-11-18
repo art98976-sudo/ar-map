@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Spike Test Signs</title>
+    <style>
+      body { margin: 0; font: 14px/1.4 system-ui, sans-serif; color: #111; background: #fff; }
+      .note { padding: 12px 16px; max-width: 40rem; }
+      @page { size: A4; margin: 12mm; }
+      .sheet { break-after: page; padding: 0 16px 16px; }
+      .sheet img { display: block; height: auto; }
+      #a { width: 18cm; } #b { width: 24cm; }
+      @media print { .note { display: none; } .sheet { padding: 0; } }
+      @media screen { #a, #b { max-width: 100%; } }
+    </style>
+  </head>
+  <body>
+    <p class="note">Print at 100% (no "fit to page"). Sign A: A4 portrait, 18 cm wide. Sign B: A4 landscape, 24 cm wide.
+      Measure the printed widths with a ruler; if they differ, put them in the spike link: <code>?wA=0.18&amp;wB=0.24</code>.</p>
+    <div class="sheet"><img id="a" src="./image-targets/spike-a_print.png" alt="Test sign A" /></div>
+    <div class="sheet"><img id="b" src="./image-targets/spike-b_print.png" alt="Test sign B" /></div>
+  </body>
+</html>

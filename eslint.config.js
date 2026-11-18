@@ -9,6 +9,10 @@ export default [
     languageOptions: {globals: {...globals.browser}},
   },
   {
+    files: ['public/spike/**/*.js'],
+    languageOptions: {globals: {...globals.browser}},
+  },
+  {
     files: ['public/sw.js'],
     languageOptions: {globals: {...globals.serviceworker}},
   },
