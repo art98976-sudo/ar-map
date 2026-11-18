@@ -15,8 +15,8 @@ function shapeSources(route) {
   for (let i = 1; i < pts.length; i++) {
     if (pts[i].z === pts[i - 1].z) continue
     const type = pts[i].edgeType === 'lift' ? 'lift' : 'stairs'
-    const ends = [pts[i - 1], pts[i]].map((p) => recordedShaftFor({type, ...toLocal(CAMPUS_ORIGIN, p)}))
-    out.push(ends.every(Boolean) ? 'recorded' : 'square')
+    const ends = [pts[i - 1], pts[i]].map((p) => recordedShaftFor({type, z: p.z, ...toLocal(CAMPUS_ORIGIN, p)}))
+    out.push(!ends.every(Boolean) ? 'square' : ends.every((e) => e.sameFloor) ? 'recorded' : 'recorded, stacked')
   }
   return out
 }
@@ -46,10 +46,11 @@ describe('floor changes on stairs and lifts', () => {
       '\nPHASE 4: floor changes (Cottrell)\n' +
         rows.map((r) => `  ${r.ok ? 'OK  ' : 'FAIL'} ${r.route} ${r.kind} ${r.from}->${r.to} (${r.shape} shape): landing ${r.landingM} m ${flags(r)}`).join('\n') +
         `\n  right floor: ${rows.filter((r) => r.ok).length}/${rows.length}` +
-        `; on MazeMap's recorded shapes: ${rows.filter((r) => r.ok && r.shape === 'recorded').length}/${rows.filter((r) => r.shape === 'recorded').length}\n`,
+        `; on MazeMap's recorded shapes: ${rows.filter((r) => r.ok && r.shape.startsWith('recorded')).length}/${rows.filter((r) => r.shape.startsWith('recorded')).length}` +
+        ` (${rows.filter((r) => r.shape === 'recorded').length} on both floors' own shapes)\n`,
     )
     // The recorded tile holds two stair cores; every change through them uses the real shape.
-    expect(rows.filter((r) => r.shape === 'recorded').length).toBeGreaterThanOrEqual(8)
+    expect(rows.filter((r) => r.shape.startsWith('recorded')).length).toBeGreaterThanOrEqual(8)
     expect(rows.length).toBeGreaterThanOrEqual(20)
     expect(rows.filter((r) => r.ok).length).toBe(rows.length)
   }, 900_000)

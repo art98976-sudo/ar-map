@@ -1,8 +1,8 @@
 // Phase 3 test cases: 100 m indoor walks in the Cottrell Building on MazeMap's real level-2 walls
 // and doors (campus-network.json), replayed through the real trip logic (replay.js) with a
 // synthetic walk that knows the truth (synth-walk.js). Used by indoor-walls-replay.test.js.
-import {readFileSync} from 'node:fs'
-import {resolve} from 'node:path'
+import {existsSync, readdirSync, readFileSync} from 'node:fs'
+import {join, resolve} from 'node:path'
 import * as THREE from 'three'
 import {decodeFloorTile} from '../../../src/ar/mazemap-floor.js'
 import network from '../../../src/data/campus-network.json'
@@ -21,17 +21,26 @@ const ll = ([x, y]) => {
   return [p.lng, p.lat]
 }
 
-// Item 9: MazeMap's own stair and lift shapes, from the recorded Cottrell tile (level 2, zoom 18,
-// tests/fixtures/mazemap-tiles). Only that one tile is recorded (MazeMap is out of this sandbox's
-// reach), so it covers two stair cores and two lifts. A stair core or a lift shaft stands straight
-// up, so its level-2 footprint is used on the floors above and below it too.
-const RECORDED_TILE = {file: 'tests/fixtures/mazemap-tiles/2.0-18-128217-81440.mvt', x: 128217, y: 81440, z: 18}
+// Item 9: MazeMap's own stair and lift shapes, from recorded tiles (tests/fixtures/mazemap-tiles,
+// named <level>-<zoom>-<x>-<y>.mvt). One level-2 tile is committed: it covers two stair cores and
+// two lifts. `npm run test:live` on a laptop saves every Cottrell floor to live/; those are used
+// when present, floor by floor. Where a floor has no recorded shape, the one recorded on another
+// floor at the same spot is used: a stair core or a lift shaft stands straight up.
+const TILE_DIRS = ['tests/fixtures/mazemap-tiles', 'tests/fixtures/mazemap-tiles/live']
 let recorded = null
 function recordedShafts() {
   if (recorded) return recorded
-  const raw = decodeFloorTile(readFileSync(resolve(process.cwd(), RECORDED_TILE.file)), RECORDED_TILE)
-  const local = (s, type) => ({type, id: s.id, polygon: s.polygon, ring: s.polygon[0].map(([lng, lat]) => toLocal(CAMPUS_ORIGIN, {lat, lng}))})
-  recorded = [...raw.stairs.map((s) => local(s, 'stairs')), ...raw.lifts.map((s) => local(s, 'lift'))]
+  recorded = []
+  for (const dir of TILE_DIRS.map((d) => resolve(process.cwd(), d)).filter(existsSync)) {
+    for (const file of readdirSync(dir)) {
+      const m = /^(-?\d+(?:\.\d+)?)-(\d+)-(\d+)-(\d+)\.mvt$/.exec(file)
+      if (!m) continue
+      const [level, z, x, y] = m.slice(1).map(Number)
+      const raw = decodeFloorTile(readFileSync(join(dir, file)), {x, y, z})
+      const local = (sh, type) => ({type, level, id: sh.id, polygon: sh.polygon, ring: sh.polygon[0].map(([lng, lat]) => toLocal(CAMPUS_ORIGIN, {lat, lng}))})
+      recorded.push(...raw.stairs.map((sh) => local(sh, 'stairs')), ...raw.lifts.map((sh) => local(sh, 'lift')))
+    }
+  }
   return recorded
 }
 const inRing = (ring, p) => {
@@ -42,9 +51,15 @@ const inRing = (ring, p) => {
   }
   return inside
 }
-/** The recorded MazeMap shape of this stair or lift node, or null when none was recorded there. */
+/**
+ * The recorded MazeMap shape of this stair or lift node ({type, x, y, z}): its own floor's if
+ * recorded, else another floor's at the same spot (sameFloor false), else null.
+ */
 export function recordedShaftFor(n) {
-  return recordedShafts().find((s) => s.type === n.type && inRing(s.ring, n)) ?? null
+  const here = recordedShafts().filter((s) => s.type === n.type && inRing(s.ring, n))
+  const own = here.find((s) => s.level === n.z)
+  if (own) return {...own, sameFloor: true}
+  return here[0] ? {...here[0], sameFloor: false} : null
 }
 
 /** One Cottrell floor as mazemap-floor.js returns it: walls, doors, and stair and lift shapes. */
