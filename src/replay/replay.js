@@ -98,6 +98,7 @@ export async function replayTrip(record, {THREE, createArTrip, loadScene = null,
               // Where SLAM, through the route placement, puts the camera: the arrows are drawn from it.
               tracked: Number.isFinite(lastStats?.trackedLat) ? {lat: lastStats.trackedLat, lng: lastStats.trackedLng} : null,
               arrowOpacity: lastStats?.arrowOpacity ?? null,
+              arrowsUntilS: lastStats?.arrowsUntilS ?? null,
               keepWalking: Boolean(lastStats?.keepWalking),
               headingDeg: map?.headingDeg ?? null,
               trackedHeadingDeg: lastStats?.trackedHeadingDeg ?? null,

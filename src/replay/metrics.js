@@ -170,6 +170,8 @@ export function arrowCorridorError(result, {aheadM = 10, stepM = 2, fadedBelow =
     const d = (angleDiff(x.trackedHeadingDeg, x.truth.headingDeg) * Math.PI) / 180 // trip -> real world
     let worst = 0
     for (let a = 0; a <= aheadM; a += stepM) {
+      // Only the arrows drawn: a trip may stop them at an uncertain turn (arrowsUntilS).
+      if (Number.isFinite(x.arrowsUntilS) && x.userS + a > x.arrowsUntilS) break
       const r = pointAt(route, x.userS + a)
       const v = {x: r.x - u.x, y: r.y - u.y}
       // Turned clockwise by d (bearings): where the chevron really lies, from where the user really is.

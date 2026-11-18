@@ -959,6 +959,24 @@ export function createArTrip({
     return best
   }
 
+  /**
+   * Item 4: where the arrows stop. Not knowing exactly how far along the corridor the user is
+   * moves only the arrows past the next turn (to the side, by about that error times the turn's
+   * sine); the ones up to the corner lie on the corridor regardless. So while that would put them
+   * more than CORRIDOR.fadeErrorM off, they are drawn up to the corner and no further, at full
+   * strength, until the walk round it fixes the along error.
+   */
+  let arrowsUntilS = null
+  function untilUncertainTurn(s) {
+    for (const m of guard?.matchPoints ?? []) {
+      if (m.kind !== 'turn' || m.s < s || m.s > s + CORRIDOR.visibleAheadM) continue
+      if (alignConfidence.alongErrorM(tripWalkedM(), Math.abs(Math.sin((m.angle * Math.PI) / 180))) > CORRIDOR.fadeErrorM) return m.s
+      return null // the first turn ahead decides: past it, the walk round it fixes the along error
+    }
+    return null
+  }
+  const minOf = (a, b) => (a == null ? b : b == null ? a : Math.min(a, b))
+
   /** Indoors, on a floor with its walls loaded: the walls are rules, and confidence fades the arrows. */
   function indoorGuarded() {
     return Boolean(guard?.hasWalls) && phase === 'ready' && !arrived && currentLevel() !== 0
@@ -1422,6 +1440,7 @@ export function createArTrip({
     keepWalking = arrowsShown && lowConfidence.keepWalking
     if (keepWalking !== wasKeepWalking) emit(keepWalking ? 'arrows-faded' : 'arrows-unfaded', {confidence: Math.round(alignConfidence.value * 100) / 100, why: alignConfidence.why})
     arrowOpacityNow = arrowsShown ? Math.min(matchOpacity, lowConfidence.opacity) : 0
+    arrowsUntilS = indoorGuarded() ? untilUncertainTurn(routeS) : null
     // ?network=1: the pose's confidence decides normal / faded / hidden, and the arrows stop at the
     // next turn, door or stair (or before a wall). Recomputed every frame, so after every anchor.
     netArrows = netTrip?.current.started && route.source === 'network' ? netTrip.arrows() : null
@@ -1433,7 +1452,7 @@ export function createArTrip({
       dt,
       time,
       lift: arrowLevelLift(routeS),
-      maxS: netArrows ? netArrows.untilS : null,
+      maxS: minOf(netArrows ? netArrows.untilS : null, arrowsUntilS),
     })
     updateShell(time)
     checkIndoor(time)
@@ -1497,6 +1516,7 @@ export function createArTrip({
         repick: manual && !arrived && time < repickUntil,
         // Phase 3: the arrows' opacity, "Keep walking", and what the wall guard did this trip.
         arrowOpacity: arrowOpacityNow,
+        arrowsUntilS,
         keepWalking,
         alignConfidence: Math.round(alignConfidence.value * 100) / 100,
         alignWhy: alignConfidence.why,

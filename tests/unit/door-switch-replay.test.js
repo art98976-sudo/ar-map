@@ -44,11 +44,13 @@ describe('in through the building door', () => {
       expect(r.rulesBefore).toBe(false)
       expect(r.floorOk).toBe(true)
     }
-    // NOT yet every time: the arrows within 1 m of the indoor corridor, shown at least half the
-    // time, from 2 to 20 m in. Measured 11/20 when Phase 5 went in; 3/20 before it, by a first
-    // count that still let runs with no arrows inside pass. What is left traces to when outdoor progress says "door":
-    // 0-2 m from the true crossing, which only a sensed door or sign (Phase 2) can do better than.
-    // This line stops it getting worse; it is not the goal.
-    expect(rows.filter((r) => r.ok).length).toBeGreaterThanOrEqual(11)
+    // Item 4: the arrows do not fade at the first turns inside: shown at least 3/4 of the way in on
+    // every entry (when uncertain how far along it is, the trip stops them at the turn instead).
+    for (const r of rows) expect(r.inside.shownShare, r.route).toBeGreaterThanOrEqual(0.75)
+    // NOT yet every time: the arrows within 1 m of the indoor corridor from 2 to 20 m in. 11/20
+    // when Phase 5 went in, 14/20 after item 4 (3/20 before Phase 5, counted loosely). What is left
+    // traces to when outdoor progress says "door": 0.8-2.1 m from the true crossing on the failing
+    // entries, which only a sensed door or sign can do better than. This stops it getting worse.
+    expect(rows.filter((r) => r.ok).length).toBeGreaterThanOrEqual(14)
   }, 900_000)
 })

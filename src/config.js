@@ -535,7 +535,7 @@ export const CORRIDOR = {
   alongDriftPerM: 0.03, // the along-corridor error grows this much per metre (SLAM scale; to check on phone logs)
   visibleAheadM: 6.5, // the chevrons are at least half visible this far ahead (GROUND_ARROWS solidM..aheadM)
   innovationAheadM: 6, // a correction's turn counted this far out: the last arrows still half visible
-  innovationHalfM: 4, // the expected error from a correction halves every this many metres walked
+  innovationHalfM: 2, // the expected error from a correction halves every this many metres walked
   dimErrorM: 0.7, // the arrows' expected error (from corrections, or the along error at a turn): dim them...
   fadeErrorM: 1, // ...and past the 1 m goal: fade them, "Keep walking"
   fadeBelow: 0.45, // below this: the arrows fade and "Keep walking" shows instead

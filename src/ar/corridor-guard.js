@@ -242,7 +242,10 @@ export function createAlignConfidence({decayM = CORRIDOR.decayM} = {}) {
     },
     update({walkedM, time, residualM = null, tracking = 'NORMAL', turnSin = 0}) {
       let c = Math.max(0, 1 - (walkedM - goodAtM) / decayM)
-      const e = Math.max(this.expectedErrorM(walkedM), this.alongErrorM(walkedM, turnSin))
+      // Item 4: the along error no longer fades the arrows: it only misplaces the ones past the next
+      // turn, so those are not drawn (trip.js arrowsUntil). Fading is for what is wrong everywhere.
+      void turnSin
+      const e = this.expectedErrorM(walkedM)
       if (e > CORRIDOR.fadeErrorM) c = Math.min(c, CORRIDOR.fadeBelow - 0.01)
       else if (e > CORRIDOR.dimErrorM) c = Math.min(c, CORRIDOR.dimBelow - 0.01)
       if (Number.isFinite(residualM) && residualM > CORRIDOR.poorResidualM) c = Math.min(c, CORRIDOR.poorCap)
