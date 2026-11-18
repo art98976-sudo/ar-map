@@ -442,6 +442,8 @@ export const AR_START = {
   stepOffM: 0.5, // routes are planned from this far inside, and this far outside, the doorway
   facingLookM: 3, // the route's first this many metres say whether the walk goes in or out
   compassCheckDeg: 45, // the compass further than this from the door's heading: a small hint, never a change
+  roomDoorM: 20, // a room start: the route's first door within this is the room's door (its heading)
+  pinDoorM: 6, // a pin this close to an outside door is that door (a door start)
 }
 
 export const COMPASS_MAP = {

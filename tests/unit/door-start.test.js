@@ -7,6 +7,7 @@ import {
   classifyDoor,
   doorLabel,
   doorStartPoint,
+  mapHeadingStart,
   doorwaySides,
   exteriorDoors,
   facingForRoute,
@@ -206,5 +207,39 @@ describe('on the real Cottrell Building (MazeMap geometry in campus-network.json
     const a3 = rankDoors(doors.filter((d) => d.level === 1), pts[at], 1)[0]
     expect(a3.d).toBeLessThan(2)
     expect(Math.abs(angleDiff(routeIn, a3.inwardDeg))).toBeLessThan(2)
+  })
+})
+
+describe('item 20: room and pin starts take their heading from the map', () => {
+  // A room 4 m square around (0, 0); its door is a 1 m line in one wall; the route leaves through it.
+  const cases = [
+    ['north wall, leaving north', {a: {x: -0.5, y: 2}, b: {x: 0.5, y: 2}}, [{x: 0, y: 0}, {x: 0, y: 2}, {x: 0, y: 8}], 0],
+    ['east wall, leaving east', {a: {x: 2, y: -0.5}, b: {x: 2, y: 0.5}}, [{x: 0, y: 0}, {x: 2, y: 0}, {x: 8, y: 0}], 90],
+    ['south wall, leaving south', {a: {x: 0.5, y: -2}, b: {x: -0.5, y: -2}}, [{x: 0, y: 0}, {x: 0, y: -8}], 180],
+    ['west wall, leaving west', {a: {x: -2, y: 0.5}, b: {x: -2, y: -0.5}}, [{x: 0, y: 0}, {x: -8, y: 0}], 270],
+    ['a diagonal wall, leaving north-east, walked in at a slant', {a: {x: 1.0, y: 2.0}, b: {x: 2.0, y: 1.0}}, [{x: 0, y: 0}, {x: 1.2, y: 1.8}, {x: 6, y: 6}], 45],
+  ]
+  it.each(cases)('%s: the wall normal the route walks through, at the doorway', (_, door, route, want) => {
+    const h = mapHeadingStart(route, [door])
+    expect(h.source).toBe('wall')
+    near(h.headingDeg, want, 0.01)
+    expect(Math.hypot(h.at.x, h.at.y)).toBeGreaterThan(1) // in the doorway, not the room's middle
+  })
+
+  it('no door on the route near the start (a pin in the open): the route\'s first metres', () => {
+    const h = mapHeadingStart([{x: 0, y: 0}, {x: 3, y: 3}, {x: 6, y: 6}], [])
+    expect(h).toMatchObject({source: 'route', s: 0})
+    near(h.headingDeg, 45, 0.01)
+  })
+
+  it('a door further down the route than roomDoorM is not the room\'s door', () => {
+    const far = {a: {x: -0.5, y: 30}, b: {x: 0.5, y: 30}}
+    expect(mapHeadingStart([{x: 0, y: 0}, {x: 0, y: 40}], [far]).source).toBe('route')
+  })
+
+  it('says where to stand and which way to face', () => {
+    expect(standHereText({type: 'place', name: 'A3 Lecture Theatre', entranceName: null, doorFacing: 'out of the room'})).toBe('Stand in the doorway, facing out of the room.')
+    expect(standHereText({type: 'map', name: 'Pin on the map', faceRoute: true})).toBe('Stand where you put the pin, facing the way the route starts on the map.')
+    expect(standHereText({type: 'place', name: 'A3 Lecture Theatre', entranceName: null, faceRoute: true})).toMatch(/A3 Lecture Theatre, facing the way the route starts on the map\.$/)
   })
 })

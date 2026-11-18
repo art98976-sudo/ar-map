@@ -186,6 +186,58 @@ export function pickDoorRoute(planned, {sameBuilding = false, lengthOf, leaves})
   return ok.find((p) => !leaves(p.route)) ?? ok[0] ?? null
 }
 
+/**
+ * Item 20: a start with no door chosen (a room, a pin) still takes its heading from the map.
+ * route: route-frame points from the start; doors: the start floor's door lines [{a, b}] (route
+ * frame). The first door the route goes through within withinM (a room's own door) gives the
+ * wall's normal, in the way the route walks through it: the user stands in that doorway facing
+ * out. No door there: the route's own first metres ('route'). Returns {at {x, y}, s, headingDeg,
+ * source: 'wall' | 'route'} or null for a route too short to say.
+ */
+export function mapHeadingStart(route, doors = [], {withinM = AR_START.roomDoorM} = {}) {
+  const lead = routeLeadDeg(route)
+  const crossing = doorCrossingsNear(route, doors, withinM)
+  if (crossing) {
+    // The two normals of the door line; the one closer to the walk's way through it.
+    const n1 = wrap360(crossing.lineDeg + 90)
+    const n2 = wrap360(crossing.lineDeg - 90)
+    const along = crossing.walkDeg
+    const diff = (a, b) => Math.abs(((a - b + 540) % 360) - 180)
+    const headingDeg = diff(n1, along) <= diff(n2, along) ? n1 : n2
+    return {at: {x: crossing.x, y: crossing.y}, s: crossing.s, headingDeg, source: 'wall'}
+  }
+  if (lead == null) return null
+  return {at: {x: route[0].x, y: route[0].y}, s: 0, headingDeg: wrap360(lead), source: 'route'}
+}
+
+/** The first door line the route crosses within maxS: {s, x, y, lineDeg, walkDeg}. */
+function doorCrossingsNear(route, doors, maxS) {
+  let s0 = 0
+  for (let i = 1; i < route.length && s0 <= maxS; i++) {
+    const p1 = route[i - 1]
+    const p2 = route[i]
+    const len = Math.hypot(p2.x - p1.x, p2.y - p1.y)
+    let best = null
+    for (const d of doors) {
+      const rx = p2.x - p1.x
+      const ry = p2.y - p1.y
+      const sx = d.b.x - d.a.x
+      const sy = d.b.y - d.a.y
+      const den = rx * sy - ry * sx
+      if (Math.abs(den) < 1e-12) continue
+      const t = ((d.a.x - p1.x) * sy - (d.a.y - p1.y) * sx) / den
+      const u = ((d.a.x - p1.x) * ry - (d.a.y - p1.y) * rx) / den
+      if (t < 0 || t > 1 || u < 0 || u > 1) continue
+      if (!best || t < best.t) best = {t, d}
+    }
+    if (best && s0 + best.t * len <= maxS) {
+      return {s: s0 + best.t * len, x: p1.x + (p2.x - p1.x) * best.t, y: p1.y + (p2.y - p1.y) * best.t, lineDeg: localBearing(best.d.a, best.d.b), walkDeg: localBearing(p1, p2)}
+    }
+    s0 += len
+  }
+  return null
+}
+
 /** Two points to plan from: just inside the doorway (on its floor) and just outside it. */
 export function doorwaySides(door, stepM = AR_START.stepOffM) {
   const v = fromBearing(door.inwardDeg)

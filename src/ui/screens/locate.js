@@ -21,7 +21,7 @@ import {locationErrorCopy} from './locate-errors.js'
 import {googleMapsWalkingUrl, leavesAfterEntering, planRoute, saveTripRoute, tripLengthM, walkingMinutes} from '../../route/route.js'
 import {getStart, isManual, startLabel} from '../../route/start-point.js'
 import {gpsStartDecision} from '../../route/ar-start.js'
-import {doorStartPoint, doorwaySides, pickDoorRoute, rankDoors, resolveDoorHeading} from '../../route/door-start.js'
+import {doorStartPoint, doorwaySides, mapHeadingStart, pickDoorRoute, rankDoors, resolveDoorHeading} from '../../route/door-start.js'
 import {fromLocal, toLocal} from '../../geo/geo.js'
 import {whereSheet} from '../components/where-sheet.js'
 import {formatDistance} from '../../ar/pin.js'
@@ -356,12 +356,57 @@ export function locateScreen(root, {navigate, params}) {
         console.warn('[locate] no door data for the chosen entrance', err?.message)
       }
     }
-    if (!disposed) planTrip(startPoint)
+    // A pin by an outside door is that door: the same start as "Where are you?" gives.
+    if (startPoint.type === 'map') {
+      try {
+        const mod = await loadDoorData()
+        const door = rankDoors(await mod.doorsNear(startPoint, {radiusM: AR_START.pinDoorM * 3}), {x: 0, y: 0}, 1)[0]
+        if (!disposed && door && door.d <= AR_START.pinDoorM) return planDoorTrip(door)
+      } catch (err) {
+        console.warn('[locate] no door data near the pin', err?.message)
+      }
+    }
+    // A room or a pin: the heading from the map too (the room's door, or the route's first metres).
+    const room = startPoint.type === 'place' && Number.isFinite(startPoint.floor)
+    if (!disposed) planTrip(startPoint, room || startPoint.type === 'map' ? {decorate: mapHeadingFor} : {})
+  }
+
+  /**
+   * Item 20: a room or pin start gets the map's heading (door-start.js mapHeadingStart). A room: the
+   * door the route leaves it by (MazeMap's door lines on its floor); a pin: the route's first metres.
+   * Returns {origin, start} to save with the route, or null to keep the plain start.
+   */
+  async function mapHeadingFor(route) {
+    const points = [...route.points, ...(route.indoorPoints ?? []).slice(1)]
+    const local = points.map((p) => toLocal(startPoint, p))
+    let doors = []
+    if (Number.isFinite(startPoint.floor)) {
+      try {
+        const [{boxAround, fetchFloor}, {floorToLocal}] = await Promise.all([import('../../ar/mazemap-floor.js'), import('../../ar/building-shell.js')])
+        doors = floorToLocal(await fetchFloor(startPoint.floor, boxAround(startPoint, AR_START.roomDoorM + 10)), startPoint).doors
+      } catch (err) {
+        console.warn('[locate] no doors for the room start', err?.message)
+      }
+    }
+    const h = mapHeadingStart(local, doors)
+    if (!h) return null
+    const at = fromLocal(startPoint, h.at)
+    const floor = Number.isFinite(startPoint.floor) ? {floor: startPoint.floor, z: startPoint.floor} : {}
+    const start = {
+      ...startPoint,
+      lat: at.lat,
+      lng: at.lng,
+      headingDeg: Math.round(h.headingDeg * 10) / 10,
+      headingSource: h.source,
+      ...(h.source === 'wall' ? {doorFacing: 'out of the room'} : {faceRoute: true}),
+    }
+    console.info('[locate] map heading for the start', {type: startPoint.type, source: h.source, headingDeg: start.headingDeg})
+    return {origin: {lat: at.lat, lng: at.lng, ...floor}, start}
   }
 
   // Plan the walking route as soon as GPS is good, then open the camera.
   let planning = false
-  async function planTrip(fix) {
+  async function planTrip(fix, {decorate = null} = {}) {
     planning = true
     const body = root.querySelector('[data-body]')
     if (body) body.textContent = 'Planning your walking route…'
@@ -377,7 +422,9 @@ export function locateScreen(root, {navigate, params}) {
         if (route.reason === 'floor-data-unavailable') return showError('indoor-map-failed')
         return showError(route.status === 'no-indoor-route' ? 'no-indoor-route' : 'no-route')
       }
-      saveTripRoute({...route, destinationId: destination.id, origin: fix, start: manualStart ? startPoint : null, plannedAt: Date.now()})
+      const decorated = decorate ? await decorate(route) : null
+      if (disposed) return
+      saveTripRoute({...route, destinationId: destination.id, origin: decorated?.origin ?? fix, start: decorated?.start ?? (manualStart ? startPoint : null), plannedAt: Date.now()})
       if (body) body.textContent = `${formatDistance(tripLengthM(route))} walk, about ${walkingMinutes(tripLengthM(route))} min. Opening the camera…`
       continueTimer = setTimeout(() => {
         if (!disposed) navigate(`/ar?${nextQuery}`, {replace: true})
