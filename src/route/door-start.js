@@ -174,6 +174,18 @@ export function resolveDoorHeading(door, route, {goesIn = null} = {}) {
   return {facing: goesIn === false ? 'outside' : 'inside', headingDeg: wrap360(lead), source: 'route'}
 }
 
+/**
+ * Of the routes planned from just inside and just outside a doorway ([{side, route}], route.status
+ * 'ok' or not), the one to walk: the shorter, except that when the door and the destination are in
+ * the same building a route that stays inside wins over one that goes out and back in.
+ * leaves(route): does it leave the building after entering (route.js leavesAfterEntering).
+ */
+export function pickDoorRoute(planned, {sameBuilding = false, lengthOf, leaves}) {
+  const ok = planned.filter((p) => p.route?.status === 'ok').sort((a, b) => lengthOf(a.route) - lengthOf(b.route))
+  if (!sameBuilding) return ok[0] ?? null
+  return ok.find((p) => !leaves(p.route)) ?? ok[0] ?? null
+}
+
 /** Two points to plan from: just inside the doorway (on its floor) and just outside it. */
 export function doorwaySides(door, stepM = AR_START.stepOffM) {
   const v = fromBearing(door.inwardDeg)

@@ -96,6 +96,20 @@ async function mazemapRoute(from, to, {signal, targetZ = 0, stepFree = false} = 
 }
 
 /**
+ * Phase 5: does the walk go back outdoors after it has been inside? (A route that starts a step
+ * outside a door and goes in does not; one that goes out of the building and back in does.)
+ */
+export function leavesAfterEntering(points) {
+  let inside = false
+  for (const p of points ?? []) {
+    const indoor = Number.isFinite(p.z) && p.z !== 0
+    if (indoor) inside = true
+    else if (inside) return true
+  }
+  return false
+}
+
+/**
  * Fit a planned path to the trip. A raw GPS fix is often several metres out, so a straight leg
  * from it to the path would cut across whatever is in between. Near a path, start at the nearest
  * point ON it; only someone genuinely far from any path gets a leg from where they stand. The
@@ -200,7 +214,13 @@ export async function planRoute(from, dest, {mazemap = mazemapRoute, fit = fitWi
   // and floor levels. Do not replace it with the outdoor footpath graph just because MazeMap's
   // final feature was not tagged as an indoor segment (some room routes end on the room's floor
   // without that flag). The AR scene and arrows must use this fitted route.
-  if ((dest?.category === 'room' || startsIndoors) && throughBuilding) return done(throughBuilding, 'mazemap', to)
+  if ((dest?.category === 'room' || startsIndoors) && throughBuilding) {
+    // Phase 5: an indoor start whose route goes out of the building and back in is kept (MazeMap
+    // may know no way through), but said: the trip and the start picker can prefer another.
+    const leaves = startsIndoors && leavesAfterEntering(throughBuilding)
+    if (leaves) console.warn('[route] the walk leaves the building and comes back in')
+    return done(throughBuilding, 'mazemap', to, leaves ? {leavesBuilding: true} : {})
+  }
 
   // A floor-qualified manual start must never fall back to an outdoor graph or straight line.
   // That would produce a plausible-looking route outside while the user is standing indoors.

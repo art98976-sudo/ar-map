@@ -125,7 +125,8 @@ export function tripMetrics(result) {
   // The floor: frames where the trip's floor is not the true one, away from the stairs themselves.
   const changes = walking.filter((x, i) => i > 0 && x.truth.level !== walking[i - 1].truth.level).map((x) => x.truth.s)
   const nearChange = (s) => changes.some((c) => Math.abs(c - s) < 3)
-  const floorFrames = walking.filter((x) => x.truth.level !== 0 && Number.isFinite(x.floorLevel) && !nearChange(x.truth.s))
+  // Not on the stair or in the lift itself: the floor changes once the climb is most of a floor (Phase 4).
+  const floorFrames = walking.filter((x) => x.truth.level !== 0 && !x.truth.vertical && Number.isFinite(x.floorLevel) && !nearChange(x.truth.s))
   out.wrongFloorS = round(floorFrames.filter((x) => x.floorLevel !== x.truth.level).length / 30, 1)
 
   out.pass = {
@@ -149,8 +150,9 @@ export function tripMetrics(result) {
  *   user truly is, along the route. Placement can be perfect with progress stuck behind the user.
  * Returns {frames, shownShare, fadedShare, medianM, p95M, maxM, over1mShare, progressP95M, progressMaxM}.
  */
-export function arrowCorridorError(result, {aheadM = 10, stepM = 2, fadedBelow = 0.5, indoorOnly = true} = {}) {
-  const samples = (result.samples ?? []).filter((x) => x.truth?.walking && (!indoorOnly || x.truth.level !== 0))
+export function arrowCorridorError(result, {aheadM = 10, stepM = 2, fadedBelow = 0.5, indoorOnly = true, fromS = -Infinity, toS = Infinity} = {}) {
+  // Not on a stair or in a lift: there the walker is off the route's line by design (floorChanges).
+  const samples = (result.samples ?? []).filter((x) => x.truth?.walking && !x.truth.vertical && (!indoorOnly || x.truth.level !== 0) && x.truth.s >= fromS && x.truth.s <= toS)
   const origin = result.meta.route.points[0]
   const pts = [...result.meta.route.points, ...(result.meta.route.indoorPoints ?? []).slice(1)]
   const route = routeToLocal(origin, pts)
@@ -192,6 +194,81 @@ export function arrowCorridorError(result, {aheadM = 10, stepM = 2, fadedBelow =
     progressP95M: round(q(progressErr, 0.95)),
     progressMaxM: round(max(progressErr)),
   }
+}
+
+/**
+ * Phase 4: each floor change of a synthetic walk (truth.vertical marks the stair or lift), judged:
+ *   early    the trip left the old floor before the climb started (in the 5 s before it)
+ *   strange  during the change the trip showed a floor that is neither the old nor the new one
+ *   late     2 s after stepping off on to the new floor, the trip was not on it
+ *   unstable after that, the trip left the new floor before the next change began
+ *   landingM where the trip put the user (the tracked position) 2 s after stepping off, vs the truth
+ * Returns [{from, to, kind, ok, early, strange, late, unstable, landingM}].
+ */
+export function floorChanges(result, {settleS = 2, beforeS = 5} = {}) {
+  const xs = (result.samples ?? []).filter((x) => x.truth)
+  const origin = result.meta.route.points[0]
+  // Episodes: runs of frames on one stair or in one lift (back-to-back links are separate).
+  const episodes = []
+  for (let i = 0; i < xs.length; i++) {
+    if (!xs[i].truth.vertical) continue
+    let j = i
+    while (j + 1 < xs.length && xs[j + 1].truth.vertical && xs[j + 1].truth.linkId === xs[i].truth.linkId) j++
+    episodes.push({i0: i, i1: j})
+    i = j
+  }
+  const out = []
+  episodes.forEach((ep, k) => {
+    const from = xs[ep.i0].truth.level
+    const to = xs[ep.i1].truth.level
+    if (from === to) return
+    const t0 = xs[ep.i0].t
+    const tLand = xs[ep.i1].t
+    const nextStart = episodes[k + 1] ? xs[episodes[k + 1].i0].t : Infinity
+    const at = (t) => xs.find((x) => x.t >= t) ?? xs.at(-1)
+    const prevEnd = k > 0 ? xs[episodes[k - 1].i1].t + settleS * 1000 : -Infinity
+    const before = xs.filter((x) => x.t >= Math.max(t0 - beforeS * 1000, prevEnd) && x.t < t0)
+    const during = xs.slice(ep.i0, ep.i1 + 1)
+    const settled = at(tLand + settleS * 1000)
+    const after = xs.filter((x) => x.t >= settled.t && x.t < nextStart)
+    const early = before.some((x) => x.floorLevel !== from)
+    const strange = during.some((x) => x.floorLevel !== from && x.floorLevel !== to)
+    const late = settled.floorLevel !== to
+    const unstable = after.some((x) => x.floorLevel !== to)
+    const tr = settled.tracked ? toLocal(origin, settled.tracked) : null
+    const tt = toLocal(origin, {lat: settled.truth.lat, lng: settled.truth.lng})
+    const landingM = tr ? round(Math.hypot(tr.x - tt.x, tr.y - tt.y)) : null
+    out.push({from, to, kind: xs[ep.i0].truth.vertical, ok: !early && !strange && !late && !unstable, early, strange, late, unstable, landingM})
+  })
+  return out
+}
+
+/**
+ * Phase 5: going in through the building door. doorS: the route's door (its first point on a
+ * floor). Judged:
+ *   anchored        the trip re-anchored at the entrance ('entrance-anchor')
+ *   anchorOffM      how far the user truly was from the door, along the route, when it did
+ *   rulesBefore     a wall rule acted (a snap) before the anchor: indoor walls before the door
+ *   inside          the arrows from 2 m to 20 m inside: arrowCorridorError (visible arrows, 0-6 m)
+ *   floorOk         2 m inside, the trip was on the door's floor
+ */
+export function doorSwitch(result, {insideFromM = 2, insideToM = 20} = {}) {
+  const pts = [...result.meta.route.points, ...(result.meta.route.indoorPoints ?? []).slice(1)]
+  const di = entranceIndex(pts)
+  if (di <= 0) return null
+  const origin = pts[0]
+  const local = pts.map((p) => toLocal(origin, p))
+  let doorS = 0
+  for (let i = 1; i <= di; i++) doorS += Math.hypot(local[i].x - local[i - 1].x, local[i].y - local[i - 1].y)
+  const events = result.events ?? []
+  const anchor = events.find((e) => e.name === 'entrance-anchor')
+  const truthAt = (t) => (result.samples ?? []).find((x) => x.t >= t && x.truth)?.truth
+  const atAnchor = anchor ? truthAt(anchor.t) : null
+  const rulesBefore = events.some((e) => e.name === 'wall-snap' && (!anchor || e.t < anchor.t))
+  const inside = arrowCorridorError(result, {aheadM: 6, fromS: doorS + insideFromM, toS: doorS + insideToM})
+  const twoIn = (result.samples ?? []).find((x) => x.truth && x.truth.s >= doorS + insideFromM)
+  const floorOk = Boolean(twoIn) && twoIn.floorLevel === pts[di].z
+  return {doorS: round(doorS, 1), anchored: Boolean(anchor), anchorOffM: atAnchor ? round(Math.abs(atAnchor.s - doorS)) : null, rulesBefore, inside, floorOk}
 }
 
 /** One line per metric, for the console and the replay panel. */

@@ -32,9 +32,17 @@ export function wallRules(floor, {doorGapM = CORRIDOR.doorGapM} = {}) {
   return {
     level: floor.level ?? null,
     doors,
+    /** Every place a polyline goes through a wall, as {x, y} (MazeMap data with no door drawn there). */
+    crossingsOf(line) {
+      const out = []
+      for (let i = 1; i < line.length; i++) for (const {hit} of index.crossing(line[i - 1], line[i])) out.push({x: hit.x, y: hit.y})
+      return out
+    },
     crosses(a, b) {
       if (dist(a, b) < 1e-6) return null
-      for (const {hit} of index.crossing(a, b)) if (!atDoor(hit)) return hit
+      // Standing on a wall's line is not going through it (an anchor can put the user on a door's
+      // wall line): a hit at the very start of the step does not count.
+      for (const {hit} of index.crossing(a, b)) if (!atDoor(hit) && dist(hit, a) > CORRIDOR.onLineM) return hit
       return null
     },
   }
@@ -44,12 +52,14 @@ export function wallRules(floor, {doorGapM = CORRIDOR.doorGapM} = {}) {
  * The nearest point on the route, within [fromS - backM, fromS + aheadM], that can be reached from
  * `from` without crossing a wall: {x, y, s, d (from p)}, or null. p: the point to snap.
  */
-export function nearestCorridorPoint(route, rules, p, from, fromS, {backM = CORRIDOR.backM, aheadM = CORRIDOR.aheadM, maxM = CORRIDOR.maxSnapM, stepM = 0.5} = {}) {
+export function nearestCorridorPoint(route, rules, p, from, fromS, {backM = CORRIDOR.backM, aheadM = CORRIDOR.aheadM, maxM = CORRIDOR.maxSnapM, stepM = 0.5, onFloor = null} = {}) {
   const total = polylineLength(route)
   const s0 = Math.max(0, fromS - backM)
   const s1 = Math.min(total, fromS + aheadM)
   let best = null
   for (let s = s0; s <= s1 + 1e-9; s += stepM) {
+    // Phase 4: only the route on the user's floor (it can pass right above or below itself).
+    if (onFloor && !onFloor(Math.min(s, total))) continue
     const q = pointAt(route, Math.min(s, total))
     const d = dist(q, p)
     if (d > maxM || (best && d >= best.d)) continue
@@ -82,7 +92,7 @@ export function matchPoints(route, doors = [], {turnMinDeg = CORRIDOR.turnMinDeg
  * The caller applies a snap only if the correction budget allows (route-matcher.js), then calls
  * accept(cam) so the walk goes on from there.
  */
-export function createCorridorGuard(route) {
+export function createCorridorGuard(route, {levelAtS = null} = {}) {
   let rules = null
   let points = matchPoints(route)
   let next = 0
@@ -90,10 +100,16 @@ export function createCorridorGuard(route) {
   let recent = [] // the walk (world), for door crossings: [{x, z, walkedM}]
   let lastS = 0
 
+  let openings = [] // where the route itself goes through a wall line: a doorway, drawn or not
+
   /** The floor's walls and doors; match points already passed are not run again. */
   function setFloor(floor) {
     rules = wallRules(floor)
     points = matchPoints(route, rules?.doors ?? [])
+    // The route's way through: its door crossings, and any wall it crosses where MazeMap drew no
+    // door (a data gap). A walk through a wall near one of these is going through that opening:
+    // SLAM puts people half a metre to the side as a matter of course, not through the wall.
+    openings = rules ? [...points.filter((m) => m.kind === 'door').map((m) => ({x: m.x, y: m.y})), ...rules.crossingsOf(route)] : []
     next = points.findIndex((m) => m.at > lastS)
     if (next < 0) next = points.length
   }
@@ -123,8 +139,9 @@ export function createCorridorGuard(route) {
       goodCam = null
       recent = []
     },
-    step({cam, toRoute, s, walkedM = 0}) {
+    step({cam, toRoute, s, walkedM = 0, level = null}) {
       const out = {snap: null, blocked: false, progressS: null, events: [], doorAnchor: null}
+      const onFloor = levelAtS && Number.isFinite(level) ? (q) => levelAtS(q) === level : null
       lastS = s
       if (!goodCam) goodCam = {x: cam.x, z: cam.z}
       if (!recent.length || Math.hypot(recent.at(-1).x - cam.x, recent.at(-1).z - cam.z) >= 0.25) {
@@ -135,20 +152,30 @@ export function createCorridorGuard(route) {
       let here = p
       if (rules) {
         const from = toRoute(goodCam)
-        if (rules.crosses(from, p)) {
+        const hit = rules.crosses(from, p)
+        const atOpening = hit && openings.some((o) => dist(o, hit) <= CORRIDOR.openingM)
+        if (hit && !atOpening) {
           // Through a wall: the placement is wrong. Back to the nearest corridor point reachable
           // from the last good position.
-          const to = nearestCorridorPoint(route, rules, p, from, s)
+          const to = nearestCorridorPoint(route, rules, p, from, s, {onFloor})
           if (to) {
-            out.snap = {to: {x: to.x, y: to.y}, s: to.s, by: to.d}
+            out.snap = {to: {x: to.x, y: to.y}, s: to.s, by: to.d, hit}
             here = to
-          } else out.blocked = true
+          } else {
+            out.blocked = true
+            out.from = from
+          }
         } else goodCam = {x: cam.x, z: cam.z}
         // The progress follows the tracked position's corridor point (no wall between them).
         if (!out.blocked) {
-          const c = out.snap ? {s: out.snap.s} : nearestCorridorPoint(route, rules, here, here, s, {maxM: CORRIDOR.maxLateralM})
+          const c = out.snap ? {s: out.snap.s} : nearestCorridorPoint(route, rules, here, here, s, {maxM: CORRIDOR.maxLateralM, onFloor})
           if (c && Math.abs(c.s - s) > CORRIDOR.progressGapM) out.progressS = c.s
         }
+      } else if (Number.isFinite(level) && level === 0) {
+        // Phase 5, outdoors (no walls): the progress follows the tracked position too, so the turn
+        // from the path into a doorway cannot stall it. Wider: an outdoor start came from GPS.
+        const c = nearestCorridorPoint(route, null, p, p, s, {maxM: CORRIDOR.outdoorLateralM, onFloor})
+        if (c && Math.abs(c.s - s) > CORRIDOR.progressGapM) out.progressS = c.s
       }
       // The match points passed: re-run path matching there; a door may also be an anchor.
       const sNow = out.progressS ?? s
@@ -183,18 +210,21 @@ export function createAlignConfidence({decayM = CORRIDOR.decayM} = {}) {
   let innovationM = 0
   let innovationAtM = 0
   let alongAtM = 0
+  let alongStartM = 0 // how far along the corridor it may already have been, when last fixed
   let value = 1
+  let why = null
   return {
     confirm(walkedM) {
       goodAtM = walkedM
     },
     /** The walk was matched round a corner (or placed by an anchor that fixes it): the along error is reset. */
-    alongFixed(walkedM) {
+    alongFixed(walkedM, startM = 0) {
       alongAtM = walkedM
+      alongStartM = startM
     },
     /** The arrows' expected error from the along-corridor error, at a turn of this |sin|, in metres. */
     alongErrorM(walkedM, turnSin) {
-      return CORRIDOR.alongDriftPerM * Math.max(0, walkedM - alongAtM) * turnSin
+      return (alongStartM + CORRIDOR.alongDriftPerM * Math.max(0, walkedM - alongAtM)) * turnSin
     },
     blocked(time) {
       blockedUntil = time + CORRIDOR.violationHoldS
@@ -219,10 +249,15 @@ export function createAlignConfidence({decayM = CORRIDOR.decayM} = {}) {
       if (time < blockedUntil) c = Math.min(c, 0.2)
       if (tracking !== 'NORMAL') c = Math.min(c, 0.3)
       value = c
+      why = {decay: Math.round(Math.max(0, 1 - (walkedM - goodAtM) / decayM) * 100) / 100, expectedM: Math.round(this.expectedErrorM(walkedM) * 100) / 100, alongM: Math.round(this.alongErrorM(walkedM, turnSin) * 100) / 100, residualM, blocked: time < blockedUntil, tracking}
       return c
     },
     get value() {
       return value
+    },
+    /** What set the last value (for ?debug=1 and field logs). */
+    get why() {
+      return why
     },
   }
 }

@@ -16,7 +16,7 @@
 // While walking, map matching (route-matcher.js) lays the walked track onto the route, and hit
 // tests (ground.js) lay the route onto the real ground.
 import {circularMean, createCalibrator, isPoorAccuracy, startCompass} from './compass.js'
-import {angleDiff, distanceM, fromLocal, pointAt, polylineLength, projectOntoPolyline, toDeg, toLocal, toRad, wrap360} from '../geo/geo.js'
+import {angleDiff, distanceM, fromLocal, pointAt, polylineLength, polylineSlice, projectOntoPolyline, toDeg, toLocal, wrap360} from '../geo/geo.js'
 import {DESTINATIONS} from '../map/destinations.js'
 import {getRoomCentre} from '../map/room-centres.js'
 import {arrowTarget, arrowYawDeg, createRouteTracker, walkingCorrection} from '../route/compass-guide.js'
@@ -27,13 +27,14 @@ import {anchorsNear, floorToLocal} from './building-shell.js'
 import {boxAround, fetchFloor} from './mazemap-floor.js'
 import {createRouteMatcher} from './route-matcher.js'
 import {arrowsForConfidence, createAlignConfidence, createCorridorGuard} from './corridor-guard.js'
+import {createFloorWatch, routeFloorLinks} from './floor-change.js'
 import {locationPermissionState, watchLocation} from '../geo/location.js'
 import {isManual} from '../route/start-point.js'
 import {createGuidance, landmarksFrom} from '../route/guidance.js'
 import {createArrivalDetector, createConfidenceMonitor, createOffRouteMonitor} from '../route/trip-monitors.js'
 import {entranceOf, isOnCampus, planRoute} from '../route/route.js'
 import {markerName} from '../route/card-text.js'
-import {AR_START, COMPASS_GUIDE, CORRIDOR, GROUND, GROUND_ARROWS, INDOOR, LINE_UP, MATCH, PIN, ROUTING, SAFETY, SCENE_FLOOR, SHELL, START, TRIP} from '../config.js'
+import {AR_START, COMPASS_GUIDE, CORRIDOR, ENTRANCE, FLOOR_CHANGE, GROUND, GROUND_ARROWS, INDOOR, LINE_UP, MATCH, PIN, ROUTING, SAFETY, SCENE_FLOOR, SHELL, START, TRIP} from '../config.js'
 import {createHeightProfile} from '../scene/route-height.js'
 import {createTripLog} from './trip-log.js'
 import {createHeadingHold, createIndoorGpsGate, entranceIndex, planEntranceAnchor} from './entrance-anchor.js'
@@ -386,7 +387,7 @@ export function createArTrip({
   // ---------- Fix 3: the entrance, indoor GPS, and where position and heading come from ----------
   /** Is the user inside by route progress (re-anchored at the door, or on a floor)? */
   function indoorsNow() {
-    return entranceAnchored || levelAt(routeLevels, tracker?.s ?? 0) !== 0
+    return entranceAnchored || currentLevel() !== 0
   }
 
   function positionSourceNow(time) {
@@ -420,19 +421,35 @@ export function createArTrip({
    * the heading and position are SLAM's, not the compass's or GPS's.
    */
   function anchorAtEntrance(time) {
-    if (entranceAnchored || doorS == null || !directionKnown || tracking !== 'NORMAL' || nav.easing) return
+    // Phase 5: an easing correction no longer blocks it (the anchor replaces the placement anyway).
+    if (entranceAnchored || doorS == null || !directionKnown || tracking !== 'NORMAL') return
     if (netTrip && route.source === 'network') return // ?network=1 has its own door anchors
-    const plan = planEntranceAnchor({route: nav.route, doorS, s: tracker.s, track: walkTrack})
+    // At the door by progress (which follows where SLAM puts the user, outdoors too: Phase 5).
+    let plan = planEntranceAnchor({route: nav.route, doorS, s: tracker.s, track: walkTrack})
+    // Past the door without it (a jump in progress): never skipped. The user is placed on the
+    // indoor route where progress says, and the record says it was late.
+    let late = false
+    if (!plan && tracker.s > doorS + ENTRANCE.nearM) {
+      plan = {s: tracker.s, at: pointAt(nav.route, tracker.s), turnDeg: 0, walkedM: 0}
+      late = true
+    }
     if (!plan) return
-    if (plan.turnDeg) nav.rotateAboutUser(-toRad(plan.turnDeg)) // clockwise: rotateAboutUser takes anticlockwise
-    reanchorAtLocal(plan.at)
+    // Phase 5: no turn here. The walk so far is the path up to the door, which says nothing about
+    // the corridor behind it (tried, and turning by the first metres inside instead was worse:
+    // 10/20 against 11/20); path matching sets the heading indoors.
+    // Inside now: the door's floor first, so the new path matcher fits the walk to the indoor route.
+    floorWatch?.confirm(levelAt(routeLevels, doorS + 0.01) ?? 0, camera.position.y)
+    reanchorAtLocal(plan.at, plan.s)
     entranceAnchored = true
+    applyGuardFloor() // the indoor walls become rules only now
     entranceAt = time
     compassOff = true
     compassLocked = true
     walkTrack = []
-    console.info('[trip] re-anchored at the entrance', {turnDeg: Math.round(plan.turnDeg * 10) / 10, walkedM: Math.round(plan.walkedM * 10) / 10})
-    recorder?.event('entrance-anchor', {turnDeg: plan.turnDeg, walkedM: plan.walkedM, s: plan.s})
+    // How far along the corridor the user may be from the door: outdoor progress decided when.
+    alignConfidence.alongFixed(tripWalkedM(), ENTRANCE.alongErrM)
+    console.info('[trip] re-anchored at the entrance', {late})
+    recorder?.event('entrance-anchor', {s: plan.s, late})
   }
 
   /** Place the route and start guiding. headingDeg: the compass; null: find out by walking. */
@@ -452,8 +469,12 @@ export function createArTrip({
     nav.setVisible(directionKnown)
     compassBias = headingDeg == null ? null : 0
     tracker = createRouteTracker(nav.route, info.s)
-    alignConfidence.confirm(matcher.everWalkedM)
+    alignConfidence.confirm(tripWalkedM())
     guard?.reset()
+    // Phase 4: the floor is the start's (a chosen room or door says it), counted from this height.
+    const startLevel = Number.isFinite(startPoint?.floor) ? startPoint.floor : (levelAt(routeLevels, info.s) ?? 0)
+    floorWatch = createFloorWatch(floorLinks(), {level: startLevel, camY: camera.position.y})
+    newMatcher()
     navPose.reset()
     startS = info.s
     if (networkEnabled() && route.source === 'network') beginNetworkPose(info)
@@ -515,7 +536,7 @@ export function createArTrip({
     // GPS is useful for placing and correcting the outdoor leg, but it becomes unreliable inside
     // buildings. Once the tracked route reaches a MazeMap floor, let SLAM and the compass carry
     // the position confidence instead of hiding the arrows because an indoor GPS fix wandered.
-    const onIndoorFloor = levelAt(routeLevels, tracker?.s ?? 0) !== 0
+    const onIndoorFloor = currentLevel() !== 0
     confidenceNow = confidence.update({
       time,
       gpsAccuracy: lastFix?.accuracy ?? null,
@@ -560,9 +581,9 @@ export function createArTrip({
     const correction = matcher.update(nav.worldToRoute)
     if (correction) {
       nav.applyCorrection(correction)
-      alignConfidence.corrected(correction, matcher.everWalkedM)
+      alignConfidence.corrected(correction, tripWalkedM())
     }
-    if (matcher.confident) alignConfidence.confirm(matcher.everWalkedM)
+    if (matcher.confident) alignConfidence.confirm(tripWalkedM())
     // Until the flip that walk counted as going backwards. It was going forwards all along.
     if (correction?.flipped) tracker.set(startS + matcher.everWalkedM)
   }
@@ -583,7 +604,7 @@ export function createArTrip({
   async function reroute() {
     // Indoors (Fix 3) a GPS fix is noise: plan from where SLAM puts the user, on their floor.
     const inside = indoorsNow() && !backOutside
-    const level = levelAt(routeLevels, tracker?.s ?? 0)
+    const level = currentLevel()
     const from = inside ? {...trackedPosition(), z: level, floor: level} : manual ? trackedPosition() : lastFix
     if (!from || (!manual && !inside && from.accuracy > TRIP.rerouteFixM)) return
     rerouting = true
@@ -595,15 +616,16 @@ export function createArTrip({
       // The planned route itself, so a replay plans the same one at the same moment.
       recorder?.event('reroute', {from: {lat: from.lat, lng: from.lng, z: from.z ?? null}, route: planned})
       nav.setRoute(next)
-      guard = createCorridorGuard(nav.route)
-      if (shellFloor) guard.setFloor(shellFloor)
+      guard = createCorridorGuard(nav.route, {levelAtS: (q) => levelAt(routeLevels, q)})
+      applyGuardFloor()
+      if (floorWatch) floorWatch = createFloorWatch(routeFloorLinks(next.points, origin, routeScene?.links ?? []), {level: floorWatch.level, camY: camera.position.y})
       heightAt = createHeightProfile(next.points, nav.route, origin)
       routeVersion += 1
       lineCache = null
       routeLevels = levelsAlong(next.points, origin)
       if (!entranceAnchored) {
         const door = INDOOR.indoorAR && planned.indoorPoints?.length >= 2 ? planned.points.length - 1 : entranceIndex(next.points)
-        doorS = door > 0 ? projectOntoPolyline(nav.route, toLocal(origin, next.points[door])).s : null
+        doorS = door > 0 ? sOfPoint(next.points, door) : null
       }
       startS = nav.startInfo(from).s
       tracker = createRouteTracker(nav.route, startS)
@@ -611,7 +633,7 @@ export function createArTrip({
       // the placement, so the compass has to keep allowing for it.
       compassOff ||= matcher.flipped
       if (compassBias != null) compassBias += matcher.totalYawDeg
-      matcher = createRouteMatcher(nav.route)
+      newMatcher()
       guidance = createGuidance(nav.route, {arriveLabel, landmarks})
       instructionAt = -Infinity
     } catch (err) {
@@ -777,8 +799,131 @@ export function createArTrip({
   let arrowOpacityNow = 1
   let wallSnaps = 0
   let wallBlocked = 0
+  let wasBlocked = false
   let doorAnchors = 0
   let matchesAtPoints = 0
+
+  // Metres walked this trip. Each anchor starts a new matcher (its own count from 0), so the
+  // confidence, which compares metres across anchors, reads this, which never goes back.
+  let walkedBefore = 0
+  function tripWalkedM() {
+    return walkedBefore + (matcher?.everWalkedM ?? 0)
+  }
+  /** A new path matcher on the user's floor's stretch of route: its correction budget starts again. */
+  function newMatcher() {
+    walkedBefore += matcher?.everWalkedM ?? 0
+    matcher = createRouteMatcher(matchRoute())
+  }
+
+  // ---------- Phase 4: floor changes from SLAM's height (floor-change.js) ----------
+  let floorWatch = null
+  let floorInTransit = false
+  let floorSwitches = 0
+  let pendingLanding = null // the floor has changed; re-anchor once the climb (or ride) is over
+  let heightTrail = [] // [{t, y}]: the camera's height over the last second or so
+
+  /**
+   * Phase 5: the walls are rules only indoors, and only once the trip knows it is in: after the
+   * entrance re-anchor, or from a start that is already inside. Before that, a position GPS put a
+   * few metres off would "go through" the building's outside wall and be snapped back wrongly.
+   */
+  function indoorConfirmed() {
+    return entranceAnchored || (routeLevels?.[0]?.z ?? 0) !== 0 || Number.isFinite(startPoint?.floor)
+  }
+  function applyGuardFloor() {
+    guard?.setFloor(indoorConfirmed() ? shellFloor : null)
+  }
+
+  /** Distance along the route of its point i (exact: a route can pass over itself on another floor). */
+  function sOfPoint(points, i) {
+    let total = 0
+    for (let k = 1; k <= i; k++) {
+      const a = toLocal(origin, points[k - 1])
+      const b = toLocal(origin, points[k])
+      total += Math.hypot(b.x - a.x, b.y - a.y)
+    }
+    return total
+  }
+
+  /**
+   * Where a route-frame point is along the route: near the progress, on the user's floor. A plain
+   * projection picks whatever part of the route is nearest in plan, even the floor above.
+   */
+  function progressNear(p) {
+    const level = currentLevel()
+    const total = tracker?.totalM ?? polylineLength(nav.route)
+    const from = Math.max(0, (tracker?.s ?? 0) - FLOOR_CHANGE.progressBackM)
+    const to = Math.min(total, (tracker?.s ?? 0) + FLOOR_CHANGE.progressAheadM)
+    let best = null
+    for (let q = from; q <= to + 1e-9; q += 0.25) {
+      if (level && levelAt(routeLevels, q) !== level) continue
+      const r = pointAt(nav.route, Math.min(q, total))
+      const d = Math.hypot(r.x - p.x, r.y - p.y)
+      if (!best || d < best.d) best = {s: Math.min(q, total), d}
+    }
+    return best ? best.s : projectOntoPolyline(nav.route, p).s
+  }
+
+  /**
+   * The route path matching fits the walk to: the stretch on the user's floor around the progress.
+   * A route can pass over itself on another floor (out of a lift and back along the corridor
+   * above): fitted to that, the walk looks like the wrong way and the arrows flip.
+   */
+  function matchRoute() {
+    if (!nav?.route?.length || !routeLevels?.length) return nav?.route ?? []
+    const levels = new Set(routeLevels.map((l) => l.z))
+    if (levels.size < 2) return nav.route
+    const total = polylineLength(nav.route)
+    const at = Math.max(0, Math.min(total, tracker?.s ?? startS ?? 0))
+    const level = floorWatch ? floorWatch.level : levelAt(routeLevels, at)
+    let a = at
+    let b = at
+    while (a > 0 && levelAt(routeLevels, a - 0.5) === level) a -= 0.5
+    while (b < total && levelAt(routeLevels, b + 0.5) === level) b += 0.5
+    const slice = polylineSlice(nav.route, Math.max(0, a - FLOOR_CHANGE.matchMarginM), Math.min(total, b + FLOOR_CHANGE.matchMarginM))
+    return slice.length >= 2 ? slice : nav.route
+  }
+
+  /** The route's stairs and lifts, told apart by the scene once it has loaded. */
+  function floorLinks() {
+    return routeFloorLinks(route.points, origin, routeScene?.links ?? [])
+  }
+
+  /** The floor the user is on: SLAM's height decides indoors; before Start, the route's. */
+  function currentLevel() {
+    return floorWatch ? floorWatch.level : (levelAt(routeLevels, tracker?.s ?? 0) ?? 0)
+  }
+
+  /**
+   * Once a frame: a climb or drop of about a floor near one of the route's stairs or lifts changes
+   * the floor; its walls take over, and the user is re-anchored at the landing.
+   */
+  function watchFloor(time) {
+    if (!floorWatch || tracking !== 'NORMAL' || !nav?.aligned || !directionKnown) return
+    heightTrail.push({t: time, y: camera.position.y})
+    while (heightTrail.length > 2 && time - heightTrail[1].t >= FLOOR_CHANGE.stillS) heightTrail.shift()
+    const here = nav.worldToRoute({x: camera.position.x, z: camera.position.z})
+    const r = floorWatch.update({camY: camera.position.y, here, s: tracker.s, routeLevel: levelAt(routeLevels, tracker.s)})
+    floorInTransit = r.inTransit
+    if (r.switched) {
+      // The new floor's walls take over now (shellLevel reads the floor); the user is put at the
+      // landing when they reach it: a switchback stair is not done at 2.5 m of a 3.5 m climb.
+      floorSwitches += 1
+      floorChange = null
+      pendingLanding = r.switched
+      const {from, to, link, landingS} = r.switched
+      console.info('[trip] floor change', {from, to, kind: link.kind})
+      recorder?.event('floor-change', {from, to, kind: link.kind, s: landingS})
+    }
+    // On the landing: near the new floor's height, and no longer climbing (a lift has stopped).
+    const still = heightTrail.length > 1 && time - heightTrail[0].t >= FLOOR_CHANGE.stillS * 0.9 && Math.abs(camera.position.y - heightTrail[0].y) < FLOOR_CHANGE.stillM
+    if (pendingLanding && !r.inTransit && still) {
+      const {landing, landingS, link} = pendingLanding
+      pendingLanding = null
+      reanchorAtLocal(landing, Math.min(tracker.totalM, landingS + FLOOR_CHANGE.landingAheadM))
+      recorder?.event('landing-anchor', {kind: link.kind, s: landingS})
+    }
+  }
 
   /** The sharpest turn (as |sin|) the visible arrows go round from s: where an along error shows. */
   function turnSinAhead(s) {
@@ -792,7 +937,7 @@ export function createArTrip({
 
   /** Indoors, on a floor with its walls loaded: the walls are rules, and confidence fades the arrows. */
   function indoorGuarded() {
-    return Boolean(guard?.hasWalls) && phase === 'ready' && !arrived && levelAt(routeLevels, tracker?.s ?? 0) !== 0
+    return Boolean(guard?.hasWalls) && phase === 'ready' && !arrived && currentLevel() !== 0
   }
 
   /**
@@ -803,38 +948,42 @@ export function createArTrip({
   function guardCorridor(time) {
     if (!guard || !directionKnown || tracking !== 'NORMAL' || !nav?.aligned) return
     if (netTrip && route.source === 'network') return // ?network=1 has its own constrained pose
+    if (floorInTransit) return // between floors the walls of neither apply (Phase 4)
     const cam = {x: camera.position.x, z: camera.position.z}
     const p = nav.worldToRoute(cam)
-    const r = guard.step({cam, toRoute: nav.worldToRoute, s: tracker.s, walkedM: matcher.everWalkedM})
+    const r = guard.step({cam, toRoute: nav.worldToRoute, s: tracker.s, walkedM: tripWalkedM(), level: currentLevel()})
     if (r.snap) {
       const by = {dx: r.snap.to.x - p.x, dy: r.snap.to.y - p.y}
       // Within what map matching may still move the placement since the last anchor, else not at all.
       if (Math.hypot(by.dx, by.dy) <= matcher.roomM) {
         nav.placeUserAt(r.snap.to)
         matcher.spend(by)
-        alignConfidence.corrected(by, matcher.everWalkedM)
+        alignConfidence.corrected(by, tripWalkedM())
         tracker.set(r.snap.s)
         guard.accept(cam)
         wallSnaps += 1
-        recorder?.event('wall-snap', {byM: Math.hypot(by.dx, by.dy), s: r.snap.s})
+        recorder?.event('wall-snap', {byM: Math.hypot(by.dx, by.dy), s: r.snap.s, hit: r.snap.hit, from: nav.worldToRoute(cam)})
       } else {
         alignConfidence.blocked(time)
         wallBlocked += 1
       }
     } else if (r.blocked) {
       alignConfidence.blocked(time)
+      // The start of a blocked spell goes in the record (field logs say where and why).
+      if (!wasBlocked) recorder?.event('wall-blocked', {at: p, from: r.from ?? null, s: tracker.s, level: currentLevel()})
       wallBlocked += 1
     }
+    wasBlocked = Boolean(r.blocked)
     if (r.progressS != null && !r.snap) tracker.set(r.progressS)
     if (r.events.length) forceMatch = true
     // Matched round a corner of 35°+ (the walk now has both legs): that fixes the along error.
-    if (r.events.some((e) => e.kind === 'turn')) alignConfidence.alongFixed(matcher.everWalkedM)
+    if (r.events.some((e) => e.kind === 'turn')) alignConfidence.alongFixed(tripWalkedM())
     if (r.doorAnchor) {
       const to = {x: p.x + r.doorAnchor.by.dx, y: p.y + r.doorAnchor.by.dy}
       nav.placeUserAt(to)
-      tracker.set(projectOntoPolyline(nav.route, to).s)
+      tracker.set(progressNear(to))
       matcher.resetBudget() // a confirmed anchor: the drift budget starts again from here
-      alignConfidence.confirm(matcher.everWalkedM)
+      alignConfidence.confirm(tripWalkedM())
       guard.accept(cam)
       doorAnchors += 1
       recorder?.event('door-anchor', {byM: Math.hypot(r.doorAnchor.by.dx, r.doorAnchor.by.dy), s: r.doorAnchor.door.s})
@@ -848,12 +997,12 @@ export function createArTrip({
     xr = XR8
     const name = markerName(destination, route.entrance ?? null, DESTINATIONS, INDOOR.indoorAR)
     nav = createNavScene({THREE, scene, camera, route, origin, name, reducedMotion})
-    doorS = doorIndex > 0 ? projectOntoPolyline(nav.route, toLocal(origin, route.points[doorIndex])).s : null
+    doorS = doorIndex > 0 ? sOfPoint(route.points, doorIndex) : null
     heightAt = createHeightProfile(route.points, nav.route, origin)
     placePinInRoom()
-    matcher = createRouteMatcher(nav.route)
+    newMatcher()
     guidance = createGuidance(nav.route, {arriveLabel, landmarks})
-    guard = createCorridorGuard(nav.route)
+    guard = createCorridorGuard(nav.route, {levelAtS: (q) => levelAt(routeLevels, q)})
     setPhase('await-start')
   }
 
@@ -938,7 +1087,7 @@ export function createArTrip({
     if (shellAt?.level === level && shellAt.scene) return true
     shellFloor = {...routeScene.floors[level], level}
     shellAt = {level, scene: true, centre: trackedPosition()}
-    guard?.setFloor(shellFloor)
+    applyGuardFloor()
     nav.setShellFloor(shellFloor, lowFps ? {near: {point: nav.worldToRoute({x: camera.position.x, z: camera.position.z}), metres: SHELL.lowFpsWallsM}} : {})
     nav.setWireframe(wireOn)
     wallLinesShown = false
@@ -969,7 +1118,7 @@ export function createArTrip({
         if (stopped || !nav) return
         shellFloor = floorToLocal(floor, origin)
         shellAt = {level, centre}
-        guard?.setFloor(shellFloor)
+        applyGuardFloor()
         nav.setShellFloor(shellFloor, lowFps ? {near: {point: toLocal(origin, centre), metres: SHELL.lowFpsWallsM}} : {})
         nav.setWireframe(wireOn)
         wallLinesShown = false
@@ -1075,12 +1224,14 @@ export function createArTrip({
   }
 
   /** Put the user at route-frame point p: the arrows and the dot move there; line up again. */
-  function reanchorAtLocal(p) {
+  function reanchorAtLocal(p, s = null) {
     if (!nav?.aligned || !tracker) return false
     nav.placeUserAt(p)
-    tracker.set(projectOntoPolyline(nav.route, p).s)
-    matcher = createRouteMatcher(nav.route) // a new matcher: the correction budget starts again
-    alignConfidence.confirm(0)
+    tracker.set(Number.isFinite(s) ? s : progressNear(p))
+    newMatcher() // a new matcher: the correction budget starts again
+    // A known place (the entrance, a landing, "I'm here"): sure of the position, along the route too.
+    alignConfidence.confirm(tripWalkedM())
+    alignConfidence.alongFixed(tripWalkedM())
     guard?.accept({x: camera.position.x, z: camera.position.z})
     lastMatchAt = -Infinity
     offerReanchor = false
@@ -1162,6 +1313,7 @@ export function createArTrip({
       nav.setPinLift(heightAt(Infinity) - hUser)
       if (tracking === 'NORMAL') tracker.walk(camera.position, directionKnown ? nav.worldToRoute : null)
       if (tracking === 'NORMAL' && directionKnown) recordWalk()
+      watchFloor(time)
       guardCorridor(time)
       anchorAtEntrance(time)
       if (manual) {
@@ -1175,7 +1327,10 @@ export function createArTrip({
         const gate = gpsGate.update(lastFix, indoorsNow())
         gpsIgnored = !gate.use
         backOutside = gate.outside
-        if (gate.use) tracker.fix(toLocal(origin, lastFix), lastFix.accuracy)
+        // Phase 5: by the building GPS bounces off the facade; in the last metres to the door SLAM
+        // carries the progress, so the door is reached when the user reaches it.
+        const nearDoor = !entranceAnchored && doorS != null && doorS - tracker.s <= ENTRANCE.gpsQuietM && tracker.s <= doorS + ENTRANCE.nearM
+        if (gate.use && !nearDoor) tracker.fix(toLocal(origin, lastFix), lastFix.accuracy)
         noteCampus(lastFix)
       }
       tracker.tick(dt)
@@ -1191,7 +1346,7 @@ export function createArTrip({
         shownS: tracker.shownS,
         tracked: nav.aligned ? nav.worldToRoute({x: camera.position.x, z: camera.position.z}) : null,
         headingDeg: guideHeading(),
-        floorLevel: levelAt(routeLevels, tracker.s),
+        floorLevel: currentLevel(),
         confident: positionOk && directionKnown && (tracking === 'NORMAL' || allowDesktop),
       })
     }
@@ -1199,7 +1354,11 @@ export function createArTrip({
     const routeS = pose.routeS ?? 0
     const remainingM = tracker ? Math.max(0, tracker.totalM - routeS) : route.lengthM
     if (phase === 'ready' && !arrived) {
-      if (arrival.update(dt, remainingM, directionKnown ? s.toPinM : null)) {
+      // The straight line to the destination only on its own floor: indoors it runs through walls,
+      // and a room right below or above is not "arrived" (Phase 4: found on a stair down to -1).
+      const sameFloor = currentLevel() === (route.points.at(-1)?.z ?? 0)
+      // The route left counts only on that floor too: a stair or lift ahead has no length in plan.
+      if (arrival.update(dt, sameFloor ? remainingM : Infinity, directionKnown && sameFloor ? s.toPinM : null)) {
         arrived = true
         instruction = null
         onArrived?.()
@@ -1232,7 +1391,7 @@ export function createArTrip({
     // Phase 3: indoors, low confidence that the arrows lie on the corridor fades them, and
     // "Keep walking" shows instead: the walk will line them up again (a turn, a door).
     const lowConfidence = indoorGuarded()
-      ? arrowsForConfidence(alignConfidence.update({walkedM: matcher.everWalkedM, time, residualM: matcher.residualM, tracking, turnSin: turnSinAhead(tracker?.s ?? 0)}))
+      ? arrowsForConfidence(alignConfidence.update({walkedM: tripWalkedM(), time, residualM: matcher.residualM, tracking, turnSin: turnSinAhead(tracker?.s ?? 0)}))
       : {opacity: 1, keepWalking: false}
     keepWalking = arrowsShown && lowConfidence.keepWalking
     arrowOpacityNow = arrowsShown ? Math.min(matchOpacity, lowConfidence.opacity) : 0
@@ -1313,7 +1472,11 @@ export function createArTrip({
         arrowOpacity: arrowOpacityNow,
         keepWalking,
         alignConfidence: Math.round(alignConfidence.value * 100) / 100,
+        alignWhy: alignConfidence.why,
         corridor: {wallSnaps, wallBlocked, doorAnchors, matchesAtPoints, walls: Boolean(guard?.hasWalls)},
+        // Phase 4: the floor from SLAM's height.
+        floorSwitches,
+        floorRiseM: floorWatch && camera ? Math.round(floorWatch.riseM(camera.position.y) * 100) / 100 : null,
         // Phase 1: the compass disagreed with the door's heading by more than this at Start (a hint only).
         compassHint: compassDisagreeDeg != null && compassDisagreeDeg > AR_START.compassCheckDeg ? Math.round(compassDisagreeDeg) : null,
         liveAvailable: manual && !arrived && phase === 'ready' && liveFixes >= TRIP.liveFixes,
@@ -1490,7 +1653,8 @@ export function createArTrip({
     confirmFloor() {
       if (!floorChange || !nav) return false
       const s = floorChange.s + 0.5
-      const ok = reanchorAtLocal(pointAt(nav.route, Math.min(s, nav.route.length ? polylineLength(nav.route) : s)))
+      floorWatch?.confirm(floorChange.toLevel, camera.position.y)
+      const ok = reanchorAtLocal(pointAt(nav.route, Math.min(s, nav.route.length ? polylineLength(nav.route) : s)), s)
       floorChange = null
       return ok
     },
@@ -1499,7 +1663,7 @@ export function createArTrip({
       floor.clear()
       sceneBaseFromCamera = false
       trackingLostAt = null
-      matcher = createRouteMatcher(nav.route)
+      newMatcher()
       lastMatchAt = -Infinity
       // Back from the background: the walk lines the arrows up again (dimmed until it does).
       unconfirmedSince = null

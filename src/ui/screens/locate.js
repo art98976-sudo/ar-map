@@ -18,10 +18,10 @@ import {
 } from '../../ar/permissions.js'
 import {errorCopy} from './ar-errors.js'
 import {locationErrorCopy} from './locate-errors.js'
-import {googleMapsWalkingUrl, planRoute, saveTripRoute, tripLengthM, walkingMinutes} from '../../route/route.js'
+import {googleMapsWalkingUrl, leavesAfterEntering, planRoute, saveTripRoute, tripLengthM, walkingMinutes} from '../../route/route.js'
 import {getStart, isManual, startLabel} from '../../route/start-point.js'
 import {gpsStartDecision} from '../../route/ar-start.js'
-import {doorStartPoint, doorwaySides, rankDoors, resolveDoorHeading} from '../../route/door-start.js'
+import {doorStartPoint, doorwaySides, pickDoorRoute, rankDoors, resolveDoorHeading} from '../../route/door-start.js'
 import {fromLocal, toLocal} from '../../geo/geo.js'
 import {whereSheet} from '../components/where-sheet.js'
 import {formatDistance} from '../../ar/pin.js'
@@ -291,13 +291,15 @@ export function locateScreen(root, {navigate, params}) {
     try {
       const planned = await Promise.all(candidates.map((c) => planRoute(c.at, destination).then((route) => ({...c, route}), () => ({...c, route: {status: 'error'}}))))
       if (disposed) return
-      const ok = planned.filter((p) => p.route.status === 'ok').sort((a, b) => tripLengthM(a.route) - tripLengthM(b.route))
-      if (!ok.length) {
+      // Phase 5: a destination in the door's own building is reached without going back outside.
+      const sameBuilding = await sameBuildingAs(door)
+      const best = pickDoorRoute(planned, {sameBuilding, lengthOf: tripLengthM, leaves: (r) => leavesAfterEntering([...r.points, ...(r.indoorPoints ?? []).slice(1)])})
+      if (disposed) return
+      if (!best) {
         const route = planned.find((p) => p.route.reason === 'floor-data-unavailable')?.route ?? planned[0].route
         if (route.reason === 'floor-data-unavailable') return showError('indoor-map-failed')
         return showError(route.status === 'no-indoor-route' ? 'no-indoor-route' : 'no-route')
       }
-      const best = ok[0]
       const points = [...best.route.points, ...(best.route.indoorPoints ?? []).slice(1)]
       const local = points.map((p) => toLocal(best.at, p))
       // From outside, the walk goes in if the route's indoor part starts at this doorway.
@@ -322,6 +324,18 @@ export function locateScreen(root, {navigate, params}) {
       if (!disposed) showError('no-route')
     } finally {
       planning = false
+    }
+  }
+
+  /** Is the destination inside the door's building (MazeMap outlines)? False when unknown. */
+  async function sameBuildingAs(door) {
+    if (door.buildingId == null) return false
+    try {
+      const mod = await loadDoorData()
+      const list = await mod.loadBuildingShapes()
+      return Boolean(list) && mod.buildingAt({lat: destination.lat, lng: destination.lng}, list)?.id === door.buildingId
+    } catch {
+      return false
     }
   }
 

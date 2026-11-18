@@ -378,6 +378,8 @@ export const ENTRANCE = {
   outsideFixes: 3, // indoors, this many good GPS fixes in a row mean the user has gone back outside
   outsideAccuracyM: 10, // "good" for that test
   holdSwingDeg: 20, // the compass swinging more than this (near steel or concrete): keep the last good heading
+  gpsQuietM: 25, // Phase 5: within this of the door GPS (off the facade) no longer moves the progress
+  alongErrM: 1.5, // Phase 5: the entrance anchor's own error along the corridor (when outdoor progress said "door")
 }
 
 export const TRIP = {
@@ -491,14 +493,33 @@ export const NETWORK = {
   areaSnapM: 30, // a trip end this close to a network path (or inside its building) routes on it
 }
 
+// Alignment Phase 4 (src/ar/floor-change.js): the floor changes when SLAM's height does.
+export const FLOOR_CHANGE = {
+  minRiseM: 2.5, // the camera has climbed or dropped at least this much since the last floor...
+  riseShare: 0.7, // ...and at least this share of the link's own rise (a 7 m lift: 4.9 m)...
+  maxRiseShare: 1.5, // ...and not far more than it (+1 m): that is not this link
+  nearM: 8, // ...close to the stair or lift (tracked position, or route progress)
+  transitM: 0.8, // between floors (on a stair, in a lift): the wall rules wait
+  linkMatchM: 3, // a scene link this close along the route is the same floor change
+  landingAheadM: 0.3, // after a change the progress is put this far past the landing
+  matchMarginM: 1, // path matching fits the walk to the user's floor's stretch of route, and this beyond
+  progressBackM: 10, // a point is placed along the route this far back from the progress...
+  progressAheadM: 30, // ...to this far ahead, on the user's floor only
+  stillS: 1, // on the landing: the height has changed by less than stillM over this long
+  stillM: 0.1,
+}
+
 // Alignment Phase 3 (src/ar/corridor-guard.js): MazeMap's walls as rules for every indoor trip.
 export const CORRIDOR = {
   doorGapM: 0.5, // a wall crossing this close to a door line is the doorway, not the wall
+  openingM: 1.2, // ...and one this close to where the route itself goes through (Phase 4: a loop at doors)
+  onLineM: 0.05, // a wall hit this close to where the step starts is standing on its line, not crossing it
   backM: 8, // the corridor point for a snap is looked for this far back along the route...
   aheadM: 25, // ...and this far ahead of the trip's progress
   maxSnapM: 6, // a corridor point further than this from the tracked position is not this corridor
   progressGapM: 0.75, // the tracked position's corridor point this far from the progress: move the progress
   maxLateralM: 3, // ...but only when the tracked position is this close to the route (not lost)
+  outdoorLateralM: 8, // outdoors (no walls; Phase 5) the progress follows the tracked position this far off
   turnMinDeg: 35, // a route turn this sharp re-runs path matching...
   turnArmM: 4, // ...this far past it (enough straight walking after the corner to see it)
   doorArmM: 1.5, // a door crossing re-runs path matching this far past it

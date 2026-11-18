@@ -87,6 +87,13 @@ describe('the building shell', () => {
     shell.dispose()
   })
 
+  it('a floor with no walls (Cottrell level -1 in MazeMap) builds empty meshes instead of throwing', () => {
+    const shell = buildShellMeshes(THREE, mergeGeometries, {...FLOOR, walls: []})
+    expect(shell.wire.geometry.attributes.position).toBeUndefined()
+    expect(shell.baseLines.geometry.attributes.position.count).toBe(0)
+    shell.dispose()
+  })
+
   it('keeps only nearby walls when asked (line-up lines, low frame rate)', () => {
     expect(wallsNear(FLOOR, {x: 1, y: 0}, 2).map((w) => w.id)).toEqual([1])
     expect(insideRing({x: 5, y: 3}, FLOOR.rooms[0].polygon[0])).toBe(true)

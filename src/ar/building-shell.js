@@ -175,7 +175,10 @@ export function buildShellMeshes(THREE, mergeGeometries, floor, {walls = floor.w
   occluder.name = 'shell-occluder'
   occluder.renderOrder = SHELL.renderOrder
 
-  const wire = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 30), new THREE.LineBasicMaterial({color: 0x38bdf8, transparent: true, opacity: 0.8, depthTest: false}))
+  // A floor MazeMap draws no walls on (Cottrell level -1): nothing to outline, and EdgesGeometry
+  // cannot read an empty geometry.
+  const edges = pieces.length ? new THREE.EdgesGeometry(geometry, 30) : new THREE.BufferGeometry()
+  const wire = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({color: 0x38bdf8, transparent: true, opacity: 0.8, depthTest: false}))
   wire.name = 'shell-wireframe'
 
   // Base lines: each wall's outline, flat on the floor.

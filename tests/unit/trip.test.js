@@ -1124,6 +1124,14 @@ describe('walking beats the compass', () => {
     t.walk(5.5)
     for (let i = 0; i < 6; i++) t.frame()
     expect(t.box.stats.entranceAnchored).toBe(true)
+    // Phase 5: the anchor no longer turns the path by the walk up to the door (that walk is the
+    // approach path, not the corridor: replays showed 18-38° wrong turns). Walking on inside,
+    // path matching straightens it.
+    for (let k = 0; k < 8; k++) {
+      t.walk(5.5 + (k + 1) * 2.5)
+      for (let i = 0; i < 6; i++) t.frame()
+    }
+    process.stdout.write(`yaw after walking in: ${wrapped(t.box.stats.yawDeg).toFixed(2)}\n`)
     near(wrapped(t.box.stats.yawDeg), 0, 3)
     t.done()
   })
