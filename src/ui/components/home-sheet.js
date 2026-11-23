@@ -20,99 +20,157 @@ export function nearestOf(kind, from, {roomTypes = {}, food = []} = {}) {
   return toRows(pool, from, undefined)[0]?.dest ?? null
 }
 
-export const SHEET_HEIGHTS = ['peek', 'half', 'full']
+export const SHEET_HEIGHTS = ['peek', 'half', 'full'] // collapsed, half, full
 const DOTS = 'quick-places'
-const SNAP_FLICK_PX = 40 // a short flick is enough to move one height
+const DRAG_START_PX = 6 // less than this is a tap
+const FLICK_PX_PER_MS = 0.45 // a release faster than this moves one height, whatever the distance
+const DESKTOP = '(min-width: 768px)' // a side panel there, not a bottom sheet
 
-/** Height in px of each sheet state, for the screen it is on. */
-export function sheetHeights(viewport, peekPx) {
-  return {peek: peekPx, half: Math.round(viewport * 0.5), full: Math.round(viewport - 88)}
+/**
+ * Height in px of each state for a screen viewport px tall: collapsed shows the handle and the chips
+ * (collapsedPx, measured), half is half the screen, full nine tenths.
+ */
+export function sheetHeights(viewport, collapsedPx) {
+  const full = Math.round(viewport * 0.9)
+  const half = Math.max(collapsedPx, Math.round(viewport * 0.5))
+  return {peek: Math.min(collapsedPx, half), half, full}
 }
 
-/** Where a drag ends: the nearest height, or one step on for a quick flick. */
-export function snapHeight(heights, startName, draggedPx) {
+/**
+ * Where a drag ends. visiblePx: how much of the sheet shows at release; velocity: px/ms, > 0 upwards.
+ * A quick flick goes on to the next height in its direction (so a short flick moves one step, and a
+ * long fast drag stays where the finger took it); otherwise the nearest height wins.
+ */
+export function snapHeight(heights, startName, visiblePx, velocity = 0) {
   const order = SHEET_HEIGHTS
-  const at = heights[startName] + draggedPx
-  const i = order.indexOf(startName)
-  if (Math.abs(draggedPx) >= SNAP_FLICK_PX) {
-    const next = order[Math.max(0, Math.min(order.length - 1, i + (draggedPx > 0 ? 1 : -1)))]
-    // A long drag goes wherever it ends; a flick moves one step.
-    const nearest = order.reduce((best, name) => (Math.abs(heights[name] - at) < Math.abs(heights[best] - at) ? name : best), order[0])
-    return Math.abs(heights[nearest] - heights[startName]) > Math.abs(heights[next] - heights[startName]) ? nearest : next
+  if (Math.abs(velocity) >= FLICK_PX_PER_MS) {
+    const up = velocity > 0
+    const ahead = order.filter((name) => (up ? heights[name] >= visiblePx - 1 : heights[name] <= visiblePx + 1))
+    if (ahead.length) return up ? ahead[0] : ahead.at(-1)
+    return up ? order.at(-1) : order[0]
   }
-  return startName
+  return order.reduce((best, name) => (Math.abs(heights[name] - visiblePx) < Math.abs(heights[best] - visiblePx) ? name : best), order[0])
 }
 
-export function createHomeSheet(root, {getMap, getFrom, pins, onPick}) {
+export function createHomeSheet(root, {getMap, getFrom, pins, onPick, onChange = () => {}}) {
   const sheet = root.querySelector('[data-home-sheet]')
   const body = sheet.querySelector('[data-chip-results]')
+  const scroller = sheet.querySelector('[data-sheet-scroll]')
   const handle = sheet.querySelector('[data-action="sheet-step"]')
   const home = root.querySelector('.map-home')
+  const desktop = window.matchMedia?.(DESKTOP)
+  const isDesktop = () => Boolean(desktop?.matches)
   let height = 'peek'
   let chip = null
   let rows = []
   let request = 0
   let abort = null
 
-  function peekPx() {
-    return sheet.querySelector('.home-sheet__peek').getBoundingClientRect().height + handle.getBoundingClientRect().height - 12
+  /** The handle and the chips row, and the iPhone home bar below them. */
+  function collapsedPx() {
+    const peek = sheet.querySelector('.home-sheet__peek')
+    const safe = parseFloat(getComputedStyle(sheet).paddingBottom) || 0
+    return Math.round(peek.offsetTop + peek.offsetHeight + 8 + safe)
   }
   function heights() {
-    return sheetHeights(home.getBoundingClientRect().height, peekPx())
+    return sheetHeights(home.clientHeight, collapsedPx())
   }
 
-  let justDragged = false // the click that ends a drag is not a tap on the handle
+  // The sheet is always as tall as "full" and slides: only its transform changes, never its height,
+  // so a drag costs no layout. visible: how much of it shows.
+  let visible = 0
+  let frame = 0
+  function paint(px) {
+    visible = px
+    if (frame) return
+    frame = requestAnimationFrame(() => {
+      frame = 0
+      const full = heights().full
+      sheet.style.transform = isDesktop() ? '' : `translate3d(0, ${Math.max(0, full - visible)}px, 0)`
+      // The locate button, the logos and the credits ride on the sheet's top edge (home.css).
+      home.style.setProperty('--sheet-visible-px', `${isDesktop() ? 0 : visible}px`)
+      home.style.setProperty('--sheet-px', `${visible}px`)
+      onChange({visiblePx: visible, height, settled: !drag})
+    })
+  }
+
   function setHeight(name, {animate = true} = {}) {
     height = name
     sheet.dataset.height = name
-    // No transition for this change only. (Left on, it also made every later tap on the handle
-    // count as the end of a drag: the sheet never moved from a tap.)
-    sheet.classList.toggle('is-dragging', !animate)
-    if (!animate) requestAnimationFrame(() => sheet.classList.remove('is-dragging'))
-    const px = heights()[name]
-    sheet.style.setProperty('--sheet-px', `${px}px`)
-    home.style.setProperty('--sheet-px', `${px}px`)
     home.dataset.sheet = name
+    const h = heights()
+    sheet.style.height = isDesktop() ? '' : `${h.full}px`
+    sheet.classList.toggle('is-instant', !animate)
+    if (!animate) requestAnimationFrame(() => sheet.classList.remove('is-instant'))
+    // Only in full does the list scroll; anywhere else a swipe moves the sheet.
+    if (name !== 'full') scroller.scrollTop = 0
     handle.setAttribute('aria-expanded', String(name !== 'peek'))
     handle.setAttribute('aria-label', name === 'full' ? 'Show less' : 'Show more')
+    paint(h[name])
   }
 
-  // ---------- dragging ----------
+  // ---------- dragging: the finger moves the sheet, release snaps it ----------
   let drag = null
+  let justDragged = false // the click that ends a drag is not a tap on the handle
   const onDown = (event) => {
-    if (event.button > 0 || event.target.closest('.quick-chip, .round-btn, .home-menu, .place-row')) return
-    drag = {y: event.clientY, from: height, start: heights()[height], moved: false, id: event.pointerId}
+    if (isDesktop() || event.button > 0) return
+    const inList = scroller.contains(event.target)
+    drag = {id: event.pointerId, y: event.clientY, x: event.clientX, from: height, start: visible, moved: false, inList, samples: [{t: event.timeStamp, y: event.clientY}]}
   }
   const onMove = (event) => {
     if (!drag || event.pointerId !== drag.id) return
-    const dy = drag.y - event.clientY
-    if (!drag.moved && Math.abs(dy) < 6) return
-    if (!drag.moved) sheet.setPointerCapture?.(event.pointerId)
-    drag.moved = true
+    const dy = drag.y - event.clientY // > 0: the finger goes up
+    if (!drag.moved) {
+      if (Math.abs(dy) < DRAG_START_PX || Math.abs(event.clientX - drag.x) > Math.abs(dy)) return
+      // In full, a swipe in the list scrolls it, unless it is at the top and the finger goes down.
+      if (drag.inList && height === 'full' && (scroller.scrollTop > 0 || dy > 0)) {
+        drag = null
+        return
+      }
+      drag.moved = true
+      sheet.setPointerCapture?.(event.pointerId)
+      sheet.classList.add('is-dragging')
+    }
     const h = heights()
-    const px = Math.max(h.peek, Math.min(h.full, drag.start + dy))
-    sheet.classList.add('is-dragging')
-    sheet.style.setProperty('--sheet-px', `${px}px`)
-    home.style.setProperty('--sheet-px', `${px}px`)
+    drag.samples.push({t: event.timeStamp, y: event.clientY})
+    while (drag.samples.length > 2 && event.timeStamp - drag.samples[0].t > 100) drag.samples.shift()
+    paint(Math.max(h.peek, Math.min(h.full, drag.start + dy)))
   }
   const onUp = (event) => {
     if (!drag || event.pointerId !== drag.id) return
-    const {moved, from, y} = drag
+    const {moved, from, samples} = drag
     drag = null
+    sheet.classList.remove('is-dragging')
     if (!moved) return
     justDragged = true
     setTimeout(() => (justDragged = false), 0)
-    setHeight(snapHeight(heights(), from, y - event.clientY))
+    const a = samples[0]
+    const b = {t: event.timeStamp, y: event.clientY}
+    const velocity = b.t > a.t ? (a.y - b.y) / (b.t - a.t) : 0
+    setHeight(snapHeight(heights(), from, visible, event.type === 'pointercancel' ? 0 : velocity))
+  }
+  // In full, at the top of the list, a pull down must move the sheet, not bounce the list: the
+  // browser would take the touch for scrolling (and cancel the pointer) unless told no here.
+  let touchY = null
+  const onTouchStart = (event) => {
+    touchY = event.touches[0]?.clientY ?? null
+  }
+  const onTouchMove = (event) => {
+    if (touchY == null || isDesktop() || height !== 'full' || scroller.scrollTop > 0) return
+    if (event.touches[0].clientY > touchY && event.cancelable) event.preventDefault()
   }
   sheet.addEventListener('pointerdown', onDown)
   sheet.addEventListener('pointermove', onMove)
   sheet.addEventListener('pointerup', onUp)
   sheet.addEventListener('pointercancel', onUp)
-  // A drag on the handle must not also count as a tap.
-  handle.addEventListener('click', (event) => justDragged && event.stopImmediatePropagation(), true)
+  scroller.addEventListener('touchstart', onTouchStart, {passive: true})
+  scroller.addEventListener('touchmove', onTouchMove, {passive: false})
+  // A drag that ends on a button is not a tap on it.
+  sheet.addEventListener('click', (event) => justDragged && (event.stopImmediatePropagation(), event.preventDefault()), true)
 
   const onResize = () => setHeight(height, {animate: false})
   window.addEventListener('resize', onResize)
+  desktop?.addEventListener?.('change', onResize)
 
   // ---------- chips ----------
   function paintChips() {
@@ -253,6 +311,14 @@ export function createHomeSheet(root, {getMap, getFrom, pins, onPick}) {
       return chip
     },
     setHeight,
+    /** Where the sheet's top edge will rest, from the top of the screen; null as a side panel. */
+    coverTop() {
+      if (isDesktop() || sheet.offsetParent === null) return null
+      return home.clientHeight - heights()[height]
+    },
+    get desktop() {
+      return isDesktop()
+    },
     /** The handle as a button: peek -> half -> full -> peek. */
     step() {
       setHeight(SHEET_HEIGHTS[(SHEET_HEIGHTS.indexOf(height) + 1) % SHEET_HEIGHTS.length])
@@ -268,7 +334,9 @@ export function createHomeSheet(root, {getMap, getFrom, pins, onPick}) {
     },
     destroy() {
       abort?.abort()
+      cancelAnimationFrame(frame)
       window.removeEventListener('resize', onResize)
+      desktop?.removeEventListener?.('change', onResize)
       clearDots()
     },
   }

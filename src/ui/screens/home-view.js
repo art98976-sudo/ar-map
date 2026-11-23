@@ -50,10 +50,13 @@ export const homePage = () => html`
           )}
           <button class="quick-chip" type="button" data-action="more-chips" aria-expanded="false">${icon('menu', {size: 20})}<span>More</span></button>
         </div>
-        <!-- At rest: the nearest toilet, café and lift, and the last 3 places (home-sheet.js). -->
-        <div class="home-rest" data-rest></div>
       </div>
-      <div class="home-sheet__body" data-chip-results aria-live="polite"></div>
+      <!-- Collapsed shows only the chips above. Half adds the nearest toilet, café and lift; full adds
+           Recent and scrolls (home-sheet.js). -->
+      <div class="home-sheet__scroll" data-sheet-scroll>
+        <div class="home-rest" data-rest></div>
+        <div class="home-sheet__body" data-chip-results aria-live="polite"></div>
+      </div>
     </section>
     <section class="dest-sheet" data-card hidden aria-live="polite" aria-label="Selected place"></section>
     <section class="map-trip theme-auto" data-map-trip hidden aria-label="Trip on the map"></section>

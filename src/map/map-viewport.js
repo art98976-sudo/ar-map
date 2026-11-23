@@ -50,13 +50,20 @@ const samePadding = (a, b) => Boolean(a && b) && ['top', 'bottom', 'left', 'righ
  */
 export function measureViewport({container, topBar, panels}) {
   const height = container.clientHeight
-  const topBarBottom = topBar ? topBar.getBoundingClientRect().bottom - container.getBoundingClientRect().top : 0
+  const box = container.getBoundingClientRect()
+  const topBarBottom = topBar ? topBar.getBoundingClientRect().bottom - box.top : 0
   let panelTop = null
-  for (const el of panels) {
-    if (!el || el.hidden || el.offsetParent === null || !el.offsetHeight) continue // not shown
-    // Panels hang from the bottom of the same host as the map.
-    const top = height - (el.offsetParent.clientHeight - el.offsetTop)
-    panelTop = panelTop == null ? top : Math.min(panelTop, top)
+  for (const panel of panels) {
+    let top = null
+    if (typeof panel?.coverTop === 'function') {
+      // A sheet that slides: where its top edge will rest (it may be mid-way through the slide).
+      const t = panel.coverTop()
+      if (t != null) top = t - (box.top - panel.hostTop())
+    } else if (panel && !panel.hidden && panel.offsetParent !== null && panel.offsetHeight) {
+      // Its layout top (not the slide-in transform), from the top of the map.
+      top = panel.offsetTop - (box.top - panel.offsetParent.getBoundingClientRect().top)
+    }
+    if (top != null) panelTop = panelTop == null ? top : Math.min(panelTop, top)
   }
   return {height, topBarBottom, panelTop}
 }
@@ -126,10 +133,12 @@ export function createMapViewport({map, host, topBar, panels, isFull = () => fal
   }
 
   const watcher = typeof ResizeObserver === 'function' ? new ResizeObserver(schedule) : null
-  for (const el of [container, topBar, ...panels]) if (el) watcher?.observe(el)
+  const elements = panels.map((p) => (p?.element ?? p)).filter((el) => el instanceof Element)
+  for (const el of [container, topBar, ...elements]) if (el) watcher?.observe(el)
   // A panel shown or hidden (the card opens, the sheet goes) is not always a resize.
   const shown = typeof MutationObserver === 'function' ? new MutationObserver(schedule) : null
-  for (const el of panels) if (el) shown?.observe(el, {attributes: true, attributeFilter: ['hidden', 'data-height', 'style']})
+  // Not 'style': the sheet's transform changes every frame of a drag; it settles with data-height.
+  for (const el of elements) shown?.observe(el, {attributes: true, attributeFilter: ['hidden', 'data-height']})
   window.addEventListener('resize', schedule)
   window.addEventListener('orientationchange', schedule)
   map.on('moveend', onMoveEnd)

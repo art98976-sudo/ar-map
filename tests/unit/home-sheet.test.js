@@ -4,25 +4,33 @@ import {QUICK_CHIPS} from '../../src/map/filters.js'
 import {formatAway, pinPlaces, roomTypeDestinations, toRows} from '../../src/map/quick-places.js'
 import types from '../../public/data/room-types.json'
 
-const H = sheetHeights(844, 108) // a 390 x 844 phone
+const H = sheetHeights(844, 116) // a 390 x 844 phone; collapsed: the handle and the chips row
 
 describe('bottom sheet heights', () => {
-  it('peek, half and full', () => {
-    expect(H).toEqual({peek: 108, half: 422, full: 756})
+  it('collapsed (handle and chips), half, and nine tenths', () => {
+    expect(H).toEqual({peek: 116, half: 422, full: 760})
+    expect((844 - H.peek) / 844).toBeGreaterThanOrEqual(0.85) // the map shows on 85%+ on load
   })
 
-  it('a short flick moves one height; a tiny drag stays put', () => {
-    expect(snapHeight(H, 'peek', 60)).toBe('half')
-    expect(snapHeight(H, 'half', 60)).toBe('full')
-    expect(snapHeight(H, 'half', -60)).toBe('peek')
-    expect(snapHeight(H, 'full', 80)).toBe('full')
-    expect(snapHeight(H, 'peek', -80)).toBe('peek')
-    expect(snapHeight(H, 'half', 20)).toBe('half')
+  it('a slow release goes to the nearest height', () => {
+    expect(snapHeight(H, 'peek', 200)).toBe('peek')
+    expect(snapHeight(H, 'peek', 300)).toBe('half')
+    expect(snapHeight(H, 'half', 650)).toBe('full')
+    expect(snapHeight(H, 'full', 180)).toBe('peek')
   })
 
-  it('a long drag goes to where it ends', () => {
-    expect(snapHeight(H, 'peek', 640)).toBe('full')
-    expect(snapHeight(H, 'full', -640)).toBe('peek')
+  it('a quick flick goes on to the next height in its direction, however short', () => {
+    expect(snapHeight(H, 'peek', 140, 0.8)).toBe('half')
+    expect(snapHeight(H, 'half', 440, 0.8)).toBe('full')
+    expect(snapHeight(H, 'half', 400, -0.8)).toBe('peek')
+    expect(snapHeight(H, 'full', 700, -0.8)).toBe('half')
+    expect(snapHeight(H, 'full', 760, 0.8)).toBe('full') // no further than full
+    expect(snapHeight(H, 'peek', 116, -0.8)).toBe('peek')
+  })
+
+  it('a long fast drag stays where the finger took it (found on a phone: it fell back to half)', () => {
+    expect(snapHeight(H, 'peek', 760, 0.7)).toBe('full')
+    expect(snapHeight(H, 'full', 116, -0.7)).toBe('peek')
   })
 })
 

@@ -135,6 +135,11 @@ export function homeScreen(root, {navigate, params}) {
       select(dest)
       if (go) focusGo()
     },
+    // The map's padding follows once the sheet rests (the button and logos ride on it in CSS). Nothing
+    // touches the map while a finger drags: a redraw per frame would make the drag lag.
+    onChange: ({settled}) => {
+      if (settled) viewport?.update()
+    },
   })
 
   /** The card's Go button, ready to tap (shortcuts, Recent and ?go=1 links). */
@@ -198,6 +203,7 @@ export function homeScreen(root, {navigate, params}) {
       cardRoute = null
     }
     selected = dest
+    homeSheet?.setHeight('peek') // the place card takes over; the sheet waits collapsed behind it
     // Fix 1: a room's floor plan starts downloading now, so it is cached when the user taps Go.
     import('../../scene/scene-load.js').then(({prefetchFloors}) => prefetchFloors(dest)).catch(() => {})
     setCurrentDestination(dest) // a room from the search is not in our list: this finds it after a reload
@@ -431,6 +437,7 @@ export function homeScreen(root, {navigate, params}) {
       if (!cardRoute || selected !== dest) return showToast('Could not plan a route. Try again.', {tone: 'warning'})
     }
     endMapTrip()
+    homeSheet.setHeight('peek')
     root.dataset.mapTripOn = ''
     card.hidden = true
     mapTrip = createMapTrip(root.querySelector('[data-map-trip]'), {map: instance.map, route: cardRoute, dest, onClose: endMapTrip})
@@ -695,7 +702,13 @@ export function homeScreen(root, {navigate, params}) {
   // ---------- the camera: always framed in the part of the map that shows ----------
   /** Our places on campus (buildings, halls, the loch): the opening view frames all of them. */
   const CAMPUS = campusBounds(DESTINATIONS.filter((d) => d.category !== 'town' && isOnCampus(d))) ?? HOME_MAP.campusFallbackBounds
-  const mapPanels = () => [root.querySelector('[data-home-sheet]'), card, root.querySelector('[data-map-trip]'), root.querySelector('[data-pick-bar]')]
+  // The home sheet slides (transform), so it says where its top edge will rest; the others are measured.
+  const sheetPanel = {
+    element: root.querySelector('[data-home-sheet]'),
+    coverTop: () => (card.hidden && !root.dataset.mapTripOn && homeSheet ? homeSheet.coverTop() : null),
+    hostTop: () => root.querySelector('.map-home').getBoundingClientRect().top,
+  }
+  const mapPanels = () => [sheetPanel, card, root.querySelector('[data-map-trip]'), root.querySelector('[data-pick-bar]')]
   const sheetIsFull = () => root.querySelector('.map-home')?.dataset.sheet === 'full' && card.hidden
 
   /** The padding before the map exists, so its first frame is already the framed campus. */
@@ -802,7 +815,9 @@ export function homeScreen(root, {navigate, params}) {
           })
           labelBlockers = createLabelBlockers(instance.map, {
             host: root.querySelector('.map-home'),
-            panels: [root.querySelector('[data-home-sheet]'), card, root.querySelector('[data-pick-bar]')],
+            // The card and the pick bar. The home sheet is not measured: the logos ride on its edge
+            // in CSS (--sheet-visible-px), in step with its slide.
+            panels: [card, root.querySelector('[data-pick-bar]')],
             overlays: ['.mapboxgl-ctrl-logo', '.mapboxgl-ctrl-attrib', '.mazemap-ctrl-logo-wrapper', '[data-rail]', '.map-search', '[data-action="open-menu"]'],
           })
           pins.addAll()
@@ -810,6 +825,8 @@ export function homeScreen(root, {navigate, params}) {
           homeSheet.mapReady()
           instance.map.on('click', (event) => {
             if (picker.active) picker.moveTo(event.lngLat)
+            // A tap on the map while the sheet is up puts it down, and does nothing else.
+            else if (!selected && homeSheet.height !== 'peek' && !homeSheet.desktop) homeSheet.setHeight('peek')
             else if (selected) unselect()
           })
           // No place: the map was created framed on the campus. A place: straight to it.

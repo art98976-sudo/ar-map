@@ -63,15 +63,20 @@
   position: absolute;
   z-index: 3;
   right: calc(var(--safe-right) + var(--side));
-  /* Just above the top edge of whatever covers the bottom (the sheet, the place card, the map
-     trip), riding on it as it is dragged: --map-panel-px comes from map-viewport.js. The Mapbox
-     logo and credits ride the same edge in the other corner. */
-  bottom: calc(var(--map-panel-px, var(--sheet-px, 120px)) + var(--sp-3));
+  /* 16 px above the sheet's top edge, riding on it: the same transform and timing as the sheet
+     (home-sheet.js sets --sheet-visible-px), so no layout while it moves. */
+  bottom: 0;
+  transform: translate3d(0, calc(-1 * (var(--sheet-visible-px, 120px) + 16px)), 0);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--sp-3);
-  transition: opacity var(--t) var(--ease-out);
+  transition: transform var(--sheet-ms) var(--sheet-ease), opacity var(--t) var(--ease-out);
+}
+/* Over the place card, the map trip or the pick bar instead (map-viewport.js measures it). */
+.map-home:has(.dest-sheet:not([hidden])) .map-rail,
+.map-home[data-picking] .map-rail {
+  transform: translate3d(0, calc(-1 * (var(--map-panel-px, 0px) + 16px)), 0);
 }
 .map-home[data-sheet='full'] .map-rail {
   opacity: 0;
@@ -139,33 +144,51 @@
   color: var(--c-on-primary) !important;
   border-radius: var(--radius-round);
 }
-/* MazeMap's watermark: its Map adds it unconditionally (MazeLogoControl, no option to leave it
-   out), so it is hidden here, on the home map only. The Mapbox logo and attribution stay. */
-.map-home .mazemap-ctrl-logo-wrapper {
-  display: none;
-}
 /* MazeMap's own corners: only the attribution stays (its licence asks for it). */
 .map-home .mapboxgl-ctrl-bottom-right .mapboxgl-ctrl-group,
 .map-home .mapboxgl-ctrl-geolocate {
   display: none;
 }
-/* The logos and credits sit just above the sheet or the place card, never under them
-   (label-blockers.js measures which one lies over each corner). */
+/* The logos and credits sit just above the sheet, riding on it like the locate button, and above
+   the place card or pick bar when one shows (label-blockers.js measures those). */
+.map-home .mapboxgl-ctrl-bottom-left,
+.map-home .mapboxgl-ctrl-bottom-right {
+  transform: translate3d(0, calc(-1 * var(--sheet-visible-px, 120px)), 0);
+  transition: transform var(--sheet-ms) var(--sheet-ease);
+}
 .map-home .mapboxgl-ctrl-bottom-left {
-  bottom: var(--credits-left-px, var(--sheet-px, 120px));
+  bottom: var(--credits-left-px, 0px);
 }
 .map-home .mapboxgl-ctrl-bottom-right {
-  bottom: var(--credits-right-px, var(--sheet-px, 120px));
+  bottom: var(--credits-right-px, 0px);
+}
+.map-home:has(.dest-sheet:not([hidden])) :is(.mapboxgl-ctrl-bottom-left, .mapboxgl-ctrl-bottom-right),
+.map-home[data-picking] :is(.mapboxgl-ctrl-bottom-left, .mapboxgl-ctrl-bottom-right) {
+  transform: none;
+}
+/* While a finger drags the sheet, everything riding on it follows at once. */
+.map-home:has(.home-sheet.is-dragging, .home-sheet.is-instant) :is(.map-rail, .mapboxgl-ctrl-bottom-left, .mapboxgl-ctrl-bottom-right) {
+  transition: none;
 }
 
-/* ---------- Bottom sheet ---------- */
+/* ---------- Bottom sheet: floats on the map, slides, never resizes it ---------- */
+.map-home {
+  --sheet-ms: 280ms;
+  --sheet-ease: cubic-bezier(0.2, 0.8, 0.2, 1); /* ease-out */
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-home {
+    --sheet-ms: 0ms;
+  }
+}
 .home-sheet {
   position: absolute;
   z-index: 5;
   left: 0;
   right: 0;
   bottom: 0;
-  height: calc(var(--sheet-px, 120px) + var(--safe-bottom));
+  /* As tall as "full" (90%, home-sheet.js); it shows collapsed, half or full by sliding down. */
+  height: 90dvh;
   display: flex;
   flex-direction: column;
   padding-bottom: var(--safe-bottom);
@@ -173,12 +196,36 @@
   background: var(--c-bg);
   color: var(--c-text);
   box-shadow: var(--shadow);
-  transition: height var(--t) var(--ease-out);
+  transform: translate3d(0, calc(90dvh - 120px), 0); /* collapsed, before the script measures */
+  transition: transform var(--sheet-ms) var(--sheet-ease);
+  will-change: transform;
   touch-action: none;
   font-family: var(--font);
 }
-.home-sheet.is-dragging {
+.home-sheet.is-dragging,
+.home-sheet.is-instant {
   transition: none;
+}
+.home-sheet.is-dragging {
+  cursor: grabbing;
+}
+/* Collapsed: only the handle and the chips. Half: and the nearest toilet, café and lift. Full: and
+   Recent, and the list scrolls. (Hidden, not removed: no layout change as the sheet moves.) */
+.home-sheet__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  touch-action: none; /* a swipe here moves the sheet; only in full does the list take it */
+  overscroll-behavior: contain;
+  padding: 0 var(--side);
+}
+.home-sheet[data-height='full'] .home-sheet__scroll {
+  overflow-y: auto;
+  touch-action: pan-y;
+}
+.home-sheet[data-height='peek'] .home-sheet__scroll,
+.home-sheet:not([data-height='full']) .home-rest__recent {
+  visibility: hidden;
 }
 .map-home:has(.dest-sheet:not([hidden])) .home-sheet,
 .map-home[data-picking] .home-sheet {
@@ -282,17 +329,10 @@
   background: var(--c-surface);
 }
 
-/* Half and full: the places for the chosen chip. */
+/* Half and full: the places for the chosen chip (in the sheet's scroll area). */
 .home-sheet__body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  touch-action: pan-y;
+  margin: 0 calc(var(--side) * -1);
   padding: 0 0 var(--sp-4);
-}
-.home-sheet[data-height='peek'] .home-sheet__body {
-  visibility: hidden;
 }
 .home-sheet__title {
   padding: var(--sp-2) var(--side) var(--sp-1);
@@ -821,10 +861,55 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.home-sheet__peek {
-  flex-wrap: wrap;
-}
-.home-rest {
-  flex-basis: 100%;
-  padding-right: var(--side);
+/* ---------- Wide screens (768 px and up): a side panel on the left, the map fills the rest ---------- */
+@media (min-width: 768px) {
+  .map-home {
+    --side-panel: 360px;
+  }
+  .map-home .map-home__map {
+    left: var(--side-panel);
+    width: calc(100% - var(--side-panel));
+  }
+  .home-sheet {
+    top: calc(var(--safe-top) + var(--sp-2) + var(--bar) + var(--sp-3));
+    right: auto;
+    width: var(--side-panel);
+    height: auto;
+    border-radius: 0 var(--radius-sheet) 0 0;
+    transform: none;
+    transition: none;
+    will-change: auto;
+    touch-action: auto;
+  }
+  .home-sheet__handle {
+    display: none;
+  }
+  .home-sheet .home-sheet__peek {
+    padding-top: var(--sp-3);
+  }
+  .map-home .home-sheet[data-height] .home-sheet__scroll {
+    overflow-y: auto;
+    touch-action: pan-y;
+  }
+  /* Everything shows in the panel, whatever height the (unused) sheet state says. */
+  .map-home .home-sheet[data-height] .home-sheet__scroll,
+  .map-home .home-sheet[data-height] .home-rest__recent {
+    visibility: visible;
+  }
+  /* The panel stays beside the map with a place card open; the card sits over the map. */
+  .map-home:has(.dest-sheet:not([hidden])) .home-sheet {
+    display: flex;
+  }
+  .map-home .dest-sheet,
+  .map-home .pick-bar {
+    left: var(--side-panel);
+  }
+  /* Nothing rides on a side panel: the button and credits sit at the map's bottom corners. */
+  .map-home .map-rail,
+  .map-home :is(.mapboxgl-ctrl-bottom-left, .mapboxgl-ctrl-bottom-right) {
+    --sheet-visible-px: 0px;
+  }
+  .map-home .map-rail {
+    bottom: var(--safe-bottom);
+  }
 }

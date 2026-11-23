@@ -61,6 +61,8 @@ const box = (el) => {
  * @param o.overlays selectors (inside host) of things lying over the map
  */
 export function createLabelBlockers(map, {host, panels = [], overlays = []}) {
+  const panelList = typeof panels === 'function' ? panels : () => panels
+  const watched = panelList().filter(Boolean)
   let frame = 0
   let destroyed = false
   const round = (n) => Math.max(8, Math.ceil(n / 8) * 8)
@@ -74,8 +76,9 @@ export function createLabelBlockers(map, {host, panels = [], overlays = []}) {
   function update() {
     frame = 0
     if (destroyed) return
-    const hostBox = box(host)
-    const panelBoxes = panels.filter((el) => el && !el.hidden).map(box)
+    // The map's own box: on a wide screen it starts right of the side panel.
+    const hostBox = box(map.getContainer())
+    const panelBoxes = panelList().filter((el) => el && !el.hidden && el.offsetParent !== null).map(box)
     // The logos first: where they end up is one of the things labels keep clear of.
     host.style.setProperty('--credits-left-px', `${creditsLift(hostBox, panelBoxes, 'left')}px`)
     host.style.setProperty('--credits-right-px', `${creditsLift(hostBox, panelBoxes, 'right')}px`)
@@ -116,10 +119,10 @@ export function createLabelBlockers(map, {host, panels = [], overlays = []}) {
   map.on('moveend', schedule)
   map.on('resize', schedule)
   const watcher = typeof ResizeObserver === 'function' ? new ResizeObserver(schedule) : null
-  for (const el of panels) if (el) watcher?.observe(el)
+  for (const el of watched) watcher?.observe(el)
   // A panel shown or hidden (the card opens, the sheet goes).
   const attrs = typeof MutationObserver === 'function' ? new MutationObserver(schedule) : null
-  for (const el of panels) if (el) attrs?.observe(el, {attributes: true, attributeFilter: ['hidden']})
+  for (const el of watched) attrs?.observe(el, {attributes: true, attributeFilter: ['hidden']})
   update()
 
   return {
