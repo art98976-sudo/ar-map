@@ -85,7 +85,8 @@ test.describe('the map home', () => {
     // At rest the sheet offers the nearest toilet, café and lift.
     for (const name of ['Nearest toilet', 'Nearest café', 'Nearest lift']) await expect(page.getByRole('button', {name})).toBeVisible()
     await expect(page.locator('.map-pin')).toHaveCount(24)
-    await expect(page.getByRole('button', {name: 'Pathfoot Building'})).toBeAttached()
+    // The whole campus opens framed: at that zoom Pathfoot may share a cluster with its neighbours.
+    await expect(page.locator('.map-pin[aria-label="Pathfoot Building"]')).toBeAttached()
     expect(errors).toEqual([])
   })
 
