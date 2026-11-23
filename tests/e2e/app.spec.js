@@ -83,6 +83,8 @@ test.describe('the map home', () => {
     await expect(page.getByRole('menuitem', {name: 'Show 3D buildings'})).toBeVisible()
     await page.getByRole('button', {name: 'Menu', exact: true}).click()
     // At rest the sheet offers the nearest toilet, café and lift.
+    // Collapsed on a phone: only the chips; half shows the nearest toilet, café and lift.
+    if ((page.viewportSize()?.width ?? 0) < 768) await page.getByRole('button', {name: 'Show more'}).click()
     for (const name of ['Nearest toilet', 'Nearest café', 'Nearest lift']) await expect(page.getByRole('button', {name})).toBeVisible()
     await expect(page.locator('.map-pin')).toHaveCount(24)
     // The whole campus opens framed: at that zoom Pathfoot may share a cluster with its neighbours.
@@ -133,7 +135,10 @@ test.describe('the map home', () => {
     await expect(rows.first()).toContainText(/\d+ (m|km)/)
     await rows.first().click()
     await expect(page.locator('.dest-sheet__name')).toHaveText(/Toilet/)
-    await expect(page.locator('[data-home-sheet]')).toBeHidden()
+    // A phone: the card takes the sheet's place. A wide screen: the side panel stays beside the map.
+    const wide = (page.viewportSize()?.width ?? 0) >= 768
+    if (wide) await expect(page.locator('[data-home-sheet]')).toBeVisible()
+    else await expect(page.locator('[data-home-sheet]')).toBeHidden()
   })
 
   test('the ⓘ button opens about, privacy, the disclaimer and licences', async ({page}) => {
