@@ -61,10 +61,14 @@ export function createHomeSheet(root, {getMap, getFrom, pins, onPick}) {
     return sheetHeights(home.getBoundingClientRect().height, peekPx())
   }
 
+  let justDragged = false // the click that ends a drag is not a tap on the handle
   function setHeight(name, {animate = true} = {}) {
     height = name
     sheet.dataset.height = name
+    // No transition for this change only. (Left on, it also made every later tap on the handle
+    // count as the end of a drag: the sheet never moved from a tap.)
     sheet.classList.toggle('is-dragging', !animate)
+    if (!animate) requestAnimationFrame(() => sheet.classList.remove('is-dragging'))
     const px = heights()[name]
     sheet.style.setProperty('--sheet-px', `${px}px`)
     home.style.setProperty('--sheet-px', `${px}px`)
@@ -96,6 +100,8 @@ export function createHomeSheet(root, {getMap, getFrom, pins, onPick}) {
     const {moved, from, y} = drag
     drag = null
     if (!moved) return
+    justDragged = true
+    setTimeout(() => (justDragged = false), 0)
     setHeight(snapHeight(heights(), from, y - event.clientY))
   }
   sheet.addEventListener('pointerdown', onDown)
@@ -103,7 +109,7 @@ export function createHomeSheet(root, {getMap, getFrom, pins, onPick}) {
   sheet.addEventListener('pointerup', onUp)
   sheet.addEventListener('pointercancel', onUp)
   // A drag on the handle must not also count as a tap.
-  handle.addEventListener('click', (event) => sheet.classList.contains('is-dragging') && event.stopImmediatePropagation(), true)
+  handle.addEventListener('click', (event) => justDragged && event.stopImmediatePropagation(), true)
 
   const onResize = () => setHeight(height, {animate: false})
   window.addEventListener('resize', onResize)

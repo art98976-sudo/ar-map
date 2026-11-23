@@ -3,6 +3,8 @@
 import {createCampusMap, loadMazeMap, planWhenStyleLoaded, quietIndoorLabels} from '../../map/mazemap.js'
 import {clearRouteLine, drawRouteLine} from '../../map/route-line.js'
 import {createLabelBlockers} from '../../map/label-blockers.js'
+import {campusBounds, createMapViewport, measureViewport, paddingFor} from '../../map/map-viewport.js'
+import {isOnCampus} from '../../route/route.js'
 import {createMapTrip} from '../components/map-trip.js'
 import {createDestinationSearch} from '../components/destination-search.js'
 import {createMapPicker} from '../components/map-picker.js'
@@ -12,7 +14,6 @@ import {showToast} from '../components/toast.js'
 import {deviceIssue} from '../../ar/device.js'
 import {startPermissionRequests} from '../../ar/permissions.js'
 import {markSeen} from '../first-use.js'
-import {openingMove} from '../opening.js'
 import {createFixWatch, locationPermissionState, readTripFix} from '../../geo/location.js'
 import {addRecent, DESTINATIONS, findDestination, setCurrentDestination} from '../../map/destinations.js'
 import {fetchPoiDestination, poiIdFrom} from '../../map/poi-lookup.js'
@@ -35,7 +36,7 @@ import {
   startLabel,
 } from '../../route/start-point.js'
 import {onAction, render} from '../dom.js'
-import {GPS, HOME_MAP, INDOOR, MAZEMAP, START} from '../../config.js'
+import {GPS, HOME_MAP, INDOOR, START} from '../../config.js'
 import {createSheets} from './home-sheets.js'
 import {doorList, homePage, mapError, mapLoading, placeCard, placeLoading, placeNotFound} from './home-view.js'
 import {prefersReducedMotion} from '../components/arrival.js'
@@ -47,6 +48,7 @@ export function homeScreen(root, {navigate, params}) {
   let instance = null
   let mapReady = false // the map's style has loaded: it can take the route line
   let labelBlockers = null // keeps labels clear of the logos, and the logos above the sheet or card
+  let viewport = null // the map's padding, kept equal to what the search bar and the sheet leave visible
   let selected = findDestination(params.to)
   let cardRoute = null // the route planned for the card (door, level, whole distance)
   let planningFor = null // the destination a quiet plan is running for
@@ -218,6 +220,7 @@ export function homeScreen(root, {navigate, params}) {
     pins.markSelected()
     model?.highlight(null)
     stopSimulation()
+    backToCampus()
   }
 
   // ---------- ?simulate=1: test the AR arrow on a laptop ----------
@@ -450,7 +453,7 @@ export function homeScreen(root, {navigate, params}) {
     if (!map || !mapReady || !cardRoute?.points?.length || !selected) return
     clearRouteLine(map)
     // The fitted route, outdoors and inside to the room: the same line the AR arrows follow.
-    drawRouteLine(map, [...cardRoute.points, ...(cardRoute.indoorPoints ?? []).slice(1)], card.offsetHeight + 40)
+    drawRouteLine(map, [...cardRoute.points, ...(cardRoute.indoorPoints ?? []).slice(1)], frameRoute)
   }
 
   /** The step-free switch: remembered on this device; the route is planned again without stairs. */
@@ -503,7 +506,7 @@ export function homeScreen(root, {navigate, params}) {
       if (!route || disposed || selected !== dest || generation !== planGeneration) return
       // The floor plan did not load: no AR route, but MazeMap's own line still shows on the 2D map.
       if (route.reason === 'floor-data-unavailable' && route.preview?.length >= 2 && instance?.map && mapReady) {
-        drawRouteLine(instance.map, route.preview, card.offsetHeight + 40)
+        drawRouteLine(instance.map, route.preview, frameRoute)
       }
       if (route.status !== 'ok') return
       cardRoute = route
@@ -689,38 +692,46 @@ export function homeScreen(root, {navigate, params}) {
     if (instance?.map) clearRouteLine(instance.map)
   }
 
-  /** The opening view: HOME_MAP.openOn framed above the sheet and below the search bar. */
-  function campusView(map) {
-    const places = HOME_MAP.openOn.map((id) => DESTINATIONS.find((d) => d.id === id)).filter(Boolean)
-    const fallback = {center: MAZEMAP.center, zoom: MAZEMAP.zoom, bearing: 0, pitch: 0}
-    if (!places.length) return fallback
-    const box = map.getContainer().getBoundingClientRect()
-    const bar = root.querySelector('.map-search')?.getBoundingClientRect()
-    const sheet = root.querySelector('[data-home-sheet]')?.getBoundingClientRect()
-    const pad = HOME_MAP.openPaddingPx
-    const padding = {
-      top: Math.max(0, (bar ? bar.bottom - box.top : 0) + pad),
-      bottom: Math.max(0, (sheet ? box.bottom - sheet.top : 0) + pad),
-      left: pad,
-      right: pad,
-    }
-    const lngs = places.map((p) => p.lng)
-    const lats = places.map((p) => p.lat)
-    const bounds = [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]]
-    const camera = map.cameraForBounds(bounds, {padding, maxZoom: HOME_MAP.openMaxZoom})
-    return camera ? {...fallback, center: camera.center, zoom: camera.zoom} : fallback
+  // ---------- the camera: always framed in the part of the map that shows ----------
+  /** Our places on campus (buildings, halls, the loch): the opening view frames all of them. */
+  const CAMPUS = campusBounds(DESTINATIONS.filter((d) => d.category !== 'town' && isOnCampus(d))) ?? HOME_MAP.campusFallbackBounds
+  const mapPanels = () => [root.querySelector('[data-home-sheet]'), card, root.querySelector('[data-map-trip]'), root.querySelector('[data-pick-bar]')]
+  const sheetIsFull = () => root.querySelector('.map-home')?.dataset.sheet === 'full' && card.hidden
+
+  /** The padding before the map exists, so its first frame is already the framed campus. */
+  function initialPadding() {
+    const container = root.querySelector('[data-map]')
+    return paddingFor(measureViewport({container, topBar: root.querySelector('.map-search'), panels: mapPanels()}))
+  }
+
+  /** The zoom for a picked place: a room close enough to read its floor, a building whole. */
+  function placeZoom(dest) {
+    if (dest.category === 'room') return HOME_MAP.placeZoom.room
+    if (dest.category === 'landmark') return HOME_MAP.placeZoom.landmark
+    return HOME_MAP.placeZoom.other
+  }
+
+  function frameRoute(bounds) {
+    viewport?.toBounds(bounds)
   }
 
   function flyToSelected() {
     const map = instance?.map
-    if (!map || !selected || !Number.isFinite(selected.lat)) return
+    if (!map || !viewport || !selected || !Number.isFinite(selected.lat)) return
     if (selected.floor != null && typeof map.setZLevel === 'function') map.setZLevel(selected.floor)
-    // Leave room for the search bar above and the card below.
-    map.flyTo({
-      center: {lng: selected.lng, lat: selected.lat},
-      zoom: selected.category === 'room' ? 19 : 17,
-      padding: {top: 140, bottom: card.offsetHeight + 24},
-      speed: 1.4,
+    const dest = selected
+    // After the card has its height: the place lands in the middle of the map above it.
+    requestAnimationFrame(() => {
+      if (disposed || selected !== dest) return
+      viewport.toPlace(dest, {zoom: placeZoom(dest), duration: prefersReducedMotion() ? 0 : HOME_MAP.cameraMs})
+    })
+  }
+
+  /** The card closed: back to the whole campus. */
+  function backToCampus() {
+    requestAnimationFrame(() => {
+      if (disposed || selected) return
+      viewport?.toCampus({duration: prefersReducedMotion() ? 0 : HOME_MAP.cameraMs})
     })
   }
 
@@ -767,16 +778,28 @@ export function homeScreen(root, {navigate, params}) {
       paint3dButton()
       labelBlockers?.destroy()
       labelBlockers = null
+      viewport?.destroy()
+      viewport = null
       instance?.destroy()
       mapReady = false
       pins.clear()
       instance = createCampusMap(Mazemap, root.querySelector('[data-map]'), {
+        // The first frame is the whole campus, framed between the search bar and the sheet.
+        options: {bounds: CAMPUS, fitBoundsOptions: {padding: initialPadding(), maxZoom: HOME_MAP.openMaxZoom}},
         onReady: () => {
           if (disposed) return
           mapReady = true
           fadeOutOverlay()
           if (params.debug === '1') window.__homeMap = instance.map // inspect it from the console
           quietIndoorLabels(instance.map)
+          viewport = createMapViewport({
+            map: instance.map,
+            host: root.querySelector('.map-home'),
+            topBar: root.querySelector('.map-search'),
+            panels: mapPanels(),
+            isFull: sheetIsFull,
+            campus: CAMPUS,
+          })
           labelBlockers = createLabelBlockers(instance.map, {
             host: root.querySelector('.map-home'),
             panels: [root.querySelector('[data-home-sheet]'), card, root.querySelector('[data-pick-bar]')],
@@ -789,12 +812,7 @@ export function homeScreen(root, {navigate, params}) {
             if (picker.active) picker.moveTo(event.lngLat)
             else if (selected) unselect()
           })
-          if (!selected) {
-            // Campus Central and Cottrell in the middle of the map that shows between the search
-            // bar and the sheet; with the opening, the camera ends there.
-            const view = campusView(instance.map)
-            if (!openingMove(instance.map, view)) instance.map.jumpTo(view)
-          }
+          // No place: the map was created framed on the campus. A place: straight to it.
           flyToSelected()
           drawCardRoute() // planned before the map was ready
           paintStartMarker()
@@ -940,6 +958,7 @@ export function homeScreen(root, {navigate, params}) {
     stopAlignDebug()
     model?.destroy()
     labelBlockers?.destroy()
+    viewport?.destroy()
     instance?.destroy()
   }
 }

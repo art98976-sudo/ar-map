@@ -71,10 +71,17 @@ export const HOME_MAP = {
   blockerPadPx: 4, // room around each of them
   blockerEdgePx: 16, // the strip along each screen edge and along the top of the sheet or card
   creditsCornerPx: 110, // how wide a bottom corner the logos take
-  // The opening view: these places in the middle of the map between the search bar and the sheet.
-  openOn: ['campus-central', 'cottrell'],
-  openPaddingPx: 40, // room around them
+  // The opening view (map-viewport.js): every place of ours on campus, in the map that shows
+  // between the search bar and the sheet. A place is one point in a building: widen by this.
+  campusMarginM: 60,
+  // Only while our place list has nothing on campus (it is bundled, so in practice never).
+  campusFallbackBounds: [[-3.9295, 56.1425], [-3.9115, 56.1505]],
+  edgeGapPx: 16, // clear space between what the camera frames and the search bar, sheet and sides
   openMaxZoom: 16, // campus zoom: whole buildings and their names, no indoor detail
+  // A picked place, centred in what shows: a room close enough to see its floor plan.
+  placeZoom: {room: 19.5, landmark: 16.5, other: 18},
+  routeMaxZoom: 18,
+  cameraMs: 900, // the camera moves for a pick, a route and back to the campus
   // Softer base colours: [layer, paint property, value]. Missing layers are skipped.
   soft: [
     ['land-grass-areas', 'fill-color', 'hsla(108, 32%, 80%, 0.55)'],

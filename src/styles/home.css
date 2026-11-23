@@ -63,23 +63,19 @@
   position: absolute;
   z-index: 3;
   right: calc(var(--safe-right) + var(--side));
-  /* Centred in the map that shows between the search bar and the sheet. */
-  top: calc((var(--safe-top) + var(--bar) + var(--sp-2) + 100% - var(--sheet-px, 120px)) / 2);
-  transform: translateY(-50%);
+  /* Just above the top edge of whatever covers the bottom (the sheet, the place card, the map
+     trip), riding on it as it is dragged: --map-panel-px comes from map-viewport.js. The Mapbox
+     logo and credits ride the same edge in the other corner. */
+  bottom: calc(var(--map-panel-px, var(--sheet-px, 120px)) + var(--sp-3));
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--sp-3);
-  transition: top var(--t) var(--ease-out), opacity var(--t) var(--ease-out);
+  transition: opacity var(--t) var(--ease-out);
 }
 .map-home[data-sheet='full'] .map-rail {
   opacity: 0;
   pointer-events: none;
-}
-.map-home:has(.dest-sheet:not([hidden])) .map-rail {
-  /* With a place card open the rail sits just under the search bar, clear of the card. */
-  top: calc(var(--safe-top) + var(--bar) + var(--sp-2) + var(--sp-4));
-  transform: none;
 }
 .map-3d[aria-pressed='true'] {
   background: var(--c-primary);
@@ -142,6 +138,11 @@
   background: var(--c-primary) !important;
   color: var(--c-on-primary) !important;
   border-radius: var(--radius-round);
+}
+/* MazeMap's watermark: its Map adds it unconditionally (MazeLogoControl, no option to leave it
+   out), so it is hidden here, on the home map only. The Mapbox logo and attribution stay. */
+.map-home .mazemap-ctrl-logo-wrapper {
+  display: none;
 }
 /* MazeMap's own corners: only the attribution stays (its licence asks for it). */
 .map-home .mapboxgl-ctrl-bottom-right .mapboxgl-ctrl-group,
